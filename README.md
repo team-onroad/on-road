@@ -12,51 +12,27 @@ Readme · MD
 
 ```text
 on-road/
-├── docs/  # 팀원 간 참조용 문서
-│   ├── api.md
-│   │   └── 백엔드 API 명세 (B 작성)
-│   └── simulation-criteria.json
-│       └── 시뮬레이션 기준표 (D → B 전달용)
-│
+├── docs/
+│   ├── api.md                        ← 백엔드 API 명세 (B 작성 예정)
+│   ├── db-schema.md                  ← DB 스키마 문서, 테이블 구조 및 DB 종류 명시 (B 작성 예정)
+│   └── simulation-criteria.json      ← 시뮬레이션 기준표, D가 산정해서 B에게 전달
 ├── scripts/
-│   └── eval/ # 검증/측정 스크립트
-│       ├── easy_text_verify.py
-│       │   └── 쉬운말 원문 대조 검증 스크립트
-│       └── rag_eval.py
-│           └── 정량 지표 측정 스크립트 (hallucination률, 정확도 등)
-│
-├── data/ 
+│   └── eval/
+│       ├── easy_text_verify.py       ← 쉬운말 변환이 원문 핵심조건(대상/금액/기간 등) 누락했는지 검증하는 스크립트
+│       └── rag_eval.py               ← RAG 정량 지표(hallucination률, 정확도) 측정 스크립트
+├── data/
 │   ├── policies/
-│   │   └── policies.json
-│   │       └── 정책 원본 데이터 15~20개 (D 수집)
-│   │
-│   └── eval_results/
-│       ├── hallucination_report.md
-│       │   └── RAG 지표 측정 결과
-│       └── easy_text_check_results.csv
-│           └── 정책별 쉬운말 검증 통과/실패 결과
-│
-├── src/  # 실제 서비스 코드
-│   ├── frontend/
-│   │   └── 프론트엔드 (C 담당)
+│   │   └── policies.json             ← 정책 원본 데이터 15~20개, DB에 넣을 초기 시드 데이터 (D 수집)
+│   └── eval_results/                 ← 검증/측정 스크립트를 돌린 결과 저장 위치
+├── src/
+│   ├── frontend/                     ← 프론트엔드 코드 (C 담당)
 │   ├── backend/
-│   │   └── 백엔드 (B 담당)
-│   └── rag/
-│       └── RAG 파이프라인, 프롬프트 (A 담당)
-│
-└── README.md
+│   │   └── db/                       ← DB 연결 설정, 스키마 마이그레이션, 시드 삽입 스크립트 (B 담당)
+│   └── rag/                          ← RAG 파이프라인, 프롬프트 코드 (A 담당)
+├── .env.example                      ← DB 연결 정보 등 환경변수 템플릿 (실제 값은 여기 안 넣고 팀 채널로 공유)
+└── README.md                         ← 프로젝트 개요, 기능, 역할 분담
 ```
 
-### 담당자
-
-| 영역                              | 담당    |
-| ------------------------------- | ----- |
-| `src/frontend/`                 | C     |
-| `src/backend/`                  | B     |
-| `src/rag/`                      | A     |
-| `data/policies/`                | D     |
-| `docs/api.md`                   | B     |
-| `docs/simulation-criteria.json` | D → B |
 
 
 구글 독스 (계획서, 개발 범위 등)
