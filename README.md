@@ -12,20 +12,20 @@ Readme · MD
 
 ```text
 on-road/
-├── docs/
+├── docs/  # 팀원 간 참조용 문서
 │   ├── api.md
 │   │   └── 백엔드 API 명세 (B 작성)
 │   └── simulation-criteria.json
 │       └── 시뮬레이션 기준표 (D → B 전달용)
 │
 ├── scripts/
-│   └── eval/
+│   └── eval/ # 검증/측정 스크립트
 │       ├── easy_text_verify.py
 │       │   └── 쉬운말 원문 대조 검증 스크립트
 │       └── rag_eval.py
 │           └── 정량 지표 측정 스크립트 (hallucination률, 정확도 등)
 │
-├── data/
+├── data/ 
 │   ├── policies/
 │   │   └── policies.json
 │   │       └── 정책 원본 데이터 15~20개 (D 수집)
@@ -36,7 +36,7 @@ on-road/
 │       └── easy_text_check_results.csv
 │           └── 정책별 쉬운말 검증 통과/실패 결과
 │
-├── src/
+├── src/  # 실제 서비스 코드
 │   ├── frontend/
 │   │   └── 프론트엔드 (C 담당)
 │   ├── backend/
