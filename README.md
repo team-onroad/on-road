@@ -7,6 +7,7 @@ Readme · MD
 정책 정보를 찾고, 쉬운 말로 이해하고, 신청을 준비하고, 생활을 계획하는 과정을 하나의 흐름으로 연결하는 서비스입니다.
 
 
+
 ## 프로젝트 디렉터리 구조 (기본)
 
 ```text
@@ -58,7 +59,8 @@ on-road/
 | `docs/simulation-criteria.json` | D → B |
 
 
-구글 독스 (계획서, 개발 범위 등) - https://docs.google.com/document/d/1C7PPhgOtp5gLWkPEcSLXBR6aOBrfvOalhVt83FNV0As/edit?usp=sharing
+구글 독스 (계획서, 개발 범위 등)
+https://docs.google.com/document/d/1C7PPhgOtp5gLWkPEcSLXBR6aOBrfvOalhVt83FNV0As/edit?usp=sharing
 
 
  
