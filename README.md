@@ -7,27 +7,56 @@ Readme · MD
 정책 정보를 찾고, 쉬운 말로 이해하고, 신청을 준비하고, 생활을 계획하는 과정을 하나의 흐름으로 연결하는 서비스입니다.
 
 
-## 레포 구조 (기본)
-on-road/
+## 프로젝트 디렉터리 구조 (기본)
 
-docs/
-api.md — 백엔드 API 명세 (B 작성)
-simulation-criteria.json — 시뮬레이션 기준표 (D → B 전달용)
-scripts/
-eval/
-easy_text_verify.py — 쉬운말 원문 대조 검증 스크립트
-rag_eval.py — 정량 지표 측정 스크립트 (hallucination률, 정확도 등)
-data/
-policies/
-policies.json — 정책 원본 데이터 15~20개 (D 수집)
-eval_results/
-hallucination_report.md — RAG 지표 측정 결과
-easy_text_check_results.csv — 정책별 쉬운말 검증 통과/실패 결과
-src/
-frontend/ — 프론트엔드 (C 담당)
-backend/ — 백엔드 (B 담당)
-rag/ — RAG 파이프라인, 프롬프트 (A 담당)
-README.md
+```text
+on-road/
+├── docs/
+│   ├── api.md
+│   │   └── 백엔드 API 명세 (B 작성)
+│   └── simulation-criteria.json
+│       └── 시뮬레이션 기준표 (D → B 전달용)
+│
+├── scripts/
+│   └── eval/
+│       ├── easy_text_verify.py
+│       │   └── 쉬운말 원문 대조 검증 스크립트
+│       └── rag_eval.py
+│           └── 정량 지표 측정 스크립트 (hallucination률, 정확도 등)
+│
+├── data/
+│   ├── policies/
+│   │   └── policies.json
+│   │       └── 정책 원본 데이터 15~20개 (D 수집)
+│   │
+│   └── eval_results/
+│       ├── hallucination_report.md
+│       │   └── RAG 지표 측정 결과
+│       └── easy_text_check_results.csv
+│           └── 정책별 쉬운말 검증 통과/실패 결과
+│
+├── src/
+│   ├── frontend/
+│   │   └── 프론트엔드 (C 담당)
+│   ├── backend/
+│   │   └── 백엔드 (B 담당)
+│   └── rag/
+│       └── RAG 파이프라인, 프롬프트 (A 담당)
+│
+└── README.md
+```
+
+### 담당자
+
+| 영역                              | 담당    |
+| ------------------------------- | ----- |
+| `src/frontend/`                 | C     |
+| `src/backend/`                  | B     |
+| `src/rag/`                      | A     |
+| `data/policies/`                | D     |
+| `docs/api.md`                   | B     |
+| `docs/simulation-criteria.json` | D → B |
+
 
 구글 독스 (계획서, 개발 범위 등) - https://docs.google.com/document/d/1C7PPhgOtp5gLWkPEcSLXBR6aOBrfvOalhVt83FNV0As/edit?usp=sharing
 
