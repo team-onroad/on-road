@@ -1,6 +1,6 @@
 # DB 스키마 (On-Road)
 
- 범위: 1차 데모 핵심 기능 1~4번 (정책 검색, 쉬운 말 변환, 생활비 시뮬레이션, 신청 준비 체크리스트)
+> 범위: 1차 데모 핵심 기능 1~4번 (정책 검색, 쉬운 말 변환, 생활비 시뮬레이션, 신청 준비 체크리스트)
 
 <br/>
 
@@ -9,7 +9,7 @@
 | 항목 | 결정 |
 |---|---|
 | DB | **PostgreSQL 16** |
-| 벡터 검색 | **Chroma** PostgreSQL에는 벡터를 저장하지 않음 |
+| 벡터 검색 | **Chroma**. PostgreSQL에는 벡터를 저장하지 않음 |
 | 로컬 실행 | Docker 이미지 `postgres:16` |
 | 사용자 식별 | 로그인 없음. 온보딩 시 발급한 `user_id`(UUID)를 프론트가 로컬에 저장해 사용 |
 
@@ -20,7 +20,7 @@
 - 검색은 2단계로 처리
   1. PostgreSQL에서 서비스 노출 조건 + 연령/지역 필터로 후보 정책의 `policy_key` 목록 추출
   2. Chroma에서 메타데이터 필터(`policy_key` 후보 목록)를 걸고 벡터 유사도 검색
-- 비활성화·미검증 정책은 1단계에서 빠지므로 Chroma에 청크가 남아 있어도 검색되지 않음. 정책 원문(`original_text`)이 바뀐 경우에만 해당 정책을 다시 임베딩
+- 비활성화·미검증 정책은 1단계에서 빠지므로 Chroma에 청크가 남아 있어도 검색되지 않음. 정책 원문(`original_text`)이 바뀐 경우에만 A가 해당 정책을 다시 임베딩
 
 <br/>
 
@@ -28,7 +28,18 @@
 
 ![On-Road DB ERD](./erd.png)
 
-- 관계: `users` 1:N `checklists`·`simulations`, `policies` 1:N `checklists`, `checklists` 1:N `checklist_items`
+IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며, FK를 가진 쪽이 자식이다.
+
+| 부모 → 자식 | 연결 FK | 식별 여부 | 부모 쪽 | 자식 쪽 | 읽는 법 |
+|---|---|---|---|---|---|
+| `users` → `checklists` | `checklists.user_id` | 비식별 (점선) | 필수 1 | 선택 0..N | 사용자는 체크리스트가 없을 수도 있고, 체크리스트는 반드시 사용자 1명에 속한다 |
+| `users` → `simulations` | `simulations.user_id` | 비식별 (점선) | 필수 1 | 선택 0..N | 사용자는 시뮬레이션 기록이 없을 수도 있고, 기록은 반드시 사용자 1명에 속한다 |
+| `policies` → `checklists` | `checklists.policy_id` | 비식별 (점선) | 필수 1 | 선택 0..N | 정책은 체크리스트가 없을 수도 있고, 체크리스트는 반드시 정책 1개를 대상으로 한다 |
+| `checklists` → `checklist_items` | `checklist_items.checklist_id` | 비식별 (점선) | 필수 1 | 필수 1..N | 체크리스트는 항목을 반드시 1개 이상 가지고, 항목은 반드시 체크리스트 1개에 속한다 |
+
+- 모든 관계가 **비식별 관계**인 이유: 자식 테이블마다 자체 PK(`id`)가 있고, 부모 키는 PK가 아닌 일반 FK 컬럼으로 상속함
+- 부모 쪽이 모두 **필수 1**인 이유: 모든 FK 컬럼이 `NOT NULL`
+- `checklist_items`의 **1개 이상**은 DB 제약이 아니라 생성 규칙(3.4, step 항목 4개 자동 생성)으로 보장
 - 컬럼별 제약·설명은 3장, 전체 DDL은 부록 참고
 
 <br/>
@@ -79,6 +90,7 @@
 | created_at / updated_at | TIMESTAMPTZ | NOT NULL | |
 
 - **서비스 노출 조건**: `is_active = true AND easy_text_verified = true`
+  - `easy_text_verified = true`이면 `easy_text`는 반드시 있어야 함 (CHECK 제약)
   - 근거: "검증 통과한 정책만 서비스에 노출" (개발 범위 문서, 쉬운말 검증 스크립트 4단계)
 - 금액·기간은 표기 형태가 정책마다 달라(월/최대/1회 등) 숫자가 아닌 TEXT로 저장
 - 오래된 자료 경고는 `checked_at` 기준으로 애플리케이션에서 계산 (기준 일수는 API 명세에서 정의)
@@ -109,13 +121,23 @@
 | checked_at | TIMESTAMPTZ | | 체크 시각 |
 
 **생성 규칙 (체크리스트 생성 시 1회)**
-1. `step` 항목 4개 생성: 대상 확인 → 조건 확인 → 서류 준비 → 신청
+1. `step` 항목 4개 생성: 대상 확인 → 조건 확인 → 서류 준비 → 신청 (개발 범위 문서 기준 4단계)
 2. 해당 정책의 `required_docs` 배열 요소마다 `document` 항목 생성 (`step_key = doc_prepare`)
 
 - 서류 항목은 생성 시점의 `required_docs`를 **복사(스냅샷)** 해서 저장. 이후 정책 데이터가 바뀌어도 사용자 체크 기록이 깨지지 않음
 - `document` 항목은 반드시 `doc_prepare` 단계 소속 (CHECK 제약)
 - 한 체크리스트에 같은 단계의 `step` 항목은 1개만 (부분 UNIQUE 인덱스)
 - 신청 URL은 저장하지 않고 `policies.apply_url`을 조인해서 반환
+- `doc_prepare` 단계 체크와 서류 항목 체크는 **서로 독립**. 서류를 모두 체크해도 단계는 자동 체크되지 않고, 사용자가 직접 체크
+
+**단계별 상세 설명 출처** (별도 저장 없이 `policies` 필드를 조회해서 반환)
+
+| step_key | 상세 설명에 사용하는 필드 |
+|---|---|
+| `target_check` | `target_description` (쉬운 말 보기 시 `easy_text`) |
+| `condition_check` | `target_description` + 연령/지역 판정 결과 (5장) |
+| `doc_prepare` | `required_docs` (서류 항목) |
+| `apply` | `apply_method`, `apply_url` |
 
 ### 3.5 `simulations` — 생활비 배분 시뮬레이션 결과
 
@@ -239,7 +261,7 @@
   }
 ]
 ```
-- 위 값은 형식 예시이며 실제 내용은 공식 출처 기준으로 작성
+- 위 값은 형식 예시이며 실제 내용은 D가 공식 출처 기준으로 작성
 - 필수 키: `policy_key`, `name`, `agency`, `category`, `region`, `target_description`, `support_content`, `apply_method`, `required_docs`, `source_url`, `original_text`, `source_type`, `checked_at`
 - 날짜는 `YYYY-MM-DD`, 코드값은 4장 기준
 
@@ -320,7 +342,8 @@ CREATE TABLE policies (
     is_active           BOOLEAN NOT NULL DEFAULT true,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CHECK (age_min IS NULL OR age_max IS NULL OR age_min <= age_max)
+    CHECK (age_min IS NULL OR age_max IS NULL OR age_min <= age_max),
+    CHECK (NOT easy_text_verified OR easy_text IS NOT NULL)
 );
 
 CREATE INDEX idx_policies_visible ON policies (category, region)
