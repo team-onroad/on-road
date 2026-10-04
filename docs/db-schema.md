@@ -2,6 +2,11 @@
 
 > 범위: 1차 데모 핵심 기능 1~4번 (정책 검색, 쉬운 말 변환, 생활비 시뮬레이션, 신청 준비 체크리스트)
 
+| 수정 날짜 | 수정 내용 |
+|---|---|
+| 2026-10-02 | 최초 작성 |
+| 2026-10-04 | 프론트엔드 요청 반영: `users` 컬럼 변경(이름·생년월일·휴대폰·성장 단계·D-day 기준일), 연령 필터를 만 나이 기준으로 변경, 시뮬레이션 합계 조건을 "총소득 이하"로 변경 |
+
 <br/>
 
 ## 1. DB 결정 사항
@@ -18,7 +23,7 @@
 - 두 저장소는 `policies.policy_key`로 연결. Chroma의 각 청크 메타데이터에 `policy_key`를 넣음
   - 내부 `id`(BIGSERIAL)는 DB를 다시 만들면 바뀔 수 있어 연결 키로 쓰지 않음
 - 검색은 2단계로 처리
-  1. PostgreSQL에서 서비스 노출 조건 + 연령/지역 필터로 후보 정책의 `policy_key` 목록 추출
+  1. PostgreSQL에서 서비스 노출 조건 + 연령/지역 필터(5.3)로 후보 정책의 `policy_key` 목록 추출
   2. Chroma에서 메타데이터 필터(`policy_key` 후보 목록)를 걸고 벡터 유사도 검색
 - 비활성화·미검증 정책은 1단계에서 빠지므로 Chroma에 청크가 남아 있어도 검색되지 않음. 정책 원문(`original_text`)이 바뀐 경우에만 A가 해당 정책을 다시 임베딩
 
@@ -51,14 +56,27 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | UUID | PK, 기본값 `gen_random_uuid()` | 온보딩 응답으로 반환하는 `user_id` |
-| nickname | VARCHAR(20) | NOT NULL | 닉네임 |
-| age_group | VARCHAR(10) | NOT NULL, 코드값 | 연령대 |
+| name | VARCHAR(50) | NOT NULL | 본인 이름 |
+| phone | VARCHAR(11) | NULL 허용, 형식 CHECK | 휴대폰 번호 (선택). 하이픈 없이 `01`로 시작하는 숫자 10~11자리 |
+| birth_date | DATE | NOT NULL | 생년월일. 만 나이 계산에 사용 (5.1) |
 | region | VARCHAR(10) | NOT NULL, 코드값 | 거주 시/도 (`전국` 불가) |
 | status | VARCHAR(20) | NOT NULL, 코드값 | 현재 상태 |
+| stage | VARCHAR(10) | NOT NULL, 코드값 | 성장 단계. 서버가 계산해서 저장 (5.2) |
+| d_date | DATE | NULL 허용 | D-day 기준일. 퇴소 전에는 퇴소 예정일, 퇴소 후에는 사용자가 정한 목표일 |
 | created_at / updated_at | TIMESTAMPTZ | NOT NULL | |
 
 - 순차 ID 대신 UUID를 쓰는 이유: 로그인이 없어 ID 자체가 식별자 역할을 하므로 추측하기 어려워야 함
-- 회원정보 수정/삭제는 스코프 아웃이지만, 하위 테이블은 `ON DELETE CASCADE`로 연결해 둠
+- 나이는 저장하지 않고, 필요할 때마다 `birth_date`와 오늘 날짜로 계산한다.
+- `stage` 저장·갱신 규칙
+  - 온보딩 시 최초 계산해서 저장
+  - `status` 또는 `birth_date`가 바뀔 때 다시 계산
+  - 사용자 조회 API를 호출할 때 다시 계산해서, 저장된 값과 다르면 갱신 (생일이 지나 단계가 바뀌는 경우 반영)
+  - `status = left_care`(퇴소 후)이면 항상 `youth` (CHECK 제약)
+- `d_date` 규칙
+  - `status`가 퇴소 후(`left_care`)로 바뀌면 비운다. 같은 요청에서 목표일을 함께 보내면 그 값을 저장
+  - 이후 사용자가 목표일을 정하면 다시 채운다.
+- 회원정보 **수정**은 위 규칙을 위해 API로 제공하고, **삭제**는 스코프 아웃. 하위 테이블은 `ON DELETE CASCADE`로 연결해 둠
+- 이름·생년월일·휴대폰 번호는 개인정보이므로 로그에 남기지 않는다. 휴대폰 번호는 선택 입력이며, 데모에서는 번호 인증을 하지 않고 저장만 한다.
 
 ### 3.2 `policies` — 정책 정보 (정형 데이터)
 
@@ -135,7 +153,7 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | step_key | 상세 설명에 사용하는 필드 |
 |---|---|
 | `target_check` | `target_description` (쉬운 말 보기 시 `easy_text`) |
-| `condition_check` | `target_description` + 연령/지역 판정 결과 (5장) |
+| `condition_check` | `target_description` + 연령/지역 판정 결과 (5.3) |
 | `doc_prepare` | `required_docs` (서류 항목) |
 | `apply` | `apply_method`, `apply_url` |
 
@@ -155,11 +173,12 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | criteria_version | VARCHAR(20) | NOT NULL | 판정에 사용한 기준표 버전 |
 | created_at | TIMESTAMPTZ | NOT NULL | |
 
-- 배분 항목 5개는 주거비/식비/교통비/통신비/기타 1:1 대응
-- **합계 = 소득** 을 DB CHECK 제약으로 강제 (프론트 검증과 별개로 서버에서도 보장)
+- 배분 항목 5개는 프론트 명세의 슬라이더 항목(주거비/식비/교통비/통신비/기타)과 1:1 대응
+- **배분 합계 ≤ 총소득** 을 DB CHECK 제약으로 강제 (프론트 검증과 별개로 서버에서도 보장)
+- 남은 금액(총소득 − 배분 합계)은 저장하지 않고 계산한다.
 - 기준표가 바뀌어도 과거 이력을 해석할 수 있도록 `criteria_version` 저장
 
-**`result` JSONB 구조**
+**`result` JSONB 구조** (예: 총소득 900,000원, 배분 합계 850,000원)
 ```json
 {
   "shortages": [
@@ -167,15 +186,18 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
   ],
   "alternatives": [
     {
-      "label": "식비를 줄여 주거비 보완",
-      "allocations": { "housing": 400000, "food": 200000, "transport": 60000, "telecom": 40000, "other": 100000 },
+      "label": "남은 금액과 식비로 주거비 보완",
+      "allocations": { "housing": 400000, "food": 250000, "transport": 100000, "telecom": 50000, "other": 100000 },
+      "remaining": 0,
       "remaining_shortages": []
     }
   ],
   "related_policy_ids": [3, 7]
 }
 ```
-- `alternatives`는 2~3개
+- `alternatives`는 부족 항목이 있을 때 2~3개. 각 대안의 배분 합계도 총소득 이하
+- 대안은 남은 금액이 있으면 먼저 부족 항목에 배정하고, 그래도 부족하면 기준보다 많이 배분된 항목에서 옮긴다.
+- `remaining`: 그 대안을 적용한 뒤 남는 금액
 - `related_policy_ids`는 부족 항목과 연결된 분야(category)의 노출 가능 정책
 
 <br/>
@@ -186,8 +208,8 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 
 | 컬럼 | 코드값 | 의미 |
 |---|---|---|
-| users.age_group | `18-20` / `21-24` / `25+` | 연령대 |
-| users.status | `in_care` / `leaving_soon` / `left_care` | 시설생활 / 퇴소예정 / 퇴소후 |
+| users.status | `in_care` / `leaving_soon` / `left_care` | 시설 거주 / 퇴소 예정 / 퇴소 후 |
+| users.stage | `child` / `teen` / `youth` | 아동 / 청소년 / 자립준비청년 |
 | policies.category | `independence` / `housing` / `education` / `employment` / `living_cost` / `medical` / `finance` | 자립 / 주거 / 교육 / 취업 / 생활비 / 의료 / 금융 |
 | policies.source_type | `api` / `crawler` / `manual` | API / 크롤러 / 수동 입력 |
 | checklist_items.item_type | `step` / `document` | 단계 / 서류 |
@@ -202,31 +224,40 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 
 <br/>
 
-## 5. 조건 필터 규칙 (연령/지역)
+## 5. 나이·성장 단계·조건 필터 규칙
 
-필터 결과는 DB에 저장하지 않고 조회 시 계산한다. 결과는 **3상태**이며, "신청 가능"이라는 표현은 쓰지 않는다.
+### 5.1 만 나이 계산
 
-**연령대 → 나이 범위 매핑**
+- `birth_date`와 **오늘 날짜(한국 시간)** 로 계산한다. 올해 생일이 지나지 않았으면 (올해 − 출생연도 − 1), 지났으면 (올해 − 출생연도)
+- 나이는 DB에 저장하지 않고, 필터·단계 계산 때마다 새로 계산한다.
 
-| age_group | 범위 |
-|---|---|
-| 18-20 | 18 ~ 20 |
-| 21-24 | 21 ~ 24 |
-| 25+ | 25 ~ 상한 없음 |
+### 5.2 성장 단계 (`stage`)
 
-**판정**
+만 나이와 현재 상태(`status`)를 함께 보고, 위에서부터 먼저 해당하는 단계로 정한다.
+
+| 순서 | 조건 | stage |
+|---|---|---|
+| 1 | 퇴소 후(`left_care`) | `youth` (자립준비청년) |
+| 2 | 퇴소 예정(`leaving_soon`)이면서 만 15세 이상 | `youth` |
+| 3 | 만 18세 이상 | `youth` |
+| 4 | 위에 해당하지 않는 만 11~17세 | `teen` (청소년) |
+| 5 | 만 10세 이하 | `child` (아동) |
+
+### 5.3 조건 필터 (연령/지역)
+
+필터 결과는 DB에 저장하지 않고 조회 시 계산한다. "신청 가능"이라는 표현은 쓰지 않는다.
 
 | 조건 | 판정 |
 |---|---|
-| 사용자 연령 구간이 정책 나이 범위에 **완전히 포함** (NULL은 제한 없음으로 간주) | `match` |
-| 구간이 정책 범위와 **일부만 겹침** | `needs_check` (조건 확인 필요) |
-| 구간이 정책 범위와 **겹치지 않음** | `excluded` |
+| 사용자 만 나이가 정책 나이 범위(`age_min` ~ `age_max`) **안에 있음** (NULL은 제한 없음으로 간주) | `match` |
+| 사용자 만 나이가 정책 나이 범위 **밖에 있음** | `excluded` |
 | 정책 지역이 `전국` 이거나 사용자 지역과 **일치** | `match` |
 | 정책 지역이 사용자 지역과 **불일치** | `excluded` |
 
-- 최종 판정: 하나라도 `excluded`면 제외 → 하나라도 `needs_check`면 `needs_check` → 모두 `match`면 `match`
-- `excluded` 정책은 검색 후보에서 빠지고, `needs_check`는 결과에 포함하되 "조건 확인 필요"로 표시
-- 예: `25+` 사용자 vs 만 18~27세 정책 → 25~27은 겹치고 28 이상은 벗어나므로 `needs_check`
+- 최종 판정: 하나라도 `excluded`면 제외 → 모두 `match`면 `match`
+- `excluded` 정책은 검색 후보에서 빠진다.
+- `match`는 연령·지역만 맞는다는 뜻이다. 보호종료 여부·소득 등 다른 조건은 필터하지 않으므로, 화면에는 "기본 조건 해당 · 세부 조건은 공식 원문에서 확인"으로 안내한다.
+- `needs_check`(조건 확인 필요) 값은 코드에 남겨둔다. 연령 구간 대신 정확한 만 나이를 쓰면서 현재 연령·지역 필터에서는 나오지 않고, 이후 다른 조건을 필터에 추가할 때 사용한다.
 
 <br/>
 
@@ -273,9 +304,12 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 |---|---|
 | 저장한 정책 (`saved_policies`) | 추가 기능 6·7번에서 필요. 착수 시 `(user_id, policy_id)` 테이블 1개 추가 |
 | 정책 변경 이력·검수 상태 | 관리자 기능 스코프 아웃. 현재는 `is_active`, `checked_at`만 사용 |
-| 퇴소 예정일 | 퇴소 시점 기준 자립 체크리스트가 스코프 아웃이라 미수집 |
+| 퇴소 시점 기준 자립 체크리스트 | 스코프 아웃. 퇴소 예정일은 `users.d_date`로 받지만 D-day 표시용으로만 사용 |
+| 휴대폰 번호 인증 | 번호는 선택 입력으로 저장만 하고, 문자 인증은 하지 않음 |
 | 소득·보호종료 여부 필터 | 1차 필터는 연령/지역만 적용 |
 | 연령대별 쉬운 말 난이도 | 자립준비청년 단일 페르소나라 변환문 1종만 저장 |
+| 아동·청소년 단계 기능 | `stage`는 저장하지만 단계별 기능은 없음. 실제로 만 14세 미만 사용자의 개인정보를 받으려면 법정대리인 동의 절차가 필요 (개인정보 보호법 제22조의2) |
+| 추가 제안 기능 (AI 상담 채팅, AI 롤플레잉, 글쓰기·서류 작성 도우미) | 핵심 기능 1~4번 완료 후 여유 시 착수. 착수 시 대화 기록 등 필요한 테이블과 API를 추가 |
 
 <br/>
 
@@ -287,8 +321,8 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | D (데이터) | `simulation-criteria.json`에 항목별 기준값과 **배분 항목 → 정책 category 매핑** 포함 (예: `housing → housing`, `food → living_cost`), 버전 문자열 포함 |
 | A (RAG) | Chroma 청크 메타데이터에 `policy_key` 필수 포함. RAG 함수 입력은 질문 + 후보 `policy_key` 목록, 출력은 답변 + 근거 스니펫 + 해당 `policy_key` + 근거 없음 여부 |
 | A (RAG) / D | 검증 통과한 쉬운 말 변환문을 `easy_text`, `easy_text_verified`에 반영하는 방식 확정 (json 갱신 후 재시드 또는 스크립트 업데이트) |
-| C (프론트) | 연령대 선택지가 `18-20 / 21-24 / 25+`로 확정인지 확인 (명세에 "등"으로 표기됨) |
-| C (프론트) | 시뮬레이션 제출 조건 통일 필요. 명세에 "합계가 총소득과 **일치**해야 제출"과 "합계가 소득 **초과** 시 비활성화"가 같이 적혀 있음. DB는 **일치** 기준으로 설계 |
+| C (프론트) | ✅ 수정 완료: 연령대 → 생년월일·만 나이, 성장 단계 계산, 시뮬레이션 "배분 합계 ≤ 총소득" |
+| C (프론트) | 퇴소 처리(상태 변경)와 D-day 목표일 설정은 회원정보 수정 API로 처리 (`docs/api.md`) |
 
 <br/>
 
@@ -298,16 +332,21 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 -- 사용자
 CREATE TABLE users (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    nickname    VARCHAR(20) NOT NULL,
-    age_group   VARCHAR(10) NOT NULL
-                CHECK (age_group IN ('18-20', '21-24', '25+')),
+    name        VARCHAR(50) NOT NULL,
+    phone       VARCHAR(11)
+                CHECK (phone ~ '^01[0-9]{8,9}$'),
+    birth_date  DATE NOT NULL,
     region      VARCHAR(10) NOT NULL
                 CHECK (region IN ('서울','부산','대구','인천','광주','대전','울산','세종',
                                   '경기','강원','충북','충남','전북','전남','경북','경남','제주')),
     status      VARCHAR(20) NOT NULL
                 CHECK (status IN ('in_care', 'leaving_soon', 'left_care')),
+    stage       VARCHAR(10) NOT NULL
+                CHECK (stage IN ('child', 'teen', 'youth')),
+    d_date      DATE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (status <> 'left_care' OR stage = 'youth')
 );
 
 -- 정책
@@ -390,11 +429,12 @@ CREATE TABLE simulations (
     result            JSONB NOT NULL,
     criteria_version  VARCHAR(20) NOT NULL,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CHECK (housing + food + transport + telecom + other = total_income)
+    CHECK (housing + food + transport + telecom + other <= total_income)
 );
 
 CREATE INDEX idx_simulations_user ON simulations (user_id, created_at DESC);
 ```
 
 - `updated_at`은 애플리케이션(ORM)에서 갱신
+- `birth_date`가 미래 날짜가 아닌지, `stage`가 5.2 규칙과 맞는지는 API에서 검증·계산 (CHECK 제약에는 오늘 날짜를 쓰지 않음)
 - `gen_random_uuid()`는 PostgreSQL 13 이상 기본 제공 (별도 확장 불필요)
