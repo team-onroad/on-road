@@ -718,7 +718,7 @@ def search_policies(question: str, candidate_policy_keys: list[str], top_k: int 
 | 상단 단계 표시 (자립준비청년) | 3.4 `user.stage` |
 | 검색창 | 상담 화면으로 이동해 3.5 호출 |
 | 지금 할 일 카드 | 3.4 `checklists[0]` (3.4 설명 참고). "이어서 작성하기" → 3.10 |
-| 생활비 시뮬레이션 진입 | 3.7 → 3.8 (시안에 진입 버튼이 아직 없음, 8장) |
+| 생활비 시뮬레이션 진입 | 3.7 → 3.8 |
 
 ### 6.4 상담
 
@@ -736,7 +736,7 @@ def search_policies(question: str, candidate_policy_keys: list[str], top_k: int 
 |---|---|
 | 분야 태그, 정책명 | `policy.category`, `policy.name` |
 | 준비 서류 n/m 진행 바 | `document_progress` |
-| 단계 목록 (4단계) | `steps[]`, 단계 진행률은 `progress` (시안에 단계 목록이 아직 없음, 8장) |
+| 단계 목록 (4단계) | `steps[]`, 단계 진행률은 `progress` |
 | 서류 카드 이름·체크 | `steps[doc_prepare].documents[]`, 체크는 3.11 |
 | 공식 신청 바로가기 | `policy.apply_url` |
 | 문의 | `policy.contact` |
@@ -765,5 +765,5 @@ def search_policies(question: str, candidate_policy_keys: list[str], top_k: int 
 |---|---|
 | 프론트엔드 | 앱의 추가 화면(퇴소 D-day 타임라인의 할 일 완료 체크, 저축 목표, 주거비 비교, 성장 기록, 다음 할 일)은 백엔드 API가 없음 (7장). 데모에서 앱 안에서만 데이터를 처리하는지 확인 (필요한 API를 추가 예정) |
 | AI 담당 | 4장 함수 형식으로 제공 가능한지, 함수 위치(`src/rag/` 안의 모듈 이름) |
-| 데이터 담당 | 5장 기준표 형식으로 작성 가능한지. 권장 비율 추가 여부는 위 첫 번째 항목 결정에 따름 |
+| 데이터 담당 | 5장 기준표 형식으로 작성 가능한지. |
 | 데이터 담당 | 광주·전남 통합(전남광주통합특별시) 전체를 대상으로 하는 정책이 데이터에 있으면 지역 코드 처리 방식 협의 (데모에서는 `광주`·`전남` 코드 유지) |
