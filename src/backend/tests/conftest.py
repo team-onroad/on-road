@@ -6,11 +6,16 @@ DB 가 필요한 테스트는 .env 의 TEST_DATABASE_URL 로 별도 테스트 DB
 - TEST_DATABASE_URL 이 없거나 DB 에 연결할 수 없으면 DB 테스트는 skip 된다.
 """
 
+import socket
+import threading
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date
 
+import httpx2
 import pytest
+import uvicorn
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
@@ -108,3 +113,31 @@ def api(db_engine: Engine, db_session: Session, clock: FixedClock) -> Iterator[T
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture(scope="session")
+def live_server_url() -> Iterator[str]:
+    """실제 uvicorn 서버를 별도 스레드에서 띄운다 (실제 TCP/HTTP 요청 검증용)."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    server = uvicorn.Server(
+        uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", lifespan="off")
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 10
+    while not server.started:
+        if time.monotonic() > deadline or not thread.is_alive():
+            pytest.fail("테스트용 uvicorn 서버를 시작하지 못했습니다.")
+        time.sleep(0.05)
+    yield f"http://127.0.0.1:{port}"
+    server.should_exit = True
+    thread.join(timeout=5)
+
+
+@pytest.fixture
+def http(api: TestClient, live_server_url: str) -> Iterator[httpx2.Client]:
+    """실제 HTTP 클라이언트. 테스트 DB·고정 날짜 설정은 api fixture 의 의존성 덮어쓰기를 그대로 쓴다."""
+    with httpx2.Client(base_url=live_server_url, timeout=10) as c:
+        yield c
