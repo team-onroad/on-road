@@ -16,5 +16,7 @@ POLICY_CATEGORIES = (
 )
 SOURCE_TYPES = ("api", "crawler", "manual")
 
+ELIGIBILITY_VALUES = ("match", "needs_check", "excluded")  # db-schema.md 5.3
+
 ITEM_TYPES = ("step", "document")
 STEP_KEYS = ("target_check", "condition_check", "doc_prepare", "apply")
