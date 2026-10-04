@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     test_database_url: str | None = None
     timezone: str = "Asia/Seoul"
     policies_json_path: Path = PROJECT_ROOT / "data" / "policies" / "policies.json"
+    simulation_criteria_path: Path = PROJECT_ROOT / "docs" / "simulation-criteria.json"
 
 
 @lru_cache

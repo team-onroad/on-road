@@ -1,0 +1,11 @@
+{
+  "version": "TEMP-2026-10-v1",
+  "source_note": "(임시) docs/api.md 5장 형식 예시 값. 데이터 담당의 docs/simulation-criteria.json 이 생기면 그 파일을 사용한다.",
+  "items": {
+    "housing":   { "label": "주거비", "minimum": 400000, "policy_categories": ["housing"] },
+    "food":      { "label": "식비",   "minimum": 250000, "policy_categories": ["living_cost"] },
+    "transport": { "label": "교통비", "minimum": 60000,  "policy_categories": ["living_cost"] },
+    "telecom":   { "label": "통신비", "minimum": 40000,  "policy_categories": ["living_cost"] },
+    "other":     { "label": "기타",   "minimum": 100000, "policy_categories": ["living_cost", "finance"] }
+  }
+}
