@@ -6,6 +6,8 @@ SQLAlchemy==2.0.54
 psycopg[binary]==3.3.6
 psycopg-binary==3.3.6
 alembic==1.20.0
+# Windows 에는 시간대 데이터가 없어 Asia/Seoul 계산에 필요
+tzdata==2026.5
 
 # 테스트
 pytest==9.1.1

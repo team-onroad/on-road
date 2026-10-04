@@ -7,6 +7,8 @@ DB 가 필요한 테스트는 .env 의 TEST_DATABASE_URL 로 별도 테스트 DB
 """
 
 from collections.abc import Iterator
+from dataclasses import dataclass
+from datetime import date
 
 import pytest
 from alembic import command
@@ -17,9 +19,10 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from app.clock import get_today
 from app.config import BACKEND_DIR, get_settings
 from app.main import app
-from db.session import make_engine
+from db.session import get_db, make_engine
 
 TABLES = ("users", "policies", "checklists", "checklist_items", "simulations")
 
@@ -76,3 +79,32 @@ def db_session(db_engine: Engine) -> Iterator[Session]:
     with Session(db_engine) as session:
         yield session
         session.rollback()
+
+
+@dataclass
+class FixedClock:
+    """API 가 쓰는 '오늘 날짜(한국 시간)'. 테스트 안에서 clock.today = date(...) 로 바꿀 수 있다."""
+
+    today: date = date(2026, 10, 4)
+
+
+@pytest.fixture
+def clock() -> Iterator[FixedClock]:
+    fixed = FixedClock()
+    app.dependency_overrides[get_today] = lambda: fixed.today
+    yield fixed
+    app.dependency_overrides.pop(get_today, None)
+
+
+@pytest.fixture
+def api(db_engine: Engine, db_session: Session, clock: FixedClock) -> Iterator[TestClient]:
+    """테스트 DB 에 연결되고 오늘 날짜가 고정된 TestClient. (db_session 은 테이블 비우기용)"""
+
+    def _test_db() -> Iterator[Session]:
+        with Session(db_engine, expire_on_commit=False) as session:
+            yield session
+
+    app.dependency_overrides[get_db] = _test_db
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.pop(get_db, None)
