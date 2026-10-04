@@ -29,10 +29,14 @@ async def _app_error_handler(_: Request, exc: AppError) -> JSONResponse:
 
 async def _validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
     # 요청 값(개인정보 포함 가능)은 응답·로그에 그대로 남기지 않고 문제 필드 위치만 알려준다.
-    fields = sorted({".".join(str(p) for p in err["loc"] if p != "body") for err in exc.errors()})
+    fields = {
+        ".".join(p for p in err["loc"] if isinstance(p, str) and p != "body")
+        for err in exc.errors()
+    }
+    fields.discard("")
     message = "요청 값이 올바르지 않습니다."
     if fields:
-        message += f" ({', '.join(f for f in fields if f)})"
+        message += f" ({', '.join(sorted(fields))})"
     return error_response(422, "VALIDATION_ERROR", message)
 
 

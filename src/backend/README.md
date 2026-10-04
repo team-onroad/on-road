@@ -16,7 +16,11 @@ src/backend/
 │   ├── config.py          환경변수 설정 (프로젝트 루트 .env 를 읽음)
 │   ├── codes.py           코드값 (db-schema.md 4장)
 │   ├── errors.py          공통 에러 형식 (api.md 1.1)
-│   └── api/health.py      GET /api/health
+│   ├── clock.py           오늘 날짜(Asia/Seoul). 테스트에서 고정 가능
+│   ├── rules.py           만 나이·성장 단계·D-day 계산 (db-schema.md 5장)
+│   ├── schemas/           요청·응답 스키마
+│   ├── services/          처리 규칙 (사용자 생성·조회·수정)
+│   └── api/               라우터 (health, users)
 ├── db/
 │   ├── models.py          SQLAlchemy 모델
 │   ├── session.py         DB 엔진·세션
@@ -102,6 +106,24 @@ uvicorn app.main:app --reload --port 8000
 
 - 상태 확인: http://localhost:8000/api/health → `{"status": "ok"}`
 - API 문서: http://localhost:8000/docs
+
+**구현된 API**
+
+| 메서드 | 경로 | 명세 |
+|---|---|---|
+| GET | `/api/health` | api.md 3.1 |
+| POST | `/api/users` | api.md 3.2 |
+| GET | `/api/users/{user_id}` | api.md 3.3 |
+| PATCH | `/api/users/{user_id}` | api.md 3.12 |
+
+명세에 없어서 팀에서 정한 동작:
+- `user_id`가 UUID 형식이 아니어도 404 `USER_NOT_FOUND`로 응답합니다 (앱은 이때 온보딩으로 이동).
+- PATCH에서 사용자가 없으면 본문이 잘못됐어도(깨진 JSON 포함) 404를 먼저 응답합니다.
+- 조회할 때 `stage`가 바뀌어 갱신하면 `updated_at`도 갱신합니다.
+- 이미 `left_care`인 사용자에게 `status: left_care`를 다시 보내면 `d_date`를 유지합니다. 다른 상태에서 `left_care`로 실제로 바뀔 때만 비웁니다.
+- 이름은 앞뒤 공백을 제거한 뒤 1~50자인지 검사하고 저장합니다.
+- PATCH는 요청한 필드와 관계없이 `stage`를 오늘 기준으로 다시 계산합니다. 값이 실제로 바뀐 경우에만 `updated_at`이 갱신됩니다.
+- 422 메시지에는 문제 필드 이름만 담고, 입력값(개인정보)은 담지 않습니다.
 
 ### 7. 테스트
 
