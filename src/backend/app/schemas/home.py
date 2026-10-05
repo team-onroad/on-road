@@ -1,11 +1,11 @@
-"""홈 대시보드 스키마 (api.md 3.4, 부록)."""
+"""홈 대시보드·성장 기록 스키마 (api.md 3.4, 3.13, 부록)."""
 
 import uuid
 from datetime import date, datetime
 
 from pydantic import BaseModel
 
-from app.schemas.checklists import ChecklistPolicy, NextStep, Progress
+from app.schemas.checklists import ChecklistPolicy, DocumentProgress, NextStep, Progress
 from app.schemas.users import Stage, Status
 
 
@@ -36,3 +36,42 @@ class DashboardResponse(BaseModel):
     user: DashboardUser
     checklists: list[DashboardChecklist]
     latest_simulation: LatestSimulation | None  # 기록 없으면 null
+
+
+# --- 성장 기록 (api.md 3.13) ---
+
+
+class GrowthUser(DashboardUser):
+    created_at: datetime
+
+
+class GrowthSummary(BaseModel):
+    checklist_count: int
+    completed_checklist_count: int  # next_step 이 null 인 것
+    simulation_count: int
+
+
+class GrowthChecklist(BaseModel):
+    checklist_id: int
+    policy: ChecklistPolicy
+    progress: Progress
+    document_progress: DocumentProgress
+    next_step: NextStep | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class SimulationSummary(BaseModel):
+    simulation_id: int
+    total_income: int
+    remaining: int
+    shortage_count: int
+    criteria_version: str
+    created_at: datetime
+
+
+class GrowthResponse(BaseModel):
+    user: GrowthUser
+    summary: GrowthSummary
+    checklists: list[GrowthChecklist]
+    simulations: list[SimulationSummary]

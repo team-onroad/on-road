@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.clock import get_today
-from app.schemas.home import DashboardResponse
+from app.schemas.home import DashboardResponse, GrowthResponse
 from app.schemas.users import UserCreate, UserResponse, UserUpdate
 from app.services import home
 from app.services import users as service
@@ -86,6 +86,17 @@ def get_user(user: ExistingUser, db: DB, today: Today) -> UserResponse:
 def get_dashboard(user: ExistingUser, db: DB, today: Today) -> DashboardResponse:
     service.refresh_stage(db, user, today)  # 3.3 과 같이 stage 재계산
     return home.dashboard(db, user, today)
+
+
+@router.get(
+    "/{user_id}/growth",
+    response_model=GrowthResponse,
+    summary="성장 기록",
+    responses={404: ERROR_RESPONSES[404]},
+)
+def get_growth(user: ExistingUser, db: DB, today: Today) -> GrowthResponse:
+    service.refresh_stage(db, user, today)  # 3.4 와 같이 stage 재계산
+    return home.growth(db, user, today)
 
 
 @router.patch(
