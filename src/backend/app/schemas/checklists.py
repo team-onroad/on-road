@@ -47,6 +47,11 @@ class DocumentProgress(BaseModel):
     total: int
 
 
+class NextStep(BaseModel):
+    step_key: StepKey
+    label: str
+
+
 # detail 은 단계마다 키가 다름 (부록 3.9·3.10)
 class TargetDetail(BaseModel):
     target_description: str
