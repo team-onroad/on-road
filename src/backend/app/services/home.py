@@ -1,4 +1,4 @@
-"""홈 대시보드 (api.md 3.4)."""
+"""홈 대시보드·성장 기록 (api.md 3.4, 3.13)."""
 
 from dataclasses import dataclass
 from datetime import date
@@ -6,9 +6,20 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.codes import ALLOCATION_ITEMS
 from app.rules import calc_d_day
 from app.schemas.checklists import DocumentProgress, NextStep, Progress
-from app.schemas.home import DashboardChecklist, DashboardResponse, DashboardUser, LatestSimulation
+from app.schemas.home import (
+    DashboardChecklist,
+    DashboardResponse,
+    DashboardUser,
+    GrowthChecklist,
+    GrowthResponse,
+    GrowthSummary,
+    GrowthUser,
+    LatestSimulation,
+    SimulationSummary,
+)
 from app.services.checklists import next_step, policy_object, progress
 from db.models import Checklist, ChecklistItem, Policy, Simulation, User
 
@@ -45,26 +56,34 @@ def user_checklists(db: Session, user: User) -> list[ChecklistSummary]:
     return sorted(summaries, key=lambda s: s.next_step is None)
 
 
+def _simulations(user: User):
+    """최신순, created_at 같으면 ID 큰 것 먼저"""
+    return (
+        select(Simulation)
+        .where(Simulation.user_id == user.id)
+        .order_by(Simulation.created_at.desc(), Simulation.id.desc())
+    )
+
+
 def shortage_count(sim: Simulation) -> int:
     return len(sim.result["shortages"])
 
 
+def _user_fields(user: User, today: date) -> dict:
+    return {
+        "user_id": user.id,
+        "name": user.name,
+        "stage": user.stage,
+        "status": user.status,
+        "d_date": user.d_date,
+        "d_day": calc_d_day(user.d_date, today),
+    }
+
+
 def dashboard(db: Session, user: User, today: date) -> DashboardResponse:
-    latest = db.scalars(
-        select(Simulation)
-        .where(Simulation.user_id == user.id)
-        .order_by(Simulation.created_at.desc(), Simulation.id.desc())
-        .limit(1)
-    ).first()
+    latest = db.scalars(_simulations(user).limit(1)).first()
     return DashboardResponse(
-        user=DashboardUser(
-            user_id=user.id,
-            name=user.name,
-            stage=user.stage,
-            status=user.status,
-            d_date=user.d_date,
-            d_day=calc_d_day(user.d_date, today),
-        ),
+        user=DashboardUser(**_user_fields(user, today)),
         checklists=[
             DashboardChecklist(
                 checklist_id=s.checklist.id,
@@ -80,4 +99,40 @@ def dashboard(db: Session, user: User, today: date) -> DashboardResponse:
             if latest
             else None
         ),
+    )
+
+
+def growth(db: Session, user: User, today: date) -> GrowthResponse:
+    checklists = user_checklists(db, user)
+    simulations = list(db.scalars(_simulations(user)))
+    return GrowthResponse(
+        user=GrowthUser(**_user_fields(user, today), created_at=user.created_at),
+        summary=GrowthSummary(
+            checklist_count=len(checklists),
+            completed_checklist_count=sum(s.next_step is None for s in checklists),
+            simulation_count=len(simulations),
+        ),
+        checklists=[
+            GrowthChecklist(
+                checklist_id=s.checklist.id,
+                policy=policy_object(s.policy),
+                progress=s.progress,
+                document_progress=s.document_progress,
+                next_step=s.next_step,
+                created_at=s.checklist.created_at,
+                updated_at=s.checklist.updated_at,
+            )
+            for s in checklists
+        ],
+        simulations=[
+            SimulationSummary(
+                simulation_id=sim.id,
+                total_income=sim.total_income,
+                remaining=sim.total_income - sum(getattr(sim, k) for k in ALLOCATION_ITEMS),
+                shortage_count=shortage_count(sim),
+                criteria_version=sim.criteria_version,
+                created_at=sim.created_at,
+            )
+            for sim in simulations
+        ],
     )
