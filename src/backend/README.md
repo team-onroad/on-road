@@ -27,13 +27,15 @@ src/backend/
 │   ├── services/
 │   │   ├── users.py       사용자 생성·조회·수정 규칙
 │   │   ├── policies.py    정책 상세, 검색(후보 필터 → RAG 호출 → 정책별로 묶기)
-│   │   └── simulations.py 시뮬레이션 기준표·제출·결과 조회
+│   │   ├── simulations.py 시뮬레이션 기준표·제출·결과 조회
+│   │   └── checklists.py  체크리스트 생성·조회, 상세, 항목 체크
 │   └── api/
 │       ├── deps.py        공통 의존성 (사용자 확인 후 본문 검증 등)
 │       ├── health.py      GET /api/health
 │       ├── users.py       POST·GET·PATCH /api/users
 │       ├── policies.py    GET /api/policies/{policy_id}, POST /api/search
-│       └── simulations.py GET /api/simulations/criteria, POST /api/simulations, GET /api/simulations/{id}
+│       ├── simulations.py GET /api/simulations/criteria, POST /api/simulations, GET /api/simulations/{id}
+│       └── checklists.py  POST /api/checklists, GET /api/checklists/{id}, PATCH /api/checklists/{id}/items/{item_id}
 ├── db/
 │   ├── models.py          SQLAlchemy 모델
 │   ├── session.py         DB 엔진·세션
@@ -136,6 +138,9 @@ uvicorn app.main:app --reload --port 8000
 | GET | `/api/simulations/criteria` | api.md 3.7 |
 | POST | `/api/simulations` | api.md 3.8 (대안 규칙은 아래 "시뮬레이션 대안 규칙") |
 | GET | `/api/simulations/{simulation_id}` | api.md 3.14 |
+| POST | `/api/checklists` | api.md 3.9 |
+| GET | `/api/checklists/{checklist_id}` | api.md 3.10 |
+| PATCH | `/api/checklists/{checklist_id}/items/{item_id}` | api.md 3.11 |
 
 명세에 없어서 팀에서 정한 동작:
 - `user_id`가 UUID 형식이 아니어도 404 `USER_NOT_FOUND`로 응답합니다 (앱은 이때 온보딩으로 이동).
@@ -154,6 +159,12 @@ uvicorn app.main:app --reload --port 8000
 - 시뮬레이션 제출: `user_id` 확인(404)을 본문 검증(422)보다 먼저 합니다. 금액은 정수만 받고(`"900000"`, `1.5`, `true` 는 422), INT 최대값(2,147,483,647)을 넘으면 422입니다. 배분 합계가 총소득보다 크면 422 `SUM_EXCEEDS_INCOME`입니다.
 - 시뮬레이션: `shortages`는 기준표 항목 순서입니다. `related_policies`는 부족 항목 순서 → 항목의 `policy_categories` 순서 → `policy_id` 순서이고, 중복은 제거합니다.
 - 시뮬레이션 결과 조회: `user_id`가 형식 오류이거나 없는 사용자이면 404 `USER_NOT_FOUND`(먼저 확인), 기록이 없거나 다른 사용자 것이거나 ID 형식이 틀리면 404 `SIMULATION_NOT_FOUND`, `user_id` 누락은 422입니다. 저장된 결과를 그대로 돌려주고 `related_policies`만 조회 시점 기준으로 다시 거릅니다 (제출 뒤 새로 생긴 정책은 추가하지 않음).
+
+- 체크리스트 생성: 사용자 404 → 본문 422 → 정책 404 순서. `policy_id` 형식 오류는 422
+- 체크리스트 생성: 이미 있으면 200 (정책이 비활성이어도), 없으면 노출 정책만 201. 사용자 기준 excluded 정책도 생성 가능
+- 체크리스트 생성: 동시 요청은 UNIQUE 충돌 시 먼저 만든 것 반환
+- 체크리스트 상세·체크: 사용자 → 체크리스트 → 항목 → 본문 순서로 확인. ID 형식 오류도 각각 404
+- 항목 체크: `is_checked` 는 true/false 만. 같은 값이면 변경 없음 (`checked_at`, 체크리스트 `updated_at` 유지)
 
 ### 시뮬레이션 기준표
 

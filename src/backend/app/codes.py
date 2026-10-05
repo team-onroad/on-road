@@ -29,4 +29,11 @@ ALLOCATION_LABELS = {
 ALLOCATION_ITEMS = tuple(ALLOCATION_LABELS)
 
 ITEM_TYPES = ("step", "document")
-STEP_KEYS = ("target_check", "condition_check", "doc_prepare", "apply")
+# 체크리스트 단계와 이름 (api.md 1.2). 순서 = 표시 순서
+STEP_LABELS = {
+    "target_check": "대상 확인",
+    "condition_check": "조건 확인",
+    "doc_prepare": "서류 준비",
+    "apply": "신청",
+}
+STEP_KEYS = tuple(STEP_LABELS)

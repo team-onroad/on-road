@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import health, policies, simulations, users
+from app.api import checklists, health, policies, simulations, users
 from app.criteria import get_criteria
 from app.errors import register_error_handlers
 
@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router, prefix="/api")
     app.include_router(policies.router, prefix="/api")
     app.include_router(simulations.router, prefix="/api")
+    app.include_router(checklists.router, prefix="/api")
     return app
 
 
