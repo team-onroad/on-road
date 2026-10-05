@@ -16,6 +16,7 @@ from app.schemas.checklists import (
     ConditionDetail,
     Document,
     DocumentProgress,
+    NextStep,
     Progress,
     Step,
     TargetDetail,
@@ -115,13 +116,34 @@ def _items(db: Session, checklist: Checklist) -> list[ChecklistItem]:
     )
 
 
-def _progress(items: list[ChecklistItem]) -> tuple[Progress, DocumentProgress]:
+def progress(items: list[ChecklistItem]) -> tuple[Progress, DocumentProgress]:
     steps = [i for i in items if i.item_type == "step"]
     docs = [i for i in items if i.item_type == "document"]
     checked = sum(i.is_checked for i in steps)
     return (
         Progress(checked_steps=checked, total_steps=len(STEP_KEYS), percent=checked * 100 // len(STEP_KEYS)),
         DocumentProgress(checked=sum(i.is_checked for i in docs), total=len(docs)),
+    )
+
+
+def next_step(items: list[ChecklistItem]) -> NextStep | None:
+    """체크 안 된 첫 단계. 4단계 모두 체크면 None"""
+    unchecked = {i.step_key for i in items if i.item_type == "step" and not i.is_checked}
+    key = next((k for k in STEP_KEYS if k in unchecked), None)
+    return NextStep(step_key=key, label=STEP_LABELS[key]) if key else None
+
+
+def policy_object(policy: Policy) -> ChecklistPolicy:
+    """api.md 1.5 정책 객체. is_active = 노출 여부"""
+    return ChecklistPolicy(
+        policy_id=policy.id,
+        name=policy.name,
+        agency=policy.agency,
+        category=policy.category,
+        contact=policy.contact,
+        apply_url=policy.apply_url,
+        checked_at=policy.checked_at,
+        is_active=policy.is_active and policy.easy_text_verified,
     )
 
 
@@ -163,20 +185,11 @@ def to_response(db: Session, checklist: Checklist, user: User, today: date) -> C
         for i in items
         if i.item_type == "step"
     ]
-    progress, document_progress = _progress(items)
+    step_progress, document_progress = progress(items)
     return ChecklistResponse(
         checklist_id=checklist.id,
-        policy=ChecklistPolicy(
-            policy_id=policy.id,
-            name=policy.name,
-            agency=policy.agency,
-            category=policy.category,
-            contact=policy.contact,
-            apply_url=policy.apply_url,
-            checked_at=policy.checked_at,
-            is_active=visible,
-        ),
-        progress=progress,
+        policy=policy_object(policy),
+        progress=step_progress,
         document_progress=document_progress,
         steps=steps,
     )
@@ -190,7 +203,7 @@ def toggle(db: Session, checklist: Checklist, item: ChecklistItem, is_checked: b
         checklist.updated_at = func.now()  # 홈 "지금 할 일" 정렬 기준
         db.commit()
         db.refresh(item)
-    progress, document_progress = _progress(_items(db, checklist))
+    step_progress, document_progress = progress(_items(db, checklist))
     return ToggleResponse(
         item=ToggledItem(
             item_id=item.id,
@@ -200,6 +213,6 @@ def toggle(db: Session, checklist: Checklist, item: ChecklistItem, is_checked: b
             is_checked=item.is_checked,
             checked_at=item.checked_at,
         ),
-        progress=progress,
+        progress=step_progress,
         document_progress=document_progress,
     )
