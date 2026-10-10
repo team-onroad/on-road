@@ -11,7 +11,7 @@ HISTORY_MAX = 20
 CONTENT_MAX = 1000
 
 
-def _strip_within(v: str, max_len: int, field: str) -> str:
+def strip_within(v: str, max_len: int, field: str) -> str:
     v = v.strip()
     if not 1 <= len(v) <= max_len:
         raise ValueError(f"{field}은 공백을 제외하고 1~{max_len}자여야 합니다.")
@@ -27,7 +27,7 @@ class HistoryTurn(BaseModel):
     @field_validator("content")
     @classmethod
     def _content(cls, v: str) -> str:
-        return _strip_within(v, CONTENT_MAX, "content")
+        return strip_within(v, CONTENT_MAX, "content")
 
 
 class ChatRequest(BaseModel):
@@ -45,7 +45,7 @@ class ChatRequest(BaseModel):
     @field_validator("message")
     @classmethod
     def _message(cls, v: str) -> str:
-        return _strip_within(v, MESSAGE_MAX, "message")
+        return strip_within(v, MESSAGE_MAX, "message")
 
 
 class Contact(BaseModel):

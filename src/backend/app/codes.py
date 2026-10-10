@@ -37,3 +37,5 @@ STEP_LABELS = {
     "apply": "신청",
 }
 STEP_KEYS = tuple(STEP_LABELS)
+
+ROLEPLAY_LEVELS = ("EASY", "NORMAL", "HARD")  # api.md 1.2

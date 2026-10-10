@@ -82,3 +82,8 @@ def test_crisis_not_detected(message):
 
 def test_crisis_contacts():
     assert [c["phone"] for c in CRISIS_CONTACTS] == ["109", "1388", "129", "112"]
+
+
+def test_roleplay_reply_without_assistant_turn_finishes():
+    history = [{"role": "user", "content": "답"}]
+    assert llm_mock.roleplay_reply({"lines": ["대사1"]}, history, "답")["is_finished"] is True

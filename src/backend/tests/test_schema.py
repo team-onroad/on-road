@@ -59,6 +59,7 @@ def test_tables_and_indexes_exist(db_engine):
     assert "WHERE ((item_type)::text = 'step'::text)" in indexes["uq_checklist_step"]
     assert "idx_checklist_items_checklist" in indexes
     assert "(user_id, created_at DESC)" in indexes["idx_simulations_user"]
+    assert "(user_id, created_at DESC)" in indexes["idx_roleplay_results_user"]
 
 
 def test_user_defaults(db_session):

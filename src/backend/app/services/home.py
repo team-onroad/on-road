@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.codes import ALLOCATION_ITEMS
+from app.roleplay import get_scenarios
 from app.rules import calc_d_day
 from app.schemas.checklists import DocumentProgress, NextStep, Progress
 from app.schemas.home import (
@@ -18,10 +19,11 @@ from app.schemas.home import (
     GrowthSummary,
     GrowthUser,
     LatestSimulation,
+    RoleplaySummary,
     SimulationSummary,
 )
 from app.services.checklists import next_step, policy_object, progress
-from db.models import Checklist, ChecklistItem, Policy, Simulation, User
+from db.models import Checklist, ChecklistItem, Policy, RoleplayResult, Simulation, User
 
 
 @dataclass
@@ -65,6 +67,21 @@ def _simulations(user: User):
     )
 
 
+def _roleplays(user: User):
+    """최신순, created_at 같으면 ID 큰 것 먼저"""
+    return (
+        select(RoleplayResult)
+        .where(RoleplayResult.user_id == user.id)
+        .order_by(RoleplayResult.created_at.desc(), RoleplayResult.id.desc())
+    )
+
+
+def _roleplay_title(scenario_id: str) -> str:
+    # 상황 파일에서 빠진 상황이면 scenario_id 그대로
+    s = get_scenarios().get(scenario_id)
+    return s.title if s else scenario_id
+
+
 def shortage_count(sim: Simulation) -> int:
     return len(sim.result["shortages"])
 
@@ -105,12 +122,14 @@ def dashboard(db: Session, user: User, today: date) -> DashboardResponse:
 def growth(db: Session, user: User, today: date) -> GrowthResponse:
     checklists = user_checklists(db, user)
     simulations = list(db.scalars(_simulations(user)))
+    roleplays = list(db.scalars(_roleplays(user)))
     return GrowthResponse(
         user=GrowthUser(**_user_fields(user, today), created_at=user.created_at),
         summary=GrowthSummary(
             checklist_count=len(checklists),
             completed_checklist_count=sum(s.next_step is None for s in checklists),
             simulation_count=len(simulations),
+            roleplay_count=len(roleplays),
         ),
         checklists=[
             GrowthChecklist(
@@ -134,5 +153,16 @@ def growth(db: Session, user: User, today: date) -> GrowthResponse:
                 created_at=sim.created_at,
             )
             for sim in simulations
+        ],
+        roleplays=[
+            RoleplaySummary(
+                roleplay_id=r.id,
+                scenario_id=r.scenario_id,
+                title=_roleplay_title(r.scenario_id),
+                good_count=len(r.good),
+                missed_count=len(r.missed),
+                created_at=r.created_at,
+            )
+            for r in roleplays
         ],
     )
