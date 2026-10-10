@@ -1,12 +1,14 @@
 # DB 스키마 (On-Road)
 
 > 범위: 1차 데모 핵심 기능 1~4번 (정책 검색, 쉬운 말 변환, 생활비 시뮬레이션, 신청 준비 체크리스트)
+> 추가 제안 기능: AI 상담 채팅, AI 롤플레잉, 글쓰기·서류 작성 도우미 (`roleplay_results` 테이블만 추가)
 
 | 수정 날짜 | 수정 내용 |
 |---|---|
 | 2026-10-02 | 최초 작성 |
 | 2026-10-04 | 프론트엔드 요청 반영: `users` 컬럼 변경(이름·생년월일·휴대폰·성장 단계·D-day 기준일), 연령 필터를 만 나이 기준으로 변경, 시뮬레이션 합계 조건을 "총소득 이하"로 변경 |
 | 2026-10-05 | 시뮬레이션 대안(`alternatives`) 개수를 "2개 또는 3개"에서 "최대 3개 (0개나 1개일 수 있음)"로 변경 |
+| 2026-10-11 | 추가 제안 기능 반영: `roleplay_results` 테이블 추가 (롤플레잉 피드백 저장용), 상담·롤플레잉 대화는 저장하지 않음 |
 <br/>
 
 ## 1. DB 결정 사항
@@ -19,7 +21,7 @@
 | 사용자 식별 | 로그인 없음. 온보딩 시 발급한 `user_id`(UUID)를 프론트가 로컬에 저장해 사용 |
 
 **Chroma 연동 방식**
-- 정형 데이터(정책·사용자·체크리스트·시뮬레이션)는 PostgreSQL, 원문 청크와 임베딩은 Chroma에 저장
+- 정형 데이터(정책·사용자·체크리스트·시뮬레이션·롤플레잉 피드백)는 PostgreSQL, 원문 청크와 임베딩은 Chroma에 저장
 - 두 저장소는 `policies.policy_key`로 연결. Chroma의 각 청크 메타데이터에 `policy_key`를 넣음
   - 내부 `id`(BIGSERIAL)는 DB를 다시 만들면 바뀔 수 있어 연결 키로 쓰지 않음
 - 검색은 2단계로 처리
@@ -41,6 +43,7 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | `users` → `simulations` | `simulations.user_id` | 비식별 (점선) | 필수 1 | 선택 0..N | 사용자는 시뮬레이션 기록이 없을 수도 있고, 기록은 반드시 사용자 1명에 속한다 |
 | `policies` → `checklists` | `checklists.policy_id` | 비식별 (점선) | 필수 1 | 선택 0..N | 정책은 체크리스트가 없을 수도 있고, 체크리스트는 반드시 정책 1개를 대상으로 한다 |
 | `checklists` → `checklist_items` | `checklist_items.checklist_id` | 비식별 (점선) | 필수 1 | 필수 1..N | 체크리스트는 항목을 반드시 1개 이상 가지고, 항목은 반드시 체크리스트 1개에 속한다 |
+| `users` → `roleplay_results` | `roleplay_results.user_id` | 비식별 (점선) | 필수 1 | 선택 0..N | 사용자는 저장한 롤플레잉 피드백이 없을 수도 있고, 피드백은 반드시 사용자 1명에 속한다 |
 
 - 모든 관계가 **비식별 관계**인 이유: 자식 테이블마다 자체 PK(`id`)가 있고, 부모 키는 PK가 아닌 일반 FK 컬럼으로 상속함
 - 부모 쪽이 모두 **필수 1**인 이유: 모든 FK 컬럼이 `NOT NULL`
@@ -200,6 +203,22 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 - `remaining`: 그 대안을 적용한 뒤 남는 금액
 - `related_policy_ids`는 부족 항목과 연결된 분야(category)의 노출 가능 정책
 
+### 3.6 `roleplay_results` — 롤플레잉 피드백 (추가 제안 기능)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGSERIAL | PK | API에서 `roleplay_id` |
+| user_id | UUID | NOT NULL, FK → users.id, `ON DELETE CASCADE` | |
+| scenario_id | VARCHAR(50) | NOT NULL | 연습 상황 id (예: `community-center`). 상황 데이터는 서버 파일(`app/roleplay_scenarios.json`)로 관리 |
+| good | JSONB | NOT NULL | 챙긴 것 (문자열 배열) |
+| missed | JSONB | NOT NULL | 빠뜨린 것 (문자열 배열) |
+| created_at | TIMESTAMPTZ | NOT NULL | |
+
+- 피드백 API(`api.md` 3.19)에서 사용자가 `save: true`로 보낼 때만 저장 (계획서 8.2 "상담·감정 관련 기록은 저장 여부를 사용자가 선택")
+- 대화 내용은 저장하지 않는다. 상담 채팅·롤플레잉 대화는 앱이 이전 대화를 들고 있다가 요청마다 보낸다.
+- `scenario_id`는 서버 파일의 상황 목록과 맞는지 API에서 검사 (DB에는 상황 테이블을 두지 않음)
+- 성장 기록(`api.md` 3.13)에서 최신순으로 조회
+
 <br/>
 
 ## 4. 코드값 정의
@@ -309,7 +328,8 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | 소득·보호종료 여부 필터 | 1차 필터는 연령/지역만 적용 |
 | 연령대별 쉬운 말 난이도 | 자립준비청년 단일 페르소나라 변환문 1종만 저장 |
 | 아동·청소년 단계 기능 | `stage`는 저장하지만 단계별 기능은 없음. 실제로 만 14세 미만 사용자의 개인정보를 받으려면 법정대리인 동의 절차가 필요 (개인정보 보호법 제22조의2) |
-| 추가 제안 기능 (AI 상담 채팅, AI 롤플레잉, 글쓰기·서류 작성 도우미) | 핵심 기능 1~4번 완료 후 여유 시 착수. 착수 시 대화 기록 등 필요한 테이블과 API를 추가 |
+| 상담·롤플레잉 대화 기록 | 저장하지 않음. 롤플레잉 피드백만 사용자가 원하면 `roleplay_results`에 저장 (3.6) |
+| 롤플레잉 상황·서류 양식 데이터 | 테이블 없이 서버 파일로 관리 (`app/roleplay_scenarios.json`, `app/forms.json`) |
 
 <br/>
 
@@ -319,10 +339,12 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 |---|---|
 | D (데이터) | 6장 형식으로 `policies.json` 작성. `category`·`region`은 4장 코드값 사용 |
 | D (데이터) | `simulation-criteria.json`에 항목별 기준값과 **배분 항목 → 정책 category 매핑** 포함 (예: `housing → housing`, `food → living_cost`), 버전 문자열 포함 |
+| D (데이터) | 서버로 옮긴 롤플레잉 상황 7개(체크 항목·준비 서류)와 서류 양식 5개(항목 설명) 내용 검토 |
 | A (RAG) | Chroma 청크 메타데이터에 `policy_key` 필수 포함. RAG 함수 입력은 질문 + 후보 `policy_key` 목록, 출력은 답변 + 근거 스니펫 + 해당 `policy_key` + 근거 없음 여부 |
 | A (RAG) / D | 검증 통과한 쉬운 말 변환문을 `easy_text`, `easy_text_verified`에 반영하는 방식 확정 (json 갱신 후 재시드 또는 스크립트 업데이트) |
 | C (프론트) | ✅ 수정 완료: 연령대 → 생년월일·만 나이, 성장 단계 계산, 시뮬레이션 "배분 합계 ≤ 총소득" |
 | C (프론트) | 퇴소 처리(상태 변경)와 D-day 목표일 설정은 회원정보 수정 API로 처리 (`docs/api.md`) |
+| C (프론트) | 롤플레잉 피드백 저장 여부를 사용자가 선택하는 화면 (`api.md` 3.19 `save`) |
 
 <br/>
 
@@ -433,6 +455,18 @@ CREATE TABLE simulations (
 );
 
 CREATE INDEX idx_simulations_user ON simulations (user_id, created_at DESC);
+
+-- 롤플레잉 피드백 (추가 제안 기능, 마이그레이션 0002)
+CREATE TABLE roleplay_results (
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    scenario_id  VARCHAR(50) NOT NULL,
+    good         JSONB NOT NULL,
+    missed       JSONB NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_roleplay_results_user ON roleplay_results (user_id, created_at DESC);
 ```
 
 - `updated_at`은 애플리케이션(ORM)에서 갱신
