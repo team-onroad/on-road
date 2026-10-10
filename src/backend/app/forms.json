@@ -1,0 +1,72 @@
+[
+  {
+    "template_id": "scholarship",
+    "name": "장학금 신청서",
+    "description": "학교·재단 장학금 신청에 자주 쓰는 양식",
+    "stages": ["teen", "youth"],
+    "fields": [
+      {"field_id": "name", "label": "성명", "easy_label": "이름", "guide": "주민등록증에 적힌 이름 그대로 써요.", "caution": null, "example": "홍길동", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "birth", "label": "생년월일", "easy_label": "태어난 날", "guide": "숫자 8자리로 써요.", "caution": null, "example": "2007.03.15", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "phone", "label": "연락처", "easy_label": "전화번호", "guide": "연락이 잘 되는 번호를 써요.", "caution": null, "example": "010-1234-5678", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "address", "label": "주소", "easy_label": "사는 곳 주소", "guide": "도로명 주소로 써요. 동·호수까지 빠뜨리지 않아요.", "caution": null, "example": null, "multiline": false, "essay": false, "outline": null},
+      {"field_id": "school", "label": "소속(학교·학년)", "easy_label": "다니는 학교와 학년", "guide": "학교 이름과 학년, 반을 써요.", "caution": null, "example": null, "multiline": false, "essay": false, "outline": null},
+      {"field_id": "reason", "label": "신청 사유", "easy_label": "장학금이 필요한 이유", "guide": "지금 상황과 장학금을 어디에 쓸지 솔직하게 써요.", "caution": "과장하지 말고 사실만 써요. 확인 서류를 요구할 수 있어요.", "example": null, "multiline": true, "essay": true, "outline": ["지금 나의 상황", "장학금이 필요한 이유", "받게 되면 어디에 쓸지", "앞으로의 계획"]},
+      {"field_id": "plan", "label": "학업 계획", "easy_label": "앞으로 공부 계획", "guide": "이번 학기·1년 동안 무엇을 할지 구체적으로 써요.", "caution": null, "example": null, "multiline": true, "essay": true, "outline": ["이번 학기 목표", "이를 위해 할 일", "1년 뒤 모습"]}
+    ]
+  },
+  {
+    "template_id": "program",
+    "name": "프로그램 참가 신청서",
+    "description": "캠프·교육·체험 프로그램 신청",
+    "stages": ["teen"],
+    "fields": [
+      {"field_id": "name", "label": "성명", "easy_label": "이름", "guide": "주민등록증에 적힌 이름 그대로 써요.", "caution": null, "example": "홍길동", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "birth", "label": "생년월일", "easy_label": "태어난 날", "guide": "숫자 8자리로 써요.", "caution": null, "example": "2007.03.15", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "phone", "label": "연락처", "easy_label": "전화번호", "guide": "연락이 잘 되는 번호를 써요.", "caution": null, "example": "010-1234-5678", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "guardian", "label": "보호자(담당자) 연락처", "easy_label": "시설 선생님 연락처", "guide": "보호자 대신 시설 담당 선생님 연락처를 써도 돼요.", "caution": null, "example": null, "multiline": false, "essay": false, "outline": null},
+      {"field_id": "motive", "label": "참가 동기", "easy_label": "참가하고 싶은 이유", "guide": "이 프로그램에서 기대하는 것을 짧게 써요.", "caution": null, "example": null, "multiline": true, "essay": true, "outline": ["프로그램을 알게 된 계기", "해 보고 싶은 것", "끝나고 얻고 싶은 것"]}
+    ]
+  },
+  {
+    "template_id": "allowance",
+    "name": "자립수당 신청서",
+    "description": "보호종료 자립준비청년 자립수당 신청",
+    "stages": ["youth"],
+    "fields": [
+      {"field_id": "name", "label": "성명", "easy_label": "이름", "guide": "주민등록증에 적힌 이름 그대로 써요.", "caution": null, "example": "홍길동", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "birth", "label": "생년월일", "easy_label": "태어난 날", "guide": "숫자 8자리로 써요.", "caution": null, "example": "2007.03.15", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "phone", "label": "연락처", "easy_label": "전화번호", "guide": "연락이 잘 되는 번호를 써요.", "caution": null, "example": "010-1234-5678", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "address", "label": "주소", "easy_label": "사는 곳 주소", "guide": "도로명 주소로 써요. 동·호수까지 빠뜨리지 않아요.", "caution": null, "example": null, "multiline": false, "essay": false, "outline": null},
+      {"field_id": "end-date", "label": "보호종료일", "easy_label": "보호가 끝난 날", "guide": "시설에서 받은 보호종료확인서의 날짜를 그대로 써요.", "caution": "날짜가 다르면 심사가 늦어질 수 있어요.", "example": null, "multiline": false, "essay": false, "outline": null},
+      {"field_id": "account", "label": "입금 계좌", "easy_label": "돈 받을 통장", "guide": "본인 이름의 통장만 가능해요.", "caution": "다른 사람 명의 계좌는 쓸 수 없어요.", "example": null, "multiline": false, "essay": false, "outline": null}
+    ]
+  },
+  {
+    "template_id": "move-in",
+    "name": "전입신고서",
+    "description": "이사 후 주민센터에 내는 서류",
+    "stages": ["youth"],
+    "fields": [
+      {"field_id": "name", "label": "성명", "easy_label": "이름", "guide": "주민등록증에 적힌 이름 그대로 써요.", "caution": null, "example": "홍길동", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "before", "label": "전 주소", "easy_label": "이사 오기 전 주소", "guide": "이전에 살던 곳 주소를 써요.", "caution": null, "example": null, "multiline": false, "essay": false, "outline": null},
+      {"field_id": "after", "label": "새 주소", "easy_label": "이사 온 집 주소", "guide": "동·호수까지 정확히 써요.", "caution": null, "example": null, "multiline": false, "essay": false, "outline": null},
+      {"field_id": "head", "label": "세대주 관계", "easy_label": "세대주와의 관계", "guide": "혼자 살면 '본인'이라고 써요.", "caution": null, "example": "본인", "multiline": false, "essay": false, "outline": null}
+    ]
+  },
+  {
+    "template_id": "resume-form",
+    "name": "입사지원서 (기본형)",
+    "description": "회사 지원 시 자주 쓰는 이력서 양식",
+    "stages": ["youth"],
+    "fields": [
+      {"field_id": "name", "label": "성명", "easy_label": "이름", "guide": "주민등록증에 적힌 이름 그대로 써요.", "caution": null, "example": "홍길동", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "birth", "label": "생년월일", "easy_label": "태어난 날", "guide": "숫자 8자리로 써요.", "caution": null, "example": "2007.03.15", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "phone", "label": "연락처", "easy_label": "전화번호", "guide": "연락이 잘 되는 번호를 써요.", "caution": null, "example": "010-1234-5678", "multiline": false, "essay": false, "outline": null},
+      {"field_id": "address", "label": "주소", "easy_label": "사는 곳 주소", "guide": "도로명 주소로 써요. 동·호수까지 빠뜨리지 않아요.", "caution": null, "example": null, "multiline": false, "essay": false, "outline": null},
+      {"field_id": "edu", "label": "학력사항", "easy_label": "다닌 학교", "guide": "최종 학교부터 거꾸로 써요.", "caution": null, "example": null, "multiline": true, "essay": false, "outline": null},
+      {"field_id": "career", "label": "경력사항", "easy_label": "일한 경험", "guide": "아르바이트도 기간과 한 일을 함께 쓰면 경력이 돼요.", "caution": null, "example": "2025.03~2025.08 ○○카페 아르바이트 (음료 제조, 재고 정리)", "multiline": true, "essay": false, "outline": null},
+      {"field_id": "license", "label": "자격증", "easy_label": "가진 자격증", "guide": "자격증 이름, 취득일, 발급 기관을 써요.", "caution": null, "example": null, "multiline": false, "essay": false, "outline": null},
+      {"field_id": "intro", "label": "자기소개", "easy_label": "나를 소개하는 글", "guide": "직무와 연결되는 경험 위주로 써요.", "caution": null, "example": null, "multiline": true, "essay": true, "outline": ["한 줄로 나를 표현하기", "직무와 이어지는 경험", "그 경험에서 배운 점", "입사 후 하고 싶은 일"]}
+    ]
+  }
+]

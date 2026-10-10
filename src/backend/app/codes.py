@@ -39,3 +39,4 @@ STEP_LABELS = {
 STEP_KEYS = tuple(STEP_LABELS)
 
 ROLEPLAY_LEVELS = ("EASY", "NORMAL", "HARD")  # api.md 1.2
+DOC_TYPES = ("activity_record", "resume", "cover_letter")  # api.md 1.2
