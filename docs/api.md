@@ -1,6 +1,7 @@
 # API 명세 (On-Road)
 
 > 범위: 1차 데모 핵심 기능 1~4번 (정책 검색, 쉬운 말 변환, 생활비 시뮬레이션, 신청 준비 체크리스트)
+> 추가 제안 기능: AI 상담 채팅, AI 롤플레잉, 글쓰기·서류 작성 도우미 (3.15부터 3.22까지)
 > DB 구조는 `docs/db-schema.md`, 화면은 프론트엔드 피그마 시안 기준
 
 <br/>
@@ -42,6 +43,9 @@
 | 422 | `VALIDATION_ERROR` | 필수값 누락, 코드값 오류, 형식 오류 (예: 미래 생년월일, 휴대폰 번호 형식) |
 | 422 | `SUM_EXCEEDS_INCOME` | 시뮬레이션 배분 합계가 총소득보다 큼 |
 | 503 | `RAG_UNAVAILABLE` | 정책 검색(RAG) 처리 중 오류 |
+| 404 | `SCENARIO_NOT_FOUND` | 롤플레잉 상황 id가 없음 |
+| 404 | `FORM_NOT_FOUND` | 서류 양식 id가 없음 |
+| 503 | `AI_UNAVAILABLE` | LLM 처리 중 오류 (상담 답변, 롤플레잉 대화, 초안 작성) |
 
 ### 1.2 공통 코드값
 
@@ -56,6 +60,10 @@
 | 시뮬레이션 배분 항목 | `housing`(주거비) / `food`(식비) / `transport`(교통비) / `telecom`(통신비) / `other`(기타) |
 | 체크리스트 단계 `step_key` | `target_check`(대상 확인) / `condition_check`(조건 확인) / `doc_prepare`(서류 준비) / `apply`(신청) |
 | 체크리스트 항목 `item_type` | `step`(단계) / `document`(서류) |
+| 채팅 응답 `type` | `policy`(정책 검색 답변) / `counsel`(고민·진로 상담 답변) / `crisis`(위기 안내) |
+| 대화 `role` | `user`(사용자) / `assistant`(AI) |
+| 롤플레잉 난이도 `level` | `EASY`(쉬움) / `NORMAL`(보통) / `HARD`(실전) |
+| 초안 종류 `type` (3.22) | `activity_record`(진학용 활동 기록) / `resume`(이력서) / `cover_letter`(자기소개서) |
 
 ### 1.3 조건 판정 (`eligibility`)
 
@@ -109,6 +117,31 @@
   - 체크리스트를 만든 뒤 정책이 비활성화되어도 체크리스트는 계속 조회·체크할 수 있다.
   - `false`면 앱에서 "더 이상 운영되지 않는 정책"으로 표시하고, 정책 상세(3.6, 404 응답)로 이동하지 않는다.
 
+### 1.6 AI 답변 공통 원칙 (추가 제안 기능)
+
+- AI가 만든 문장은 공식 판단이 아님을 화면에 표시한다 (계획서 7.2.2, 8.3).
+  - 상담 답변 아래: "AI 답변은 참고용이에요. 금액·자격은 담당 기관에서 꼭 확인해 주세요."
+  - 초안: "AI가 만든 초안이에요. 직접 확인하고 고쳐서 쓰세요."
+- 지원 금액·자격·신청 가능 여부는 LLM이 만들지 않는다. 정책 질문은 3.5 정책 검색(RAG)으로만 답한다 (계획서 7.3).
+- 대화 내용은 서버에 저장하지 않고 로그에도 남기지 않는다. 이어지는 대화는 앱이 이전 대화(`history`)를 들고 있다가 요청마다 보낸다.
+- LLM에는 이름·전화번호·생년월일을 보내지 않는다. 필요한 경우 `stage`, `status`, `d_day`만 보낸다 (계획서 8.1).
+- 위기 신호(자해·자살 등)가 보이면 LLM을 부르지 않고 정해진 안내 문구와 연락처를 응답한다 (계획서 7.2.4, 8.3).
+
+**`history` 공통 형식**
+
+```json
+"history": [
+  { "role": "assistant", "content": "다음 분 오세요. 무슨 일로 오셨어요?" },
+  { "role": "user", "content": "이사 왔어요" }
+]
+```
+
+| 규칙 | 내용 |
+|---|---|
+| 개수 | 0~20개. 넘으면 앱에서 오래된 것부터 빼고 보냄 |
+| `role` | `user` 또는 `assistant` |
+| `content` | 1~1000자 |
+
 <br/>
 
 ## 2. 엔드포인트 목록
@@ -120,7 +153,7 @@
 | 온보딩 | GET | `/users/{user_id}` | 저장된 `user_id`가 유효한지 확인, 프로필 조회 (성장 단계 재계산) |
 | 회원정보 | PATCH | `/users/{user_id}` | 회원정보 수정 (퇴소 처리, D-day 목표일 설정 등) |
 | 홈 | GET | `/users/{user_id}/dashboard` | 인사말, 진행 중인 체크리스트("지금 할 일"), 최근 시뮬레이션 |
-| 성장 기록 | GET | `/users/{user_id}/growth` | 체크리스트·시뮬레이션 기록 모아 보기 (3.13) |
+| 성장 기록 | GET | `/users/{user_id}/growth` | 체크리스트·시뮬레이션·롤플레잉 기록 모아 보기 (3.13) |
 | 정책 검색 | POST | `/search` | 질문 → 조건 필터 → RAG 답변 + 근거 (상담 화면) |
 | 정책 상세 | GET | `/policies/{policy_id}` | 정책 카드·상세 정보 |
 | 시뮬레이션 | GET | `/simulations/criteria` | 배분 기준표 조회 |
@@ -129,6 +162,16 @@
 | 체크리스트 | POST | `/checklists` | 체크리스트 조회 또는 생성 (get-or-create) |
 | 체크리스트 | GET | `/checklists/{checklist_id}` | 체크리스트 상세 조회 |
 | 체크리스트 | PATCH | `/checklists/{checklist_id}/items/{item_id}` | 단계·서류 항목 체크 토글 |
+| AI 상담 | POST | `/chat` | 상담 채팅. 정책 질문은 정책 검색, 고민·진로는 상담 답변 (3.15) |
+| AI 롤플레잉 | GET | `/coach/roleplay/scenarios` | 연습 상황 목록 (3.16) |
+| AI 롤플레잉 | GET | `/coach/roleplay/{scenario_id}/opening` | 첫 대사 (3.17) |
+| AI 롤플레잉 | POST | `/coach/roleplay/{scenario_id}/reply` | 대화 한 턴 (3.18) |
+| AI 롤플레잉 | POST | `/coach/roleplay/{scenario_id}/feedback` | 피드백, 선택 저장 (3.19) |
+| 서류 도우미 | GET | `/forms/templates` | 서류 양식 목록 (3.20) |
+| 서류 도우미 | GET | `/forms/templates/{template_id}` | 양식 항목과 쉬운 설명 (3.21) |
+| 서류 도우미 | POST | `/users/{user_id}/documents` | 이력서·자기소개서·활동 기록 초안 (3.22) |
+
+- 롤플레잉·서류 경로는 프론트 `RemoteCoachApi`에 적힌 경로를 그대로 사용
 
 <br/>
 
@@ -677,7 +720,7 @@
 
 ### 3.13 `GET /users/{user_id}/growth` — 성장 기록
 
-기존 데이터(사용자, 체크리스트, 시뮬레이션)를 모아 보여주는 화면용이다. 새 테이블 없이 조회만 한다.
+기존 데이터(사용자, 체크리스트, 시뮬레이션, 저장한 롤플레잉 피드백)를 모아 보여주는 화면용이다. 조회만 한다.
 
 **응답 200**
 ```json
@@ -694,7 +737,8 @@
   "summary": {
     "checklist_count": 2,
     "completed_checklist_count": 1,
-    "simulation_count": 3
+    "simulation_count": 3,
+    "roleplay_count": 1
   },
   "checklists": [
     {
@@ -725,6 +769,16 @@
       "criteria_version": "2026-10-v1",
       "created_at": "2026-10-01T20:00:00+09:00"
     }
+  ],
+  "roleplays": [
+    {
+      "roleplay_id": 4,
+      "scenario_id": "community-center",
+      "title": "주민센터 전입신고",
+      "good_count": 2,
+      "missed_count": 1,
+      "created_at": "2026-10-11T20:00:00+09:00"
+    }
   ]
 }
 ```
@@ -740,6 +794,7 @@
 - `summary.completed_checklist_count`: 4단계를 모두 체크한(`next_step == null`) 체크리스트 수
 - `checklists`: 전체 (개수 제한 없음). 정렬은 3.4와 같음. 없으면 빈 배열
 - `simulations`: 전체 요약 (개수 제한 없음), 최신순. 없으면 빈 배열. 결과 전체는 `simulation_id`로 3.14를 호출해서 본다.
+- `roleplays`: 3.19에서 `save: true`로 저장한 기록만. 최신순. 없으면 빈 배열
 - 저장한 정책(찜)은 데모 범위 밖이라 포함하지 않는다 (`db-schema.md` 7장).
 
 <br/>
@@ -759,7 +814,323 @@
 
 <br/>
 
+### 3.15 `POST /chat` — AI 상담 채팅
+
+처리 순서: ① 위기 신호 확인 → ② 질문 종류 분류 (정책 / 상담) → ③ 정책이면 3.5와 같은 처리, 상담이면 LLM 상담 답변
+
+**요청**
+```json
+{
+  "user_id": "3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f",
+  "message": "취업 준비는 뭐부터 해야 할까?",
+  "history": []
+}
+```
+
+| 필드 | 타입 | 필수 | 규칙 |
+|---|---|---|---|
+| user_id | string (UUID) | O | |
+| message | string | O | 1~500자 |
+| history | array | X | 1.6 형식. 없으면 `[]` |
+
+**응답 200 — 정책 질문**
+```json
+{
+  "type": "policy",
+  "message": null,
+  "search": { "answer_status": "answered", "answer": "...", "results": [ ... ] },
+  "contacts": []
+}
+```
+- `search`는 3.5 응답과 같은 형식. 정책 카드, 근거 원문, "체크리스트로 정리해 드릴까요?" 버튼(3.9)도 3.5와 같이 그린다.
+
+**응답 200 — 고민·진로 상담**
+```json
+{
+  "type": "counsel",
+  "message": "취업 준비는 지금 상황을 정리하는 것부터 시작하면 좋아요. ...",
+  "search": null,
+  "contacts": []
+}
+```
+
+**응답 200 — 위기 신호**
+```json
+{
+  "type": "crisis",
+  "message": "많이 힘드셨겠어요. 혼자 견디지 않아도 괜찮아요. 지금 바로 이야기할 수 있는 곳이에요.",
+  "search": null,
+  "contacts": [
+    { "name": "자살예방상담전화", "phone": "109" },
+    { "name": "청소년상담전화", "phone": "1388" },
+    { "name": "보건복지상담센터", "phone": "129" },
+    { "name": "경찰", "phone": "112" }
+  ]
+}
+```
+
+| null 가능 필드 | null일 때 |
+|---|---|
+| `message` | `type = "policy"` (답변은 `search.answer`) |
+| `search` | `type`이 `counsel` 또는 `crisis` |
+
+- 상담 답변(`counsel`)에서도 지원 금액·자격·신청 가능 여부는 말하지 않고, 필요하면 정책 질문으로 다시 물어보도록 안내한다.
+- `crisis` 문구와 연락처는 서버 고정값. LLM이 만들지 않는다.
+- 연락처 4개는 앱 `ChatScreen`의 도움 연락처와 같음
+- 첫 인사, 시작 질문 4개, 상단 "도움 연락처"는 앱 고정 문구
+- 지금 앱은 3.5를 직접 부름. 3.15로 바꾸면 `type = "policy"`일 때 `search`를 기존 처리 그대로 쓰면 됨
+- 타임아웃 30초 권장
+
+<br/>
+
+### 3.16 `GET /coach/roleplay/scenarios` — 연습 상황 목록
+
+경로는 프론트 `RemoteCoachApi`에 적힌 경로를 그대로 쓴다.
+
+**쿼리**: `stage` (선택, `child` / `teen` / `youth`). 있으면 그 단계 대상 상황만
+
+**응답 200**
+```json
+{
+  "scenarios": [
+    {
+      "scenario_id": "community-center",
+      "title": "주민센터 전입신고",
+      "category": "행정",
+      "partner": "주민센터 직원",
+      "setting": "새 집으로 이사하고 전입신고를 하러 왔어요.",
+      "goal": "전입신고와 확정일자까지 챙기기",
+      "level": "NORMAL",
+      "stages": ["youth"]
+    }
+  ]
+}
+```
+
+- 상황 7개: 프론트 `FakeCoachApi`의 `store`, `bank`, `community-center`, `landlord`, `parttime`, `school`, `job`을 그대로 옮김
+- `level`: `EASY`(쉬움) / `NORMAL`(보통) / `HARD`(실전)
+- 상황 데이터는 서버 파일(`app/roleplay_scenarios.json`). 체크 항목·준비 서류는 응답에 넣지 않음 (연습 전에 답이 보이지 않게)
+
+<br/>
+
+### 3.17 `GET /coach/roleplay/{scenario_id}/opening` — 첫 대사
+
+**쿼리**: `stage` (선택). 단계에 따라 난이도·대사가 다른 상황(`parttime`: 청년은 실전)에 사용
+
+**응답 200**
+```json
+{
+  "scenario_id": "community-center",
+  "level": "NORMAL",
+  "message": "다음 분 오세요. 무슨 일로 오셨어요?"
+}
+```
+
+<br/>
+
+### 3.18 `POST /coach/roleplay/{scenario_id}/reply` — 대화 한 턴
+
+**요청**
+```json
+{
+  "user_id": "3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f",
+  "stage": "youth",
+  "message": "네 이사 왔어요",
+  "history": [
+    { "role": "assistant", "content": "다음 분 오세요. 무슨 일로 오셨어요?" }
+  ]
+}
+```
+
+| 필드 | 타입 | 필수 | 규칙 |
+|---|---|---|---|
+| user_id | string (UUID) | O | |
+| stage | string | X | 3.17과 같음 |
+| message | string | O | 1~500자 |
+| history | array | O | 1.6 형식. 첫 턴은 첫 대사 하나 |
+
+**응답 200**
+```json
+{
+  "reply": "전입신고시군요. 신분증 주시겠어요?",
+  "is_finished": false
+}
+```
+
+- 앱 `RoleplayTurn(fromUser, text)`는 `role`(`user`/`assistant`), `content`로 바꿔 보냄
+- `is_finished`: 상대역이 대화를 마무리했으면 `true` → 앱에서 피드백(3.19) 호출. "끝내기"를 누르면 바로 3.19
+- 목 함수: 지금 앱 더미와 같이 상황별 대사를 순서대로 내고, 대사가 끝나면 "오늘은 여기까지 할게요"와 `is_finished: true`
+- 위기 신호가 보이면 3.15 `crisis` 안내 문구를 `reply`에 넣고 `is_finished: true`
+
+<br/>
+
+### 3.19 `POST /coach/roleplay/{scenario_id}/feedback` — 피드백
+
+**요청**
+```json
+{
+  "user_id": "3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f",
+  "history": [ ... ],
+  "save": false
+}
+```
+
+| 필드 | 타입 | 필수 | 규칙 |
+|---|---|---|---|
+| user_id | string (UUID) | O | |
+| history | array | O | 1.6 형식. 사용자 발화 1개 이상 |
+| save | boolean | X | `true`면 피드백 결과만 저장 (대화 내용은 저장 안 함). 기본 `false` |
+
+**응답 200**
+```json
+{
+  "roleplay_id": null,
+  "good": ["끝까지 대화를 이어 갔어요"],
+  "missed": ["신분증 준비", "확정일자 함께 받기", "임대차 계약서 챙기기"],
+  "documents": ["신분증", "임대차 계약서"],
+  "better": [
+    { "before": "이사 왔어요", "after": "이사해서 전입신고하고, 확정일자도 같이 받고 싶어요" }
+  ]
+}
+```
+
+| null 가능 필드 | null일 때 |
+|---|---|
+| `roleplay_id` | `save: false` (저장 안 함) |
+
+- `good`, `missed`: 상황별 체크 항목 중 사용자 발화에 키워드가 있으면 `good`, 없으면 `missed`. 사용자 발화가 3개 이상이면 `good`에 "끝까지 대화를 이어 갔어요" 추가 (앱 더미와 같은 규칙, LLM 사용 안 함)
+- `documents`: 상황 데이터의 준비 서류
+- `better`: 상황 데이터의 고친 말 예시 (실제 LLM 연결 후 대화에 맞춰 생성)
+- "다시 연습하기"는 `history`를 비우고 3.17부터
+
+<br/>
+
+### 3.20 `GET /forms/templates` — 서류 양식 목록
+
+**쿼리**: `stage` (선택). 있으면 그 단계 대상 양식만
+
+**응답 200**
+```json
+{
+  "templates": [
+    {
+      "template_id": "scholarship",
+      "name": "장학금 신청서",
+      "description": "학교·재단 장학금 신청에 자주 쓰는 양식",
+      "stages": ["teen", "youth"]
+    }
+  ]
+}
+```
+
+- 양식 5개: 프론트 `FakeCoachApi`의 `scholarship`, `program`, `allowance`, `move-in`, `resume-form`을 그대로 옮김
+
+<br/>
+
+### 3.21 `GET /forms/templates/{template_id}` — 양식 항목
+
+**응답 200**
+```json
+{
+  "template_id": "scholarship",
+  "name": "장학금 신청서",
+  "description": "학교·재단 장학금 신청에 자주 쓰는 양식",
+  "stages": ["teen", "youth"],
+  "fields": [
+    {
+      "field_id": "birth",
+      "label": "생년월일",
+      "easy_label": "태어난 날",
+      "guide": "숫자 8자리로 써요.",
+      "caution": null,
+      "example": "2007.03.15",
+      "multiline": false,
+      "essay": false,
+      "outline": null
+    },
+    {
+      "field_id": "reason",
+      "label": "신청 사유",
+      "easy_label": "장학금이 필요한 이유",
+      "guide": "과장하지 말고 사실만 써요. 확인 서류를 요구할 수 있어요.",
+      "caution": null,
+      "example": null,
+      "multiline": true,
+      "essay": true,
+      "outline": ["지금 나의 상황", "장학금이 필요한 이유", "받게 되면 어디에 쓸지", "앞으로의 계획"]
+    }
+  ]
+}
+```
+
+| null 가능 필드 | null일 때 |
+|---|---|
+| `caution`, `example`, `outline` | 해당 안내 없음 |
+
+- 필드는 앱 `FormField`를 snake_case로 바꾼 것. 공통 항목 4개(성명, 생년월일, 연락처, 주소) 포함
+- LLM 사용 안 함. 입력값은 앱에만 있고 서버에 저장하지 않음
+
+<br/>
+
+### 3.22 `POST /users/{user_id}/documents` — 이력서·자기소개서 초안
+
+서버에 쌓인 기록(완료한 체크리스트, 시뮬레이션)과 앱에만 있는 기록을 근거로 초안을 만든다.
+
+**요청**
+```json
+{
+  "type": "resume",
+  "app_records": {
+    "saved_policy_count": 2,
+    "interest_summary": null
+  }
+}
+```
+
+| 필드 | 타입 | 필수 | 규칙 |
+|---|---|---|---|
+| type | string | O | `activity_record`(진학용 활동 기록) / `resume`(이력서) / `cover_letter`(자기소개서) |
+| app_records | object | X | 앱에만 있는 기록. `saved_policy_count`(int, 0 이상), `interest_summary`(string, 0~500자, null 가능) |
+
+**응답 200**
+```json
+{
+  "type": "resume",
+  "sections": [
+    {
+      "title": "경험·활동",
+      "sentences": [
+        { "text": "의료비 지원 신청 절차를 스스로 확인하고 서류를 준비해 신청을 마쳤습니다.", "source": "체크리스트 완료 · 의료비 지원" }
+      ]
+    },
+    {
+      "title": "자격증",
+      "sentences": [
+        { "text": "가진 자격증을 적어 주세요.", "source": null }
+      ]
+    }
+  ],
+  "notice": "앱에 쌓인 기록으로 만든 초안이에요. 없는 경험은 넣지 않았어요."
+}
+```
+
+| null 가능 필드 | null일 때 |
+|---|---|
+| `sections[].sentences[].source` | 사용자가 직접 채울 빈칸 문장 |
+
+- 섹션 구성은 앱 더미와 같음
+  - `activity_record`: 관심 분야, 활동 내용, 배운 점과 계획
+  - `resume`: 기본 정보, 학력, 경험·활동, 자격증
+  - `cover_letter`: 나를 소개합니다, 준비해 온 과정, 앞으로의 계획
+- 기록에서 나온 문장만 `source`를 붙인다. 기록에 없는 경험·수치는 넣지 않는다.
+- 목 함수: 기록마다 정해진 문장. 실제 LLM 연결 후 자기소개서 문장만 LLM으로 다듬음
+- 기록이 하나도 없으면 빈칸 문장만 돌려주고 `notice`로 "아직 쌓인 기록이 없어요" 안내
+
+<br/>
+
 ## 4. 내부 연동 규약 (백엔드 ↔ AI 담당)
+
+### 4.1 RAG 함수 (`/search`)
 
 `/search` API는 백엔드가 만들고, 그 안에서 AI 담당이 `src/rag/`에 만든 함수를 호출한다. AI 담당은 아래 형식으로 함수를 제공한다.
 
@@ -793,6 +1164,29 @@ def search_policies(question: str, candidate_policy_keys: list[str], top_k: int 
 - 백엔드는 `evidences`를 `policy_key`별로 묶어서 정책 정보와 함께 3.5 응답을 만든다.
 - 후보 목록이 비어 있으면 백엔드가 함수를 호출하지 않고 바로 `no_evidence`로 응답한다.
 - 함수가 완성되기 전까지 백엔드는 같은 형식의 목(mock) 함수로 개발한다.
+
+### 4.2 LLM 함수 (추가 제안 기능)
+
+백엔드는 `app/llm_client.py` 한 곳에서 아래 함수를 가져온다. 실제 함수가 준비되기 전까지 같은 형식의 목 함수(`app/llm_mock.py`)를 쓴다. 실제 함수 위치와 담당은 8장에서 확정.
+
+```python
+def classify_intent(message: str, history: list[dict]) -> str: ...
+# "policy" 또는 "counsel"
+
+def counsel_reply(message: str, history: list[dict], profile: dict) -> str: ...
+# profile: {"stage": "youth", "status": "leaving_soon", "d_day": 39}
+
+def roleplay_reply(scenario: dict, history: list[dict], message: str) -> dict: ...
+# {"reply": str, "is_finished": bool}
+
+def polish_sentences(doc_type: str, sentences: list[str]) -> list[str]: ...
+# 기록 문장을 자연스럽게 다듬기만 함. 개수·의미 유지, 새 경험 추가 금지
+```
+
+- 함수가 예외를 내거나 형식이 다르면 503 `AI_UNAVAILABLE`
+- 위기 신호 확인은 LLM 함수가 아니라 백엔드 규칙(키워드 목록)으로 먼저 처리
+- 롤플레잉 피드백, 서류 양식, 초안 기본 문장은 LLM 없이 규칙·데이터로 처리
+- 목 함수 동작: 키워드로 정책/상담 분류, 상담은 고정 문장, 롤플레잉은 상황 대사를 순서대로, 다듬기는 입력 그대로 반환
 
 <br/>
 
@@ -916,22 +1310,53 @@ def search_policies(question: str, candidate_policy_keys: list[str], top_k: int 
 | 공식 신청 바로가기 | `policy.apply_url` |
 | 문의 | `policy.contact` |
 
+### 6.6 AI 상담
+
+| 화면 요소 | 처리 |
+|---|---|
+| 질문 입력 → 답변 | 3.15. `type`에 따라 정책 카드 / 상담 답변 / 위기 안내 |
+| 자주 묻는 주제 | 앱 고정. 누르면 그 문장으로 3.15 |
+| "네, 정리해 줘" | 3.9 |
+| "다른 것도 물어볼게요" | 입력창 포커스 |
+| 상단 "도움 연락처" | 앱 고정 (3.15 `crisis` 연락처와 같은 목록) |
+
+### 6.7 AI와 실전 준비하기 (롤플레잉)
+
+| 화면 요소 | 처리 |
+|---|---|
+| 상황 카드 목록, 상황·목표 | 3.16 (`stage` = 사용자 단계) |
+| 대화 | 첫 대사 3.17, 이후 3.18 |
+| 끝내기 / 대화 종료 | 3.19 |
+| 잘 챙긴 것 / 빠뜨린 것 / 준비할 서류 / 이렇게 말해 보세요 | 3.19 `good` / `missed` / `documents` / `better` |
+| 다시 연습하기 | `history` 비우고 처음부터 |
+
+### 6.8 서류 작성 도우미, 이력서·자기소개서
+
+| 화면 요소 | 처리 |
+|---|---|
+| 자주 쓰는 양식 목록 | 3.20 |
+| 항목별 쉬운 설명, 주의 문구, 예시, 글 틀 | 3.21 `easy_label`, `guide`, `caution`, `example`, `outline` |
+| 이력서 초안 만들기 / 다시 만들기 | 3.22 `type: resume` |
+| 자기소개서 탭 | 3.22 `type: cover_letter` |
+| 진학용 활동 기록 (청소년) | 3.22 `type: activity_record` |
+
 <br/>
 
 ## 7. 데모에서 백엔드 연동이 없는 UI
 
-아래 요소는 이번 데모 범위(핵심 기능 1~4번) 밖이라 API가 없다. 화면에서 숨기거나 고정 더미 데이터로 보여준다. 추가 기능을 진행하게 되면 그때 API를 추가한다.
+아래 요소는 이번 데모 범위(핵심 기능 1~4번, 추가 제안 기능 3.15부터 3.22까지) 밖이라 API가 없다. 화면에서 숨기거나 고정 더미 데이터로 보여준다. 추가 기능을 진행하게 되면 그때 API를 추가한다.
 
 | 화면 | 요소 |
 |---|---|
 | 온보딩 | 성별, 시/군/구, 휴대폰 번호 인증 (번호는 저장만 함) |
-| 홈 | 상단 단계 전환(드롭다운으로 다른 단계 보기), 알림, 지금 할 일 카드의 마감 D-day, 다음 일정, AI와 실전 준비하기(부동산 계약 실전 연습), 서류 첨삭 도우미, 맞춤 진로 탐색, 자립 역량 진단, 필수 자립 지식 |
+| 홈 | 상단 단계 전환(드롭다운으로 다른 단계 보기), 알림, 지금 할 일 카드의 마감 D-day, 다음 일정, 맞춤 진로 탐색, 자립 역량 진단, 필수 자립 지식 |
 | 정책 카드 | 마감 D-day, 접수 및 신청 기간, 찜(하트), 비교 담기 |
 | 체크리스트 | 서류별 발급처 설명, 정부24 바로가기, 공식 서식 다운로드, 서류 파일 첨부·재첨부, AI 가이드 문구 |
-| 상담 | 이어지는 대화(빠른 답변 버튼), 음성 입력, 첨부(+) |
+| 상담 | 빠른 답변 버튼, 음성 입력, 첨부(+) |
 | 정책 비교 | 화면 전체 (추가 기능 5번) |
 | 앱 추가 화면 (앱 안에서 처리) | 퇴소 D-day 타임라인의 할 일 목록·완료 체크 (기준일은 3.4 `user.d_date`/`d_day` 사용), 저축 목표 (달성 시점을 앱에서 계산하고 로컬 저장), 주거비 비교 (앱에 고정한 기준값으로 계산), 다음 할 일 추천 (3.4 `checklists[].next_step`, `user.d_day`, `latest_simulation`과 앱 로컬 데이터를 조합한 규칙 기반 추천). 데모 이후 타임라인 체크·저축 목표 저장 API를 추가하고 추천 로직을 서버로 옮기는 방향으로 검토 |
-| 추가 제안 기능 | AI 상담 채팅 중 고민·진로 상담, AI 롤플레잉 시뮬레이션, 글쓰기·서류 작성 도우미. 핵심 기능 1~4번 완료 후 여유 시 API 추가 (AI 상담 채팅의 정책 검색 부분은 3.5를 그대로 사용) |
+| 추가 제안 기능 | 음성 입력, 내 양식 올리기(PDF·사진, 앱 경로 `/forms/analyze`), 작성한 서류 원본 양식으로 내보내기 (텍스트 공유로 대체), 선택지 연습(`PracticeScenarios`, 앱 고정 퀴즈) |
+| 스코프 아웃 | 흥미 탐색·직업 추천·로드맵 (앱 경로 `/coach/interest/*`, `/coach/jobs/recommend`, `/coach/roadmap`), 아동 상담 (앱 정해진 대화) |
 
 <br/>
 
@@ -943,6 +1368,9 @@ def search_policies(question: str, candidate_policy_keys: list[str], top_k: int 
 | AI 담당 | 4장 함수 형식으로 제공 가능한지, 함수 위치(`src/rag/` 안의 모듈 이름) |
 | 데이터 담당 | 5장 기준표 형식으로 작성 가능한지. 권장 비율 추가 여부는 위 첫 번째 항목 결정에 따름 |
 | 데이터 담당 | 광주·전남 통합(전남광주통합특별시) 전체를 대상으로 하는 정책이 데이터에 있으면 지역 코드 처리 방식 협의 (데모에서는 `광주`·`전남` 코드 유지) |
+| AI 담당 | 4.2 LLM 함수를 누가 만들지, 사용할 모델과 API 키 관리 방법 |
+| 데이터 담당 | 롤플레잉 상황 7개의 체크 항목·준비 서류, 서류 양식 5개의 항목 설명 검토 (앱 더미를 서버로 옮긴 것) |
+| 프론트엔드 | 3.15~3.22 연결 (`FakeCoachApi` → 서버), `history`를 앱에서 들고 있다가 보내는 방식, 3.22 `app_records`로 저장한 정책 수·흥미 탐색 결과 전달 |
 
 <br/>
 
@@ -957,7 +1385,7 @@ Kotlin 모델 작성용 표다. **null** 칸이 `O`인 필드만 `null`이 올 �
 | string (date) | `"2026-10-04"` | `String` (또는 `LocalDate`) |
 | string (datetime) | `"2026-10-04T09:30:00+09:00"` | `String` (또는 `OffsetDateTime`) |
 | int | 정수 (금액·개수·나이·일수) | `Int` |
-| long | 정수 ID (`policy_id`, `checklist_id`, `item_id`, `simulation_id`) | `Long` |
+| long | 정수 ID (`policy_id`, `checklist_id`, `item_id`, `simulation_id`, `roleplay_id`) | `Long` |
 | boolean | `true` / `false` | `Boolean` |
 | array<X> | 목록. 비어 있으면 `[]` | `List<X>` |
 | object | 아래 표의 객체 | data class |
@@ -1225,6 +1653,7 @@ Kotlin 모델 작성용 표다. **null** 칸이 `O`인 필드만 `null`이 올 �
 | summary.checklist_count | int | |
 | summary.completed_checklist_count | int | |
 | summary.simulation_count | int | |
+| summary.roleplay_count | int | |
 | checklists | array<object> | |
 | checklists[].checklist_id | long | |
 | checklists[].policy | ChecklistPolicy | |
@@ -1240,3 +1669,103 @@ Kotlin 모델 작성용 표다. **null** 칸이 `O`인 필드만 `null`이 올 �
 | simulations[].shortage_count | int | |
 | simulations[].criteria_version | string | |
 | simulations[].created_at | string (datetime) | |
+| roleplays | array<object> | |
+| roleplays[].roleplay_id | long | |
+| roleplays[].scenario_id | string | |
+| roleplays[].title | string | |
+| roleplays[].good_count | int | |
+| roleplays[].missed_count | int | |
+| roleplays[].created_at | string (datetime) | |
+
+### 3.15 `POST /chat`
+
+| 필드 | 타입 | null |
+|---|---|---|
+| type | string | |
+| message | string | O |
+| search | object (3.5 응답과 같음) | O |
+| contacts | array<object> | |
+| contacts[].name | string | |
+| contacts[].phone | string | |
+
+### 3.16 `GET /coach/roleplay/scenarios`
+
+| 필드 | 타입 | null |
+|---|---|---|
+| scenarios | array<object> | |
+| scenarios[].scenario_id | string | |
+| scenarios[].title | string | |
+| scenarios[].category | string | |
+| scenarios[].partner | string | |
+| scenarios[].setting | string | |
+| scenarios[].goal | string | |
+| scenarios[].level | string | |
+| scenarios[].stages | array<string> | |
+
+### 3.17 `GET /coach/roleplay/{scenario_id}/opening`
+
+| 필드 | 타입 | null |
+|---|---|---|
+| scenario_id | string | |
+| level | string | |
+| message | string | |
+
+### 3.18 `POST /coach/roleplay/{scenario_id}/reply`
+
+| 필드 | 타입 | null |
+|---|---|---|
+| reply | string | |
+| is_finished | boolean | |
+
+### 3.19 `POST /coach/roleplay/{scenario_id}/feedback`
+
+| 필드 | 타입 | null |
+|---|---|---|
+| roleplay_id | long | O |
+| good | array<string> | |
+| missed | array<string> | |
+| documents | array<string> | |
+| better | array<object> | |
+| better[].before | string | |
+| better[].after | string | |
+
+### 3.20 `GET /forms/templates`
+
+| 필드 | 타입 | null |
+|---|---|---|
+| templates | array<object> | |
+| templates[].template_id | string | |
+| templates[].name | string | |
+| templates[].description | string | |
+| templates[].stages | array<string> | |
+
+### 3.21 `GET /forms/templates/{template_id}`
+
+| 필드 | 타입 | null |
+|---|---|---|
+| template_id | string | |
+| name | string | |
+| description | string | |
+| stages | array<string> | |
+| fields | array<object> | |
+| fields[].field_id | string | |
+| fields[].label | string | |
+| fields[].easy_label | string | |
+| fields[].guide | string | |
+| fields[].caution | string | O |
+| fields[].example | string | O |
+| fields[].multiline | boolean | |
+| fields[].essay | boolean | |
+| fields[].outline | array<string> | O |
+
+### 3.22 `POST /users/{user_id}/documents`
+
+| 필드 | 타입 | null |
+|---|---|---|
+| type | string | |
+| sections | array<object> | |
+| sections[].title | string | |
+| sections[].sentences | array<object> | |
+| sections[].sentences[].text | string | |
+| sections[].sentences[].source | string | O |
+| notice | string | |
