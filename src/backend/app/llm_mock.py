@@ -28,8 +28,8 @@ def counsel_reply(message: str, history: list[dict], profile: dict) -> str:
 def roleplay_reply(scenario: dict, history: list[dict], message: str) -> dict:
     """상황 대사(scenario["lines"])를 순서대로. 첫 대사는 history 에 있으므로 제외"""
     lines = scenario.get("lines", [])
-    turn = max(sum(1 for h in history if h["role"] == "assistant") - 1, 0)
-    if turn < len(lines):
+    turn = sum(1 for h in history if h["role"] == "assistant") - 1
+    if 0 <= turn < len(lines):
         return {"reply": lines[turn], "is_finished": False}
     return {"reply": ROLEPLAY_END, "is_finished": True}
 

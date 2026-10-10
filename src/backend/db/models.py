@@ -137,3 +137,16 @@ class Simulation(Base):
     result: Mapped[dict] = mapped_column(JSONB, nullable=False)
     criteria_version: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = _created_at()
+
+
+class RoleplayResult(Base):
+    __tablename__ = "roleplay_results"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    scenario_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    good: Mapped[list] = mapped_column(JSONB, nullable=False)
+    missed: Mapped[list] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = _created_at()
