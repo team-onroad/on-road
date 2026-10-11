@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.codes import NATIONWIDE
 from app.errors import AppError
+from app.ids import parse_id
 from app.rag_client import SearchPolicies
 from app.rules import calc_age, is_outdated, judge_eligibility
 from app.schemas.policies import (
@@ -22,8 +23,6 @@ from app.schemas.policies import (
 from db.models import Policy, User
 
 logger = logging.getLogger(__name__)
-
-_BIGINT_MAX = 2**63 - 1
 
 # 서비스 노출 조건 (db-schema.md 3.2)
 VISIBLE = and_(Policy.is_active.is_(True), Policy.easy_text_verified.is_(True))
@@ -41,10 +40,8 @@ def rag_unavailable() -> AppError:
 
 def get_visible_policy(db: Session, policy_id: str) -> Policy:
     """policy_id 가 정수가 아니거나 범위 밖이거나, 정책이 없거나 노출 대상이 아니면 404."""
-    if not policy_id.isascii() or not policy_id.isdigit():
-        raise policy_not_found()
-    pid = int(policy_id)
-    if not 1 <= pid <= _BIGINT_MAX:
+    pid = parse_id(policy_id)
+    if pid is None:
         raise policy_not_found()
     policy = db.scalars(select(Policy).where(Policy.id == pid, VISIBLE)).one_or_none()
     if policy is None:
