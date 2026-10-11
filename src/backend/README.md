@@ -18,11 +18,14 @@ src/backend/
 │   ├── errors.py            ← 공통 에러 형식 (api.md 1.1)
 │   ├── clock.py             ← 오늘 날짜 (한국 시간 기준)
 │   ├── rules.py             ← 만 나이, 성장 단계, D-day, 조건 판정, 오래된 정보 계산
+│   ├── criteria.py          ← 시뮬레이션 기준표 읽기·검사
+│   ├── simulation_criteria_temp.json  ← 임시 기준표 (docs/simulation-criteria.json 받기 전까지 사용)
+│   ├── ids.py               ← 경로 ID 확인
 │   ├── rag_client.py        ← RAG 함수 연결 지점 (AI 담당 함수로 바꿀 때 여기만 수정)
 │   ├── rag_mock.py          ← RAG 임시(목) 함수
 │   ├── schemas/             ← 요청·응답 형식
-│   ├── services/            ← 기능별 처리 로직 (사용자, 정책·검색)
-│   └── api/                 ← API 경로 (health, users, policies)
+│   ├── services/            ← 기능별 처리 로직 (사용자, 정책·검색, 시뮬레이션)
+│   └── api/                 ← API 경로 (health, users, policies, simulations)
 ├── db/
 │   ├── models.py            ← 테이블 모델
 │   ├── session.py           ← DB 연결
@@ -115,12 +118,42 @@ pytest
 | PATCH | `/api/users/{user_id}` | 3.12 |
 | POST | `/api/search` | 3.5 (RAG는 목 함수) |
 | GET | `/api/policies/{policy_id}` | 3.6 |
+| GET | `/api/simulations/criteria` | 3.7 |
+| POST | `/api/simulations` | 3.8 |
+| GET | `/api/simulations/{simulation_id}` | 3.14 |
 
 명세에 없어서 따로 정한 부분
 - `user_id`가 잘못된 형식이거나 없는 사용자면 항상 404 `USER_NOT_FOUND` (앱은 온보딩으로 이동)
 - 사용자 확인(404)을 입력값 검증(422)보다 먼저 함
 - 이름, 질문은 앞뒤 공백을 지우고 저장·검색
 - 질문 내용은 DB와 로그에 남기지 않음
+- 시뮬레이션 금액은 정수만 받음. 배분 합계가 총소득보다 크면 422 `SUM_EXCEEDS_INCOME`
+- 시뮬레이션 결과 조회는 본인 기록만 가능. 다른 사용자 기록이면 404 `SIMULATION_NOT_FOUND`
+
+
+<br/><br/>
+## 시뮬레이션 기준표
+
+- `docs/simulation-criteria.json`(데이터 담당)이 있으면 그 파일을 사용
+- 파일이 비어 있으면 `app/simulation_criteria_temp.json`(임시 기준표, 버전 `TEMP-...`)을 사용
+- 기준표 형식이 틀리면 서버가 시작되지 않음
+- 다른 경로의 기준표를 쓰려면 `.env`에 `SIMULATION_CRITERIA_PATH=경로` 추가
+
+
+<br/><br/>
+## 시뮬레이션 대안 규칙
+
+1. 남은 금액을 부족 항목에 먼저 채움 (주거비 → 식비 → 교통비 → 통신비 → 기타 순서)
+2. 그래도 부족하면 기준보다 많이 넣은 항목에서 옮김. 여유가 큰 항목부터 쓰고, 기준값 아래로는 줄이지 않음
+3. 첫 번째 대안은 다 못 채워도 보여주고, 남은 부족분은 `remaining_shortages`에 담음
+4. 두 번째, 세 번째 대안은 앞에서 쓴 항목을 빼고 만들고, 부족분을 다 채울 때만 보여줌
+5. 대안은 최대 3개. 상황에 따라 0개나 1개일 수 있음
+
+| 경우 | 배분 (주거·식·교통·통신·기타) / 총소득 | 대안 |
+|---|---|---|
+| 명세 예시 | 30만·30만·10만·5만·10만 / 90만 | ① 남은 금액과 식비로 주거비 보완 ② 남은 금액과 교통비·통신비로 주거비 보완 |
+| 남은 금액만으로 충분 | 30만·25만·6만·4만·10만 / 100만 | ① 남은 금액으로 주거비 보완 |
+| 옮길 돈이 없음 | 30만·25만·6만·4만·10만 / 75만 | 없음 |
 
 
 <br/><br/>
