@@ -23,9 +23,16 @@ src/backend/
 │   ├── ids.py               ← 경로 ID 확인
 │   ├── rag_client.py        ← RAG 함수 연결 지점 (AI 담당 함수로 바꿀 때 여기만 수정)
 │   ├── rag_mock.py          ← RAG 임시(목) 함수
+│   ├── llm_client.py        ← LLM 함수 연결 지점 (실제 함수로 바꿀 때 여기만 수정)
+│   ├── llm_mock.py          ← LLM 임시(목) 함수
+│   ├── crisis.py            ← 위기 신호 키워드, 안내 문구, 연락처
+│   ├── roleplay.py          ← 롤플레잉 상황 읽기, 난이도·피드백 규칙
+│   ├── roleplay_scenarios.json  ← 롤플레잉 상황 7개 (앱 더미에서 옮김)
+│   ├── forms.py             ← 서류 양식 읽기·검사
+│   ├── forms.json           ← 서류 양식 5개 (앱 더미에서 옮김)
 │   ├── schemas/             ← 요청·응답 형식
-│   ├── services/            ← 기능별 처리 로직 (사용자, 정책·검색, 시뮬레이션, 체크리스트, 홈·성장 기록)
-│   └── api/                 ← API 경로 (health, users, policies, simulations, checklists)
+│   ├── services/            ← 기능별 처리 로직 (사용자, 정책·검색, 시뮬레이션, 체크리스트, 홈·성장 기록, 상담, 롤플레잉, 서류·초안)
+│   └── api/                 ← API 경로 (health, users, policies, simulations, checklists, chat, roleplay, forms)
 ├── db/
 │   ├── models.py            ← 테이블 모델
 │   ├── session.py           ← DB 연결
@@ -126,6 +133,14 @@ pytest
 | POST | `/api/checklists` | 3.9 |
 | GET | `/api/checklists/{checklist_id}` | 3.10 |
 | PATCH | `/api/checklists/{checklist_id}/items/{item_id}` | 3.11 |
+| POST | `/api/chat` | 3.15 (LLM은 목 함수) |
+| GET | `/api/coach/roleplay/scenarios` | 3.16 |
+| GET | `/api/coach/roleplay/{scenario_id}/opening` | 3.17 |
+| POST | `/api/coach/roleplay/{scenario_id}/reply` | 3.18 (LLM은 목 함수) |
+| POST | `/api/coach/roleplay/{scenario_id}/feedback` | 3.19 |
+| GET | `/api/forms/templates` | 3.20 |
+| GET | `/api/forms/templates/{template_id}` | 3.21 |
+| POST | `/api/users/{user_id}/documents` | 3.22 |
 
 명세에 없어서 따로 정한 부분
 - `user_id`가 잘못된 형식이거나 없는 사용자면 항상 404 `USER_NOT_FOUND` (앱은 온보딩으로 이동)
@@ -139,6 +154,40 @@ pytest
 - 체크 값(`is_checked`)은 `true`/`false`만 받음
 - 홈·성장 기록 체크리스트 정렬: 진행 중 → 완료, 각각 최근 수정순 (같으면 나중에 만든 것 먼저)
 - 성장 기록 시뮬레이션은 최신순
+
+AI 상담 (3.15)
+- 위기 신호는 이번 `message`만 확인 (`history`는 안 봄). `app/crisis.py` 키워드 목록 기준, 띄어쓰기 무시
+- `message`, `history[].content`는 앞뒤 공백을 지우고 길이 검사
+- `history`가 `null`이면 `[]`로 처리
+- 정책 질문은 이번 `message`만 검색에 사용. RAG 오류는 503 `RAG_UNAVAILABLE`
+- LLM에 보내는 `stage`는 오늘 기준으로 다시 계산 (DB 값은 안 바꿈)
+
+AI 롤플레잉 (3.16~3.19, 3.13)
+- 상황 데이터는 앱 더미 그대로 (명세 예시와 다른 부분 있음, 예: community-center `category` "생활")
+- 난이도: 아동은 모든 상황 쉬움, 아르바이트 면접은 청년이면 실전. 목록에도 적용
+- `stage`가 없거나 `null`이면 기본 난이도. 대상 단계가 아닌 `stage`로 첫 대사를 요청해도 200, 난이도는 3.16 규칙 (child면 EASY), 그 외 기본 난이도
+- 상황 목록은 앱 더미 순서
+- 실전은 압박 질문을 대사 사이사이에 섞음
+- LLM에는 상황 id, 제목, 상대역, 상황, 목표, 난이도, 대사만 보냄 (체크 항목, 준비 서류, 고친 말 예시는 안 보냄)
+- 대사가 끝나면 "네, 오늘은 여기까지 할게요. 수고했어요."
+- 위기 신호는 AI 상담과 같은 규칙
+- `history`는 빈 배열, `null` 모두 422. 첫 항목이 첫 대사인지는 검사 안 함
+- 없는 상황 404 → 없는 사용자 404 → 입력값 422 순서
+- `save`는 `true`/`false`만 받음
+- 체크 항목: 사용자 발화를 공백 하나로 이어 붙여 키워드 포함 여부 확인 (띄어쓰기 그대로)
+- 성장 기록에서 상황 파일에 없는 기록은 `title`에 `scenario_id`를 그대로 넣음
+- 성장 기록 `roleplays`는 같은 시각이면 ID 큰 것 먼저
+
+서류 양식, 초안 (3.20~3.22)
+- 양식 항목과 초안 안내 문구(`notice`)는 앱 더미 그대로 (명세 예시와 다른 부분 있음)
+- 공통 항목은 양식마다 앱 더미와 같음 (프로그램 참가 신청서는 3개, 전입신고서는 성명만)
+- 양식 목록은 앱 더미 순서
+- 완료한 체크리스트 문장은 성장 기록과 같은 순서. 정책이 비활성이어도 포함
+- 흥미 탐색 결과는 받은 문장 그대로, 출처 "흥미 탐색 결과". 빈 문자열은 없는 것으로 봄
+- 흥미 탐색 결과는 기록 수에 안 셈. 흥미 결과만 있으면 흥미 문장은 넣고 `notice`는 기록 없음 문구
+- 사용자 단계와 상관없이 초안 3종 모두 만듦
+- `app_records`가 `null`이면 없는 것과 같음. 빠진 필드는 `saved_policy_count` 0, `interest_summary` null
+- `saved_policy_count`는 정수만 (INT 범위). `interest_summary`는 앞뒤 공백 제거 후 500자 이하. 모르는 필드는 422
 
 
 <br/><br/>
