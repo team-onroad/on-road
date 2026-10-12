@@ -54,6 +54,9 @@ OPTIONAL_DEFAULTS: dict[str, Any] = {
 # is_active 는 json 에 있을 때만 반영한다 (없으면 DB에서 비활성화한 상태를 유지).
 ALLOWED_KEYS = set(REQUIRED_KEYS) | set(OPTIONAL_DEFAULTS) | {"is_active"}
 
+DOC_KEYS = ("name", "condition")
+DOC_TEXT_MAX = 200  # checklist_items.label, condition VARCHAR(200)
+
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -85,6 +88,30 @@ def load_policy_file(path: Path) -> list[dict] | None:
     if not isinstance(data, list):
         raise SeedError(f"{path}: 최상위는 정책 객체의 배열이어야 합니다.")
     return data or None
+
+
+def _normalize_doc(doc: Any, where: str) -> dict[str, str | None]:
+    """문자열 또는 {name, condition} → {name, condition} (db-schema.md 6장)"""
+    if isinstance(doc, str):
+        doc = {"name": doc}
+    if not isinstance(doc, dict):
+        raise SeedError(f"{where}: 문자열 또는 {{name, condition}} 객체여야 합니다.")
+    unknown = sorted(set(doc) - set(DOC_KEYS))
+    if unknown:
+        raise SeedError(f"{where}: 알 수 없는 키 {unknown}")
+
+    name = doc.get("name")
+    if not isinstance(name, str) or not name.strip():
+        raise SeedError(f"{where}: name 은 비어 있지 않은 문자열이어야 합니다.")
+    condition = doc.get("condition")
+    if condition == "":
+        condition = None
+    if condition is not None and not isinstance(condition, str):
+        raise SeedError(f"{where}: condition 은 문자열 또는 null 이어야 합니다.")
+    for k, v in (("name", name), ("condition", condition)):
+        if v is not None and len(v) > DOC_TEXT_MAX:
+            raise SeedError(f"{where}: {k} 은 {DOC_TEXT_MAX}자 이하여야 합니다.")
+    return {"name": name, "condition": condition}
 
 
 def _normalize(item: Any, index: int, *, dummy: bool) -> dict[str, Any]:
@@ -126,10 +153,11 @@ def _normalize(item: Any, index: int, *, dummy: bool) -> dict[str, Any]:
         raise SeedError(f"{where}: checked_at 날짜 오류 '{checked_at}'") from e
 
     docs = item["required_docs"]
-    if not isinstance(docs, list) or not all(isinstance(d, str) and d for d in docs):
-        raise SeedError(f"{where}: required_docs 는 문자열 배열이어야 합니다.")
+    if not isinstance(docs, list):
+        raise SeedError(f"{where}: required_docs 는 배열이어야 합니다.")
+    required_docs = [_normalize_doc(d, f"{where}: required_docs {i + 1}번째") for i, d in enumerate(docs)]
 
-    row = {**OPTIONAL_DEFAULTS, **item, "checked_at": checked_date}
+    row = {**OPTIONAL_DEFAULTS, **item, "checked_at": checked_date, "required_docs": required_docs}
     for k in ("age_min", "age_max"):
         if row[k] is not None and (isinstance(row[k], bool) or not isinstance(row[k], int)):
             raise SeedError(f"{where}: {k} 는 정수 또는 null 이어야 합니다.")

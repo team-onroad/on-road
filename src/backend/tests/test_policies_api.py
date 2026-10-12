@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 
-from tests.factories import make_policy, make_user
+from tests.factories import doc, make_policy, make_user
 
 DETAIL_KEYS = {
     "policy_id", "policy_key", "name", "agency", "contact", "category", "region", "age_min",
@@ -23,7 +23,9 @@ def _assert_error(res, status_code, code):
 
 
 def test_policy_detail_fields(api, db_session):
-    p = make_policy(db_session, region="서울", age_min=19, age_max=34, required_docs=["신분증", "통장 사본"])
+    p = make_policy(
+        db_session, region="서울", age_min=19, age_max=34, required_docs=["신분증", doc("위임장", "대리 신청 시")]
+    )
 
     res = api.get(f"/api/policies/{p.id}")
 
@@ -33,7 +35,10 @@ def test_policy_detail_fields(api, db_session):
     assert data["policy_id"] == p.id
     assert data["policy_key"] == p.policy_key
     assert (data["region"], data["age_min"], data["age_max"]) == ("서울", 19, 34)
-    assert data["required_docs"] == ["신분증", "통장 사본"]
+    assert data["required_docs"] == [
+        {"name": "신분증", "condition": None},
+        {"name": "위임장", "condition": "대리 신청 시"},
+    ]
     assert data["easy_text"] == "쉬운 말"
     assert data["checked_at"] == "2026-09-28"
     assert data["is_outdated"] is False
