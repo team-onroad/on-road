@@ -173,6 +173,14 @@ def test_opening_level_by_stage(client, scenario_id, stage, level):
     assert res.json()["message"] == RAW[scenario_id]["opening"]
 
 
+@pytest.mark.parametrize("scenario_id", ["community-center", "job"])
+def test_opening_child_not_target(client, scenario_id):
+    # 아동은 대상 단계가 아닌 상황도 EASY (3.16 아동 규칙)
+    res = client.get(f"/api/coach/roleplay/{scenario_id}/opening", params={"stage": "child"})
+    assert res.status_code == 200
+    assert res.json() == {"scenario_id": scenario_id, "level": "EASY", "message": RAW[scenario_id]["opening"]}
+
+
 def test_opening_unknown_scenario(client):
     _assert_error(client.get("/api/coach/roleplay/nope/opening"), 404, "SCENARIO_NOT_FOUND")
 
