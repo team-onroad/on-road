@@ -21,7 +21,7 @@ android {
 
         // 백엔드 주소 (끝에 / 필수)
         // 에뮬레이터: 10.0.2.2 = PC의 localhost / 실기기: PC의 IP (같은 Wi-Fi, 서버는 --host 0.0.0.0)
-        buildConfigField("String", "BASE_URL", "\"http://172.30.1.47:8000/api/\"")
+        buildConfigField("String", "BASE_URL", "\"http://172.16.102.30:8000/api/\"")
     }
 
     buildTypes {

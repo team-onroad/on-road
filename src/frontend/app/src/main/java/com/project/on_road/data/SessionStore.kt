@@ -43,7 +43,16 @@ class SessionStore(context: Context) {
         get() = prefs.getInt(KEY_MISSION_COUNT, 0)
         set(value) = prefs.edit().putInt(KEY_MISSION_COUNT, value).apply()
 
-    /** 퇴소 예정일 */
+    /** 지금 상황 (시설 생활 / 퇴소 예정 / 퇴소 후). 서버 값과 맞춰 둔다 */
+    var status: LivingStatus?
+        get() = prefs.getString(KEY_STATUS, null)?.let { runCatching { LivingStatus.valueOf(it) }.getOrNull() }
+        set(value) {
+            prefs.edit().apply {
+                if (value == null) remove(KEY_STATUS) else putString(KEY_STATUS, value.name)
+            }.apply()
+        }
+
+    /** 퇴소 예정일 (퇴소 후면 목표일). 서버 d_date 와 맞춰 둔다 */
     var leaveDate: LocalDate?
         get() = prefs.getLong(KEY_LEAVE_DATE, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE }?.let(LocalDate::ofEpochDay)
         set(value) {
@@ -101,6 +110,7 @@ class SessionStore(context: Context) {
         const val KEY_MISSION_DAY = "mission_day"
         const val KEY_MISSION_COUNT = "mission_count"
         const val KEY_LEAVE_DATE = "leave_date"
+        const val KEY_STATUS = "living_status"
         const val KEY_DDAY_ALARM = "dday_alarm"
         const val KEY_TIMELINE_DONE = "timeline_done"
         const val KEY_SHORTCUTS = "home_shortcuts"

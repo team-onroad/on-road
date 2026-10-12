@@ -36,7 +36,9 @@ class FakeOnRoadApi(
         name: String,
         birthDate: LocalDate,
         region: String,
-        status: LivingStatus
+        status: LivingStatus,
+        phone: String?,
+        dDate: LocalDate?,
     ): UserProfile {
         latency(700)
         val user = UserProfile(
@@ -45,9 +47,28 @@ class FakeOnRoadApi(
             birthDate = birthDate,
             region = region,
             status = status,
-            stage = stageOf(birthDate)
+            stage = stageOf(birthDate),
+            phone = phone,
+            dDate = dDate,
+            dDay = dDate?.let { java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() },
         )
         users[user.userId] = user
+        return user
+    }
+
+    override suspend fun updateUser(userId: String, update: UserUpdate): UserProfile {
+        latency()
+        val old = users[userId] ?: error("가짜 모드: 사용자 없음")
+        // 서버 규칙과 같음: 퇴소 후로 바뀌면 퇴소일을 비우고, 같이 보낸 날짜가 있으면 목표일로 저장
+        var dDate = old.dDate
+        if (update.status == LivingStatus.LEFT && old.status != LivingStatus.LEFT) dDate = null
+        if (update.clearDDate) dDate = null else if (update.dDate != null) dDate = update.dDate
+        val user = old.copy(
+            status = update.status ?: old.status,
+            dDate = dDate,
+            dDay = dDate?.let { java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() },
+        )
+        users[userId] = user
         return user
     }
 
@@ -87,7 +108,7 @@ class FakeOnRoadApi(
         val matched = SamplePolicies.all
             .map { p ->
                 val score = p.keywords.count { q.contains(it.replace(" ", "")) } * 2 +
-                    (if (q.contains(p.name.replace(" ", ""))) 3 else 0)
+                        (if (q.contains(p.name.replace(" ", ""))) 3 else 0)
                 p to score
             }
             .filter { it.second > 0 }

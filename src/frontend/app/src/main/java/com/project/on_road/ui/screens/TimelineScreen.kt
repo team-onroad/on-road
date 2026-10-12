@@ -33,7 +33,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.project.on_road.data.LivingStatus
+import com.project.on_road.data.UserUpdate
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.AppContainer
 import com.project.on_road.data.TimelineLink
@@ -58,10 +63,27 @@ class TimelineViewModel(app: Application) : AndroidViewModel(app) {
         private set
     val done = mutableStateListOf<String>().apply { addAll(session.timelineDone) }
 
+    /** 퇴소 후면 '목표일', 아니면 '퇴소 예정일' */
+    val dateLabel: String get() = if (session.status == LivingStatus.LEFT) "목표일" else "퇴소 예정일"
+
     fun updateDate(date: LocalDate) {
         leaveDate = date
         session.leaveDate = date
         if (alarmOn) DdayNotifier.schedule(getApplication(), date)
+        saveToServer(date)
+    }
+
+    /** 3.12 회원정보 수정으로 서버 d_date 도 바꾼다. 실패해도 앱 안 날짜는 그대로 둔다 */
+    private fun saveToServer(date: LocalDate) {
+        val userId = session.userId ?: return
+        viewModelScope.launch {
+            runCatching { AppContainer.api.updateUser(userId, UserUpdate(dDate = date)) }
+                .onSuccess { AppContainer.applyProfile(it) }
+                .onFailure {
+                    android.util.Log.e("OnRoad", "퇴소일 서버 저장 실패", it)
+                    Toast.makeText(getApplication(), "서버에 저장하지 못했어요. 인터넷 연결을 확인해 주세요.", Toast.LENGTH_SHORT).show()
+                }
+        }
     }
 
     fun setAlarm(on: Boolean) {
@@ -109,7 +131,7 @@ fun TimelineScreen(
     // 알림 권한이 필요한 동작은 권한 확인 후 실행 (Android 13+)
     fun withNotificationPermission(action: () -> Unit) {
         val needs = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         if (needs) {
             pendingAction = action
             permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -126,7 +148,7 @@ fun TimelineScreen(
     OnRoadScreen("퇴소 D-day 타임라인", onBack) {
         // 퇴소일
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OnRoadTag("퇴소 예정일", style = TagStyle.SlatePrimary, shape = OnRoadShapes.Field, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp))
+            OnRoadTag(vm.dateLabel, style = TagStyle.SlatePrimary, shape = OnRoadShapes.Field, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp))
             Spacer(Modifier.weight(1f))
             Row(
                 Modifier

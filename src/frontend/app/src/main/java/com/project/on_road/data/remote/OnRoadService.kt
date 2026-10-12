@@ -2,7 +2,9 @@ package com.project.on_road.data.remote
 
 import com.google.gson.annotations.SerializedName
 import retrofit2.http.Body
+import okhttp3.RequestBody
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -17,6 +19,10 @@ interface OnRoadService {
     // 3.3 사용자 조회 (앱 실행 시 user_id 확인, 404면 온보딩)
     @GET("users/{userId}")
     suspend fun getUser(@Path("userId") userId: String): UserDto
+
+    // 3.12 회원정보 수정. null 을 그대로 보내야 하는 필드(d_date 지우기)가 있어서 본문을 직접 만든다
+    @PATCH("users/{userId}")
+    suspend fun updateUser(@Path("userId") userId: String, @Body body: RequestBody): UserDto
 
     // 3.5 정책 검색 (RAG)
     @POST("search")

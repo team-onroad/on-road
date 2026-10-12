@@ -1,5 +1,11 @@
 package com.project.on_road.data.remote
 
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonNull
+import com.google.gson.JsonObject
+import com.project.on_road.data.UserUpdate
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import com.project.on_road.data.BudgetCategory
 import com.project.on_road.data.ChatApi
 import com.project.on_road.data.ChatMessage
@@ -44,6 +50,8 @@ class RemoteOnRoadApi(
         birthDate: LocalDate,
         region: String,
         status: LivingStatus,
+        phone: String?,
+        dDate: LocalDate?,
     ): UserProfile = Network.call {
         service.createUser(
             UserCreateDto(
@@ -51,8 +59,22 @@ class RemoteOnRoadApi(
                 birthDate = birthDate.toString(), // YYYY-MM-DD
                 region = region,
                 status = status.toCode(),
+                phone = phone?.takeIf { it.isNotBlank() },
+                dDate = dDate?.toString(), // YYYY-MM-DD
             )
         ).toProfile()
+    }
+
+    override suspend fun updateUser(userId: String, update: UserUpdate): UserProfile = Network.call {
+        val body = JsonObject().apply {
+            update.status?.let { addProperty("status", it.toCode()) }
+            when {
+                update.clearDDate -> add("d_date", JsonNull.INSTANCE) // null 을 보내야 지워진다
+                update.dDate != null -> addProperty("d_date", update.dDate.toString())
+            }
+        }
+        val json = GsonBuilder().serializeNulls().create().toJson(body)
+        service.updateUser(userId, json.toRequestBody("application/json; charset=utf-8".toMediaType())).toProfile()
     }
 
     override suspend fun getUser(userId: String): UserProfile? =
@@ -73,6 +95,7 @@ class RemoteOnRoadApi(
             grounded = grounded,
             message = if (grounded) "공식 자료에서 관련 정책 ${policies.size}개를 찾았어요." else "확인할 수 있는 공식 정보가 없어요.",
             policies = policies,
+            answer = res.answer?.takeIf { grounded && it.isNotBlank() },
         )
     }
 
@@ -142,7 +165,7 @@ class RemoteChatApi(private val service: OnRoadService) : ChatApi {
                 res.answer!!
             } else {
                 "확인할 수 있는 공식 정보가 없어요. 추측해서 답하지 않을게요.\n\n" +
-                    "질문을 조금 더 구체적으로 해 주시거나, 보건복지상담센터(129)에 확인해 보세요."
+                        "질문을 조금 더 구체적으로 해 주시거나, 보건복지상담센터(129)에 확인해 보세요."
             },
             evidence = policies.flatMap { it.evidence }.take(3),
             policies = policies,
@@ -200,6 +223,9 @@ private fun UserDto.toProfile() = UserProfile(
     region = region,
     status = statusOf(status),
     stage = stageOf(stage),
+    phone = phone,
+    dDate = dDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+    dDay = dDay,
 )
 
 private fun SearchResultDto.toPolicy() = Policy(

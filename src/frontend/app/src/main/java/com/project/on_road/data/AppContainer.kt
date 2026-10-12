@@ -45,8 +45,18 @@ object AppContainer {
             session.clear()
             AppState.updateStage(UserStage.YOUNG_ADULT)
         } else {
-            session.save(user.userId, user.name, user.stage)
-            AppState.updateStage(user.stage)
+            applyProfile(user)
         }
+    }
+
+    /**
+     * 서버에서 받은 사용자 정보를 앱에 반영한다 (가입, 앱 실행, 회원정보 수정 뒤).
+     * 퇴소일(d_date)도 서버 값으로 맞춰서 홈·타임라인 D-day 가 서버와 같게 한다.
+     */
+    fun applyProfile(user: UserProfile) {
+        session.save(user.userId, user.name, user.stage)
+        session.status = user.status
+        if (USE_REMOTE) session.leaveDate = user.dDate
+        AppState.updateStage(user.stage)
     }
 }

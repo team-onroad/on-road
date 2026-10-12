@@ -95,7 +95,8 @@ import java.time.YearMonth
 /*    체크리스트 → 길 소개)로 넘어간다. 상황 질문은 생략(시설 생활로 저장).          */
 /* ================================================================== */
 
-enum class OnboardStep { INTRO, WHO, NAME, BIRTH, REGION, STATUS, DONE }
+/** DDATE: 퇴소 예정이면 퇴소 예정일, 퇴소 후면 목표일(건너뛰기 가능). 시설 생활이면 건너뜀 */
+enum class OnboardStep { INTRO, WHO, NAME, BIRTH, REGION, STATUS, DDATE, DONE }
 
 /** 단계별 만 나이 범위 (서버 규칙: 10세 이하 아동, 11~17세 청소년, 18세 이상 자립준비청년) */
 private fun ageRange(stage: UserStage): IntRange = when (stage) {
@@ -124,6 +125,15 @@ class OnboardingViewModel : ViewModel() {
         private set
     var status by mutableStateOf<LivingStatus?>(null)
         private set
+    /** 휴대폰 번호 (아동 온보딩에서 받음, 선택) */
+    var phone by mutableStateOf<String?>(null)
+        private set
+    var dYear by mutableStateOf<Int?>(null)
+        private set
+    var dMonth by mutableStateOf<Int?>(null)
+        private set
+    var dDay by mutableStateOf<Int?>(null)
+        private set
 
     var loading by mutableStateOf(false)
         private set
@@ -142,7 +152,12 @@ class OnboardingViewModel : ViewModel() {
         get() = if (isChild) {
             listOf(OnboardStep.INTRO, OnboardStep.WHO, OnboardStep.NAME, OnboardStep.BIRTH, OnboardStep.REGION, OnboardStep.DONE)
         } else {
-            listOf(OnboardStep.INTRO, OnboardStep.WHO, OnboardStep.NAME, OnboardStep.BIRTH, OnboardStep.REGION, OnboardStep.STATUS, OnboardStep.DONE)
+            listOfNotNull(
+                OnboardStep.INTRO, OnboardStep.WHO, OnboardStep.NAME, OnboardStep.BIRTH, OnboardStep.REGION, OnboardStep.STATUS,
+                // 퇴소 예정 · 퇴소 후일 때만 날짜를 묻는다
+                OnboardStep.DDATE.takeIf { status == LivingStatus.LEAVING_SOON || status == LivingStatus.LEFT },
+                OnboardStep.DONE,
+            )
         }
 
     /** 질문 단계만 (진행바용) */
@@ -206,6 +221,44 @@ class OnboardingViewModel : ViewModel() {
         if (d > last) birthDay = last
     }
 
+    // ---------------- 퇴소 예정일 / 목표일 ----------------
+
+    /** 퇴소 예정일은 꼭, 퇴소 후 목표일은 안 정해도 됨 */
+    val dDateRequired: Boolean get() = status == LivingStatus.LEAVING_SOON
+
+    /** 오늘부터 3년 뒤까지 */
+    val dYears: List<Int> get() = (today.year..today.year + 3).toList()
+    val dDays: List<Int>
+        get() = (1..YearMonth.of(dYear ?: today.year, dMonth ?: 1).lengthOfMonth()).toList()
+
+    val dDate: LocalDate?
+        get() {
+            val y = dYear ?: return null
+            val m = dMonth ?: return null
+            val d = dDay ?: return null
+            return runCatching { LocalDate.of(y, m, d) }.getOrNull()
+        }
+
+    /** 지난 날짜를 고르면 안내 */
+    val dDateHint: String?
+        get() {
+            val d = dDate ?: return null
+            if (!d.isBefore(today)) return null
+            return if (dDateRequired) "오늘 이후 날짜를 골라 주세요." else "목표일은 오늘 이후로 정해 주세요."
+        }
+
+    fun selectDYear(y: Int) { dYear = y; clampDDay() }
+    fun selectDMonth(m: Int) { dMonth = m; clampDDay() }
+    fun selectDDay(d: Int) { dDay = d }
+    /** 목표일 정하지 않기 */
+    fun clearDDate() { dYear = null; dMonth = null; dDay = null }
+
+    private fun clampDDay() {
+        val d = dDay ?: return
+        val last = dDays.last()
+        if (d > last) dDay = last
+    }
+
     // ---------------- 선택 ----------------
 
     fun selectWho(stage: UserStage) {
@@ -230,6 +283,8 @@ class OnboardingViewModel : ViewModel() {
         OnboardStep.BIRTH -> birthDate != null && birthHint == null
         OnboardStep.REGION -> region != null
         OnboardStep.STATUS -> status != null
+        // 퇴소 예정일은 꼭 골라야 하고, 목표일은 비워 두거나 다 골라야 함
+        OnboardStep.DDATE -> dDateHint == null && (if (dDateRequired) dDate != null else (dDate != null || (dYear == null && dMonth == null && dDay == null)))
     }
 
     // ---------------- 이동 ----------------
@@ -267,6 +322,7 @@ class OnboardingViewModel : ViewModel() {
         birthMonth = p.birthDate.monthValue
         birthDay = p.birthDate.dayOfMonth
         region = p.region
+        phone = p.phone
         submit()
     }
 
@@ -278,17 +334,27 @@ class OnboardingViewModel : ViewModel() {
         viewModelScope.launch {
             loading = true
             try {
-                val profile = AppContainer.api.createUser(name.trim(), birth, reg, st)
-                AppContainer.session.save(profile.userId, profile.name, profile.stage)
-                AppState.updateStage(profile.stage)
+                val profile = AppContainer.api.createUser(
+                    name = name.trim(),
+                    birthDate = birth,
+                    region = reg,
+                    status = st,
+                    phone = phone,
+                    dDate = if (isChild || st == LivingStatus.IN_FACILITY) null else dDate,
+                )
+                // user_id · 단계 · 상황 · 퇴소일을 앱에 저장 (홈·타임라인 D-day 가 같은 날짜를 씀)
+                AppContainer.applyProfile(profile)
                 resultStage = profile.stage
                 forward = true
                 step = OnboardStep.DONE
             } catch (e: ApiException) {
+                android.util.Log.e("OnRoad", "가입 실패 (서버 응답 ${e.httpStatus})", e)
                 error = if (e.httpStatus == 422) "입력한 정보를 다시 확인해 주세요." else "잠시 후 다시 시도해 주세요."
             } catch (e: IOException) {
+                android.util.Log.e("OnRoad", "가입 실패 (연결)", e)
                 error = "서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요."
             } catch (e: Exception) {
+                android.util.Log.e("OnRoad", "가입 실패 (앱 안)", e)
                 error = "잠시 후 다시 시도해 주세요."
             } finally {
                 loading = false
@@ -425,12 +491,17 @@ private fun IntroPage(onStart: () -> Unit) {
 
 private data class Question(val title: String, val sub: String)
 
-private fun question(step: OnboardStep): Question = when (step) {
+private fun question(step: OnboardStep, status: LivingStatus?): Question = when (step) {
     OnboardStep.WHO -> Question("누가 사용하나요?", "나이에 맞는 화면으로 안내해 드려요.")
     OnboardStep.NAME -> Question("이름을 알려 주세요", "앱에서 불러 드릴 이름이에요.")
     OnboardStep.BIRTH -> Question("생년월일을 선택해 주세요", "만 나이로 나에게 맞는 제도를 찾아요.")
     OnboardStep.REGION -> Question("지금 사는 지역은 어디인가요?", "시·도 기준으로 지원 정보를 골라 드려요.")
     OnboardStep.STATUS -> Question("지금 어떤 상황인가요?", "상황에 맞는 할 일과 제도를 먼저 보여 드려요.")
+    OnboardStep.DDATE -> if (status == LivingStatus.LEAVING_SOON) {
+        Question("퇴소 예정일이 언제인가요?", "자립까지 남은 날(D-day)을 계산해 드려요.")
+    } else {
+        Question("목표일을 정해 볼까요?", "취업, 이사처럼 준비 중인 날을 넣으면 D-day로 보여 드려요.\n나중에 정해도 돼요.")
+    }
     else -> Question("", "")
 }
 
@@ -469,7 +540,7 @@ private fun QuestionPage(vm: OnboardingViewModel) {
                         .heightIn(min = boxHeight)
                         .padding(start = 24.dp, end = 24.dp, top = boxHeight * 0.12f, bottom = 24.dp),
                 ) {
-                    val q = question(step)
+                    val q = question(step, vm.status)
                     Text(q.title, style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
                     Spacer(Modifier.height(8.dp))
                     Text(q.sub, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
@@ -487,6 +558,7 @@ private fun QuestionPage(vm: OnboardingViewModel) {
                             onSelect = vm::selectRegion,
                         )
                         OnboardStep.STATUS -> StatusStep(vm)
+                        OnboardStep.DDATE -> DDateStep(vm)
                         else -> Unit
                     }
                 }
@@ -619,6 +691,47 @@ private fun BirthStep(vm: OnboardingViewModel) {
     vm.birthHint?.let {
         Spacer(Modifier.height(16.dp))
         NoticeBox(it, tone = NoticeTone.Warning)
+    }
+}
+
+/** 퇴소 예정일 / 목표일: 드롭다운 3개 (생년월일과 같은 모양) */
+@Composable
+private fun DDateStep(vm: OnboardingViewModel) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OnRoadSelectBox(
+            value = vm.dYear?.let { "${it}년" }.orEmpty(),
+            options = vm.dYears.map { "${it}년" },
+            onSelect = { vm.selectDYear(it.removeSuffix("년").toInt()) },
+            modifier = Modifier.weight(1.4f),
+            placeholder = "년",
+        )
+        OnRoadSelectBox(
+            value = vm.dMonth?.let { "${it}월" }.orEmpty(),
+            options = vm.months.map { "${it}월" },
+            onSelect = { vm.selectDMonth(it.removeSuffix("월").toInt()) },
+            modifier = Modifier.weight(1f),
+            placeholder = "월",
+        )
+        OnRoadSelectBox(
+            value = vm.dDay?.let { "${it}일" }.orEmpty(),
+            options = vm.dDays.map { "${it}일" },
+            onSelect = { vm.selectDDay(it.removeSuffix("일").toInt()) },
+            modifier = Modifier.weight(1f),
+            placeholder = "일",
+        )
+    }
+    vm.dDateHint?.let {
+        Spacer(Modifier.height(16.dp))
+        NoticeBox(it, tone = NoticeTone.Warning)
+    }
+    if (!vm.dDateRequired) {
+        Spacer(Modifier.height(16.dp))
+        Text(
+            if (vm.dDate == null) "비워 두고 '완료'를 누르면 나중에 정할 수 있어요." else "목표일 지우기",
+            style = OnRoadType.Caption,
+            color = OnRoadColors.TextTertiary,
+            modifier = if (vm.dDate == null) Modifier else Modifier.clickable { vm.clearDDate() },
+        )
     }
 }
 

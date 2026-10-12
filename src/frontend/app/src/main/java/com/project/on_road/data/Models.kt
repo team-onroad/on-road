@@ -27,7 +27,21 @@ data class UserProfile(
     val birthDate: LocalDate,
     val region: String,
     val status: LivingStatus,
-    val stage: UserStage
+    val stage: UserStage,
+    val phone: String? = null,
+    /** D-day 기준일 (퇴소 예정일 또는 목표일). 없으면 null */
+    val dDate: LocalDate? = null,
+    /** dDate 까지 남은 날 (오늘 0, 지나면 음수). dDate 없으면 null */
+    val dDay: Int? = null,
+)
+
+/** 회원정보 수정에서 바꿀 값. null 이면 그대로 둔다 */
+data class UserUpdate(
+    val status: LivingStatus? = null,
+    /** 새 퇴소 예정일 / 목표일 */
+    val dDate: LocalDate? = null,
+    /** true 면 퇴소일·목표일을 지운다 (dDate 보다 우선) */
+    val clearDDate: Boolean = false,
 )
 
 data class Evidence(val source: String, val snippet: String)
@@ -60,7 +74,9 @@ data class SearchResult(
     val question: String,
     val grounded: Boolean,
     val message: String,
-    val policies: List<Policy>
+    val policies: List<Policy>,
+    /** 서버(RAG)가 만든 답변 문장. 근거가 없거나 가짜 모드면 null */
+    val answer: String? = null,
 )
 
 enum class StepType(val title: String) {

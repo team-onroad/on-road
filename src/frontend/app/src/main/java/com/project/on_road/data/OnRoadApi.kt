@@ -11,8 +11,15 @@ interface OnRoadApi {
         name: String,
         birthDate: LocalDate,
         region: String,
-        status: LivingStatus
+        status: LivingStatus,
+        /** 휴대폰 번호 (하이픈 없이, 선택) */
+        phone: String? = null,
+        /** D-day 기준일: 퇴소 전이면 퇴소 예정일, 퇴소 후면 목표일 (선택) */
+        dDate: LocalDate? = null,
     ): UserProfile
+
+    /** 3.12 회원정보 수정 (퇴소 처리, 퇴소일·목표일 바꾸기). 바꿀 값만 채워서 보낸다 */
+    suspend fun updateUser(userId: String, update: UserUpdate): UserProfile
 
     /** 없는 사용자면 null (앱은 온보딩으로) */
     suspend fun getUser(userId: String): UserProfile?

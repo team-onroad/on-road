@@ -73,6 +73,7 @@ import com.project.on_road.ui.components.OnRoadSwitch
 import com.project.on_road.ui.components.OnRoadTag
 import com.project.on_road.ui.components.OnRoadTopBar
 import com.project.on_road.ui.components.SubHeader
+import com.project.on_road.ui.components.SubtleCard
 import com.project.on_road.ui.components.TagStyle
 import com.project.on_road.ui.theme.OnRoadColors
 import com.project.on_road.ui.theme.OnRoadDimens
@@ -259,12 +260,21 @@ fun PolicySearchScreen(
                 ) {
                     item {
                         if (result.grounded) {
-                            SubHeader(result.message, trailingText = "${result.policies.size}건")
+                            Column {
+                                // 3.5 서버 답변 (명세 6.4: 로딩 후 answer 표시)
+                                result.answer?.let { answer ->
+                                    SubtleCard(Modifier.fillMaxWidth()) {
+                                        Text(answer, style = OnRoadType.Body2, color = OnRoadColors.TextPrimary)
+                                    }
+                                    Spacer(Modifier.height(20.dp))
+                                }
+                                SubHeader(result.message, trailingText = "${result.policies.size}건")
+                            }
                         } else {
                             Column {
                                 NoticeBox(
                                     "${result.message}\n금액이나 자격은 추측해서 알려 드리지 않아요. " +
-                                        "보건복지상담센터(129)나 지역 자립지원전담기관에 확인해 주세요.",
+                                            "보건복지상담센터(129)나 지역 자립지원전담기관에 확인해 주세요.",
                                     title = "확인이 필요해요",
                                     tone = NoticeTone.Warning,
                                 )
