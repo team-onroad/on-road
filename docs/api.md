@@ -161,7 +161,7 @@
 | 시뮬레이션 | GET | `/simulations/{simulation_id}` | 지난 시뮬레이션 결과 다시 보기 (3.14) |
 | 체크리스트 | POST | `/checklists` | 체크리스트 조회 또는 생성 (get-or-create) |
 | 체크리스트 | GET | `/checklists/{checklist_id}` | 체크리스트 상세 조회 |
-| 체크리스트 | PATCH | `/checklists/{checklist_id}/items/{item_id}` | 단계·서류 항목 체크 토글 |
+| 체크리스트 | PATCH | `/checklists/{checklist_id}/items/{item_id}` | 단계·서류 항목 체크 토글, 서류 해당 없음 선택 |
 | AI 상담 | POST | `/chat` | 상담 채팅. 정책 질문은 정책 검색, 고민·진로는 상담 답변 (3.15) |
 | AI 롤플레잉 | GET | `/coach/roleplay/scenarios` | 연습 상황 목록 (3.16) |
 | AI 롤플레잉 | GET | `/coach/roleplay/{scenario_id}/opening` | 첫 대사 (3.17) |
@@ -408,7 +408,10 @@
   "support_amount": "월 OO만 원",
   "support_period": "보호종료 후 O년",
   "apply_method": "신청 방법 및 절차",
-  "required_docs": ["신분증", "통장 사본"],
+  "required_docs": [
+    { "name": "신분증", "condition": null },
+    { "name": "위임장", "condition": "대리 신청 시" }
+  ],
   "apply_url": "https://...",
   "source_url": "https://...",
   "original_text": "정책 원문 전체",
@@ -425,9 +428,11 @@
 | `age_min`, `age_max` | 나이 하한·상한 없음 |
 | `support_amount`, `support_period` | 원문에 금액·기간 정보가 없음. 해당 줄 숨김 |
 | `apply_url` | 공식 신청 페이지 없음 |
+| `required_docs[].condition` | 모든 신청자에게 필요한 서류 (조건 없음) |
 | `eligibility` | 쿼리에 `user_id`를 넘기지 않음 |
 
 - 시뮬레이션 결과의 "관련 정책 보기"에서도 이 API로 해당 정책을 바로 표시한다.
+- `required_docs[].condition`: 경우에 따라 필요한 서류의 조건 (예: "대리 신청 시"). 값이 있으면 서류명 옆에 "[대리 신청 시]"처럼 표시
 - 서비스 노출 대상이 아닌 정책은 404 `POLICY_NOT_FOUND`
 - 위 값은 형식 예시이며, 실제 내용은 데이터 담당의 `policies.json`을 따른다.
 
@@ -607,8 +612,9 @@
       "checked_at": null,
       "detail": null,
       "documents": [
-        { "item_id": 105, "label": "신분증", "is_checked": true, "checked_at": "2026-10-02T10:20:00+09:00" },
-        { "item_id": 106, "label": "통장 사본", "is_checked": false, "checked_at": null }
+        { "item_id": 105, "label": "신분증", "condition": null, "is_checked": true, "is_not_applicable": false, "checked_at": "2026-10-02T10:20:00+09:00" },
+        { "item_id": 106, "label": "통장 사본", "condition": null, "is_checked": false, "is_not_applicable": false, "checked_at": null },
+        { "item_id": 107, "label": "위임장", "condition": "대리 신청 시", "is_checked": false, "is_not_applicable": true, "checked_at": null }
       ]
     },
     {
@@ -631,6 +637,7 @@
 |---|---|
 | `policy.contact`, `policy.apply_url` | 1.5와 같음 |
 | `steps[].checked_at`, `steps[].documents[].checked_at` | 체크하지 않은 항목 |
+| `steps[].documents[].condition` | 모든 신청자에게 필요한 서류 (조건 없음) |
 | `steps[].detail` | "서류 준비" 단계 (상세 설명 대신 `documents` 사용) |
 | `steps[].detail.easy_text` | 정책이 서비스 노출 대상이 아님 (`policy.is_active = false`). 검증되지 않은 쉬운 말은 보여주지 않음 |
 | `steps[].detail.apply_url` | 공식 신청 페이지 없음 |
@@ -638,16 +645,18 @@
 - `policy`: 1.5 정책 객체. 정책이 비활성화되어도 체크리스트는 계속 조회되며 `policy.is_active: false`로 내려간다.
 - `steps`는 항상 4개, 대상 확인 → 조건 확인 → 서류 준비 → 신청 순서
 - `progress`(단계 진행률) = 체크된 단계 수 / 4. 홈 "지금 할 일" 카드와 같은 기준
-- `document_progress`(서류 진행률) = 체크된 서류 수 / 전체 서류 수. 체크리스트 화면의 "준비 서류 n/m" 표시용
+- `document_progress`(서류 진행률) = 체크된 서류 수 / (전체 서류 수 − 해당 없음 서류 수). 체크리스트 화면의 "준비 서류 n/m" 표시용
 - 서류를 모두 체크해도 "서류 준비" 단계는 자동 체크되지 않으며, 사용자가 직접 체크한다.
 - 단계를 눌렀을 때 펼치는 상세 설명은 `detail`을 사용한다. "서류 준비" 단계는 `documents`를 체크박스로 표시한다.
+- `documents[].condition`: 경우에 따라 필요한 서류의 조건. 값이 있으면 서류명 옆에 "[대리 신청 시]"처럼 표시하고 "해당 없음" 버튼을 함께 보여준다.
+- `documents[].is_not_applicable`: 사용자가 "해당 없음"을 고른 서류. 서류 진행률 계산에서 빠진다.
 - 하단 "공식 신청 바로가기" 버튼은 `policy.apply_url`, "문의" 문구는 `policy.contact`를 사용한다. 값이 `null`이면 숨긴다.
 
 <br/>
 
 ### 3.11 `PATCH /checklists/{checklist_id}/items/{item_id}` — 항목 체크 토글
 
-단계와 서류 항목 모두 이 API로 체크한다. 체크할 때마다 호출하되, 연속 입력은 프론트엔드에서 디바운스(약 300ms) 처리를 권장한다.
+단계와 서류 항목 모두 이 API로 체크한다. 서류의 "해당 없음" 선택도 이 API를 쓴다. 체크할 때마다 호출하되, 연속 입력은 프론트엔드에서 디바운스(약 300ms) 처리를 권장한다.
 
 | 쿼리 | 필수 | 설명 |
 |---|---|---|
@@ -658,6 +667,12 @@
 { "is_checked": true }
 ```
 
+"해당 없음"은 아래처럼 보낸다. 요청에는 `is_checked`와 `is_not_applicable` 중 하나만 넣는다.
+
+```json
+{ "is_not_applicable": true }
+```
+
 **응답 200**
 ```json
 {
@@ -666,7 +681,9 @@
     "item_type": "document",
     "step_key": "doc_prepare",
     "label": "통장 사본",
+    "condition": null,
     "is_checked": true,
+    "is_not_applicable": false,
     "checked_at": "2026-10-02T10:25:00+09:00"
   },
   "progress": { "checked_steps": 2, "total_steps": 4, "percent": 50 },
@@ -677,11 +694,16 @@
 | null 가능 필드 | null일 때 |
 |---|---|
 | `item.checked_at` | 체크하지 않은 상태 |
+| `item.condition` | 단계 항목이거나 모든 신청자에게 필요한 서류 |
 
 - `item.item_type`: 1.2 코드값 (`step` / `document`)
 - `progress`, `document_progress`를 같이 돌려주므로 진행률 바는 이 값으로 바로 갱신한다.
 - 같은 값으로 다시 보내도 에러 없이 현재 상태를 반환한다.
 - 체크를 해제하면 `checked_at`은 `null`이 된다.
+- `is_not_applicable`은 `condition`이 있는 서류 항목에만 보낼 수 있다. 단계 항목이나 조건 없는 서류에 보내면 422 `VALIDATION_ERROR`
+- `is_checked`와 `is_not_applicable`을 둘 다 보내거나 둘 다 빠지면 422 `VALIDATION_ERROR`
+- "해당 없음"을 고르면 체크가 풀린다 (`is_checked: false`, `checked_at: null`). 해당 없음인 서류를 체크하면 해당 없음이 풀린다.
+- `{ "is_not_applicable": false }`는 해당 없음만 취소하고, 체크하지 않은 상태로 둔다.
 - 항목을 바꾸면 체크리스트의 `updated_at`도 갱신된다 (홈 "지금 할 일" 정렬 기준).
 
 <br/>
@@ -1360,7 +1382,7 @@ def polish_sentences(doc_type: str, sentences: list[str]) -> list[str]: ...
 | 운영 종료 표시 | `policy.is_active = false`면 "더 이상 운영되지 않는 정책"으로 표시하고 정책 상세(3.6)로 이동하지 않음 |
 | 준비 서류 n/m 진행 바 | `document_progress` |
 | 단계 목록 (4단계) | `steps[]`, 단계 진행률은 `progress` (시안에 단계 목록이 아직 없음, 8장) |
-| 서류 카드 이름·체크 | `steps[doc_prepare].documents[]`, 체크는 3.11 |
+| 서류 카드 이름·체크 | `steps[doc_prepare].documents[]`, 체크와 해당 없음은 3.11. 조건 라벨은 `condition` |
 | 공식 신청 바로가기 | `policy.apply_url` |
 | 문의 | `policy.contact` |
 
@@ -1425,6 +1447,8 @@ def polish_sentences(doc_type: str, sentences: list[str]) -> list[str]: ...
 | AI 담당 | 4.2 LLM 함수를 누가 만들지, 사용할 모델과 API 키 관리 방법 |
 | 데이터 담당 | 롤플레잉 상황 7개의 체크 항목·준비 서류, 서류 양식 5개의 항목 설명 검토 (앱 더미를 서버로 옮긴 것) |
 | 프론트엔드 | 3.15~3.22 연결 (`FakeCoachApi` → 서버), `history`를 앱에서 들고 있다가 보내는 방식, 3.22 `app_records`로 저장한 정책 수·흥미 탐색 결과 전달 |
+| 데이터 담당 / 프론트엔드 | ✅ 확인 완료: 경우에 따라 필요한 서류는 `required_docs`에 `condition`을 붙여 작성 (`db-schema.md` 6장). 앱에서 조건 라벨과 "해당 없음" 버튼 표시, 해당 없음 서류는 준비율에서 제외 (3.10, 3.11) |
+| 프론트엔드 | 3.6 `required_docs` 형식 변경 반영 (문자열 배열 → `name`·`condition` 객체 배열) |
 | AI 담당 / 데이터 담당 | 위기 신호 키워드 목록(`app/crisis.py`) 검토. 지금은 자살·자해, 폭력·학대 관련 말로 백엔드에서 임의로 정함 |
 
 <br/>
@@ -1605,7 +1629,9 @@ Kotlin 모델 작성용 표다. **null** 칸이 `O`인 필드만 `null`이 올 �
 | support_amount | string | O |
 | support_period | string | O |
 | apply_method | string | |
-| required_docs | array<string> | |
+| required_docs | array<object> | |
+| required_docs[].name | string | |
+| required_docs[].condition | string | O |
 | apply_url | string | O |
 | source_url | string | |
 | original_text | string | |
@@ -1664,7 +1690,9 @@ Kotlin 모델 작성용 표다. **null** 칸이 `O`인 필드만 `null`이 올 �
 | steps[].documents | array<object> | |
 | steps[].documents[].item_id | long | |
 | steps[].documents[].label | string | |
+| steps[].documents[].condition | string | O |
 | steps[].documents[].is_checked | boolean | |
+| steps[].documents[].is_not_applicable | boolean | |
 | steps[].documents[].checked_at | string (datetime) | O |
 
 `steps[].detail`은 단계마다 들어 있는 필드가 다르다. 해당 단계에 없는 필드는 응답에 키가 없으므로, 앱에서는 아래 필드를 모두 nullable로 둔 객체 하나로 받으면 된다.
@@ -1687,7 +1715,9 @@ Kotlin 모델 작성용 표다. **null** 칸이 `O`인 필드만 `null`이 올 �
 | item.item_type | string | |
 | item.step_key | string | |
 | item.label | string | |
+| item.condition | string | O |
 | item.is_checked | boolean | |
+| item.is_not_applicable | boolean | |
 | item.checked_at | string (datetime) | O |
 | progress | Progress | |
 | document_progress | DocumentProgress | |
