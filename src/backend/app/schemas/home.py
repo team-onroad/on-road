@@ -49,6 +49,7 @@ class GrowthSummary(BaseModel):
     checklist_count: int
     completed_checklist_count: int  # next_step 이 null 인 것
     simulation_count: int
+    roleplay_count: int
 
 
 class GrowthChecklist(BaseModel):
@@ -70,8 +71,18 @@ class SimulationSummary(BaseModel):
     created_at: datetime
 
 
+class RoleplaySummary(BaseModel):
+    roleplay_id: int
+    scenario_id: str
+    title: str
+    good_count: int
+    missed_count: int
+    created_at: datetime
+
+
 class GrowthResponse(BaseModel):
     user: GrowthUser
     summary: GrowthSummary
     checklists: list[GrowthChecklist]
     simulations: list[SimulationSummary]
+    roleplays: list[RoleplaySummary]

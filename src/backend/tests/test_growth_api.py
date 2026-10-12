@@ -27,9 +27,11 @@ def test_empty_growth(api, db_session):
     assert data == {
         "user": {"user_id": str(user.id), "name": "테스트", "stage": "youth", "status": "leaving_soon",
                  "d_date": "2026-11-12", "d_day": 39},
-        "summary": {"checklist_count": 0, "completed_checklist_count": 0, "simulation_count": 0},
+        "summary": {"checklist_count": 0, "completed_checklist_count": 0, "simulation_count": 0,
+                    "roleplay_count": 0},
         "checklists": [],
         "simulations": [],
+        "roleplays": [],
     }
 
 
@@ -68,7 +70,8 @@ def test_summary_and_checklists(api, db_session):
 
     data = _growth(api, user.id).json()
 
-    assert data["summary"] == {"checklist_count": 3, "completed_checklist_count": 2, "simulation_count": 1}
+    assert data["summary"] == {"checklist_count": 3, "completed_checklist_count": 2, "simulation_count": 1,
+                               "roleplay_count": 0}
     first = data["checklists"][0]
     assert set(first) == {
         "checklist_id", "policy", "progress", "document_progress", "next_step", "created_at", "updated_at",
@@ -155,8 +158,9 @@ def test_other_users_data_excluded(api, db_session):
     _checklist(api, other, make_policy(db_session))
     _simulate(api, other)
     data = _growth(api, user.id).json()
-    assert data["summary"] == {"checklist_count": 0, "completed_checklist_count": 0, "simulation_count": 0}
-    assert (data["checklists"], data["simulations"]) == ([], [])
+    assert data["summary"] == {"checklist_count": 0, "completed_checklist_count": 0, "simulation_count": 0,
+                               "roleplay_count": 0}
+    assert (data["checklists"], data["simulations"], data["roleplays"]) == ([], [], [])
 
 
 def test_nullable_fields(api, db_session):

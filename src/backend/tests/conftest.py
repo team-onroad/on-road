@@ -29,7 +29,7 @@ from app.config import BACKEND_DIR, get_settings
 from app.main import app
 from db.session import get_db, make_engine
 
-TABLES = ("users", "policies", "checklists", "checklist_items", "simulations")
+TABLES = ("users", "policies", "checklists", "checklist_items", "simulations", "roleplay_results")
 
 
 @pytest.fixture
