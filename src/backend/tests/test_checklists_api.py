@@ -9,13 +9,15 @@ from sqlalchemy import text
 
 from app.ids import BIGINT_MAX
 from app.services import checklists as checklist_service
-from tests.factories import make_policy, make_user
+from tests.factories import doc, make_policy, make_user
 
 RESPONSE_KEYS = {"checklist_id", "policy", "progress", "document_progress", "steps"}
 POLICY_KEYS = {"policy_id", "name", "agency", "category", "contact", "apply_url", "checked_at", "is_active"}
 STEP_KEYS = {"item_id", "step_key", "label", "is_checked", "checked_at", "detail", "documents"}
-DOC_KEYS = {"item_id", "label", "is_checked", "checked_at"}
-ITEM_KEYS = {"item_id", "item_type", "step_key", "label", "is_checked", "checked_at"}
+DOC_KEYS = {"item_id", "label", "condition", "is_checked", "is_not_applicable", "checked_at"}
+ITEM_KEYS = {
+    "item_id", "item_type", "step_key", "label", "condition", "is_checked", "is_not_applicable", "checked_at",
+}
 
 
 def _create(api, user_id, policy_id):
@@ -186,7 +188,7 @@ def test_no_required_docs(api, db_session):
 def test_documents_are_snapshot(api, db_session, setup):
     user, policy = setup
     cid = _create(api, user.id, policy.id).json()["checklist_id"]
-    policy.required_docs = ["다른 서류"]
+    policy.required_docs = [doc("다른 서류")]
     db_session.commit()
     docs = _step(_get(api, cid, user.id).json(), "doc_prepare")["documents"]
     assert [d["label"] for d in docs] == ["신분증", "통장 사본"]
@@ -494,3 +496,186 @@ def test_toggle_without_user_id_is_422(api, checklist):
     res = api.patch(f"/api/checklists/{data['checklist_id']}/items/{data['steps'][0]['item_id']}",
                     json={"is_checked": True})
     _assert_error(res, 422, "VALIDATION_ERROR")
+
+
+# ------------------------------------------------------------- 조건부 서류 해당 없음 (3.10, 3.11)
+
+
+@pytest.fixture
+def cond(api, db_session):
+    """서류: 신분증(조건 없음), 위임장(대리 신청 시)"""
+    user = make_user(db_session)
+    policy = make_policy(db_session, required_docs=["신분증", doc("위임장", "대리 신청 시")])
+    data = _create(api, user.id, policy.id).json()
+    plain, conditional = _step(data, "doc_prepare")["documents"]
+    return user, data["checklist_id"], plain, conditional
+
+
+def _patch(api, cid, iid, user_id, body):
+    return api.patch(f"/api/checklists/{cid}/items/{iid}", params={"user_id": str(user_id)}, json=body)
+
+
+def _na(api, cid, iid, user_id, value=True):
+    return _patch(api, cid, iid, user_id, {"is_not_applicable": value})
+
+
+def test_condition_copied_to_documents(api, db_session, cond):
+    user, cid, plain, conditional = cond
+    assert (plain["label"], plain["condition"], plain["is_not_applicable"]) == ("신분증", None, False)
+    assert (conditional["label"], conditional["condition"], conditional["is_not_applicable"]) == (
+        "위임장", "대리 신청 시", False,
+    )
+    rows = db_session.execute(
+        text("SELECT item_type, label, condition, is_not_applicable FROM checklist_items "
+             "WHERE checklist_id = :id ORDER BY item_type DESC, sort_order"), {"id": cid}
+    ).all()
+    assert [tuple(r) for r in rows if r.item_type == "step"] == [
+        ("step", label, None, False) for label in ("대상 확인", "조건 확인", "서류 준비", "신청")
+    ]
+    assert [tuple(r) for r in rows if r.item_type == "document"] == [
+        ("document", "신분증", None, False), ("document", "위임장", "대리 신청 시", False),
+    ]
+
+
+def test_not_applicable(api, db_session, cond):
+    user, cid, _, conditional = cond
+    before = _updated_at(db_session, cid)
+
+    res = _na(api, cid, conditional["item_id"], user.id)
+
+    assert res.status_code == 200, res.text
+    item = res.json()["item"]
+    assert set(item) == ITEM_KEYS
+    assert (item["condition"], item["is_not_applicable"], item["is_checked"], item["checked_at"]) == (
+        "대리 신청 시", True, False, None,
+    )
+    assert res.json()["document_progress"] == {"checked": 0, "total": 1}  # 해당 없음은 분모에서 뺌
+    assert _updated_at(db_session, cid) > before
+    detail = _get(api, cid, user.id).json()
+    assert _step(detail, "doc_prepare")["documents"][1]["is_not_applicable"] is True
+    assert detail["document_progress"] == {"checked": 0, "total": 1}
+
+
+def test_not_applicable_unchecks(api, cond):
+    user, cid, _, conditional = cond
+    _toggle(api, cid, conditional["item_id"], user.id, True)
+
+    body = _na(api, cid, conditional["item_id"], user.id).json()
+
+    assert (body["item"]["is_checked"], body["item"]["checked_at"], body["item"]["is_not_applicable"]) == (
+        False, None, True,
+    )
+    assert body["document_progress"] == {"checked": 0, "total": 1}
+
+
+def test_check_clears_not_applicable(api, cond):
+    user, cid, _, conditional = cond
+    _na(api, cid, conditional["item_id"], user.id)
+
+    body = _toggle(api, cid, conditional["item_id"], user.id, True).json()
+
+    assert (body["item"]["is_checked"], body["item"]["is_not_applicable"]) == (True, False)
+    assert body["item"]["checked_at"] is not None
+    assert body["document_progress"] == {"checked": 1, "total": 2}
+
+
+def test_uncheck_keeps_not_applicable(api, db_session, cond):
+    # 해당 없음 서류에 is_checked: false → 변화 없음
+    user, cid, _, conditional = cond
+    _na(api, cid, conditional["item_id"], user.id)
+    before = _updated_at(db_session, cid)
+
+    body = _toggle(api, cid, conditional["item_id"], user.id, False).json()
+
+    assert (body["item"]["is_checked"], body["item"]["is_not_applicable"]) == (False, True)
+    assert body["document_progress"] == {"checked": 0, "total": 1}
+    assert _updated_at(db_session, cid) == before
+
+
+def test_cancel_not_applicable(api, db_session, cond):
+    user, cid, _, conditional = cond
+    _na(api, cid, conditional["item_id"], user.id)
+    before = _updated_at(db_session, cid)
+
+    body = _na(api, cid, conditional["item_id"], user.id, False).json()
+
+    assert (body["item"]["is_checked"], body["item"]["is_not_applicable"], body["item"]["checked_at"]) == (
+        False, False, None,
+    )
+    assert body["document_progress"] == {"checked": 0, "total": 2}
+    assert _updated_at(db_session, cid) > before
+
+
+def test_cancel_not_applicable_keeps_check(api, db_session, cond):
+    # 체크된 서류에 is_not_applicable: false → 변화 없음
+    user, cid, _, conditional = cond
+    checked = _toggle(api, cid, conditional["item_id"], user.id, True).json()["item"]
+    before = _updated_at(db_session, cid)
+
+    body = _na(api, cid, conditional["item_id"], user.id, False).json()
+
+    assert (body["item"]["is_checked"], body["item"]["is_not_applicable"]) == (True, False)
+    assert body["item"]["checked_at"] == checked["checked_at"]
+    assert _updated_at(db_session, cid) == before
+
+
+def test_same_not_applicable_value(api, db_session, cond):
+    user, cid, _, conditional = cond
+    _na(api, cid, conditional["item_id"], user.id)
+    before = _updated_at(db_session, cid)
+
+    res = _na(api, cid, conditional["item_id"], user.id)
+
+    assert res.status_code == 200
+    assert res.json()["item"]["is_not_applicable"] is True
+    assert _updated_at(db_session, cid) == before
+
+
+def test_all_not_applicable_progress(api, db_session):
+    user = make_user(db_session)
+    policy = make_policy(db_session, required_docs=[doc("위임장", "대리 신청 시")])
+    data = _create(api, user.id, policy.id).json()
+    iid = _step(data, "doc_prepare")["documents"][0]["item_id"]
+    body = _na(api, data["checklist_id"], iid, user.id).json()
+    assert body["document_progress"] == {"checked": 0, "total": 0}
+
+
+@pytest.mark.parametrize("value", [True, False])
+@pytest.mark.parametrize("target", ["step", "plain_doc"])
+def test_not_applicable_needs_condition(api, db_session, cond, target, value):
+    user, cid, plain, _ = cond
+    iid = plain["item_id"]
+    if target == "step":
+        iid = _step(_get(api, cid, user.id).json(), "doc_prepare")["item_id"]
+    before = _updated_at(db_session, cid)
+
+    res = _na(api, cid, iid, user.id, value)
+
+    _assert_error(res, 422, "VALIDATION_ERROR")
+    assert "is_not_applicable" in res.json()["error"]["message"]
+    assert _updated_at(db_session, cid) == before
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"is_checked": True, "is_not_applicable": False},
+        {"is_checked": False, "is_not_applicable": True},
+        {},
+        {"is_not_applicable": None},
+        {"is_not_applicable": "true"},
+        {"is_not_applicable": 1},
+        {"is_not_applicable": True, "extra": 1},
+    ],
+)
+def test_not_applicable_invalid_body(api, cond, body):
+    user, cid, _, conditional = cond
+    _assert_error(_patch(api, cid, conditional["item_id"], user.id, body), 422, "VALIDATION_ERROR")
+
+
+def test_not_applicable_not_found_before_422(api, db_session, cond):
+    user, cid, plain, _ = cond
+    other = make_user(db_session)
+    _assert_error(_na(api, cid, plain["item_id"], "not-a-uuid"), 404, "USER_NOT_FOUND")
+    _assert_error(_na(api, cid, plain["item_id"], other.id), 404, "CHECKLIST_NOT_FOUND")
+    _assert_error(_na(api, cid, "999999", user.id), 404, "ITEM_NOT_FOUND")

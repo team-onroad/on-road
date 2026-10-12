@@ -11,6 +11,10 @@ from db.models import Policy, User
 _seq = count(1)
 
 
+def doc(name: str, condition: str | None = None) -> dict:
+    return {"name": name, "condition": condition}
+
+
 def make_policy(session: Session, **overrides) -> Policy:
     n = next(_seq)
     values = {
@@ -38,6 +42,8 @@ def make_policy(session: Session, **overrides) -> Policy:
         "is_active": True,
     }
     values.update(overrides)
+    # 문자열은 조건 없는 서류로 (db-schema.md 6장과 같음)
+    values["required_docs"] = [doc(d) if isinstance(d, str) else d for d in values["required_docs"]]
     policy = Policy(**values)
     session.add(policy)
     session.commit()
