@@ -24,8 +24,8 @@ src/backend/
 │   ├── rag_client.py        ← RAG 함수 연결 지점 (AI 담당 함수로 바꿀 때 여기만 수정)
 │   ├── rag_mock.py          ← RAG 임시(목) 함수
 │   ├── schemas/             ← 요청·응답 형식
-│   ├── services/            ← 기능별 처리 로직 (사용자, 정책·검색, 시뮬레이션)
-│   └── api/                 ← API 경로 (health, users, policies, simulations)
+│   ├── services/            ← 기능별 처리 로직 (사용자, 정책·검색, 시뮬레이션, 체크리스트, 홈·성장 기록)
+│   └── api/                 ← API 경로 (health, users, policies, simulations, checklists)
 ├── db/
 │   ├── models.py            ← 테이블 모델
 │   ├── session.py           ← DB 연결
@@ -115,12 +115,17 @@ pytest
 | GET | `/api/health` | 3.1 |
 | POST | `/api/users` | 3.2 |
 | GET | `/api/users/{user_id}` | 3.3 |
+| GET | `/api/users/{user_id}/dashboard` | 3.4 |
+| GET | `/api/users/{user_id}/growth` | 3.13 |
 | PATCH | `/api/users/{user_id}` | 3.12 |
 | POST | `/api/search` | 3.5 (RAG는 목 함수) |
 | GET | `/api/policies/{policy_id}` | 3.6 |
 | GET | `/api/simulations/criteria` | 3.7 |
 | POST | `/api/simulations` | 3.8 |
 | GET | `/api/simulations/{simulation_id}` | 3.14 |
+| POST | `/api/checklists` | 3.9 |
+| GET | `/api/checklists/{checklist_id}` | 3.10 |
+| PATCH | `/api/checklists/{checklist_id}/items/{item_id}` | 3.11 |
 
 명세에 없어서 따로 정한 부분
 - `user_id`가 잘못된 형식이거나 없는 사용자면 항상 404 `USER_NOT_FOUND` (앱은 온보딩으로 이동)
@@ -129,6 +134,11 @@ pytest
 - 질문 내용은 DB와 로그에 남기지 않음
 - 시뮬레이션 금액은 정수만 받음. 배분 합계가 총소득보다 크면 422 `SUM_EXCEEDS_INCOME`
 - 시뮬레이션 결과 조회는 본인 기록만 가능. 다른 사용자 기록이면 404 `SIMULATION_NOT_FOUND`
+- 체크리스트 생성 시 `policy_id` 형식 오류는 422, 없는 정책은 404 `POLICY_NOT_FOUND`
+- 이미 만든 체크리스트는 정책이 비활성화돼도 조회·체크 가능
+- 체크 값(`is_checked`)은 `true`/`false`만 받음
+- 홈·성장 기록 체크리스트 정렬: 진행 중 → 완료, 각각 최근 수정순 (같으면 나중에 만든 것 먼저)
+- 성장 기록 시뮬레이션은 최신순
 
 
 <br/><br/>
