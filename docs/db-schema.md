@@ -9,6 +9,7 @@
 | 2026-10-04 | 프론트엔드 요청 반영: `users` 컬럼 변경(이름·생년월일·휴대폰·성장 단계·D-day 기준일), 연령 필터를 만 나이 기준으로 변경, 시뮬레이션 합계 조건을 "총소득 이하"로 변경 |
 | 2026-10-05 | 시뮬레이션 대안(`alternatives`) 개수를 "2개 또는 3개"에서 "최대 3개 (0개나 1개일 수 있음)"로 변경 |
 | 2026-10-11 | 추가 제안 기능 반영: `roleplay_results` 테이블 추가 (롤플레잉 피드백 저장용), 상담·롤플레잉 대화는 저장하지 않음 |
+| 2026-10-12 | 조건부 서류 반영: `policies.required_docs`를 TEXT[]에서 JSONB(서류명·조건 객체 배열)로 변경, `checklist_items`에 `condition`·`is_not_applicable` 컬럼 추가 (서류 "해당 없음" 선택) |
 <br/>
 
 ## 1. DB 결정 사항
@@ -99,7 +100,7 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | support_amount | TEXT | | 지원 금액 (예: "월 50만 원") |
 | support_period | TEXT | | 지원 기간 |
 | apply_method | TEXT | NOT NULL | 신청 방법 및 절차 |
-| required_docs | TEXT[] | NOT NULL, 기본값 `{}` | 필요 서류 목록. 체크리스트 서류 항목 생성에 사용 |
+| required_docs | JSONB | NOT NULL, 기본값 `[]` | 필요 서류 목록. 요소는 `{ "name": 서류명, "condition": 조건 또는 null }` (6장). 체크리스트 서류 항목 생성에 사용 |
 | apply_url | TEXT | | 공식 신청 페이지 URL (체크리스트 신청 단계 버튼) |
 | source_url | TEXT | NOT NULL | 공식 원문 URL |
 | original_text | TEXT | NOT NULL | 정책 원문 전체 (가공 없이 보존) |
@@ -140,16 +141,21 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | sort_order | SMALLINT | NOT NULL | 표시 순서 |
 | is_checked | BOOLEAN | NOT NULL, 기본값 false | |
 | checked_at | TIMESTAMPTZ | | 체크 시각 |
+| condition | VARCHAR(200) | | 서류가 필요한 조건 (예: "대리 신청 시"). NULL = 모든 신청자에게 필요한 서류. 단계 항목은 NULL |
+| is_not_applicable | BOOLEAN | NOT NULL, 기본값 false | 사용자가 "해당 없음"을 고른 서류 |
 
 **생성 규칙 (체크리스트 생성 시 1회)**
 1. `step` 항목 4개 생성: 대상 확인 → 조건 확인 → 서류 준비 → 신청 (개발 범위 문서 기준 4단계)
-2. 해당 정책의 `required_docs` 배열 요소마다 `document` 항목 생성 (`step_key = doc_prepare`)
+2. 해당 정책의 `required_docs` 배열 요소마다 `document` 항목 생성 (`step_key = doc_prepare`, `label` = `name`, `condition` = `condition`)
 
 - 서류 항목은 생성 시점의 `required_docs`를 **복사(스냅샷)** 해서 저장. 이후 정책 데이터가 바뀌어도 사용자 체크 기록이 깨지지 않음
 - `document` 항목은 반드시 `doc_prepare` 단계 소속 (CHECK 제약)
 - 한 체크리스트에 같은 단계의 `step` 항목은 1개만 (부분 UNIQUE 인덱스)
 - 신청 URL은 저장하지 않고 `policies.apply_url`을 조인해서 반환
 - `doc_prepare` 단계 체크와 서류 항목 체크는 **서로 독립**. 서류를 모두 체크해도 단계는 자동 체크되지 않고, 사용자가 직접 체크
+- `is_not_applicable`은 `condition`이 있는 `document` 항목만 true 가능 (CHECK 제약)
+- `is_checked`와 `is_not_applicable`은 동시에 true 불가 (CHECK 제약)
+- 서류 진행률은 저장하지 않고 조회 시 계산: **체크된 서류 수 / (전체 서류 수 − 해당 없음 서류 수)**
 
 **단계별 상세 설명 출처** (별도 저장 없이 `policies` 필드를 조회해서 반환)
 
@@ -300,7 +306,10 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
     "support_amount": "월 OO만 원",
     "support_period": "보호종료 후 O년",
     "apply_method": "신청 방법 및 절차",
-    "required_docs": ["신분증", "통장 사본"],
+    "required_docs": [
+      { "name": "신분증" },
+      { "name": "위임장", "condition": "대리 신청 시" }
+    ],
     "apply_url": "https://...",
     "source_url": "https://...",
     "original_text": "정책 원문 전체",
@@ -314,6 +323,10 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 - 위 값은 형식 예시이며 실제 내용은 D가 공식 출처 기준으로 작성
 - 필수 키: `policy_key`, `name`, `agency`, `category`, `region`, `target_description`, `support_content`, `apply_method`, `required_docs`, `source_url`, `original_text`, `source_type`, `checked_at`
 - 날짜는 `YYYY-MM-DD`, 코드값은 4장 기준
+- `required_docs` 요소는 `{ "name": "서류명", "condition": "조건" }`
+  - `name`: 필수, 200자 이하
+  - `condition`: 경우에 따라 필요한 서류만 적음 (200자 이하). 모든 신청자에게 필요한 서류는 빼거나 `null`
+  - 문자열(`"신분증"`)로 적어도 `{ "name": "신분증", "condition": null }`로 처리
 
 <br/>
 
@@ -339,12 +352,12 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 |---|---|
 | D (데이터) | 6장 형식으로 `policies.json` 작성. `category`·`region`은 4장 코드값 사용 |
 | D (데이터) | `simulation-criteria.json`에 항목별 기준값과 **배분 항목 → 정책 category 매핑** 포함 (예: `housing → housing`, `food → living_cost`), 버전 문자열 포함 |
-| D (데이터) | 서버로 옮긴 롤플레잉 상황 7개(체크 항목·준비 서류)와 서류 양식 5개(항목 설명) 내용 검토 |
 | A (RAG) | Chroma 청크 메타데이터에 `policy_key` 필수 포함. RAG 함수 입력은 질문 + 후보 `policy_key` 목록, 출력은 답변 + 근거 스니펫 + 해당 `policy_key` + 근거 없음 여부 |
 | A (RAG) / D | 검증 통과한 쉬운 말 변환문을 `easy_text`, `easy_text_verified`에 반영하는 방식 확정 (json 갱신 후 재시드 또는 스크립트 업데이트) |
 | C (프론트) | ✅ 수정 완료: 연령대 → 생년월일·만 나이, 성장 단계 계산, 시뮬레이션 "배분 합계 ≤ 총소득" |
 | C (프론트) | 퇴소 처리(상태 변경)와 D-day 목표일 설정은 회원정보 수정 API로 처리 (`docs/api.md`) |
 | C (프론트) | 롤플레잉 피드백 저장 여부를 사용자가 선택하는 화면 (`api.md` 3.19 `save`) |
+| D (데이터) | 서버로 옮긴 롤플레잉 상황 7개(체크 항목·준비 서류)와 서류 양식 5개(항목 설명) 내용 검토 |
 
 <br/>
 
@@ -391,7 +404,7 @@ CREATE TABLE policies (
     support_amount      TEXT,
     support_period      TEXT,
     apply_method        TEXT NOT NULL,
-    required_docs       TEXT[] NOT NULL DEFAULT '{}',
+    required_docs       JSONB NOT NULL DEFAULT '[]',
     apply_url           TEXT,
     source_url          TEXT NOT NULL,
     original_text       TEXT NOT NULL,
@@ -431,7 +444,12 @@ CREATE TABLE checklist_items (
     sort_order    SMALLINT NOT NULL,
     is_checked    BOOLEAN NOT NULL DEFAULT false,
     checked_at    TIMESTAMPTZ,
-    CHECK (item_type = 'step' OR step_key = 'doc_prepare')
+    condition     VARCHAR(200),
+    is_not_applicable BOOLEAN NOT NULL DEFAULT false,
+    CHECK (item_type = 'step' OR step_key = 'doc_prepare'),
+    CHECK (item_type = 'document' OR condition IS NULL),
+    CHECK (NOT is_not_applicable OR (item_type = 'document' AND condition IS NOT NULL)),
+    CHECK (NOT (is_checked AND is_not_applicable))
 );
 
 CREATE INDEX idx_checklist_items_checklist ON checklist_items (checklist_id);
