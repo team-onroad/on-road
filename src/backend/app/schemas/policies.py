@@ -23,6 +23,11 @@ class Eligibility(BaseModel):
     region: EligibilityValue
 
 
+class RequiredDoc(BaseModel):
+    name: str
+    condition: str | None  # null: 모든 신청자에게 필요한 서류
+
+
 class PolicyDetail(BaseModel):
     policy_id: int
     policy_key: str
@@ -38,7 +43,7 @@ class PolicyDetail(BaseModel):
     support_amount: str | None
     support_period: str | None
     apply_method: str
-    required_docs: list[str]
+    required_docs: list[RequiredDoc]
     apply_url: str | None
     source_url: str
     original_text: str

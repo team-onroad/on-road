@@ -16,6 +16,7 @@ from app.schemas.checklists import (
     ConditionDetail,
     Document,
     DocumentProgress,
+    ItemToggle,
     NextStep,
     Progress,
     Step,
@@ -41,14 +42,21 @@ def _find(db: Session, user: User, policy_id: int) -> Checklist | None:
     ).one_or_none()
 
 
-def _new_items(checklist_id: int, required_docs: list[str]) -> list[dict]:
+def _new_items(checklist_id: int, required_docs: list[dict]) -> list[dict]:
     # db-schema.md 3.4 생성 규칙: step 4개 + required_docs 스냅샷
     steps = [
         {"checklist_id": checklist_id, "item_type": "step", "step_key": k, "label": STEP_LABELS[k], "sort_order": i}
         for i, k in enumerate(STEP_KEYS, start=1)
     ]
     docs = [
-        {"checklist_id": checklist_id, "item_type": "document", "step_key": "doc_prepare", "label": d, "sort_order": i}
+        {
+            "checklist_id": checklist_id,
+            "item_type": "document",
+            "step_key": "doc_prepare",
+            "label": d["name"],
+            "condition": d.get("condition"),
+            "sort_order": i,
+        }
         for i, d in enumerate(required_docs, start=1)
     ]
     return steps + docs
@@ -122,7 +130,10 @@ def progress(items: list[ChecklistItem]) -> tuple[Progress, DocumentProgress]:
     checked = sum(i.is_checked for i in steps)
     return (
         Progress(checked_steps=checked, total_steps=len(STEP_KEYS), percent=checked * 100 // len(STEP_KEYS)),
-        DocumentProgress(checked=sum(i.is_checked for i in docs), total=len(docs)),
+        # 해당 없음 서류는 분모에서 뺌 (api.md 3.10)
+        DocumentProgress(
+            checked=sum(i.is_checked for i in docs), total=sum(not i.is_not_applicable for i in docs)
+        ),
     )
 
 
@@ -168,7 +179,14 @@ def to_response(db: Session, checklist: Checklist, user: User, today: date) -> C
     visible = policy.is_active and policy.easy_text_verified
     items = _items(db, checklist)
     documents = [
-        Document(item_id=i.id, label=i.label, is_checked=i.is_checked, checked_at=i.checked_at)
+        Document(
+            item_id=i.id,
+            label=i.label,
+            condition=i.condition,
+            is_checked=i.is_checked,
+            is_not_applicable=i.is_not_applicable,
+            checked_at=i.checked_at,
+        )
         for i in items
         if i.item_type == "document"
     ]
@@ -195,11 +213,28 @@ def to_response(db: Session, checklist: Checklist, user: User, today: date) -> C
     )
 
 
-def toggle(db: Session, checklist: Checklist, item: ChecklistItem, is_checked: bool) -> ToggleResponse:
+def _apply(item: ChecklistItem, body: ItemToggle) -> bool:
+    """바뀌었는지. 체크와 해당 없음은 동시에 true 불가 (api.md 3.11)"""
+    if body.is_not_applicable is not None:
+        if item.is_not_applicable == body.is_not_applicable:
+            return False
+        item.is_not_applicable = body.is_not_applicable
+        if body.is_not_applicable:
+            item.is_checked = False
+            item.checked_at = None
+        return True
+    if item.is_checked == body.is_checked:
+        return False
+    item.is_checked = body.is_checked
+    item.checked_at = func.now() if body.is_checked else None
+    if body.is_checked:
+        item.is_not_applicable = False
+    return True
+
+
+def toggle(db: Session, checklist: Checklist, item: ChecklistItem, body: ItemToggle) -> ToggleResponse:
     """같은 값이면 변경 없음 (updated_at 유지). 서류를 다 체크해도 단계는 자동 체크 안 함."""
-    if item.is_checked != is_checked:
-        item.is_checked = is_checked
-        item.checked_at = func.now() if is_checked else None
+    if _apply(item, body):
         checklist.updated_at = func.now()  # 홈 "지금 할 일" 정렬 기준
         db.commit()
         db.refresh(item)
@@ -210,7 +245,9 @@ def toggle(db: Session, checklist: Checklist, item: ChecklistItem, is_checked: b
             item_type=item.item_type,
             step_key=item.step_key,
             label=item.label,
+            condition=item.condition,
             is_checked=item.is_checked,
+            is_not_applicable=item.is_not_applicable,
             checked_at=item.checked_at,
         ),
         progress=step_progress,
