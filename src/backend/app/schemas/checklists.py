@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
 from app.codes import ITEM_TYPES, POLICY_CATEGORIES, STEP_KEYS
 from app.ids import BIGINT_MAX
@@ -20,9 +20,19 @@ class ChecklistCreate(BaseModel):
 
 
 class ItemToggle(BaseModel):
+    """is_checked, is_not_applicable 중 하나만 (api.md 3.11)"""
+
     model_config = ConfigDict(extra="forbid")
 
-    is_checked: StrictBool
+    # 기본값 None 은 빠졌다는 뜻. 직접 보낸 null 은 StrictBool 검사로 422
+    is_checked: StrictBool = None
+    is_not_applicable: StrictBool = None
+
+    @model_validator(mode="after")
+    def _one_field(self) -> "ItemToggle":
+        if len(self.model_fields_set) != 1:
+            raise ValueError("is_checked, is_not_applicable 중 하나만 보내야 합니다.")
+        return self
 
 
 class ChecklistPolicy(BaseModel):
@@ -71,7 +81,9 @@ class ApplyDetail(BaseModel):
 class Document(BaseModel):
     item_id: int
     label: str
+    condition: str | None  # null: 모든 신청자에게 필요한 서류
     is_checked: bool
+    is_not_applicable: bool
     checked_at: datetime | None
 
 
@@ -98,7 +110,9 @@ class ToggledItem(BaseModel):
     item_type: Literal[ITEM_TYPES]
     step_key: StepKey
     label: str
+    condition: str | None
     is_checked: bool
+    is_not_applicable: bool
     checked_at: datetime | None
 
 

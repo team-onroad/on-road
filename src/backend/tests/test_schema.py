@@ -131,6 +131,29 @@ def test_checklist_constraints(db_session):
     with pytest.raises(IntegrityError), db_session.begin_nested():
         db_session.execute(item_sql, {"c": checklist_id, "t": "document", "s": "apply"})
 
+    # 조건부 서류 (db-schema.md 3.4, 부록 DDL)
+    cond_sql = text(
+        "INSERT INTO checklist_items (checklist_id, item_type, step_key, label, sort_order, condition, "
+        "is_checked, is_not_applicable) VALUES (:c, :t, :s, '항목', 1, :cond, :checked, :na)"
+    )
+
+    def _item(t="document", s="doc_prepare", cond=None, checked=False, na=False):
+        return {"c": checklist_id, "t": t, "s": s, "cond": cond, "checked": checked, "na": na}
+
+    db_session.execute(cond_sql, _item(cond="대리 신청 시", na=True))
+    assert db_session.execute(
+        text("SELECT is_not_applicable FROM checklist_items WHERE checklist_id = :c AND condition IS NULL LIMIT 1"),
+        {"c": checklist_id},
+    ).scalar() is False  # 기본값 false
+    for params in (
+        _item(t="step", s="apply", cond="대리 신청 시"),  # 단계 항목은 condition NULL
+        _item(cond=None, na=True),  # 해당 없음은 condition 있는 서류만
+        _item(t="step", s="apply", na=True),
+        _item(cond="대리 신청 시", checked=True, na=True),  # 체크와 해당 없음 동시 불가
+    ):
+        with pytest.raises(IntegrityError), db_session.begin_nested():
+            db_session.execute(cond_sql, params)
+
     # 정책은 체크리스트가 있으면 삭제 불가 (ON DELETE RESTRICT)
     with pytest.raises(IntegrityError), db_session.begin_nested():
         db_session.execute(text("DELETE FROM policies WHERE id = :p"), {"p": policy_id})

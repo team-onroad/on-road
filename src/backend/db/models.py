@@ -21,7 +21,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -74,9 +74,9 @@ class Policy(Base):
     support_amount: Mapped[str | None] = mapped_column(Text)
     support_period: Mapped[str | None] = mapped_column(Text)
     apply_method: Mapped[str] = mapped_column(Text, nullable=False)
-    required_docs: Mapped[list[str]] = mapped_column(
-        ARRAY(Text), nullable=False, server_default=text("'{}'")
-    )
+    required_docs: Mapped[list[dict]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'")
+    )  # [{"name": 서류명, "condition": 조건 또는 null}]
     apply_url: Mapped[str | None] = mapped_column(Text)
     source_url: Mapped[str] = mapped_column(Text, nullable=False)
     original_text: Mapped[str] = mapped_column(Text, nullable=False)
@@ -119,6 +119,8 @@ class ChecklistItem(Base):
     sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     is_checked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    condition: Mapped[str | None] = mapped_column(String(200))
+    is_not_applicable: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
 
 class Simulation(Base):
