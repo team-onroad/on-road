@@ -17,6 +17,7 @@ from app.schemas.policies import (
     Evidence,
     PolicyDetail,
     RagOutput,
+    RequiredDoc,
     SearchResponse,
     SearchResult,
 )
@@ -72,7 +73,7 @@ def to_detail(policy: Policy, today: date, user: User | None) -> PolicyDetail:
         support_amount=policy.support_amount,
         support_period=policy.support_period,
         apply_method=policy.apply_method,
-        required_docs=list(policy.required_docs),
+        required_docs=[RequiredDoc(name=d["name"], condition=d.get("condition")) for d in policy.required_docs],
         apply_url=policy.apply_url,
         source_url=policy.source_url,
         original_text=policy.original_text,
