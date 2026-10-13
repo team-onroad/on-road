@@ -83,7 +83,9 @@ def test_seed_uses_dummy_when_no_real_data(db_session, tmp_path, content):
     assert sorted(result.inserted) == DUMMY_KEYS
     assert _visible_keys(db_session) == DUMMY_KEYS
     d001 = _policies(db_session)["D001"]
-    assert d001.required_docs == ["신분증", "통장 사본", "보호종료 확인서"]
+    assert d001.required_docs == [
+        {"name": n, "condition": None} for n in ("신분증", "통장 사본", "보호종료 확인서")
+    ]
     assert str(d001.checked_at) == "2026-09-28"
 
 
@@ -211,3 +213,72 @@ def test_invalid_real_data_is_rejected(db_session, tmp_path, mutate, message):
 def test_duplicate_policy_key_is_rejected(db_session, tmp_path):
     with pytest.raises(SeedError, match="중복"):
         seed_policies(db_session, path=_write(tmp_path, [REAL_POLICY, REAL_POLICY]))
+
+
+# --- required_docs (db-schema.md 6장)
+
+
+def test_required_docs_object_and_string(db_session, tmp_path):
+    policy = copy.deepcopy(REAL_POLICY)
+    policy["required_docs"] = [
+        "신분증",
+        {"name": "통장 사본"},
+        {"name": "위임장", "condition": "대리 신청 시"},
+        {"name": "재학증명서", "condition": None},
+        {"name": "입원확인서", "condition": ""},  # 빈 문자열은 null
+        {"name": " 공백 그대로 ", "condition": " 조건 "},
+    ]
+    seed_policies(db_session, path=_write(tmp_path, [policy]))
+
+    assert _policies(db_session)["P001"].required_docs == [
+        {"name": "신분증", "condition": None},
+        {"name": "통장 사본", "condition": None},
+        {"name": "위임장", "condition": "대리 신청 시"},
+        {"name": "재학증명서", "condition": None},
+        {"name": "입원확인서", "condition": None},
+        {"name": " 공백 그대로 ", "condition": " 조건 "},
+    ]
+
+
+def test_required_docs_reseed_replaces_condition(db_session, tmp_path):
+    policy = copy.deepcopy(REAL_POLICY)
+    policy["required_docs"] = [{"name": "위임장", "condition": "대리 신청 시"}]
+    seed_policies(db_session, path=_write(tmp_path, [policy]))
+    policy["required_docs"] = ["위임장"]
+    seed_policies(db_session, path=_write(tmp_path, [policy]))
+    db_session.expire_all()
+
+    assert _policies(db_session)["P001"].required_docs == [{"name": "위임장", "condition": None}]
+
+
+@pytest.mark.parametrize(
+    ("docs", "message"),
+    [
+        ("신분증", "배열이어야"),
+        ([""], "name 은 비어 있지 않은"),
+        (["   "], "name 은 비어 있지 않은"),
+        ([{"name": ""}], "name 은 비어 있지 않은"),
+        ([{"condition": "대리 신청 시"}], "name 은 비어 있지 않은"),
+        ([{"name": None}], "name 은 비어 있지 않은"),
+        ([{"name": 1}], "name 은 비어 있지 않은"),
+        ([{"name": "위임장", "condition": 1}], "condition 은 문자열 또는 null"),
+        ([{"name": "위임장", "note": "x"}], "알 수 없는 키"),
+        ([1], "문자열 또는"),
+        ([["신분증"]], "문자열 또는"),
+        (["가" * 201], "name 은 200자 이하"),
+        ([{"name": "가" * 201}], "name 은 200자 이하"),
+        ([{"name": "위임장", "condition": "가" * 201}], "condition 은 200자 이하"),
+    ],
+)
+def test_invalid_required_docs(db_session, tmp_path, docs, message):
+    bad = copy.deepcopy(REAL_POLICY)
+    bad["required_docs"] = docs
+    with pytest.raises(SeedError, match=message):
+        seed_policies(db_session, path=_write(tmp_path, [bad]))
+
+
+def test_required_docs_200_chars_ok(db_session, tmp_path):
+    policy = copy.deepcopy(REAL_POLICY)
+    policy["required_docs"] = [{"name": "가" * 200, "condition": "나" * 200}]
+    seed_policies(db_session, path=_write(tmp_path, [policy]))
+    assert _policies(db_session)["P001"].required_docs == [{"name": "가" * 200, "condition": "나" * 200}]

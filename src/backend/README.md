@@ -86,6 +86,8 @@ pip install -r requirements.txt
 alembic upgrade head
 ```
 
+- 이미 만든 DB도 같은 명령으로 최신 구조로 바꿈
+
 ### 5. 정책 데이터 넣기
 
 ```powershell
@@ -95,6 +97,7 @@ python -m db.seed
 - `data/policies/policies.json`을 DB에 넣음. 여러 번 실행해도 중복되지 않음
 - `policies.json`이 비어 있으면 더미 정책 4개(D001~D004)를 넣음
 - 실제 정책으로 시드하면 더미 정책은 자동으로 비활성화 (`--dummy-action delete`로 삭제 가능)
+- `required_docs` 요소는 `{"name", "condition"}` 객체 또는 문자열. 문자열은 조건 없는 서류
 
 ### 6. 서버 실행
 
@@ -154,6 +157,13 @@ pytest
 - 체크 값(`is_checked`)은 `true`/`false`만 받음
 - 홈·성장 기록 체크리스트 정렬: 진행 중 → 완료, 각각 최근 수정순 (같으면 나중에 만든 것 먼저)
 - 성장 기록 시뮬레이션은 최신순
+
+조건부 서류 해당 없음 (3.6, 3.10, 3.11)
+- 해당 없음인 서류에 `is_checked: false`를 보내면 변화 없음 (해당 없음 유지)
+- 체크된 서류에 `is_not_applicable: false`를 보내면 변화 없음 (체크 유지)
+- 값이 그대로면 체크리스트 `updated_at`도 그대로
+- 시드: `name`이 빈 값이거나 공백만 있으면 오류, `condition` 빈 문자열은 null, 앞뒤 공백은 그대로 저장, 다른 키가 있으면 오류
+- 마이그레이션을 0002로 되돌리면 `required_docs`는 서류명만 남음
 
 AI 상담 (3.15)
 - 위기 신호는 이번 `message`만 확인 (`history`는 안 봄). `app/crisis.py` 키워드 목록 기준, 띄어쓰기 무시

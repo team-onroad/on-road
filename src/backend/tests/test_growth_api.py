@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 from sqlalchemy import text
 
-from tests.factories import make_policy, make_user
+from tests.factories import doc, make_policy, make_user
 from tests.test_dashboard_api import ALL_STEPS, SPEC_ALLOCATIONS, _checklist, _set_time, _simulate
 
 KST = timezone(timedelta(hours=9))
@@ -84,6 +84,22 @@ def test_summary_and_checklists(api, db_session):
     assert by_id[done]["next_step"] is None
     assert by_id[done]["document_progress"] == {"checked": 0, "total": 0}
     assert by_id[done_hidden]["policy"]["is_active"] is False  # 비활성 정책도 빠지지 않음
+
+
+def test_document_progress_excludes_not_applicable(api, db_session):
+    # 3.10 과 같은 계산: 체크 수 / (전체 - 해당 없음)
+    user = make_user(db_session)
+    policy = make_policy(db_session, required_docs=["신분증", doc("위임장", "대리 신청 시"), "통장 사본"])
+    data = api.post("/api/checklists", json={"user_id": str(user.id), "policy_id": policy.id}).json()
+    cid = data["checklist_id"]
+    plain, conditional, _ = next(s for s in data["steps"] if s["step_key"] == "doc_prepare")["documents"]
+    url = f"/api/checklists/{cid}/items/{{}}"
+    api.patch(url.format(plain["item_id"]), params={"user_id": str(user.id)}, json={"is_checked": True})
+    api.patch(url.format(conditional["item_id"]), params={"user_id": str(user.id)}, json={"is_not_applicable": True})
+
+    assert _growth(api, user.id).json()["checklists"][0]["document_progress"] == {"checked": 1, "total": 2}
+    detail = api.get(f"/api/checklists/{cid}", params={"user_id": str(user.id)}).json()
+    assert detail["document_progress"] == {"checked": 1, "total": 2}
 
 
 def test_checklists_same_order_as_dashboard(api, db_session):

@@ -61,15 +61,22 @@ ToggleTarget = Annotated[tuple[Checklist, ChecklistItem], Depends(_toggle_target
 def _toggle_body(target: ToggleTarget, payload: JsonBody) -> ItemToggle:
     # target 을 먼저 선언해야 404 가 본문 422 (깨진 JSON 포함) 보다 먼저
     try:
-        return ItemToggle.model_validate(payload)
+        body = ItemToggle.model_validate(payload)
     except ValidationError as e:
         raise RequestValidationError(e.errors(include_input=False)) from None
+    _, item = target
+    if body.is_not_applicable is not None and item.condition is None:
+        # 조건 있는 서류만 해당 없음 가능 (단계 항목은 condition 이 항상 null)
+        raise RequestValidationError(
+            [{"type": "value_error", "loc": ("body", "is_not_applicable"), "msg": "조건 있는 서류만 가능"}]
+        )
+    return body
 
 
 @router.patch(
     "/{checklist_id}/items/{item_id}",
     response_model=ToggleResponse,
-    summary="항목 체크 토글",
+    summary="항목 체크 토글, 서류 해당 없음",
     responses={
         404: {"description": "USER_NOT_FOUND / CHECKLIST_NOT_FOUND / ITEM_NOT_FOUND"},
         422: {"description": "VALIDATION_ERROR"},
@@ -78,4 +85,4 @@ def _toggle_body(target: ToggleTarget, payload: JsonBody) -> ItemToggle:
 )
 def toggle_item(target: ToggleTarget, body: Annotated[ItemToggle, Depends(_toggle_body)], db: DB) -> ToggleResponse:
     checklist, item = target
-    return service.toggle(db, checklist, item, body.is_checked)
+    return service.toggle(db, checklist, item, body)
