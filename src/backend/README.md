@@ -247,21 +247,29 @@ AI 롤플레잉 (3.16~3.19, 3.13)
 
 
 <br/><br/>
-## RAG 함수 연결 (AI 담당 함수 받으면)
+## RAG 함수 연결
 
-지금은 `app/rag_mock.py`의 임시 함수를 사용. `src/rag/` 함수가 준비되면 `app/rag_client.py`의 import 한 줄만 바꾸면 됨
+`.env`의 `RAG_MODE`로 고른다 (`app/rag_client.py`).
 
-```python
-# app/rag_client.py
-import sys
-from app.config import PROJECT_ROOT
+| RAG_MODE | 사용하는 함수 | 필요한 것 |
+|---|---|---|
+| `mock` (기본) | `app/rag_mock.py` | 없음 |
+| `real` | `src/rag/policy_search.py`의 `search_policies` | `.env`의 `OPENAI_API_KEY`, Chroma 인덱스 |
 
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
-from rag.<모듈이름> import search_policies
+실제 RAG 사용 순서 (PowerShell):
+
+```powershell
+# 1) .env 에 RAG_MODE=real, OPENAI_API_KEY=... 입력
+# 2) 인덱스 만들기 (정책 원문이 바뀔 때마다 다시 실행). 결과는 data/chroma/ (커밋하지 않음)
+cd src                                   # 프로젝트 루트에서
+backend\.venv\Scripts\python -m rag.index
+cd backend
+# 3) 서버 실행
+uvicorn app.main:app --reload
 ```
 
-- 함수 형식은 api.md 4장과 같아야 함
-- 필요한 패키지(Chroma 등)는 `requirements.txt`에 추가
+- 함수 형식은 api.md 4장과 같음. 백엔드 테스트는 `dependency_overrides`로 가짜 함수를 쓰므로 키 없이 돌아감
+- RAG 단위 테스트(`tests/test_rag_search.py`)는 가짜 임베딩·가짜 LLM으로 돌아가며 OpenAI를 부르지 않음
 
 
 <br/><br/>

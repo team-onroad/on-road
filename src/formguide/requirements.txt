@@ -1,0 +1,8 @@
+# 신청서 작성 도우미 (src/formguide/). 백엔드 가상환경에 추가로 설치:
+#   pip install -r ..\formguide\requirements.txt   (src\backend 에서)
+# RAG 패키지(openai 등)는 src/backend/requirements.txt 에 있음
+pdfplumber==0.11.10
+# HWP → PDF 변환 (Windows + 한글 설치 PC 에서만)
+pywin32==312; sys_platform == "win32"
+# 테스트용 가상 신청서 PDF 생성
+fpdf2==2.8.9
