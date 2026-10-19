@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     timezone: str = "Asia/Seoul"
     policies_json_path: Path = PROJECT_ROOT / "data" / "policies" / "policies.json"
     simulation_criteria_path: Path = PROJECT_ROOT / "docs" / "simulation-criteria.json"
+    # AI 담당 결과물: 쉬운 말 단계별 변환(src/easytext/), 신청서 작성 항목(src/formguide/)
+    easy_text_dir: Path = PROJECT_ROOT / "data" / "easy_text"
+    forms_dir: Path = PROJECT_ROOT / "data" / "forms"
     # mock: app/rag_mock.py (기본), real: src/rag/ 실제 RAG (OPENAI_API_KEY·Chroma 인덱스 필요)
     rag_mode: Literal["mock", "real"] = "mock"
 
