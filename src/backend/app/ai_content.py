@@ -2,6 +2,7 @@
 
 - 쉬운 말 단계별 변환: data/easy_text/{policy_key}.json  (src/easytext/ 결과)
 - 신청서 작성 항목:    data/forms/{form_id}.json          (src/formguide/ 결과)
+- 정책 카드 요약:      data/policy_facts/{policy_key}.json (src/easytext/facts.py 결과)
 
 파일은 요청마다 다시 읽지 않고 수정 시각이 바뀌면 다시 읽는다 (변환 결과를 서버 재시작 없이 반영).
 """
@@ -84,6 +85,48 @@ def split_more(level: dict) -> tuple[str, str | None]:
 
 def recommended_for(age: int | None) -> str:
     return recommend_level(age) if age is not None else DEFAULT_LEVEL
+
+
+# ---------------- 정책 카드 요약 ----------------
+
+
+def _policy_facts(policy_key: str) -> dict | None:
+    """자동 검사를 통과한 핵심 사실 결과. 없거나 통과 못 했으면 None."""
+    data = _load_json(get_settings().policy_facts_dir / f"{policy_key}.json")
+    return data if isinstance(data, dict) and data.get("passed") else None
+
+
+def _summary(data: dict, raw_sections: object) -> dict | None:
+    sections = [
+        {"label": s["label"], "items": [i for i in s.get("items") or [] if isinstance(i, str) and i]}
+        for s in raw_sections if isinstance(s, dict) and s.get("label")
+    ] if isinstance(raw_sections, list) else []
+    sections = [s for s in sections if s["items"]]
+    if not sections:
+        return None
+    return {"sections": sections, "notice": data.get("notice"), "verified": bool(data.get("verified"))}
+
+
+def policy_summary(policy_key: str) -> dict | None:
+    """검색 카드 요약 {"sections", "notice", "verified"}. 없으면 None."""
+    data = _policy_facts(policy_key)
+    return _summary(data, data.get("card")) if data else None
+
+
+def checklist_summary(policy_key: str, step_key: str) -> dict | None:
+    """체크리스트 단계(target_check·condition_check·apply)별 요약. 형식은 policy_summary 와 같다."""
+    data = _policy_facts(policy_key)
+    checklist = data.get("checklist") if data else None
+    return _summary(data, checklist.get(step_key)) if isinstance(checklist, dict) else None
+
+
+def doc_short_labels(policy_key: str) -> dict[str, str]:
+    """서류 원래 이름 → 짧은 이름. 없으면 빈 dict."""
+    data = _policy_facts(policy_key)
+    labels = data.get("doc_labels") if data else None
+    if not isinstance(labels, dict):
+        return {}
+    return {k: v for k, v in labels.items() if isinstance(k, str) and isinstance(v, str) and v}
 
 
 # ---------------- 신청서 작성 도우미 ----------------

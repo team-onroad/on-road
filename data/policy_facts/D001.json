@@ -1,0 +1,144 @@
+{
+  "policy_key": "D001",
+  "name": "(더미) 자립 생활 지원금",
+  "facts": [
+    {
+      "item": "target",
+      "text": "보호종료 후 5년 이내 자립준비청년",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "월 50만 원 지원",
+      "src": [
+        "S3",
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "period",
+      "text": "보호종료 후 5년",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "주소지 행정복지센터 방문 신청",
+      "src": [
+        "S5"
+      ],
+      "key": true
+    },
+    {
+      "item": "docs",
+      "text": "신분증",
+      "src": [
+        "S6"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "통장 사본",
+      "src": [
+        "S7"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "보호종료 확인서",
+      "src": [
+        "S8"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "보호종료 후 5년 이내 자립준비청년"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "월 50만 원 지원"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "보호종료 후 5년"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "주소지 행정복지센터 방문 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "보호종료 후 5년 이내 자립준비청년"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "보호종료 후 5년 이내 자립준비청년"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "주소지 행정복지센터 방문 신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "신분증": "신분증",
+    "통장 사본": "통장 사본",
+    "보호종료 확인서": "보호종료 확인서"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "585676d78e86bc29",
+  "source_checked_at": "2026-09-28",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-10-19T02:49:35+00:00"
+}
