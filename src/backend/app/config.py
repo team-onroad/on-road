@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     policy_facts_dir: Path = PROJECT_ROOT / "data" / "policy_facts"
     # mock: app/rag_mock.py (기본), real: src/rag/ 실제 RAG (OPENAI_API_KEY·Chroma 인덱스 필요)
     rag_mode: Literal["mock", "real"] = "mock"
+    # mock: app/llm_mock.py (기본), real: src/coach/ 실제 AI 상담·롤플레잉 (OPENAI_API_KEY 필요)
+    llm_mode: Literal["mock", "real"] = "mock"
 
 
 @lru_cache
