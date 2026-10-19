@@ -30,6 +30,8 @@ class RagSettings(BaseSettings):
     # 쉬운 말 변환 (src/easytext/). 2차 의미 검수는 변환 모델과 다른 모델로
     easytext_model: str = "gpt-4o-mini"
     easytext_judge_model: str = "gpt-4o"
+    # AI 상담·롤플레잉·문장 다듬기 (src/coach/)
+    coach_model: str = "gpt-4o-mini"
 
 
 @lru_cache
