@@ -48,6 +48,24 @@ assert all(len(k.replace(" ", "")) >= MIN_KEY_LEN for k in SYNONYMS), "용어 �
 _PATTERNS = [(re.compile(rf"(?<![0-9A-Za-z가-힣]){re.escape(k)}"), v) for k, v in SYNONYMS.items()]
 
 
+# 키워드 검색에서 빼는 말: 질문의 끝말·너무 흔한 말 (모든 정책 글에 있어 고르는 힘이 없음)
+STOPWORDS = {
+    "있나요", "있어요", "있는", "있을까요", "있어", "없어", "알려줘", "알려주세요", "주세요", "해주세요", "궁금해요",
+    "어떤", "무엇", "뭐가", "뭐야", "어떻게", "정책", "지원", "관련", "대해", "대한", "받을", "받을수", "할수",
+}
+_WORD_RE = re.compile(r"[0-9A-Za-z가-힣]+")
+
+
+def keywords(question: str) -> list[str]:
+    """키워드 검색에 쓸 질문 단어 (두 글자 이상, STOPWORDS 제외, 순서 유지·중복 제거)."""
+    return list(dict.fromkeys(w for w in _WORD_RE.findall(question) if len(w) >= MIN_KEY_LEN and w not in STOPWORDS))
+
+
+def keyword_hits(words: list[str], text: str) -> int:
+    """text 에 들어 있는 단어 수. 끝 한 글자(조사)를 뗀 형태도 인정한다 ("청년이" → "청년")."""
+    return sum(1 for w in words if w in text or (len(w) > MIN_KEY_LEN and w[:-1] in text))
+
+
 def expand_query(question: str) -> str:
     extra = list(dict.fromkeys(v for pat, v in _PATTERNS if pat.search(question)))
     if not extra:
