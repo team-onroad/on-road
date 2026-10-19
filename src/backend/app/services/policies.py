@@ -8,12 +8,17 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.codes import NATIONWIDE
+from app import ai_content
 from app.errors import AppError
 from app.ids import parse_id
 from app.rag_client import SearchPolicies
 from app.rules import calc_age, is_outdated, judge_eligibility
 from app.schemas.policies import (
+    EasyLevelOption,
+    EasyTerm,
+    EasyText,
     Eligibility,
+    FormGuide,
     Evidence,
     PolicyDetail,
     RagOutput,
@@ -160,3 +165,38 @@ def search(db: Session, user: User, question: str, today: date, rag: SearchPolic
             )
         )
     return SearchResponse(answer_status="answered", answer=output.answer, results=results)
+
+
+# ---------------- 쉬운 말 단계 (3.23) · 신청서 작성 도우미 (3.24) ----------------
+
+
+def easy_text(policy: Policy, today: date, user: User | None, level: str | None) -> EasyText:
+    levels = ai_content.easy_levels(policy.policy_key)
+    if not levels:
+        raise AppError(404, "EASY_TEXT_NOT_FOUND", "이 정책은 아직 단계별 쉬운 말이 준비되지 않았습니다.")
+    age = calc_age(user.birth_date, today) if user is not None else None
+    code = ai_content.pick_level(list(levels), level, age)
+    chosen = levels[code]
+    core, more = ai_content.split_more(chosen)
+    return EasyText(
+        policy_id=policy.id,
+        policy_key=policy.policy_key,
+        level=code,
+        level_name=ai_content.level_name(code),
+        recommended_level=ai_content.recommended_for(age),
+        levels=[EasyLevelOption(level=c, level_name=ai_content.level_name(c)) for c in levels],
+        core_text=core,
+        more_text=more,
+        terms=[EasyTerm(term=t["term"], gloss=t["gloss"]) for t in chosen.get("terms") or [] if t.get("gloss")],
+        verified=bool(chosen.get("verified")),
+    )
+
+
+def form_guide(policy: Policy, user: User | None) -> FormGuide:
+    spec = ai_content.find_form(policy.policy_key)
+    if spec is None:
+        raise AppError(404, "FORM_GUIDE_NOT_FOUND", "이 정책은 아직 신청서 작성 도우미가 준비되지 않았습니다.")
+    profile = (
+        ai_content.profile_of(user.name, user.birth_date, user.region, user.phone) if user is not None else None
+    )
+    return FormGuide(policy_id=policy.id, **ai_content.form_guide(spec, profile))

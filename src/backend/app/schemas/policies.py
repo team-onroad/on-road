@@ -110,3 +110,60 @@ class RagOutput(BaseModel):
     status: Literal["answered", "no_evidence"]
     answer: str | None
     evidences: list[RagEvidence]
+
+
+# ---------------- 쉬운 말 단계 (3.23) ----------------
+
+EasyLevelCode = Literal["L1", "L2", "L3", "L4", "L5", "L6", "L7"]
+
+
+class EasyLevelOption(BaseModel):
+    level: EasyLevelCode
+    level_name: str
+
+
+class EasyTerm(BaseModel):
+    term: str
+    gloss: str
+
+
+class EasyText(BaseModel):
+    policy_id: int
+    policy_key: str
+    level: EasyLevelCode  # 실제로 보여 주는 단계
+    level_name: str
+    recommended_level: EasyLevelCode  # 나이 기준 추천 단계 (user_id 없으면 L6)
+    levels: list[EasyLevelOption]  # 고를 수 있는 단계 (자동 검사 통과한 것만, L1→L7)
+    core_text: str  # 핵심 요약
+    more_text: str | None  # 더 알아보기 (없으면 null)
+    terms: list[EasyTerm]  # 용어 풀이. 앱이 본문에서 강조하고 누르면 풀이 표시
+    verified: bool  # 사람이 원문과 대조했는지. false 면 앱이 "검토 중" 안내
+
+
+# ---------------- 신청서 작성 도우미 (3.24) ----------------
+
+ValueSource = Literal["profile", "user", "handwrite", "office"]
+
+
+class FormGuideItem(BaseModel):
+    field_id: str
+    label: str
+    section: str | None
+    how: str
+    value_source: ValueSource
+    required: bool | None
+    guide: str
+    example: str | None
+    prefill: str | None
+    evidence: str | None
+
+
+class FormGuide(BaseModel):
+    policy_id: int
+    form_id: str
+    policy_key: str
+    title: str
+    checked: bool
+    notes: list[str]
+    items: list[FormGuideItem]
+    notices: list[str]
