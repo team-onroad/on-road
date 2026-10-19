@@ -1,11 +1,17 @@
-"""LLM 함수 연결 지점 (api.md 4.2). 실제 함수로 바꿀 때 import 한 줄만 수정"""
+"""LLM 함수 연결 지점 (api.md 4.2).
+
+.env 의 LLM_MODE 로 고른다. mock(기본)은 app/llm_mock.py, real 은 src/coach/llm.py (OPENAI_API_KEY 필요).
+"""
 
 import logging
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import lru_cache
 
+from app import llm_mock
+from app.config import PROJECT_ROOT, get_settings
 from app.errors import AppError
-from app.llm_mock import classify_intent, counsel_reply, polish_sentences, roleplay_reply  # ← 교체 지점
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +24,22 @@ class Llm:
     polish_sentences: Callable[..., list[str]]
 
 
+@lru_cache
+def _real_llm() -> Llm:
+    # openai 는 real 일 때만 불러온다
+    src = str(PROJECT_ROOT / "src")
+    if src not in sys.path:
+        sys.path.insert(0, src)
+    from coach import llm
+
+    return Llm(llm.classify_intent, llm.counsel_reply, llm.roleplay_reply, llm.polish_sentences)
+
+
 def get_llm() -> Llm:
     """FastAPI 의존성. 테스트에서는 dependency_overrides 로 교체"""
-    return Llm(classify_intent, counsel_reply, roleplay_reply, polish_sentences)
+    if get_settings().llm_mode == "real":
+        return _real_llm()
+    return Llm(llm_mock.classify_intent, llm_mock.counsel_reply, llm_mock.roleplay_reply, llm_mock.polish_sentences)
 
 
 def ai_unavailable() -> AppError:

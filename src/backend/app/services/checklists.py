@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app import ai_content
 from app.codes import STEP_KEYS, STEP_LABELS
 from app.errors import AppError
 from app.ids import parse_id
@@ -159,18 +160,22 @@ def policy_object(policy: Policy) -> ChecklistPolicy:
 
 
 def _detail(step_key: str, policy: Policy, visible: bool, user: User, today: date):
-    # db-schema.md 3.4 "단계별 상세 설명 출처"
+    # db-schema.md 3.4 "단계별 상세 설명 출처". 짧은 요약도 쉬운 말처럼 노출 대상일 때만
+    summary = ai_content.checklist_summary(policy.policy_key, step_key) if visible else None
     if step_key == "target_check":
         return TargetDetail(
             target_description=policy.target_description,
             easy_text=policy.easy_text if visible else None,  # 검증 안 된 쉬운 말은 숨김
+            summary=summary,
         )
     if step_key == "condition_check":
         return ConditionDetail(
-            target_description=policy.target_description, eligibility=eligibility_for(user, policy, today)
+            target_description=policy.target_description,
+            eligibility=eligibility_for(user, policy, today),
+            summary=summary,
         )
     if step_key == "apply":
-        return ApplyDetail(apply_method=policy.apply_method, apply_url=policy.apply_url)
+        return ApplyDetail(apply_method=policy.apply_method, apply_url=policy.apply_url, summary=summary)
     return None
 
 
@@ -178,10 +183,12 @@ def to_response(db: Session, checklist: Checklist, user: User, today: date) -> C
     policy = db.get(Policy, checklist.policy_id)
     visible = policy.is_active and policy.easy_text_verified
     items = _items(db, checklist)
+    short = ai_content.doc_short_labels(policy.policy_key) if visible else {}
     documents = [
         Document(
             item_id=i.id,
             label=i.label,
+            short_label=short.get(i.label),
             condition=i.condition,
             is_checked=i.is_checked,
             is_not_applicable=i.is_not_applicable,

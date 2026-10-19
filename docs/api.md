@@ -314,7 +314,15 @@
       "evidences": [
         { "content": "근거 원문 스니펫 1" },
         { "content": "근거 원문 스니펫 2" }
-      ]
+      ],
+      "summary": {
+        "sections": [
+          { "label": "지원 대상", "items": ["보호종료 전 2년 이상 연속 보호", "만기·연장 종료: 종료 후 5년 이내"] },
+          { "label": "지원 내용", "items": ["월 50만 원, 매월 20일 지급"] }
+        ],
+        "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+        "verified": false
+      }
     }
   ]
 }
@@ -333,10 +341,13 @@
 |---|---|
 | `answer` | `answer_status = "no_evidence"` (근거 없음) |
 | `results[].support_amount`, `results[].support_period` | 원문에 금액·기간 정보가 없음. 해당 줄 숨김 |
+| `results[].summary` | 카드 요약이 아직 없거나 자동 검사를 통과하지 못함. `target_description` 등 기존 필드로 표시 |
+| `results[].summary.notice` | 안내 문구 없음. 숨김 |
 
 - 한 번의 질문에 한 번의 답변을 돌려준다. 이전 대화 내용은 서버에 저장하지 않는다.
 - `answer`는 AI 담당의 RAG 함수가 만든 문장을 그대로 전달한다 (4장).
 - 상담 화면의 답변 아래에는 `results`의 정책 카드를 함께 보여준다. 정책 카드는 6.2 매핑을 따른다.
+- `summary`: AI 담당 핵심 사실 추출 결과(`data/policy_facts/{policy_key}.json`, `src/easytext/facts.py`)로 만든 카드용 짧은 요약. 원문과 대조하는 자동 검사를 통과한 것만 준다. 항목(`sections[].label`)은 지원 대상·받을 수 없는 경우·지원 내용·지원 기간·신청 방법 순서이고, 내용이 없는 항목은 빠진다. `verified = false`면 "검토 중" 안내를 함께 표시한다.
 - 답변의 "체크리스트 바로가기" 버튼은 해당 정책의 `policy_id`로 3.9를 호출한다.
 - `answer_status = "no_evidence"`: 경고 스타일 UI로 "확인할 수 있는 공식 정보가 없어요" 안내 (계획서 7.3)
 - `excluded` 정책은 `results`에 포함되지 않음
@@ -542,7 +553,15 @@
       "checked_at": "2026-10-02T10:10:00+09:00",
       "detail": {
         "target_description": "지원 대상 및 자격 조건",
-        "easy_text": "쉬운 말 변환문"
+        "easy_text": "쉬운 말 변환문",
+        "summary": {
+          "sections": [
+            { "label": "지원 대상", "items": ["보호종료 전 2년 이상 연속 보호", "18세 이후 만기·연장 보호종료: 종료 후 5년 이내"] },
+            { "label": "받을 수 없는 경우", "items": ["18세 이전 원가정 복귀로 종결한 경우"] }
+          ],
+          "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+          "verified": false
+        }
       },
       "documents": []
     },
@@ -554,7 +573,8 @@
       "checked_at": "2026-10-02T10:15:00+09:00",
       "detail": {
         "target_description": "지원 대상 및 자격 조건",
-        "eligibility": { "status": "match", "age": "match", "region": "match" }
+        "eligibility": { "status": "match", "age": "match", "region": "match" },
+        "summary": { "sections": [ { "label": "지원 대상", "items": ["…"] } ], "notice": "…", "verified": false }
       },
       "documents": []
     },
@@ -566,8 +586,8 @@
       "checked_at": null,
       "detail": null,
       "documents": [
-        { "item_id": 105, "label": "신분증", "is_checked": true, "checked_at": "2026-10-02T10:20:00+09:00" },
-        { "item_id": 106, "label": "통장 사본", "is_checked": false, "checked_at": null }
+        { "item_id": 105, "label": "신분증", "short_label": null, "is_checked": true, "checked_at": "2026-10-02T10:20:00+09:00" },
+        { "item_id": 106, "label": "통장 사본 1부", "short_label": "통장 사본 1부 (압류방지통장 사용 시)", "is_checked": false, "checked_at": null }
       ]
     },
     {
@@ -578,7 +598,8 @@
       "checked_at": null,
       "detail": {
         "apply_method": "신청 방법 및 절차",
-        "apply_url": "https://..."
+        "apply_url": "https://...",
+        "summary": null
       },
       "documents": []
     }
@@ -593,12 +614,16 @@
 | `steps[].detail` | "서류 준비" 단계 (상세 설명 대신 `documents` 사용) |
 | `steps[].detail.easy_text` | 정책이 서비스 노출 대상이 아님 (`policy.is_active = false`). 검증되지 않은 쉬운 말은 보여주지 않음 |
 | `steps[].detail.apply_url` | 공식 신청 페이지 없음 |
+| `steps[].detail.summary` | 짧은 요약이 아직 없거나 자동 검사를 통과하지 못함, 또는 정책이 노출 대상이 아님. 원래 필드(`target_description`, `apply_method`)로 표시 |
+| `steps[].documents[].short_label` | 이 서류의 짧은 이름이 없음 (여러 서류를 묶어 요약한 경우 포함). `label`·`condition`으로 표시 |
 
 - `policy`: 1.5 정책 객체. 정책이 비활성화되어도 체크리스트는 계속 조회되며 `policy.is_active: false`로 내려간다.
 - `steps`는 항상 4개, 대상 확인 → 조건 확인 → 서류 준비 → 신청 순서
 - `progress`(단계 진행률) = 체크된 단계 수 / 4. 홈 "지금 할 일" 카드와 같은 기준
 - `document_progress`(서류 진행률) = 체크된 서류 수 / 전체 서류 수. 체크리스트 화면의 "준비 서류 n/m" 표시용
 - 서류를 모두 체크해도 "서류 준비" 단계는 자동 체크되지 않으며, 사용자가 직접 체크한다.
+- `detail.summary`: 3.5 `results[].summary`와 같은 형식의 짧은 요약 (`data/policy_facts/{policy_key}.json`). 대상 확인·조건 확인은 지원 대상·받을 수 없는 경우, 신청은 신청 방법 항목이며, 검색 카드와 달리 핵심 구절만 고르지 않고 전부 보여 준다. 원래 긴 글은 "자세히 보기"로 접는다.
+- `documents[].short_label`: 조건까지 담은 짧은 서류 이름 (예: "위임장 (대리 신청 시)"). 있으면 `label`·`condition` 대신 보여 주고, 원래 이름은 "자세히 보기"로 접는다.
 - 단계를 눌렀을 때 펼치는 상세 설명은 `detail`을 사용한다. "서류 준비" 단계는 `documents`를 체크박스로 표시한다.
 - 하단 "공식 신청 바로가기" 버튼은 `policy.apply_url`, "문의" 문구는 `policy.contact`를 사용한다. 값이 `null`이면 숨긴다.
 
@@ -938,8 +963,8 @@ def search_policies(question: str, candidate_policy_keys: list[str], top_k: int 
 | 정책명 | `name` |
 | 기관 · OOOO.OO.OO 기준 | `agency`, `checked_at` (`is_outdated`면 경고) |
 | 쉬운 말로 보기 토글 | 켜면 `easy_text`, 끄면 `original_text` |
-| 지원 대상 & 자격요건 | `target_description` |
-| 지원 혜택 & 내용 | `support_content` (있으면 `support_amount`, `support_period` 함께 표시) |
+| 지원 대상 & 자격요건 | 검색 결과에서 `summary`가 있으면 `summary.sections`를 항목별 목록으로 (원문은 "자세히 보기"로 접기), 없으면 `target_description` |
+| 지원 혜택 & 내용 | `summary`가 있으면 위 목록에 포함. 없으면 `support_content` (있으면 `support_amount`, `support_period` 함께 표시) |
 | 근거 원문 보기 | 검색 결과에서는 `evidences[].content`, 정책 상세에서는 `original_text` |
 | 공식 원문 링크 | `source_url` |
 | 조건 판정 | `match`면 "기본 조건 해당 · 세부 조건은 공식 원문에서 확인", `needs_check`면 "조건 확인 필요" 표시 (1.3) |
@@ -1168,6 +1193,12 @@ Kotlin 모델 작성용 표다. **null** 칸이 `O`인 필드만 `null`이 올 �
 | results[].source_url | string | |
 | results[].evidences | array<object> | |
 | results[].evidences[].content | string | |
+| results[].summary | PolicySummary | O |
+| results[].summary.sections | array<object> | |
+| results[].summary.sections[].label | string | |
+| results[].summary.sections[].items | array<string> | |
+| results[].summary.notice | string | O |
+| results[].summary.verified | boolean | |
 
 ### 3.6 `GET /policies/{policy_id}`
 
@@ -1246,6 +1277,7 @@ Kotlin 모델 작성용 표다. **null** 칸이 `O`인 필드만 `null`이 올 �
 | steps[].documents | array<object> | |
 | steps[].documents[].item_id | long | |
 | steps[].documents[].label | string | |
+| steps[].documents[].short_label | string | O |
 | steps[].documents[].is_checked | boolean | |
 | steps[].documents[].checked_at | string (datetime) | O |
 
@@ -1258,6 +1290,7 @@ Kotlin 모델 작성용 표다. **null** 칸이 `O`인 필드만 `null`이 올 �
 | detail.eligibility | Eligibility | `condition_check` | |
 | detail.apply_method | string | `apply` | |
 | detail.apply_url | string | `apply` | O |
+| detail.summary | PolicySummary (3.5) | `target_check`, `condition_check`, `apply` | O |
 | (detail 자체) | — | `doc_prepare` | `null` |
 
 ### 3.11 `PATCH /checklists/{checklist_id}/items/{item_id}`

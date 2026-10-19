@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_
 
 from app.codes import ITEM_TYPES, POLICY_CATEGORIES, STEP_KEYS
 from app.ids import BIGINT_MAX
-from app.schemas.policies import Eligibility
+from app.schemas.policies import Eligibility, PolicySummary
 
 StepKey = Literal[STEP_KEYS]
 
@@ -66,21 +66,25 @@ class NextStep(BaseModel):
 class TargetDetail(BaseModel):
     target_description: str
     easy_text: str | None  # 노출 대상 아니면 null
+    summary: PolicySummary | None  # 짧은 요약 (대상·제외). 요약이 없거나 노출 대상 아니면 null
 
 
 class ConditionDetail(BaseModel):
     target_description: str
     eligibility: Eligibility
+    summary: PolicySummary | None  # 짧은 요약 (대상·제외). 요약이 없거나 노출 대상 아니면 null
 
 
 class ApplyDetail(BaseModel):
     apply_method: str
     apply_url: str | None
+    summary: PolicySummary | None  # 짧은 요약 (신청 방법). 요약이 없거나 노출 대상 아니면 null
 
 
 class Document(BaseModel):
     item_id: int
     label: str
+    short_label: str | None  # 조건까지 담은 짧은 이름. 요약이 없거나 노출 대상 아니면 null → label·condition 표시
     condition: str | None  # null: 모든 신청자에게 필요한 서류
     is_checked: bool
     is_not_applicable: bool

@@ -72,6 +72,17 @@ class Evidence(BaseModel):
     content: str
 
 
+class SummarySection(BaseModel):
+    label: str  # 지원 대상, 받을 수 없는 경우, 지원 내용, 지원 기간, 신청 방법
+    items: list[str]  # 짧은 키워드 구절
+
+
+class PolicySummary(BaseModel):
+    sections: list[SummarySection]
+    notice: str | None  # 자격 단정 금지 안내 (카드 아래 작게)
+    verified: bool  # 사람이 원문과 대조했는지. false 면 앱이 "검토 중" 안내
+
+
 class SearchResult(BaseModel):
     policy_id: int
     policy_key: str
@@ -89,6 +100,7 @@ class SearchResult(BaseModel):
     easy_text: str
     source_url: str
     evidences: list[Evidence]
+    summary: PolicySummary | None  # 카드용 짧은 요약. null 이면 target_description 등을 그대로 보여 준다
 
 
 class SearchResponse(BaseModel):

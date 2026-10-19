@@ -20,7 +20,7 @@ from easytext.checks import _EXCLUSION_RE, _META_WORDS, check, metrics
 from easytext.glossary import add_glosses, apply_rewrites, hints_for, term_links
 from easytext.levels import DEFAULT_LEVEL, Level, get_level
 from easytext.prompts import (
-    CONVERT_SYSTEM, CONVERT_USER, ELIGIBILITY_NOTICE, FILL_CORE_USER, FILL_MISSING_USER, ITEM_ALIASES, ITEMS, JUDGE_SYSTEM, JUDGE_USER, RETRY_USER, level_instructions,
+    CONVERT_SYSTEM, CONVERT_USER, ELIGIBILITY_NOTICE, FACTS_BLOCK, FILL_CORE_USER, FILL_MISSING_USER, ITEM_ALIASES, ITEMS, JUDGE_SYSTEM, JUDGE_USER, RETRY_USER, level_instructions,
 )
 from rag.settings import PROJECT_ROOT
 
@@ -645,18 +645,35 @@ def _fill_missing(draft: dict, level: Level, generate: Generate, src: str, units
     return {**draft, "more": list(draft.get("more") or []) + added}
 
 
-def convert_level(policy: dict, level: Level, generate: Generate, judge: Generate | None = None) -> dict:
+def fact_gaps(facts: list[dict], full: str) -> list[str]:
+    """핵심 사실(facts.py) 중 숫자가 변환문에 없는 것. 숫자 없는 사실은 원문 단위 인용 검사가 본다.
+    서류 "1부"는 자동 검사와 같이 세부로 보고 뺀다."""
+    from easytext.checks import normalize
+
+    def nums(text: str) -> set[str]:
+        return set(re.findall(r"\d+", re.sub(r"1부", "", normalize(text))))
+
+    have = nums(full)
+    return [f["text"] for f in facts if not nums(f["text"]) <= have]
+
+
+def convert_level(policy: dict, level: Level, generate: Generate, judge: Generate | None = None,
+                  facts: list[dict] | None = None) -> dict:
     """자동 검사 → (judge 가 있으면) 다른 모델의 의미 검수까지 통과해야 passed.
 
     judge 는 자동 검사를 통과한 결과에만 부른다 (비용). 지적은 재변환 지적 사항으로 넘긴다.
+    facts: 핵심 사실 추출 결과 (facts.passed_facts). 있으면 빠지면 안 되는 목록으로 프롬프트에 넣고, 숫자가 빠졌는지 본다.
     """
     src = source_text(policy)
     units = source_units(policy)
+    user = CONVERT_USER.format(
+        level_block=level_instructions(level, hints_for(src, level.plain_tier, level.gloss_tier)),
+        source=units_text(policy, units))
+    if facts:
+        user += FACTS_BLOCK.format(facts="\n".join(f"- {f['text']}" for f in facts))
     messages = [
         {"role": "system", "content": CONVERT_SYSTEM},
-        {"role": "user", "content": CONVERT_USER.format(
-            level_block=level_instructions(level, hints_for(src, level.plain_tier, level.gloss_tier)),
-            source=units_text(policy, units))},
+        {"role": "user", "content": user},
     ]
     attempts = []
     outputs: list[tuple[str, str]] = []
@@ -676,6 +693,10 @@ def convert_level(policy: dict, level: Level, generate: Generate, judge: Generat
         result.missing_units = [f'{u["id"]} [{u["field"]}] "{u["text"][:120]}"'
                                 for u in units if u["required"] and u["id"] not in cited]
         result.unit_gaps = unit_content_gaps(units, draft if isinstance(draft, dict) else {}, level)
+        if facts and (gaps := fact_gaps(facts, full)):
+            result.level_problems.append(
+                "핵심 사실 목록의 숫자가 변환문에 없다. 숫자·경계 단어 그대로 알맞은 항목에 넣을 것: "
+                + " / ".join(f'"{g}"' for g in gaps))
         attempts.append(result)
         outputs.append((core, full))
         feedback = result.feedback()
@@ -709,6 +730,7 @@ def convert_level(policy: dict, level: Level, generate: Generate, judge: Generat
         "judge_issues": judge_issues if final.passed and best == len(attempts) - 1 else None,
         # 앱이 강조 표시하고, 누르면 풀이를 보여줄 용어 (사람이 확정한 용어 사전 기준)
         "terms": term_links(full, level.link_tier),
+        "facts_used": bool(facts),
         "verified": False,
     }
 
@@ -761,15 +783,19 @@ def main() -> None:
     parser.add_argument("--judge", action="store_true", help="다른 모델로 의미 보존 2차 검수")
     args = parser.parse_args()
 
+    from easytext.facts import passed_facts
+
     s = get_rag_settings()
     policy = find_policy(args.policy_key, args.file)
     generate = _openai_generate(s.easytext_model)
     judge = _openai_generate(s.easytext_judge_model) if args.judge else None
+    facts = passed_facts(policy)
+    print("핵심 사실 목록: " + (f"{len(facts)}개 사용" if facts else "없음 (python -m easytext.facts 로 먼저 만들면 기준으로 씀)"))
 
     results = []
     for code in args.levels:
         level = get_level(code)
-        r = convert_level(policy, level, generate, judge)
+        r = convert_level(policy, level, generate, judge, facts)
         results.append(r)
         c, m = r["checks"], r["metrics"]
         print(f"\n===== {level.code} · {level.name}: {'통과' if r['passed'] else '실패'} (시도 {r['attempts']}번)")
