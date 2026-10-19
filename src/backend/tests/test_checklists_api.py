@@ -1,5 +1,6 @@
 """POST /checklists, GET /checklists/{id}, PATCH /checklists/{id}/items/{item_id} (api.md 1.5, 3.9~3.11)."""
 
+import json
 import threading
 import uuid
 from datetime import date, datetime
@@ -7,6 +8,7 @@ from datetime import date, datetime
 import pytest
 from sqlalchemy import text
 
+from app.config import get_settings
 from app.ids import BIGINT_MAX
 from app.services import checklists as checklist_service
 from tests.factories import doc, make_policy, make_user
@@ -14,7 +16,7 @@ from tests.factories import doc, make_policy, make_user
 RESPONSE_KEYS = {"checklist_id", "policy", "progress", "document_progress", "steps"}
 POLICY_KEYS = {"policy_id", "name", "agency", "category", "contact", "apply_url", "checked_at", "is_active"}
 STEP_KEYS = {"item_id", "step_key", "label", "is_checked", "checked_at", "detail", "documents"}
-DOC_KEYS = {"item_id", "label", "condition", "is_checked", "is_not_applicable", "checked_at"}
+DOC_KEYS = {"item_id", "label", "short_label", "condition", "is_checked", "is_not_applicable", "checked_at"}
 ITEM_KEYS = {
     "item_id", "item_type", "step_key", "label", "condition", "is_checked", "is_not_applicable", "checked_at",
 }
@@ -93,12 +95,13 @@ def test_create_checklist(api, db_session, setup):
         ("target_check", "대상 확인"), ("condition_check", "조건 확인"), ("doc_prepare", "서류 준비"), ("apply", "신청"),
     ]
     assert all(set(s) == STEP_KEYS and s["is_checked"] is False and s["checked_at"] is None for s in steps)
-    assert steps[0]["detail"] == {"target_description": "지원 대상", "easy_text": "쉬운 말"}
+    assert steps[0]["detail"] == {"target_description": "지원 대상", "easy_text": "쉬운 말", "summary": None}
     assert steps[1]["detail"] == {
         "target_description": "지원 대상", "eligibility": {"status": "match", "age": "match", "region": "match"},
+        "summary": None,
     }
     assert steps[2]["detail"] is None
-    assert steps[3]["detail"] == {"apply_method": "신청 방법", "apply_url": "https://example.com/apply"}
+    assert steps[3]["detail"] == {"apply_method": "신청 방법", "apply_url": "https://example.com/apply", "summary": None}
 
     docs = steps[2]["documents"]
     assert [d["label"] for d in docs] == ["신분증", "통장 사본"]  # required_docs 순서
@@ -147,7 +150,7 @@ def test_existing_checklist_of_hidden_policy_returns_200(api, db_session, setup,
     assert res.status_code == 200
     data = res.json()
     assert data["policy"]["is_active"] is False
-    assert _step(data, "target_check")["detail"] == {"target_description": "지원 대상", "easy_text": None}
+    assert _step(data, "target_check")["detail"] == {"target_description": "지원 대상", "easy_text": None, "summary": None}
 
 
 @pytest.mark.parametrize(
@@ -338,6 +341,36 @@ def test_get_without_user_id_is_422(api, db_session, setup):
 
 
 # ------------------------------------------------------------- 3.11 체크 토글
+
+
+def test_short_summary_from_policy_facts(api, db_session, tmp_path, monkeypatch):
+    monkeypatch.setattr(get_settings(), "policy_facts_dir", tmp_path)
+    user = make_user(db_session)
+    policy = make_policy(db_session, required_docs=["신분증", doc("위임장", "대리 신청 시"), "통장 사본"])
+    target = [{"item": "target", "label": "지원 대상", "items": ["보호종료 후 5년 이내"]}]
+    (tmp_path / f"{policy.policy_key}.json").write_text(json.dumps({
+        "passed": True, "notice": "담당 기관 확인", "verified": False,
+        "checklist": {"target_check": target, "condition_check": target,
+                      "apply": [{"item": "apply", "label": "신청 방법", "items": ["주소지 행정복지센터 방문"]}]},
+        "doc_labels": {"위임장": "위임장 (대리 신청 시)", "신분증": ""},
+    }, ensure_ascii=False), "utf-8")
+
+    data = _create(api, user.id, policy.id).json()
+
+    summary = {"sections": [{"label": "지원 대상", "items": ["보호종료 후 5년 이내"]}],
+               "notice": "담당 기관 확인", "verified": False}
+    assert _step(data, "target_check")["detail"]["summary"] == summary
+    assert _step(data, "condition_check")["detail"]["summary"] == summary
+    assert _step(data, "apply")["detail"]["summary"]["sections"][0]["items"] == ["주소지 행정복지센터 방문"]
+    # 짧은 이름이 있는 서류만 (빈 값은 무시)
+    assert [d["short_label"] for d in _step(data, "doc_prepare")["documents"]] == [None, "위임장 (대리 신청 시)", None]
+
+    # 노출 대상이 아니면 요약도 숨긴다 (쉬운 말과 같은 규칙)
+    policy.is_active = False
+    db_session.commit()
+    data = _get(api, data["checklist_id"], user.id).json()
+    assert _step(data, "target_check")["detail"]["summary"] is None
+    assert all(d["short_label"] is None for d in _step(data, "doc_prepare")["documents"])
 
 
 @pytest.fixture

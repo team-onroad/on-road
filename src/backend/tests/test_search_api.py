@@ -3,6 +3,7 @@
 RAG 함수는 가짜(FakeRag)로 바꿔서 호출 여부·전달 인자·출력 형식을 통제한다.
 """
 
+import json
 import logging
 import uuid
 from datetime import date
@@ -10,6 +11,7 @@ from datetime import date
 import pytest
 from sqlalchemy import text
 
+from app.config import get_settings
 from app.main import app
 from app.rag_client import get_search_policies
 from app.services.policies import candidate_policies
@@ -21,7 +23,7 @@ QUESTION = "퇴소하고 나서 매달 받을 수 있는 돈이 있나요?"
 RESULT_KEYS = {
     "policy_id", "policy_key", "name", "agency", "category", "checked_at", "is_outdated",
     "eligibility", "target_description", "support_content", "support_amount", "support_period",
-    "original_text", "easy_text", "source_url", "evidences",
+    "original_text", "easy_text", "source_url", "evidences", "summary",
 }
 
 
@@ -96,9 +98,33 @@ def test_answered_groups_evidences_by_policy(api, db_session, rag):
     assert (r2["support_amount"], r2["support_period"]) == (None, None)  # null 가능 필드
     assert r2["eligibility"] == {"status": "match", "age": "match", "region": "match"}
     assert r2["is_outdated"] is False
-    nullable = {"support_amount", "support_period"}
+    nullable = {"support_amount", "support_period", "summary"}  # summary: 카드 요약 파일이 있을 때만
     assert all(data["results"][1][k] is not None for k in RESULT_KEYS - nullable)
     assert data["results"][1]["policy_id"] == p1.id
+
+
+def test_summary_from_policy_facts_file(api, db_session, rag, tmp_path, monkeypatch):
+    monkeypatch.setattr(get_settings(), "policy_facts_dir", tmp_path)
+    card = [{"item": "target", "label": "지원 대상", "items": ["보호종료 후 5년 이내", ""]},
+            {"item": "period", "label": "지원 기간", "items": []}]
+    (tmp_path / "T100.json").write_text(json.dumps(
+        {"policy_key": "T100", "passed": True, "card": card, "notice": "담당 기관 확인", "verified": False},
+        ensure_ascii=False), "utf-8")
+    (tmp_path / "T101.json").write_text(json.dumps({"policy_key": "T101", "passed": False, "card": card}), "utf-8")
+    user = make_user(db_session)
+    for key in ("T100", "T101", "T102"):
+        make_policy(db_session, policy_key=key)
+    rag.answer_with(("T100", "근거"), ("T101", "근거"), ("T102", "근거"))
+
+    results = {r["policy_key"]: r for r in _search(api, user.id).json()["results"]}
+
+    # 빈 구절·빈 항목은 빠지고, 통과 못 한 결과·파일 없는 정책은 null
+    assert results["T100"]["summary"] == {
+        "sections": [{"label": "지원 대상", "items": ["보호종료 후 5년 이내"]}],
+        "notice": "담당 기관 확인", "verified": False,
+    }
+    assert results["T101"]["summary"] is None
+    assert results["T102"]["summary"] is None
 
 
 def test_evidences_contain_content_only(api, db_session, rag):

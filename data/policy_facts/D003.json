@@ -1,0 +1,118 @@
+{
+  "policy_key": "D003",
+  "name": "(더미) 청년 취업 준비 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "경기도에 사는 만 18~29세 미취업 청년",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "취업 준비 비용과 상담 지원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "1회 30만 원",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "경기도 청년 포털에서 신청",
+      "src": [
+        "S4"
+      ],
+      "key": true
+    },
+    {
+      "item": "docs",
+      "text": "신분증",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "경기도에 사는 만 18~29세 미취업 청년"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "1회 30만 원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "경기도 청년 포털에서 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "경기도에 사는 만 18~29세 미취업 청년"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "경기도에 사는 만 18~29세 미취업 청년"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "경기도 청년 포털에서 신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "신분증": "신분증"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "f7a97416262f69ed",
+  "source_checked_at": "2026-03-02",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-10-19T02:49:43+00:00"
+}
