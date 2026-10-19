@@ -17,7 +17,11 @@ def test_signature_matches_spec():
     assert sig.parameters["top_k"].default == 5
 
 
-def test_rag_client_uses_mock_by_default():
+def test_rag_client_uses_mock_by_default(monkeypatch):
+    # 개발자 .env 의 RAG_MODE 와 상관없이 기본값(mock)을 확인한다
+    from app.config import Settings, get_settings
+
+    monkeypatch.setattr(get_settings(), "rag_mode", Settings.model_fields["rag_mode"].default)
     assert get_search_policies() is search_policies
 
 
