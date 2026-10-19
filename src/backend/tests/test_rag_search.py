@@ -176,6 +176,35 @@ def test_far_chunks_are_no_evidence_and_llm_not_called(collection):
     assert answer.calls == []
 
 
+def test_keyword_match_rescues_short_question(collection):
+    """"청년"처럼 짧은 질문은 뜻 거리가 멀어도, 그 단어가 들어 있는 청크는 느슨한 상한 안에서 근거로 쓴다."""
+    keys = ["P001", "D001", "D002", "D004"]
+    vector_only = PolicySearcher(collection, fake_embed, FakeAnswer(), 0.0)
+    assert vector_only("청년", keys)["status"] == "no_evidence"
+
+    answer = FakeAnswer()
+    out = PolicySearcher(collection, fake_embed, answer, 0.0, keyword_max_distance=1.0)("청년이", keys)
+    assert out["status"] == "answered"
+    _, hits = answer.calls[0]
+    assert hits and all("청년" in h["content"] or "청년" in h["policy_name"] for h in hits if not h.get("is_apply"))
+    assert len({h["policy_key"] for h in hits}) >= 2  # 여러 정책이 카드로 나올 수 있게
+
+
+def test_keyword_rescue_needs_word_in_chunk(collection):
+    # 질문 단어가 어느 청크에도 없으면 느슨한 상한을 줘도 근거가 없다
+    searcher = PolicySearcher(collection, fake_embed, FakeAnswer(), 0.0, keyword_max_distance=1.0)
+    assert searcher("우주선", ["P001", "D001"])["status"] == "no_evidence"
+
+
+def test_hits_are_spread_over_policies(collection):
+    # 한 정책이 근거 자리를 다 차지하지 않게 정책당 2개까지 먼저 채운다
+    answer = FakeAnswer()
+    make_searcher(collection, answer)("자립수당 지원대상 신청방법 서류", ["P001", "D001", "D002"], top_k=4)
+    _, hits = answer.calls[0]
+    keys = [h["policy_key"] for h in hits if not h.get("is_apply")]
+    assert keys.count("P001") <= 2 and len(set(keys)) >= 2
+
+
 def test_llm_says_no_evidence(collection):
     out = make_searcher(collection, FakeAnswer(None))("자립수당", ["P001"])
     assert out == {"status": "no_evidence", "answer": None, "evidences": []}
@@ -253,6 +282,16 @@ def test_guard_strips_inline_citation_marks():
     assert "[1]" not in out.answer
 
 
+def test_guard_reads_inline_marks_when_evidence_is_missing():
+    # LLM 이 evidence 칸 없이 문장 끝에 "(1)" 만 다는 경우: 그 번호를 근거로 읽고, "1" 을 원문에 없는 숫자로 보지 않는다
+    out = finalize({"sentences": [{"text": "자립수당은 매월 50만 원을 지급합니다.(1)"},
+                                  {"text": "복지로에서 온라인으로 신청합니다 (1, 2)", "evidence": []}]}, HITS)
+    assert not out.fallback and out.used == [0, 1]
+    assert "(1)" not in out.answer and "(1, 2)" not in out.answer
+    # 번호가 범위 밖이면 여전히 버린다
+    assert finalize({"sentences": [{"text": "매월 50만 원입니다.(7)"}]}, HITS).fallback
+
+
 @pytest.mark.parametrize("bad_draft", [None, {}, {"sentences": "x"}, {"sentences": [None, {"text": 1}]}])
 def test_guard_handles_broken_draft(bad_draft):
     assert finalize(bad_draft, HITS).fallback
@@ -286,6 +325,14 @@ def test_guard_replaces_unsafe_answer(bad):
 def test_guard_keeps_method_and_conditional_answers(ok):
     out = finalize(draft((ok, [1, 2])), HITS)
     assert out.answer == f"{ok} (출처: 복지로, 2026년 자립정보북) {CHECK_NOTICE}"
+
+
+def test_keywords_skip_question_endings():
+    from rag.terms import keyword_hits, keywords
+
+    assert keywords("청년 지원 정책 있나요?") == ["청년"]
+    assert keywords("월세 월세 알려줘") == ["월세"]
+    assert keyword_hits(["청년이", "월세"], "자립준비청년 주거비") == 1
 
 
 def test_query_expansion():

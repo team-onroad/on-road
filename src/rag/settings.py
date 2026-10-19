@@ -25,9 +25,13 @@ class RagSettings(BaseSettings):
     rag_collection: str = "policy_chunks"
     # 코사인 거리 상한. 이보다 먼 청크는 근거로 쓰지 않는다 (평가셋으로 조정 필요)
     rag_max_distance: float = 0.65
+    # 질문 단어가 그대로 들어 있는 청크는 이 거리까지 근거로 인정 (하이브리드 검색: "청년"처럼 짧은 질문 대비)
+    rag_keyword_max_distance: float = 0.8
     # 쉬운 말 변환 (src/easytext/). 2차 의미 검수는 변환 모델과 다른 모델로
     easytext_model: str = "gpt-4o-mini"
     easytext_judge_model: str = "gpt-4o"
+    # AI 상담·롤플레잉·문장 다듬기 (src/coach/)
+    coach_model: str = "gpt-4o-mini"
 
 
 @lru_cache

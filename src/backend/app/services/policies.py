@@ -162,6 +162,7 @@ def search(db: Session, user: User, question: str, today: date, rag: SearchPolic
                 easy_text=p.easy_text,
                 source_url=p.source_url,
                 evidences=evidences,
+                summary=ai_content.policy_summary(p.policy_key),
             )
         )
     return SearchResponse(answer_status="answered", answer=output.answer, results=results)

@@ -3,6 +3,7 @@
 import pytest
 
 from app import llm_client, llm_mock
+from app.config import get_settings
 from app.crisis import CRISIS_CONTACTS, is_crisis
 from app.errors import AppError
 
@@ -45,12 +46,24 @@ def test_polish_sentences_returns_input():
     assert result == sentences and result is not sentences
 
 
-def test_client_uses_mock():
+def test_client_uses_mock(monkeypatch):
+    monkeypatch.setattr(get_settings(), "llm_mode", "mock")
     llm = llm_client.get_llm()
     assert llm.classify_intent is llm_mock.classify_intent
     assert llm.counsel_reply is llm_mock.counsel_reply
     assert llm.roleplay_reply is llm_mock.roleplay_reply
     assert llm.polish_sentences is llm_mock.polish_sentences
+
+
+def test_client_uses_coach_in_real_mode(monkeypatch):
+    monkeypatch.setattr(get_settings(), "llm_mode", "real")
+    llm = llm_client.get_llm()
+    from coach import llm as coach_llm  # get_llm 이 src 를 경로에 넣은 뒤에 불러온다
+
+    assert llm.classify_intent is coach_llm.classify_intent
+    assert llm.counsel_reply is coach_llm.counsel_reply
+    assert llm.roleplay_reply is coach_llm.roleplay_reply
+    assert llm.polish_sentences is coach_llm.polish_sentences
 
 
 def test_call_llm_errors():

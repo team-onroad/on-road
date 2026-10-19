@@ -27,8 +27,9 @@ _ASSERTION_RES = [
         r"자격(이|은)\s*(있습니다|있어요|됩니다|돼요|충분)",
     )
 ]
-# LLM 이 문장 안에 직접 쓴 근거 표시 ("[1]", "(근거 2)") 는 지우고 출처 이름으로 다시 단다
-_INLINE_CITE_RE = re.compile(r"\s*(\[\s*\d+(\s*,\s*\d+)*\s*\]|\(\s*근거\s*\d+(\s*,\s*\d+)*\s*\))")
+# LLM 이 문장 안에 직접 쓴 근거 표시 ("[1]", "(근거 2)", "(1, 3)") 는 지우고 출처 이름으로 다시 단다.
+# evidence 칸을 빼먹고 이렇게만 쓴 경우도 있어, 표시 안의 번호도 근거 번호로 읽는다
+_INLINE_CITE_RE = re.compile(r"\s*(\[\s*\d+(\s*,\s*\d+)*\s*\]|\(\s*(근거\s*)?\d+(\s*,\s*\d+)*\s*\))")
 
 
 def _numbers(text: str) -> set[str]:
@@ -74,8 +75,11 @@ def _valid_refs(evidence: object, n: int) -> list[int]:
 def _check_sentence(sentence: object, hits: list[dict]) -> tuple[str, list[int]] | None:
     if not isinstance(sentence, dict) or not isinstance(sentence.get("text"), str):
         return None
-    text = _INLINE_CITE_RE.sub("", sentence["text"]).strip()
-    refs = _valid_refs(sentence.get("evidence"), len(hits))
+    raw = sentence["text"]
+    text = _INLINE_CITE_RE.sub("", raw).strip()
+    inline = [int(n) for m in _INLINE_CITE_RE.finditer(raw) for n in re.findall(r"\d+", m.group())]
+    evidence = sentence.get("evidence")
+    refs = _valid_refs((evidence if isinstance(evidence, list) else []) + inline, len(hits))
     if not text or not refs:
         return None
     cited = [hits[r - 1] for r in refs]
