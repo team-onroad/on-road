@@ -273,6 +273,27 @@ uvicorn app.main:app --reload
 
 
 <br/><br/>
+## AI 상담·롤플레잉 연결
+
+`.env`의 `LLM_MODE`로 고른다 (`app/llm_client.py`).
+
+| LLM_MODE | 사용하는 함수 | 필요한 것 |
+|---|---|---|
+| `mock` (기본) | `app/llm_mock.py` (정해진 답) | 없음 |
+| `real` | `src/coach/llm.py` (실제 AI) | `.env`의 `OPENAI_API_KEY` |
+
+- 위기 신호는 두 모드 모두 AI 전에 `app/crisis.py` 키워드로 먼저 거른다
+- 답변 확인은 서버 없이 `src` 폴더에서 `backend\.venv\Scripts\python -m coach.try_chat` (자세한 건 `src/coach/README.md`)
+
+
+<br/><br/>
+## 정책 카드·체크리스트 짧은 요약
+
+`data/policy_facts/{policy_key}.json` (`src/easytext/facts.py` 결과)을 읽어 `/search` 의 `results[].summary`, 체크리스트의 `detail.summary`·`documents[].short_label`로 내려준다.
+파일이 없거나 자동 검사를 통과하지 못한 정책은 `null` → 앱은 원래 필드를 보여 준다.
+
+
+<br/><br/>
 ## 참고
 
 - 날짜와 시간은 모두 한국 시간 기준
