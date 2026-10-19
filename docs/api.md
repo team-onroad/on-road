@@ -123,6 +123,8 @@
 | 성장 기록 | GET | `/users/{user_id}/growth` | 체크리스트·시뮬레이션 기록 모아 보기 (3.13) |
 | 정책 검색 | POST | `/search` | 질문 → 조건 필터 → RAG 답변 + 근거 (상담 화면) |
 | 정책 상세 | GET | `/policies/{policy_id}` | 정책 카드·상세 정보 |
+| 쉬운 말 | GET | `/policies/{policy_id}/easy-text` | 단계별(L1~L7) 쉬운 말 보기 (3.23) |
+| 신청서 도우미 | GET | `/policies/{policy_id}/form-guide` | 신청서 칸별 안내·미리 채운 값 (3.24) |
 | 시뮬레이션 | GET | `/simulations/criteria` | 배분 기준표 조회 |
 | 시뮬레이션 | POST | `/simulations` | 배분 제출 → 부족 판정, 대안, 관련 정책 |
 | 시뮬레이션 | GET | `/simulations/{simulation_id}` | 지난 시뮬레이션 결과 다시 보기 (3.14) |
@@ -756,6 +758,69 @@
 
 - 저장된 입력값과 판정 결과(`shortages`, `alternatives`)를 그대로 돌려준다. 제출 당시의 `criteria_version` 기준이다.
 - `related_policies`는 조회할 때 다시 거른다. 그 사이 비활성화된 정책과 사용자 기준 `excluded` 정책은 빠진다 (3.8과 같은 규칙).
+
+<br/>
+
+### 3.23 `GET /policies/{policy_id}/easy-text` — 쉬운 말 단계별 보기
+
+AI 담당 쉬운 말 변환 결과(`data/easy_text/{policy_key}.json`, `src/easytext/`)를 단계별로 돌려준다. 정책 카드·상세의 쉬운 말 토글에서 사용한다.
+
+| 쿼리 | 필수 | 설명 |
+|---|---|---|
+| user_id | X | 있으면 만 나이로 추천 단계를 고른다 |
+| level | X | `L1`~`L7`. 사용자가 직접 고른 단계. 없으면 추천 단계 |
+
+**응답 200**
+
+```json
+{
+  "policy_id": 1, "policy_key": "P001",
+  "level": "L3", "level_name": "조금 쉽게", "recommended_level": "L6",
+  "levels": [{"level": "L1", "level_name": "아주 쉽게"}],
+  "core_text": "[받는 것]\n매월 50만 원을 ...",
+  "more_text": "[받는 사람]\n...",
+  "terms": [{"term": "보호종료", "gloss": "시설이나 위탁가정의 보호가 끝나는 것"}],
+  "verified": false
+}
+```
+
+- 단계 선택 순서: `level` → `user_id`의 만 나이 추천(L1 7세~, L2 9세~, L3 11세~, L4 13세~, L5 15세~, L6 18세~, L7 20세~) → 기본 `L6`
+- 자동 검사를 통과한(`passed`) 단계만 `levels`에 나온다. 고른 단계가 없으면 가장 가까운 단계를 준다 (같으면 쉬운 쪽)
+- `core_text`는 핵심 요약, `more_text`는 "더 알아보기"(없으면 null). 본문은 `[항목]` 줄로 나뉜다
+- `terms`: 본문에 나오는 어려운 용어. 앱은 강조 표시하고 누르면 `gloss`를 보여준다
+- `verified: false`면 사람이 원문과 대조하기 전이므로 "원문과 함께 확인해 주세요" 안내를 표시한다
+- 변환 결과가 없으면 404 `EASY_TEXT_NOT_FOUND` → 앱은 기존 `easy_text`(3.6)를 그대로 보여준다. `level` 값 오류는 422
+
+<br/>
+
+### 3.24 `GET /policies/{policy_id}/form-guide` — 신청서 작성 도우미
+
+AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)을 칸별 안내로 돌려준다. 체크리스트 "서류 준비"·"신청" 단계에서 사용한다.
+
+| 쿼리 | 필수 | 설명 |
+|---|---|---|
+| user_id | X | 있으면 이름·생년월일·시/도·연락처를 `prefill`로 미리 채운다 (LLM에 보내지 않음) |
+
+**응답 200**
+
+```json
+{
+  "policy_id": 1, "form_id": "P001-apply", "policy_key": "P001", "title": "자립수당 지급 신청서",
+  "checked": false, "notes": ["주소지 행정복지센터에 제출"],
+  "items": [
+    {"field_id": "name", "label": "성명", "section": null, "how": "앱 정보로 미리 채움 (맞는지 확인)",
+     "value_source": "profile", "required": true, "guide": "...", "example": "홍길동",
+     "prefill": "김민지", "evidence": "성 명"}
+  ],
+  "notices": ["아직 사람이 원본 양식과 대조하지 않은 안내예요. ..."]
+}
+```
+
+- `value_source`: `profile`(미리 채움) / `user`(직접 입력) / `handwrite`(앱에 입력하지 않고 양식에 손으로, 주민등록번호·계좌·서명) / `office`(담당 공무원 기재란)
+- 민감 항목은 `example`·`prefill`이 항상 null
+- 같은 정책에 양식이 여러 개면 `checked: true` 우선, 그다음 `form_id` 순
+- `notices`는 항상 화면에 표시한다
+- 양식이 없으면 404 `FORM_GUIDE_NOT_FOUND` → 앱은 "준비 중" 표시
 
 <br/>
 

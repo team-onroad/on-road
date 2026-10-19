@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import DB, BodyUser, Today, openapi_body, validated_body
 from app.rag_client import SearchPolicies, get_search_policies
-from app.schemas.policies import PolicyDetail, SearchRequest, SearchResponse
+from app.schemas.policies import EasyLevelCode, EasyText, FormGuide, PolicyDetail, SearchRequest, SearchResponse
 from app.services import policies as service
 from app.services.users import get_user
 
@@ -28,6 +28,39 @@ def get_policy(
     policy = service.get_visible_policy(db, policy_id)  # 정책 404 를 먼저 확인
     user = get_user(db, user_id) if user_id is not None else None
     return service.to_detail(policy, today, user)
+
+
+@router.get(
+    "/policies/{policy_id}/easy-text",
+    response_model=EasyText,
+    summary="쉬운 말 단계별 보기",
+    responses={
+        404: {"description": "POLICY_NOT_FOUND / USER_NOT_FOUND / EASY_TEXT_NOT_FOUND"},
+        422: {"description": "VALIDATION_ERROR (level 값 오류)"},
+    },
+)
+def get_easy_text(
+    policy_id: str,
+    db: DB,
+    today: Today,
+    user_id: str | None = None,
+    level: EasyLevelCode | None = None,
+) -> EasyText:
+    policy = service.get_visible_policy(db, policy_id)
+    user = get_user(db, user_id) if user_id is not None else None
+    return service.easy_text(policy, today, user, level)
+
+
+@router.get(
+    "/policies/{policy_id}/form-guide",
+    response_model=FormGuide,
+    summary="신청서 작성 도우미",
+    responses={404: {"description": "POLICY_NOT_FOUND / USER_NOT_FOUND / FORM_GUIDE_NOT_FOUND"}},
+)
+def get_form_guide(policy_id: str, db: DB, user_id: str | None = None) -> FormGuide:
+    policy = service.get_visible_policy(db, policy_id)
+    user = get_user(db, user_id) if user_id is not None else None
+    return service.form_guide(policy, user)
 
 
 @router.post(
