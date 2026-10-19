@@ -8,6 +8,9 @@ psycopg-binary==3.3.6
 alembic==1.20.0
 # Windows 에는 시간대 데이터가 없어 Asia/Seoul 계산에 필요
 tzdata==2026.5
+# RAG (src/rag/): 벡터 DB, 임베딩·답변 생성
+chromadb==1.5.9
+openai==3.35.1
 
 # 테스트
 pytest==9.1.1

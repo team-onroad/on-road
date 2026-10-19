@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,6 +22,8 @@ class Settings(BaseSettings):
     timezone: str = "Asia/Seoul"
     policies_json_path: Path = PROJECT_ROOT / "data" / "policies" / "policies.json"
     simulation_criteria_path: Path = PROJECT_ROOT / "docs" / "simulation-criteria.json"
+    # mock: app/rag_mock.py (기본), real: src/rag/ 실제 RAG (OPENAI_API_KEY·Chroma 인덱스 필요)
+    rag_mode: Literal["mock", "real"] = "mock"
 
 
 @lru_cache
