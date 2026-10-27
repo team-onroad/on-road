@@ -62,7 +62,8 @@ def _chars(page: pymupdf.Page) -> tuple[list[dict], list[pymupdf.Rect]]:
 def _unoverlap(chars: list[dict], font: pymupdf.Font) -> None:
     """같은 줄에서 다른 묶음 글자와 겹치면 그 묶음의 나머지 글자를 함께 오른쪽으로 민다"""
     lines: list[list[dict]] = []
-    for ch in sorted(chars, key=lambda c: (round(c["y"]), c["x"])):
+    # 띄어쓰기는 보이지 않으니 겹침 판단에서 뺀다 (줄 맞춤용 공백만 들어 있는 글자 묶음이 글자를 밀어내지 않게)
+    for ch in sorted((c for c in chars if c["c"].strip()), key=lambda c: (round(c["y"]), c["x"])):
         if lines and abs(lines[-1][0]["y"] - ch["y"]) < 1.5:
             lines[-1].append(ch)
         else:

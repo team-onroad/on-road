@@ -581,14 +581,25 @@ def file_rows(db: Session, doc: Document) -> list[tuple[dict, str]]:
 # ---------------- 상담 AI → 문서 AI 핸드오프 ----------------
 
 
+# 정책 이름에 흔히 붙어 혼자로는 정책을 가리키지 못하는 낱말
+_GENERIC_WORDS = {"자립준비청년", "보호종료아동", "청년", "지원", "지급", "사업", "신청", "제도", "정책", "서비스", "프로그램"}
+
+
+def _policy_mentioned(name: str, flat_message: str) -> bool:
+    """정책 이름 전체, 또는 흔한 낱말을 뺀 핵심 낱말(예: "자립준비청년 자립수당 지급" → "자립수당")이 메시지에 있으면"""
+    if name.replace(" ", "") in flat_message:
+        return True
+    words = [w for w in re.split(r"[\s()·,/]+", name) if len(w) >= 2 and w not in _GENERIC_WORDS]
+    return any(w in flat_message for w in words)
+
+
 def handoff_for(db: Session, user: User, message: str, hint: str | None, today: date) -> Handoff:
     text = f"{message} {hint or ''}"
     flat = text.replace(" ", "")
     stage = calc_stage(calc_age(user.birth_date, today), user.status)
     candidates: list[HandoffCandidate] = []
     for p in db.scalars(select(Policy).where(VISIBLE).order_by(Policy.id)):
-        name = p.name.replace(" ", "")
-        if name and name in flat and doc_spec.policy_form_spec(p.policy_key) is not None:
+        if _policy_mentioned(p.name, flat) and doc_spec.policy_form_spec(p.policy_key) is not None:
             candidates.append(HandoffCandidate(source_type="policy_form", source_id=None, policy_id=p.id, title=p.name))
     templates = doc_spec.template_candidates(text, stage)
     if not candidates and not templates:
