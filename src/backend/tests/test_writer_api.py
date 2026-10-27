@@ -469,6 +469,18 @@ def test_chat_hands_off_to_document_ai(api, db_session, doc_llm, forms_dir):
         in data["handoff"]["candidates"]
 
 
+def test_chat_handoff_matches_policy_keyword(api, db_session, doc_llm, forms_dir):
+    user = make_user(db_session)
+    policy = make_policy(db_session, policy_key="P001", name="자립준비청년 자립수당 지급")
+    make_policy(db_session, policy_key="P002", name="자립준비청년 주거 지원")
+    _write_form(forms_dir)
+    _write_form(forms_dir, policy_key="P002")
+
+    data = api.post("/api/chat", json={"user_id": str(user.id), "message": "자립수당 신청서 써야 해"}).json()
+    policy_ids = [c["policy_id"] for c in data["handoff"]["candidates"] if c["source_type"] == "policy_form"]
+    assert policy_ids == [policy.id]  # "자립준비청년"·"지원" 같은 흔한 낱말로는 맞추지 않는다
+
+
 def test_chat_handoff_without_match_offers_stage_templates(api, db_session, doc_llm):
     user = make_user(db_session)
     doc_llm.route = {"route": "document", "doc_hint": None}
