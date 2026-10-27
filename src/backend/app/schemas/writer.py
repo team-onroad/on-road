@@ -122,6 +122,7 @@ class DocField(BaseModel):
     essay: bool
     required: bool | None
     input_type: str
+    options: list[str] | None  # 체크박스 칸 선택지. 앱은 고르게 하고 고른 것을 value 로 보낸다 (여러 개는 ", ")
     value_source: ValueSource
     writable: bool  # false: handwrite·office (앱에서 입력·AI 도우미 없음, 진행률에서 제외)
     value: str
