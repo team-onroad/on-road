@@ -49,7 +49,8 @@ ASSIST_MAX_CHARS = 1000
 OTHER_FIELDS_FOR_AI = 3
 NOT_CHECKED_NOTICE = "아직 사람이 원본 양식과 대조하지 않은 칸 목록이에요. 공식 양식과 함께 확인해 주세요."
 AI_NOTICE = "AI가 쓴 문장은 색으로 표시돼요. 내 상황에 맞게 고친 뒤 완료를 눌러 주세요."
-HANDWRITE_NOTICE = "주민등록번호·계좌·서명 칸은 앱에 입력하지 않아요. 출력한 양식에 직접 써 주세요."
+HANDWRITE_NOTICE = "주민등록번호·서명 칸은 앱에 입력하지 않아요. 출력한 양식에 직접 써 주세요."
+ACCOUNT_TIP = "통장에 적힌 계좌번호를 숫자와 -로 적어 주세요. 본인 명의 통장만 돼요. (계좌번호는 AI 에 보내지 않아요)"
 COUNSEL_MESSAGE = "이 화면에서는 서류 작성을 도와요. 고민 이야기는 AI 상담에서 편하게 해 주세요."
 HANDOFF_MESSAGE = "서류 작성은 문서 도우미에서 칸마다 함께 써 볼게요."
 
@@ -429,6 +430,14 @@ def assist(
         return AssistResponse(
             route="crisis", action=None, field=None, progress=None, message=CRISIS_MESSAGE, search=None,
             contacts=[Contact(**c) for c in CRISIS_CONTACTS],
+        )
+
+    if spec.get("input_type") == "account":  # 계좌번호 칸은 AI 를 쓰지 않는다 (값·요청을 LLM 에 보내지 않음)
+        row.tip = ACCOUNT_TIP
+        db.commit()
+        resp = _field_response(db, doc, row, spec)
+        return AssistResponse(
+            route="field", action="tip", field=resp.field, progress=resp.progress, message=None, search=None, contacts=[],
         )
 
     context = {"screen": "document", "document_title": doc.title, "field_label": spec["label"]}
