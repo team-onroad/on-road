@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 
 /** 준비 서류 하나: AI 와 쓸 수 있으면 정책 신청서(policyForm) 또는 앱 양식(templateId) */
 data class DocChoice(val doc: ChecklistDoc, val policyForm: Boolean, val templateId: String?) {
-    val writable: Boolean get() = policyForm || templateId != null
+    val writable: Boolean get() = policyForm || templateId != null || doc.documentId != null
     val name: String get() = doc.shortLabel ?: doc.name
 }
 
@@ -78,6 +78,8 @@ fun DocPickerScreen(
     policyId: String,
     onBack: () -> Unit,
     onWrite: (policyId: Long?, templateId: String?, itemId: Long) -> Unit,
+    /** 이미 쓰던 서류 열기 */
+    onOpenDocument: (Long) -> Unit = {},
     vm: DocPickerViewModel = viewModel(),
 ) {
     LaunchedEffect(Unit) { vm.load(policyId) }
@@ -107,7 +109,9 @@ fun DocPickerScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         writable.forEach { ch ->
                             WritableDocCard(ch) {
-                                onWrite(if (ch.policyForm) c.policyId.toLongOrNull() else null, ch.templateId, ch.doc.itemId)
+                                val id = ch.doc.documentId
+                                if (id != null) onOpenDocument(id)
+                                else onWrite(if (ch.policyForm) c.policyId.toLongOrNull() else null, ch.templateId, ch.doc.itemId)
                             }
                         }
                     }
@@ -130,7 +134,8 @@ fun DocPickerScreen(
 
 @Composable
 private fun WritableDocCard(ch: DocChoice, onWrite: () -> Unit) {
-    val done = ch.doc.checked
+    val done = ch.doc.written
+    val writing = ch.doc.documentStatus == "writing"
     OnRoadCard(
         Modifier.fillMaxWidth(),
         borderColor = if (done) OnRoadColors.BorderSlate else OnRoadColors.Primary,
@@ -144,16 +149,25 @@ private fun WritableDocCard(ch: DocChoice, onWrite: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Text(ch.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                 Text(
-                    if (done) "작성해서 PDF로 내보냈어요" else "묻는 말에 답하면 원래 양식에 채워 드려요",
+                    when {
+                        done -> "작성해서 PDF로 내보냈어요"
+                        writing -> "쓰던 서류가 있어요. 이어서 써요"
+                        else -> "묻는 말에 답하면 원래 양식에 채워 드려요"
+                    },
                     style = OnRoadType.Micro,
                     color = OnRoadColors.TextTertiary,
                 )
             }
             if (done) OnRoadTag("완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
+            else if (writing) OnRoadTag("작성 중", style = TagStyle.PrimaryOutline, textStyle = OnRoadType.Tiny)
         }
         Spacer(Modifier.height(12.dp))
         OnRoadButton(
-            if (done) "다시 보기" else "AI와 쓰기", onWrite, Modifier.fillMaxWidth(),
+            when {
+                done -> "다시 보기"
+                writing -> "이어서 쓰기"
+                else -> "AI와 쓰기"
+            }, onWrite, Modifier.fillMaxWidth(),
             variant = if (done) ButtonVariant.Outline else ButtonVariant.Primary,
             height = 38.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
             trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,

@@ -368,6 +368,7 @@ private fun OnRoadGraph(
                 onBack = back,
                 onFormGuide = { go(Routes.formGuide(it)) },
                 onOpenDocs = { go(Routes.docPicker(it)) },
+                onOpenDocument = { go(Routes.docWriter(documentId = it)) },
             )
         }
         composable(
@@ -446,6 +447,7 @@ private fun OnRoadGraph(
                 onWrite = { policyId, templateId, itemId ->
                     go(Routes.docWriter(policyId = policyId, templateId = templateId, itemId = itemId))
                 },
+                onOpenDocument = { go(Routes.docWriter(documentId = it)) },
             )
         }
         composable(

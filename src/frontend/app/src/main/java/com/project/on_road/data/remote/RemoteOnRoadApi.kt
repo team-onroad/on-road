@@ -567,6 +567,8 @@ private fun ChecklistDto.toChecklist(): Checklist {
             checked = it.isChecked,
             notApplicable = it.isNotApplicable,
             shortLabel = it.shortLabel?.takeIf { l -> l.isNotBlank() },
+            documentId = it.documentId,
+            documentStatus = it.documentStatus,
         )
     }
     return Checklist(
