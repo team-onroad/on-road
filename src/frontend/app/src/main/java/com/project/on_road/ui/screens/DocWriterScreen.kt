@@ -104,7 +104,11 @@ private fun Header(d: WriterDocumentDto, vm: DocWriterViewModel) {
         Spacer(Modifier.height(8.dp))
         ProgressBar(d.progress.ratio)
         Spacer(Modifier.height(14.dp))
-        SegmentedTabs(listOf("대화로 채우기", "칸별로 쓰기"), vm.mode.ordinal) { vm.switchMode(WriteMode.entries[it]) }
+        SegmentedTabs(
+            options = listOf("대화로 채우기", "칸별로 쓰기"),
+            selected = vm.mode.ordinal,
+            onSelect = { vm.switchMode(WriteMode.entries[it]) },
+        )
     }
     HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
 }
