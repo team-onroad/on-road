@@ -79,6 +79,7 @@ def _toggle_body(target: ToggleTarget, payload: JsonBody) -> ItemToggle:
     summary="항목 체크 토글, 서류 해당 없음",
     responses={
         404: {"description": "USER_NOT_FOUND / CHECKLIST_NOT_FOUND / ITEM_NOT_FOUND"},
+        409: {"description": "DOCUMENT_WRITTEN (문서 AI 로 써서 내보낸 서류는 직접 바꿀 수 없음)"},
         422: {"description": "VALIDATION_ERROR"},
     },
     openapi_extra=openapi_body(ItemToggle),

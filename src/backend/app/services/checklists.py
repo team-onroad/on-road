@@ -27,10 +27,30 @@ from app.schemas.checklists import (
 )
 from app.services.policies import VISIBLE, eligibility_for, policy_not_found
 from db.models import Checklist, ChecklistItem, Policy, User
+from db.models import Document as WrittenDocument
 
 
 def checklist_not_found() -> AppError:
     return AppError(404, "CHECKLIST_NOT_FOUND", "체크리스트를 찾을 수 없습니다.")
+
+
+def document_written() -> AppError:
+    return AppError(
+        409, "DOCUMENT_WRITTEN",
+        "문서 AI로 작성해 내보낸 서류예요. 바꾸려면 서류 작성 화면에서 칸을 다시 고쳐 주세요.",
+    )
+
+
+def linked_documents(db: Session, user_id, item_ids: list[int]) -> dict[int, WrittenDocument]:
+    """체크리스트 서류 항목 → 그 항목으로 연결된 문서 AI 문서 (사용자 것만, 가장 최근)"""
+    if not item_ids:
+        return {}
+    docs = db.scalars(
+        select(WrittenDocument)
+        .where(WrittenDocument.user_id == user_id, WrittenDocument.checklist_item_id.in_(item_ids))
+        .order_by(WrittenDocument.updated_at)
+    )
+    return {d.checklist_item_id: d for d in docs}
 
 
 def item_not_found() -> AppError:
@@ -184,6 +204,7 @@ def to_response(db: Session, checklist: Checklist, user: User, today: date) -> C
     visible = policy.is_active and policy.easy_text_verified
     items = _items(db, checklist)
     short = ai_content.doc_short_labels(policy.policy_key) if visible else {}
+    linked = linked_documents(db, user.id, [i.id for i in items if i.item_type == "document"])
     documents = [
         Document(
             item_id=i.id,
@@ -193,6 +214,8 @@ def to_response(db: Session, checklist: Checklist, user: User, today: date) -> C
             is_checked=i.is_checked,
             is_not_applicable=i.is_not_applicable,
             checked_at=i.checked_at,
+            document_id=linked[i.id].id if i.id in linked else None,
+            document_status=linked[i.id].status if i.id in linked else None,
         )
         for i in items
         if i.item_type == "document"
@@ -240,7 +263,14 @@ def _apply(item: ChecklistItem, body: ItemToggle) -> bool:
 
 
 def toggle(db: Session, checklist: Checklist, item: ChecklistItem, body: ItemToggle) -> ToggleResponse:
-    """같은 값이면 변경 없음 (updated_at 유지). 서류를 다 체크해도 단계는 자동 체크 안 함."""
+    """같은 값이면 변경 없음 (updated_at 유지). 서류를 다 체크해도 단계는 자동 체크 안 함.
+    문서 AI 로 써서 내보낸 서류는 체크가 문서를 따른다 → 바꾸려 하면 409 DOCUMENT_WRITTEN"""
+    if item.item_type == "document":
+        doc = linked_documents(db, checklist.user_id, [item.id]).get(item.id)
+        if doc is not None and doc.status == "exported" and (
+            body.is_checked is False or body.is_not_applicable is True
+        ):
+            raise document_written()
     if _apply(item, body):
         checklist.updated_at = func.now()  # 홈 "지금 할 일" 정렬 기준
         db.commit()

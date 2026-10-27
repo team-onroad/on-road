@@ -38,6 +38,7 @@
 | 404 | `POLICY_NOT_FOUND` | 정책이 없거나 서비스 노출 대상이 아님 (비활성 또는 쉬운 말 미검증) |
 | 404 | `CHECKLIST_NOT_FOUND` | 체크리스트가 없거나 요청한 사용자의 것이 아님 |
 | 404 | `ITEM_NOT_FOUND` | 체크리스트 항목이 없거나 해당 체크리스트 소속이 아님 |
+| 409 | `DOCUMENT_WRITTEN` | 문서 AI 로 써서 내보낸 서류 항목을 직접 체크 해제·해당 없음으로 바꾸려 함 (서류 작성 화면에서 칸을 다시 고치면 풀림) |
 | 404 | `SIMULATION_NOT_FOUND` | 시뮬레이션 기록이 없거나 요청한 사용자의 것이 아님 |
 | 422 | `VALIDATION_ERROR` | 필수값 누락, 코드값 오류, 형식 오류 (예: 미래 생년월일, 휴대폰 번호 형식) |
 | 422 | `SUM_EXCEEDS_INCOME` | 시뮬레이션 배분 합계가 총소득보다 큼 |
@@ -631,6 +632,7 @@
 - 서류를 모두 체크해도 "서류 준비" 단계는 자동 체크되지 않으며, 사용자가 직접 체크한다.
 - `detail.summary`: 3.5 `results[].summary`와 같은 형식의 짧은 요약 (`data/policy_facts/{policy_key}.json`). 대상 확인·조건 확인은 지원 대상·받을 수 없는 경우, 신청은 신청 방법 항목이며, 검색 카드와 달리 핵심 구절만 고르지 않고 전부 보여 준다. 원래 긴 글은 "자세히 보기"로 접는다.
 - `documents[].short_label`: 조건까지 담은 짧은 서류 이름 (예: "위임장 (대리 신청 시)"). 있으면 `label`·`condition` 대신 보여 주고, 원래 이름은 "자세히 보기"로 접는다.
+- `documents[].document_id`·`document_status`: 이 서류 항목으로 연결된 문서 AI 문서 (없으면 null). `exported` 면 체크가 문서를 따르고 앱에서 직접 바꿀 수 없다(3.11 → 409 `DOCUMENT_WRITTEN`). 문서의 칸을 다시 고치면(`writing`) 체크가 풀린다.
 - 단계를 눌렀을 때 펼치는 상세 설명은 `detail`을 사용한다. "서류 준비" 단계는 `documents`를 체크박스로 표시한다.
 - 하단 "공식 신청 바로가기" 버튼은 `policy.apply_url`, "문의" 문구는 `policy.contact`를 사용한다. 값이 `null`이면 숨긴다.
 
