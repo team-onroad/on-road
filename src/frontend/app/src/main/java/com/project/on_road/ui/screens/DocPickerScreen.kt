@@ -97,7 +97,8 @@ fun DocPickerScreen(
                 )
 
                 val writable = vm.choices.filter { it.writable }
-                val issued = vm.choices.filter { !it.writable }
+                // 체크리스트에서 꺼 둔 상황(대리 신청 등)의 서류는 빼고 보여 준다
+                val issued = vm.choices.filter { !it.writable && !it.doc.notApplicable }
 
                 if (writable.isNotEmpty()) {
                     Spacer(Modifier.height(OnRoadDimens.BlockGap))
