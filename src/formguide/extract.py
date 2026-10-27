@@ -23,6 +23,8 @@ class Page:
 @dataclass
 class FormText:
     pages: list[Page]
+    # 표 구조로 찾은 칸 이름 후보 (formguide/layout.label_hints). LLM 이 칸을 빠뜨리지 않게 같이 준다
+    hints: list[str] = field(default_factory=list)
 
     def as_prompt_text(self) -> str:
         """LLM 에 줄 텍스트. 표는 행마다 ' | ' 로 이어 칸 이름과 칸의 관계가 보이게 한다."""

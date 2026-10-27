@@ -40,6 +40,9 @@ TEXT_GAP = 4
 PAGE_RIGHT_MARGIN = 36
 MIN_BOX_W = 20
 DATE_LEFT_SPACE = 60  # "년" 앞에 연도를 쓸 공간
+SECTION_MAX = 20  # 구역 제목 길이 (이보다 긴 "1. …" 줄은 유의사항 문장)
+MARK_BOX_MAX = 12  # 체크박스 네모(□) 크기
+MARK_BRACKET_GAP = 30  # "[ ]" 의 [ 와 ] 사이 최대 거리 (제목의 "[ … ]" 묶음 괄호와 구분)
 
 
 def _norm(text: str | None) -> str:
@@ -94,6 +97,7 @@ def _cells(pdf) -> list[list[list[Cell | None]]]:
                     order += 1
                 grid.append(cells)
             _annotate(grid)
+            _outer_section(grid, page, t.bbox)
             tables.append(grid)
     return tables
 
@@ -103,7 +107,7 @@ def _annotate(grid: list[list[Cell | None]]) -> None:
     section = ""
     for row in grid:
         for c in row:
-            if c is not None and _SECTION_RE.match(c.text):
+            if c is not None and _SECTION_RE.match(c.text) and len(c.text.split("\n")[0]) <= SECTION_MAX:
                 section = c.text.split("\n")[0]
             if c is None:
                 continue
@@ -122,6 +126,21 @@ def _annotate(grid: list[list[Cell | None]]) -> None:
                 break
 
 
+def _outer_section(grid: list[list[Cell | None]], page, table_bbox: tuple) -> None:
+    """표 밖(위)에 적힌 번호 구역 제목 (예: 표 위 "2. 보호기관")을 구역이 없는 셀에 붙인다"""
+    heads = [
+        ln for ln in page.extract_text_lines()
+        if ln["bottom"] <= table_bbox[1] + 2 and len(ln["text"]) <= SECTION_MAX and _SECTION_RE.match(ln["text"])
+    ]
+    if not heads:
+        return
+    head = max(heads, key=lambda ln: ln["bottom"])["text"].strip()
+    for row in grid:
+        for c in row:
+            if c is not None and not c.section:
+                c.section = head
+
+
 def _match(label: str, cell_text: str) -> int:
     """0: 아님, 3: 같음, 2: 칸 이름으로 시작 (예: "성 명(한글)"), 1: 칸 이름으로 끝남 (예: "보호구분 기타사유")"""
     a, b = _norm(label), _norm(cell_text)
@@ -131,7 +150,11 @@ def _match(label: str, cell_text: str) -> int:
         return 3
     if b.startswith(a) and len(a) >= 2 and len(a) / len(b) >= 0.4:
         return 2
+    if b.startswith(a) and len(a) >= 2:  # 긴 셀 맨 앞의 작은 칸 이름 (예: "은행 (예금주: ) * 본인 명의 …")
+        return 1
     if len(a) >= 3 and b.endswith(a):
+        return 1
+    if len(a) >= 3 and (a.endswith(":") and a in b or a + ":" in b):  # 셀 안의 작은 칸 이름 (예: "은행 (예금주: )")
         return 1
     return 0
 
@@ -168,9 +191,61 @@ def _options(text: str) -> list[str]:
     return out
 
 
+def _marks(page, rect: tuple) -> dict[str, list[float]]:
+    """영역 안 체크박스 선택지 → 체크 표시를 그릴 가운데 좌표.
+    "[ ]선택지"(대괄호 사이가 좁은 것만, 제목의 "[ … ]" 묶음 괄호는 제외)와 □ 네모(그림) 둘 다 찾는다"""
+    x0, y0, x1, y1 = rect
+    # 글자 가운데가 영역 안에 있으면 포함 (셀 경계에 걸친 글자가 많다)
+    chars = [
+        c for c in page.chars
+        if x0 - 1 <= (c["x0"] + c["x1"]) / 2 <= x1 + 1 and y0 - 1 <= (c["top"] + c["bottom"]) / 2 <= y1 + 1
+    ]
+    squares = []
+    for r in [*page.rects, *page.curves]:  # 네모가 사각형이 아니라 닫힌 선(curve)으로 그려진 PDF 도 있다
+        # 테두리가 그려진 네모만 (흰색으로 칠한 가림 상자는 체크박스가 아니다)
+        is_box = r.get("stroke") and 4 <= r["width"] <= MARK_BOX_MAX and abs(r["width"] - r["height"]) <= 3
+        inside = x0 - 1 <= r["x0"] and r["x1"] <= x1 + 1 and y0 - 1 <= r["top"] and r["bottom"] <= y1 + 1
+        if is_box and inside and not any(abs(r["x0"] - q[0]) < 2 and abs(r["top"] - q[1]) < 2 for q in squares):
+            squares.append((r["x0"], r["top"], r["x1"], r["bottom"]))
+    starts: list[tuple[float, float, float, float]] = []  # (선택지 시작 x, 줄 top, 체크 x, 체크 y)
+    lines: list[list[dict]] = []
+    for c in sorted(chars, key=lambda c: (c["top"] + c["bottom"]) / 2):
+        mid = (c["top"] + c["bottom"]) / 2
+        if lines and abs(mid - (lines[-1][0]["top"] + lines[-1][0]["bottom"]) / 2) <= 3:
+            lines[-1].append(c)
+        else:
+            lines.append([c])
+    for line in lines:
+        line.sort(key=lambda c: c["x0"])
+        for i, c in enumerate(line):
+            if c["text"] != "[":
+                continue
+            close = next((d for d in line[i + 1:] if d["text"] == "]"), None)
+            if close is None or close["x0"] - c["x1"] > MARK_BRACKET_GAP:
+                continue
+            starts.append((close["x1"], c["top"], (c["x1"] + close["x0"]) / 2, (c["top"] + c["bottom"]) / 2))
+    for sx0, sy0, sx1, sy1 in squares:
+        starts.append((sx1, sy0, (sx0 + sx1) / 2, (sy0 + sy1) / 2))
+    out: dict[str, list[float]] = {}
+    for start_x, top, cx, cy in sorted(starts, key=lambda t: (round(t[1]), t[0])):
+        same = [c for c in chars if abs((c["top"] + c["bottom"]) / 2 - cy) < 5 and c["x0"] >= start_x - 0.5]
+        nxt = min([t[0] for t in starts if abs(t[3] - cy) < 5 and t[0] > start_x + 1] or [x1 + 1])
+        text = ""
+        for c in sorted(same, key=lambda c: c["x0"]):
+            if c["x0"] >= nxt - 6 or c["text"] in "[]()□☐":
+                if text.strip():
+                    break
+                continue
+            text += c["text"]
+        opt = " ".join(text.split()).strip(" ,.·")
+        if opt and opt not in out:
+            out[opt] = [round(cx, 1), round(cy, 1)]
+    return out
+
+
 def _checkbox_area(grid: list[list[Cell | None]], cell: Cell, page) -> dict | None:
     """체크박스 칸: 칸 이름 셀에 "[ ]"가 같이 있으면 그 줄, 아니면 칸 이름 오른쪽에서 같은 높이에 걸친 셀 전부"""
-    if "[" in cell.text:
+    if "[" in cell.text or _marks(page, cell.bbox):
         parts = [c for c in grid[cell.row] if c is not None and _overlaps_v(c.bbox, cell.bbox)]
     else:
         parts = [
@@ -183,11 +258,41 @@ def _checkbox_area(grid: list[list[Cell | None]], cell: Cell, page) -> dict | No
         return None
     rect = (min(c.bbox[0] for c in parts), min(c.bbox[1] for c in parts),
             max(c.bbox[2] for c in parts), max(c.bbox[3] for c in parts))
-    text = page.crop(rect).extract_text() or ""
-    options = _options(text)
-    if not options:
+    marks = _marks(page, rect)
+    if not marks:
         return None
-    return {"rect": rect, "options": options, "template_text": _SPACE_RE.sub(" ", text).strip()}
+    text = page.crop(rect).extract_text() or ""
+    return {"rect": rect, "options": list(marks), "marks": marks, "template_text": _SPACE_RE.sub(" ", text).strip()}
+
+
+def _inline_box(page, cell: Cell, label: str) -> tuple[float, float, float, float] | None:
+    """한 셀 안에 칸 이름이 여럿 있는 경우 (예: "전화 : ____ / 휴대전화 : ____", "은행 (예금주: ____)").
+    칸 이름 바로 뒤부터 같은 줄 다음 글자(또는 셀 끝)까지"""
+    x0, y0, x1, y1 = cell.bbox
+    words = page.crop(cell.bbox).extract_words()
+    target = _norm(label)
+    for i, w in enumerate(words):
+        joined, j = "", i
+        while j < len(words) and len(joined) < len(target) and abs(words[j]["top"] - w["top"]) < 3:
+            joined += _norm(words[j]["text"])
+            j += 1
+        jc, tc = joined.rstrip(":"), target.rstrip(":")
+        if not jc.endswith(tc) or len(jc) - len(tc) > len(_norm(w["text"])):
+            continue
+        last = words[j - 1]
+        bx0 = last["x1"] + TEXT_GAP
+        same_line = [v for v in words[j:] if abs(v["top"] - w["top"]) < 3 and v["x0"] > bx0 - 1]
+        bx1 = min([v["x0"] - TEXT_GAP for v in same_line] or [x1 - 2])
+        if bx1 - bx0 < MIN_BOX_W:
+            # "____ 은행 (예금주: )"처럼 칸 이름 앞이 빈 자리면 앞에 쓴다
+            before = [v for v in words[:i] if abs(v["top"] - w["top"]) < 3]
+            lx0 = max([v["x1"] + TEXT_GAP for v in before] or [x0 + 2])
+            lx1 = w["x0"] - TEXT_GAP
+            if lx1 - lx0 >= MIN_BOX_W * 2:
+                return (lx0, max(y0, w["top"] - 2), lx1, min(y1, w["bottom"] + 2))
+            continue
+        return (bx0, max(y0, w["top"] - 2), bx1, min(y1, w["bottom"] + 2))
+    return None
 
 
 def _date_line(page) -> tuple[float, float, float, float] | None:
@@ -283,19 +388,36 @@ def locate(pdf_path: Path, fields: list[FormField]) -> dict[str, dict]:
 
             cell = _pick(f, _candidates(f, grids, used))
             if cell is not None:
-                used.add(cell.key)
                 grid = grids[cell.table]
+                page = pdf.pages[cell.page]
                 if f.input_type == "checkbox":
-                    area = _checkbox_area(grid, cell, pdf.pages[cell.page])
+                    used.add(cell.key)
+                    area = _checkbox_area(grid, cell, page)
                     if area:
                         box = {"page": cell.page, "rect": area["rect"], "how": "checkbox",
-                               "template_text": area["template_text"], "options": area["options"]}
+                               "template_text": area["template_text"], "options": area["options"],
+                               "marks": area["marks"]}
                 else:
-                    target, how = _right_or_below(grid, cell, labels)
+                    core = _core_label(f, cell)
+                    # "전화 :"처럼 ":"로 끝나는 작은 칸 이름이 셀 안에 여럿이면 셀 안에서 먼저 찾는다
+                    inline_first = _norm(core).endswith(":") and _norm(core) != _norm(cell.text)
+                    rect = _inline_box(page, cell, core) if inline_first else None
+                    target, how = (None, "") if rect else _right_or_below(grid, cell, labels)
                     if target is not None:
-                        used.add(target.key)
+                        used.update((cell.key, target.key))
                         box = {"page": target.page, "rect": target.bbox, "how": how,
                                "template_text": target.text or None}
+                    else:
+                        rect = rect or _inline_box(page, cell, core)
+                        if rect:
+                            # 셀 하나에 칸 이름이 여럿이라 셀을 다시 쓸 수 있게 used 에 넣지 않는다
+                            box = {"page": cell.page, "rect": rect, "how": "cell_inline", "template_text": None}
+                        else:
+                            used.add(cell.key)
+            elif f.input_type == "checkbox" and "/" in f.label:
+                box = _checkbox_by_options(pdf, grids, [p.strip() for p in f.label.split("/") if p.strip()])
+            elif f.input_type == "checkbox":
+                box = _checkbox_in_text(pdf, f.label)
             elif f.input_type != "checkbox":
                 for pno, page in enumerate(pdf.pages):
                     rect = _text_right(page, f.label)
@@ -305,6 +427,91 @@ def locate(pdf_path: Path, fields: list[FormField]) -> dict[str, dict]:
             if box:
                 out[f.id] = _round(box)
     return out
+
+
+def _core_label(f: FormField, cell: Cell) -> str:
+    """"대리인 전화 :" → 셀 묶음이 대리인이면 "전화 :" """
+    words = f.label.split()
+    for k in range(1, len(words)):
+        if _norm(" ".join(words[:k])) in _norm(cell.group + cell.section):
+            return " ".join(words[k:])
+    return f.label
+
+
+def _checkbox_in_text(pdf, label: str) -> dict | None:
+    """표 밖 문장 속 체크박스 (예: "것에 동의함. ([ ]동의함, [ ]동의하지 않음)")"""
+    target = _norm(label)
+    for pno, page in enumerate(pdf.pages):
+        for ln in page.extract_text_lines():
+            if target not in _norm(ln["text"]) or "[" not in ln["text"]:
+                continue
+            rect = (ln["x0"] - 1, ln["top"] - 2, ln["x1"] + 1, ln["bottom"] + 2)
+            marks = _marks(page, rect)
+            if marks:
+                return {"page": pno, "rect": rect, "how": "checkbox", "options": list(marks), "marks": marks,
+                        "template_text": " ".join(ln["text"].split())}
+    return None
+
+
+def _checkbox_by_options(pdf, grids, parts: list[str]) -> dict | None:
+    """칸 이름 없이 선택지만 있는 체크박스 (예: 제목의 "□자립수당 지급 □의료비 지원") — label 은 선택지를 "/"로 이은 것"""
+    want = {_norm(p) for p in parts}
+    for grid in grids:
+        for row in grid:
+            for cell in row:
+                if cell is None:
+                    continue
+                page = pdf.pages[cell.page]
+                marks = _marks(page, cell.bbox)
+                if marks and want <= {_norm(o) for o in marks}:
+                    text = page.crop(cell.bbox).extract_text() or ""
+                    return {"page": cell.page, "rect": cell.bbox, "how": "checkbox", "options": list(marks),
+                            "marks": marks, "template_text": _SPACE_RE.sub(" ", text).strip()}
+    return None
+
+
+def label_hints(pdf_path: Path, limit: int = 120) -> list[str]:
+    """LLM 에 같이 줄 칸 이름 후보: 표 셀 글자(묶음 > 칸 이름), 셀 안 작은 칸 이름("전화 :"), 체크박스 선택지, 날짜 줄.
+    AI 가 칸을 빠뜨리거나 대리인·보호기관 칸을 섞지 않게 돕는다"""
+    out: list[str] = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for grid in _cells(pdf):
+            for row in grid:
+                for c in row:
+                    if c is None or not c.text or _blank(c) or _SECTION_RE.match(c.text):
+                        continue
+                    page = pdf.pages[c.page]
+                    where = " > ".join(x for x in (c.section.split("\n")[0], c.group) if x)
+                    marks = _marks(page, c.bbox)
+                    text = " ".join(c.text.split())
+                    if marks:
+                        out.append(f"{where} > 체크박스 [{text[:40]}] 선택지: {' / '.join(marks)}".lstrip(" >"))
+                        continue
+                    if len(c.text) > 40:
+                        continue
+                    subs = [w["text"] for w in page.crop(c.bbox).extract_words()]
+                    joined = " ".join(subs)
+                    if joined.count(":") >= 2:  # "전화 : 휴대전화 :" → 칸 두 개
+                        for part in re.findall(r"[^:]+?\s*:", joined):
+                            out.append(f"{where} > {part.strip()}".lstrip(" >"))
+                    else:
+                        out.append(f"{where} > {text}".lstrip(" >"))
+        for page in pdf.pages:
+            # 표 밖의 "신청인(대리신청인) 성명:" 같은 줄
+            tables = [t.bbox for t in page.find_tables()]
+            for ln in page.extract_text_lines():
+                inside = any(t[0] - 1 <= ln["x0"] and ln["x1"] <= t[2] + 1 and t[1] - 1 <= ln["top"] and ln["bottom"] <= t[3] + 1
+                             for t in tables)
+                if not inside and ":" in ln["text"] and len(ln["text"]) <= 40:
+                    out.append(f"표 밖 > {' '.join(ln['text'].split())}")
+            if _date_line(page):
+                out.append("날짜 줄 > 년 월 일")
+    seen, uniq = set(), []
+    for h in out:
+        if h not in seen:
+            seen.add(h)
+            uniq.append(h)
+    return uniq[:limit]
 
 
 def _round(box: dict) -> dict:
