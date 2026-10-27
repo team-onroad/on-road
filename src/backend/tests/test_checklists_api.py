@@ -16,7 +16,8 @@ from tests.factories import doc, make_policy, make_user
 RESPONSE_KEYS = {"checklist_id", "policy", "progress", "document_progress", "steps"}
 POLICY_KEYS = {"policy_id", "name", "agency", "category", "contact", "apply_url", "checked_at", "is_active"}
 STEP_KEYS = {"item_id", "step_key", "label", "is_checked", "checked_at", "detail", "documents"}
-DOC_KEYS = {"item_id", "label", "short_label", "condition", "is_checked", "is_not_applicable", "checked_at"}
+DOC_KEYS = {"item_id", "label", "short_label", "condition", "is_checked", "is_not_applicable", "checked_at",
+            "document_id", "document_status"}
 ITEM_KEYS = {
     "item_id", "item_type", "step_key", "label", "condition", "is_checked", "is_not_applicable", "checked_at",
 }
