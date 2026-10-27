@@ -61,7 +61,9 @@ def route_message(message: str, history: list[dict], context: dict) -> dict:
             return {"route": "field", "doc_hint": None}
         if any(w in text for w in _POLICY_QUESTION_WORDS) or any(w in text for w in _POLICY_WORDS):
             return {"route": "policy", "doc_hint": None}
-        return {"route": "field", "doc_hint": None}
+        if any(w in text for w in ("여기", "이칸", "칸에", "뭐야", "뭐예요")):
+            return {"route": "field", "doc_hint": None}
+        return {"route": "counsel", "doc_hint": None}  # 서류와 관계없는 이야기 (예: "오늘 날씨 어때")
     hint = next((w for w in _DOC_WORDS if w in text), None)
     if hint and any(w in text for w in _WRITE_WORDS):
         return {"route": "document", "doc_hint": hint}

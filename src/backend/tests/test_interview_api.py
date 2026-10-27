@@ -211,3 +211,27 @@ def test_bare_yes_is_not_a_value(api, db_session, doc_llm):
         _say(api, user, doc_id, "네")
     r = _say(api, user, doc_id, "네")  # 주소 칸은 시/도만 있음 → "네"를 주소로 넣지 않는다
     assert r["message"] == "'사는 곳 주소'에 쓸 내용을 알려 주세요." and r["question"]["field_id"] == "address"
+
+
+def test_small_talk_is_not_written(api, db_session, doc_llm):
+    user = make_user(db_session, phone="01012345678")
+    doc_id = _start(api, user)
+    for _ in range(3):
+        _say(api, user, doc_id, "네")
+
+    # 질문 표현 → 라우터 (서류와 관계없는 이야기는 안내만), 칸은 그대로
+    talk = _say(api, user, doc_id, "오늘 날씨 어때")
+    assert talk["route"] == "counsel" and talk["field"] is None and talk["question"]["field_id"] == "address"
+
+    # 대화 문장 같은 답 → 바로 적지 않고 확인, "네"면 그대로 적는다
+    asked = _say(api, user, doc_id, "서울 OO구에 살고 있어")
+    assert asked["field"] is None and asked["question"]["awaiting_confirm"] is True
+    assert "'서울 OO구에 살고 있어'(이)라고 적을까요?" in asked["question"]["text"]
+    yes = _say(api, user, doc_id, "네")
+    assert (yes["field"]["field_id"], yes["field"]["value"]) == ("address", "서울 OO구에 살고 있어")
+
+    # 확인 대신 새 답이 오면 그 답을 적는다 (말끝 '요'는 뗀다)
+    asked = _say(api, user, doc_id, "배고파서 아무것도 못 하겠다")
+    assert asked["field"] is None and asked["question"]["field_id"] == "school"
+    fixed = _say(api, user, doc_id, "OO대학교요")
+    assert (fixed["field"]["field_id"], fixed["field"]["value"]) == ("school", "OO대학교")
