@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app import doc_export, doc_spec
 from app.config import get_settings
+from app import profile_signal
 from app.crisis import CRISIS_CONTACTS, CRISIS_MESSAGE, is_crisis
 from app.doc_llm import DocLlm
 from app.errors import AppError
@@ -51,7 +52,7 @@ NOT_CHECKED_NOTICE = "아직 사람이 원본 양식과 대조하지 않은 칸 
 AI_NOTICE = "AI가 쓴 문장은 색으로 표시돼요. 내 상황에 맞게 고친 뒤 완료를 눌러 주세요."
 HANDWRITE_NOTICE = "주민등록번호·서명 칸은 앱에 입력하지 않아요. 출력한 양식에 직접 써 주세요."
 ACCOUNT_TIP = "통장에 적힌 계좌번호를 숫자와 -로 적어 주세요. 본인 명의 통장만 돼요. (계좌번호는 AI 에 보내지 않아요)"
-COUNSEL_MESSAGE = "이 화면에서는 서류 작성을 도와요. 고민 이야기는 AI 상담에서 편하게 해 주세요."
+COUNSEL_MESSAGE = "이 화면에서는 서류 작성과 신청 관련 질문을 도와요. 다른 이야기는 AI 상담에서 편하게 해 주세요."
 HANDOFF_MESSAGE = "서류 작성은 문서 도우미에서 칸마다 함께 써 볼게요."
 
 _PLACEHOLDER_RE = re.compile(r"\[[^\[\]\n]{1,30}\]")
@@ -431,6 +432,15 @@ def _check_assist(v: object) -> bool:
 
 
 def assist(
+    db: Session, user: User, doc: Document, body: AssistRequest, today: date, doc_llm: DocLlm, rag: SearchPolicies,
+) -> AssistResponse:
+    res = _assist(db, user, doc, body, today, doc_llm, rag)
+    if res.route != "crisis":
+        res.profile_changes = profile_signal.detect(body.prompt, user, today)
+    return res
+
+
+def _assist(
     db: Session, user: User, doc: Document, body: AssistRequest, today: date, doc_llm: DocLlm, rag: SearchPolicies,
 ) -> AssistResponse:
     row, spec = _get_row(db, doc, body.field_id)
