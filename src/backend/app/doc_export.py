@@ -176,6 +176,37 @@ def _fill_date(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) 
     return True
 
 
+def _check_mark(page: pymupdf.Page, x: float, y: float, size: float = 7.5) -> None:
+    """글꼴과 상관없이 선으로 그린 체크 표시. (x, y) 는 가운데"""
+    h = size / 2
+    page.draw_polyline(
+        [(x - h, y), (x - h * 0.25, y + h * 0.8), (x + h, y - h * 0.9)], color=INK, width=1.3,
+    )
+
+
+def _fill_checkbox(page: pymupdf.Page, rect: pymupdf.Rect, value: str, options: list[str]) -> bool:
+    """고른 선택지 앞 "[ ]" 안에 체크 표시. 선택지 앞에 "["가 없는 글자(칸 이름 등)는 건너뛴다"""
+    chosen = [p.strip() for p in value.split(",") if p.strip() in options]
+    if not chosen:
+        return False
+    for opt in chosen:
+        mark = None
+        for hit in page.search_for(opt, clip=rect + (-2, -2, 2, 2)):
+            area = pymupdf.Rect(hit.x0 - 28, hit.y0 - 3, hit.x0 + 1, hit.y1 + 3)
+            opens = [b for b in page.search_for("[", clip=area) if b.x1 <= hit.x0 + 1]
+            if not opens:
+                continue
+            left = max(opens, key=lambda b: b.x0)
+            closes = [b for b in page.search_for("]", clip=area) if b.x0 >= left.x1 - 0.5]
+            right_x = min((b.x0 for b in closes), default=hit.x0)
+            mark = ((left.x1 + right_x) / 2, (hit.y0 + hit.y1) / 2)
+            break
+        if mark is None:
+            return False
+        _check_mark(page, *mark)
+    return True
+
+
 def _fill_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str) -> bool:
     """칸에 들어가면 True. 한 줄이면 세로 가운데, 여러 줄이면 위에서부터. 글자 크기를 줄여 가며 맞춘다"""
     font = _font()
@@ -207,7 +238,12 @@ def render_overlay(pdf_path: Path, title: str, rows: list[tuple[dict, str]]) -> 
             fonted.add(page.number)
         rect = pymupdf.Rect(box["rect"]) + (BOX_INSET, BOX_INSET, -BOX_INSET, -BOX_INSET)
         template = box.get("template_text") or ""
-        if template and all(u in template for u in ("년", "월", "일")) and _fill_date(page, rect, text, OVERLAY_SIZES[0]):
+        if box.get("how") == "checkbox":
+            if not _fill_checkbox(page, pymupdf.Rect(box["rect"]), text, spec.get("options") or box.get("options") or []):
+                leftovers.append((spec, text))
+            continue
+        is_date = box.get("how") == "date_line" or (template and all(u in template for u in ("년", "월", "일")))
+        if is_date and _fill_date(page, pymupdf.Rect(box["rect"]), text, OVERLAY_SIZES[0]):
             continue
         if not _fill_box(page, rect, text):
             _fill_box(page, rect, SEE_ATTACHMENT)
