@@ -53,6 +53,7 @@
 | 3.30 | GET | `/documents/{document_id}/check?user_id` | 내보내기 전 검사 |
 | 3.31 | POST | `/documents/{document_id}/export` | 내보내기 (체크리스트 서류 항목 체크) |
 | 3.31-1 | GET | `/documents/{document_id}/file?user_id&format=pdf\|docx` | 내보낸 파일 받기 |
+| 3.32 | POST | `/documents/{document_id}/interview` | 대화로 채우기: AI 가 빈 칸을 하나씩 묻고 답을 채움, 다 채우면 바로 내보내기 |
 
 확인 순서는 체크리스트 API 와 같다: 사용자(404 USER_NOT_FOUND) → 문서(404 DOCUMENT_NOT_FOUND, 다른 사람 문서 포함) → 칸(404 FIELD_NOT_FOUND) → 본문(422).
 
@@ -221,6 +222,45 @@
   - 민감 칸·공무원 기재란·서명란은 비워 둔다 (출력 후 손으로)
 - `pdf_layout: "table"`: 원본 양식이 없는 앱 양식은 제목 + 칸 이름/내용 표 문서. 민감 칸은 "(양식에 직접 작성)", 공무원 칸은 "(담당자 기재란)"
 - DOCX 는 원본 배치를 옮길 수 없어 항상 표 문서
+
+
+### 3.32 `POST /documents/{id}/interview` — 대화로 채우기
+
+AI 가 아직 완료하지 않은 칸을 양식 순서대로 하나씩 묻고, 답을 칸에 채운다. 다 채우면 검사하고 통과하면 바로 내보낸다(3.31과 같음: PDF·체크리스트 체크).
+
+```json
+{"user_id": "uuid", "message": "서울특별시 OO구 OO로 12"}
+```
+
+- `message` 가 없으면 지금 물어볼 칸만 돌려준다 (시작·이어 하기). 1~500자
+- 진행 상태(지금 묻는 칸·건너뛴 칸·확인 기다리는 칸)는 서버가 문서에 저장한다 (마이그레이션 `0005`). 칸 화면(3.28)에서 직접 고쳐도 대화는 이어진다
+
+**응답**
+
+```json
+{"route": "field", "message": "적었어요.",
+ "field": { 방금 채운 칸 (3.27 칸 객체) },
+ "question": {"field_id": "reason", "label": "신청 사유", "text": "'장학금이 필요한 이유'에 쓸 내용을 편하게 말해 주세요. …",
+              "input_type": "text", "options": null, "current_value": null, "awaiting_confirm": false, "can_skip": false},
+ "progress": {"completed": 5, "total": 7}, "done": false,
+ "export": null, "check": null, "search": null, "contacts": []}
+```
+
+| 답 | 처리 |
+|---|---|
+| 짧은 칸 (이름·주소·이메일 등) | 답 그대로 칸에 넣고 완료. **LLM 에 보내지 않음** |
+| 날짜 | "2026년 2월 28일", "20260228", "오늘" → `2026.02.28`. 못 알아들으면 다시 물음 |
+| 전화 | 숫자만 뽑아 `010-1234-5678`. 못 알아들으면 다시 물음 |
+| 체크박스 | 선택지 이름이 들어 있으면 그 선택지 ("문자메시지로 받을래" → `문자메시지`). 없으면 선택지를 다시 보여 줌 |
+| 서술형 (사유·동기·계획 등) | 답 내용만으로 AI 가 문장을 써서 칸에 넣고 `awaiting_confirm: true` 로 확인을 기다림. "좋아"면 완료, 다른 말이면 그 말대로 고침 |
+| 미리 채운 값 (프로필·다른 서류) | "'김민지'(으)로 할까요?" → "네"면 완료, 다른 답이면 그 값으로 |
+| "해당 없음" | 필수가 아닌 칸은 비워 두고 완료 (대리인 칸 등) |
+| "나중에", "몰라" | 칸을 그대로 두고 다음 칸으로. 건너뛴 칸은 맨 끝에 다시 물음 |
+| 질문 ("소득 기준이 뭐야?") | 라우터로 보냄: `route: "policy"` 정책 검색 결과(`search`), `counsel` 안내, 칸에 대한 질문이면 작성 안내(`message`). 칸·질문은 그대로 |
+| 위기 신호 | `route: "crisis"`, `contacts` |
+
+- `done: true` 이고 검사를 통과하면 `export` 에 3.31 응답 (`files` 로 PDF 받기). 검사에 걸리면 `export: null`, `check` 에 문제 목록 → 해당 칸을 칸 화면에서 고치거나 다시 열어 대화
+- 앱 화면: 상단 프롬프트를 대화 입력으로 쓰고, `question.field_id` 칸 카드를 선택 상태로 보여 주면 칸별 작성 화면과 함께 쓸 수 있다. 체크박스는 `options` 를 버튼으로
 
 <br/>
 
