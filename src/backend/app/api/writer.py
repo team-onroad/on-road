@@ -1,6 +1,5 @@
 from typing import Annotated, Literal
 
-from db.models import Document, User
 from fastapi import APIRouter, Depends, Response, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ValidationError
@@ -19,10 +18,14 @@ from app.schemas.writer import (
     ExportResponse,
     FieldResponse,
     FieldUpdate,
+    InterviewRequest,
+    InterviewResponse,
     UserOnly,
 )
+from app.services import interview as interview_service
 from app.services import writer as service
 from app.services.users import get_user
+from db.models import Document, User
 
 router = APIRouter(tags=["문서 AI"])
 
@@ -146,6 +149,29 @@ def assist(
 ) -> AssistResponse:
     user, doc = target
     return service.assist(db, user, doc, _parse(AssistRequest, payload), today, doc_llm, rag)
+
+
+@router.post(
+    "/documents/{document_id}/interview",
+    response_model=InterviewResponse,
+    summary="대화로 채우기 (AI 가 빈 칸을 하나씩 묻고 답을 채움, 다 채우면 내보내기)",
+    responses={
+        404: {"description": NOT_FOUND},
+        422: {"description": "VALIDATION_ERROR"},
+        503: {"description": "AI_UNAVAILABLE / RAG_UNAVAILABLE"},
+    },
+    openapi_extra=openapi_body(InterviewRequest),
+)
+def interview(
+    target: BodyTarget,
+    payload: JsonBody,
+    db: DB,
+    today: Today,
+    doc_llm: Annotated[DocLlm, Depends(get_doc_llm)],
+    rag: Annotated[SearchPolicies, Depends(get_search_policies)],
+) -> InterviewResponse:
+    user, doc = target
+    return interview_service.interview(db, user, doc, _parse(InterviewRequest, payload), today, doc_llm, rag)
 
 
 @router.get(

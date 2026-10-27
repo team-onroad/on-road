@@ -161,6 +161,8 @@ class Document(Base):
     context: Mapped[str | None] = mapped_column(Text)  # 상담 AI 에서 넘어온 요청 요약
     spec: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="writing")
+    # 대화형 작성 진행 상태 {"current", "skipped", "pending"} (services/interview.py)
+    interview: Mapped[dict | None] = mapped_column(JSONB)
     exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()

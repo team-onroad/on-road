@@ -90,3 +90,13 @@ def test_revise_keeps_user_placeholders():
 def test_text_is_capped():
     out = assist_field(req(max_chars=10), generate=FakeLLM({"action": "draft", "text": "가" * 50}))
     assert out["text"] == "가" * 10
+
+
+def test_force_action_for_interview():
+    fake = FakeLLM({"action": "outline", "text": "혼자 살며 등록금이 부담되어 신청합니다."})
+    out = assist_field(req(prompt="이 칸에 들어갈 문장을 써 줘. 내가 넣고 싶은 내용: 등록금 부담", force_action="draft"),
+                       generate=fake)
+    assert out["action"] == "draft"  # 대화형 작성은 바로 칸에 들어갈 글
+    assert '"draft"로 정해져 있다' in fake.calls[0][0]["content"]
+    tip = assist_field(req(force_action="draft"), generate=FakeLLM({"action": "tip", "text": "안내"}))
+    assert tip["action"] == "tip"  # 안내만 온 경우는 그대로 (백엔드가 칸을 바꾸지 않음)
