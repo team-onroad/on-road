@@ -61,10 +61,28 @@ def from_template(t: FormTemplate) -> list[dict]:
     return fields
 
 
+# 신청서 칸 이름 → 프로필 키 (AI 가 profile_key 를 빠뜨린 경우, 양식에서 처음 나오는 칸만)
+FORM_PROFILE_KEYS = {"성명": "name", "이름": "name", "생년월일": "birth_date", "연락처": "phone"}
+
+
+def _guess_profile_key(label: str, taken: set[str]) -> str | None:
+    key = FORM_PROFILE_KEYS.get(label_key(label.replace(":", "").replace("*", "")))
+    if key == "phone" and "휴대" not in label and "연락처" not in label and "핸드폰" not in label:
+        key = None  # 집 전화일 수 있다
+    return key if key and key not in taken else None
+
+
 def from_form_spec(spec) -> list[dict]:
     """formguide FormSpec → 작성 칸. 민감·공무원 칸 구분은 formguide/validate.py 결과를 따른다"""
     fields = []
+    # 이미 같은 이름의 칸(성명 등)에 프로필 키가 있으면 추측하지 않는다 (예금주처럼 다른 칸의 name 은 상관없음)
+    taken = {f.profile_key for f in spec.fields if f.profile_key and _guess_profile_key(f.label, set()) == f.profile_key}
     for f in spec.fields:
+        if f.value_source == "user" and f.profile_key is None and f.input_type not in ("checkbox", "account"):
+            guessed = _guess_profile_key(f.label, taken)
+            if guessed:
+                taken.add(guessed)
+                f = f.model_copy(update={"value_source": "profile", "profile_key": guessed})
         is_account = f.input_type == "account" or "계좌번호" in f.label.replace(" ", "")
         source = "user" if is_account else "handwrite" if f.sensitive else f.value_source
         essay = source in WRITABLE and f.input_type == "text" and any(w in f.label for w in ESSAY_WORDS)

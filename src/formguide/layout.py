@@ -705,19 +705,57 @@ def _sign_mark(pdf_path: Path, box: dict) -> dict:
     return {**box, "sign_mark": SIGN_MARK}
 
 
+def _first_group(pdf_path: Path) -> str:
+    """양식에서 먼저 나오는 묶음 이름 (신청인 본인, 예: "대상아동")"""
+    with pdfplumber.open(pdf_path) as pdf:
+        cells = [c for grid in _cells(pdf) for row in grid for c in row if c is not None and c.group]
+    return _norm(min(cells, key=lambda c: c.order).group) if cells else ""
+
+
+def _unhint(f: FormField, first_group: str) -> FormField:
+    """AI 가 칸 후보 형식("대리인 > 성명")을 그대로 label 에 쓴 경우.
+    신청인 본인 묶음·구역 이름은 떼고, 다른 묶음은 앞에 띄어 붙인다 ("대리인 성명", "보호기관 전화 :")"""
+    if ">" not in f.label:
+        return f
+    parts = [p.strip() for p in f.label.split(">") if p.strip()]
+    core, prefix = parts[-1], [p for p in parts[:-1] if not _SECTION_RE.match(p)]
+    if prefix and _norm(prefix[-1]) != first_group and not _norm(core).startswith(_norm(prefix[-1])):
+        label = f"{prefix[-1]} {core}"
+    else:
+        label = core
+    return f.model_copy(update={"label": label, "section": f.section or (" ".join(parts[:-1]) or None)})
+
+
+def _is_group_head(f: FormField, fields: list[FormField]) -> bool:
+    """"연락처"처럼 작은 칸(전화 :, 휴대전화 :)을 묶는 이름: 같은 묶음에 전화 칸이 따로 있으면 버린다"""
+    words = f.label.split()
+    if _norm(words[-1] if words else "") != "연락처":
+        return False
+    prefix = _norm(" ".join(words[:-1]))
+    return any(
+        g is not f and "전화" in _norm(g.label) and _norm(g.label).startswith(prefix) for g in fields
+    )
+
+
 def attach_boxes(spec: FormSpec, pdf_path: Path) -> FormSpec:
-    kept = [f for f in spec.fields if f.id != CONFIRM_FIELD_ID]
+    first_group = _first_group(pdf_path)
+    kept = [_unhint(f, first_group) for f in spec.fields if f.id != CONFIRM_FIELD_ID]
+    heads = [f for f in kept if _is_group_head(f, kept)]
+    kept = [f for f in kept if f not in heads]
     sign_ids = {f.id for f in kept if _signature(f) is not f or (f.box or {}).get("sign_mark")}
     source = _split_bank([_signature(f) for f in kept])
     boxes = locate(pdf_path, source)
     groups = group_names(pdf_path)
     warnings = [w for w in spec.warnings if not w.startswith("값 자리를 못 찾음")]
+    warnings += [w for w in (f"작은 칸을 묶는 이름이라 버림: '{f.label}'" for f in heads) if w not in warnings]
     fields = []
     for f in source:
         words = f.label.split()
         # "대리인 E-mail"처럼 묶음 이름을 붙였는데 그 묶음에 칸이 없으면 AI 가 지어낸 칸
         if f.id not in boxes and len(words) >= 2 and _norm(words[0]) in groups and f.value_source in ("profile", "user"):
-            warnings.append(f"양식에 없는 칸이라 버림: '{f.label}' ({words[0]} 묶음에 없음)")
+            w = f"양식에 없는 칸이라 버림: '{f.label}' ({words[0]} 묶음에 없음)"
+            if w not in warnings:
+                warnings.append(w)
             continue
         box = boxes.get(f.id)
         if box and f.id in sign_ids and box["how"] in ("table_right", "text_right"):
