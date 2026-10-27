@@ -215,13 +215,13 @@
       "label": "은행",
       "section": "신청인",
       "input_type": "text",
-      "value_source": "handwrite",
+      "value_source": "user",
       "profile_key": null,
       "required": true,
       "guide": "돈을 받을 통장의 은행 이름 (예: 국민)",
       "example": null,
       "evidence": "은행 (예금주: )",
-      "sensitive": true,
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
@@ -742,17 +742,41 @@
     },
     {
       "id": "agreement",
-      "label": "필요시 담당 공무원이 아동의 가족관계등록부, 연락처, 주민등록정보 등을 발급받아 확인하는 것에 동의함. ([ ]동의함, [ ]동의하지 않음)",
+      "label": "동의함/동의하지 않음",
       "section": null,
       "input_type": "checkbox",
-      "value_source": "office",
+      "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "공무원이 정보를 확인하는 것에 동의해요.",
+      "guide": "필요시 담당 공무원이 아동의 가족관계등록부, 연락처, 주민등록정보 등을 발급받아 확인하는 것에 동의함.",
       "example": null,
       "evidence": "([ ]동의함, [ ]동의하지 않음)",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          81.9,
+          547.6,
+          283.2,
+          561.5
+        ],
+        "how": "checkbox",
+        "options": [
+          "동의함",
+          "동의하지 않음"
+        ],
+        "marks": {
+          "동의함": [
+            159.2,
+            554.5
+          ],
+          "동의하지 않음": [
+            208.5,
+            554.5
+          ]
+        },
+        "template_text": "것에 동의함. ([ ]동의함, [ ]동의하지 않음)"
+      }
     },
     {
       "id": "application_date",
