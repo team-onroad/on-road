@@ -75,7 +75,7 @@ def test_counsel(api, db_session, llm, rag):
     res = _chat(api, user.id)
 
     assert res.status_code == 200
-    assert res.json() == {"type": "counsel", "message": "상담 답변", "search": None, "contacts": []}
+    assert res.json() == {"type": "counsel", "message": "상담 답변", "search": None, "contacts": [], "handoff": None}
     assert rag.calls == []
 
 
@@ -129,7 +129,7 @@ def test_crisis_skips_llm(api, db_session, llm, rag, message):
     res = _chat(api, user.id, message=message)
 
     assert res.status_code == 200
-    assert res.json() == {"type": "crisis", "message": CRISIS_MESSAGE, "search": None, "contacts": CONTACTS}
+    assert res.json() == {"type": "crisis", "message": CRISIS_MESSAGE, "search": None, "contacts": CONTACTS, "handoff": None}
     assert llm.calls == [] and rag.calls == []
 
 

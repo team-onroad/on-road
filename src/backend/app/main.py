@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import chat, checklists, forms, health, policies, roleplay, simulations, users
+from app.api import chat, checklists, forms, health, policies, roleplay, simulations, users, writer
 from app.criteria import get_criteria
 from app.errors import register_error_handlers
 from app.forms import get_templates
@@ -34,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router, prefix="/api")
     app.include_router(roleplay.router, prefix="/api")
     app.include_router(forms.router, prefix="/api")
+    app.include_router(writer.router, prefix="/api")
     return app
 
 
