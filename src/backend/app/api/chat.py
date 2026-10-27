@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.api.deps import DB, BodyUser, Today, openapi_body, validated_body
+from app.doc_llm import DocLlm, get_doc_llm
 from app.llm_client import Llm, get_llm
 from app.rag_client import SearchPolicies, get_search_policies
 from app.schemas.chat import ChatRequest, ChatResponse
@@ -30,6 +31,7 @@ def chat(
     today: Today,
     llm: Annotated[Llm, Depends(get_llm)],
     rag: Annotated[SearchPolicies, Depends(get_search_policies)],
+    doc_llm: Annotated[DocLlm, Depends(get_doc_llm)],
 ) -> ChatResponse:
     user = user or get_user(db, body.user_id)
-    return service.chat(db, user, body, today, llm, rag)
+    return service.chat(db, user, body, today, llm, rag, doc_llm)

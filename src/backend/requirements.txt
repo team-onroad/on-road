@@ -11,6 +11,9 @@ tzdata==2026.5
 # RAG (src/rag/): 벡터 DB, 임베딩·답변 생성
 chromadb==1.5.9
 openai==3.35.1
+# 문서 AI 내보내기 (app/doc_export.py): PDF·DOCX
+pymupdf==2.0
+python-docx==1.2.0
 
 # 테스트
 pytest==9.1.1

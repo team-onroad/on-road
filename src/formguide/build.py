@@ -9,6 +9,7 @@
 결과:
     data/forms/P001-apply.json         작성 항목 (checked: false 로 저장 → 원본과 대조 후 true 로 바꾼다)
     data/forms/P001-apply.source.txt   PDF 에서 뽑은 원문 (대조용)
+    data/forms/P001-apply.pdf          원본 양식 PDF (문서 AI 가 이 위에 작성 내용을 채워 내보낸다)
     data/forms/_work/                  내려받은 파일·변환한 PDF (커밋하지 않음)
 """
 
@@ -19,6 +20,7 @@ from pathlib import Path
 from formguide.convert import to_pdf
 from formguide.extract import FormText, extract
 from formguide.fetch import fetch
+from formguide.layout import attach_boxes, save_layout_pdf
 from formguide.schema import FormSpec
 from formguide.validate import check_fields, check_notes
 from rag.settings import PROJECT_ROOT
@@ -54,6 +56,7 @@ def build(
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{form_id}.source.txt").write_text(form.as_prompt_text(), encoding="utf-8")
     spec = build_spec(form, form_id, policy_key, source, draft)
+    spec = attach_boxes(spec, save_layout_pdf(pdf, out_dir, form_id))
     out = out_dir / f"{form_id}.json"
     out.write_text(spec.model_dump_json(indent=2), encoding="utf-8")
     return out
