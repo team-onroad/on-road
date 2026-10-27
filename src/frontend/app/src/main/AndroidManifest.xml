@@ -27,5 +27,15 @@
             </intent-filter>
         </activity>
         <receiver android:name=".notification.DdayReceiver" android:exported="false"/>
+        <!-- 문서 AI 로 내보낸 PDF 를 PDF 보기 앱·공유로 넘길 때 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"/>
+        </provider>
     </application>
 </manifest>

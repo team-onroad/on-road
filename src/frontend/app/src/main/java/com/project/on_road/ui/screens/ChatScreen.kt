@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.NorthEast
@@ -59,6 +60,7 @@ import com.project.on_road.data.AppState
 import com.project.on_road.data.ChatKind
 import com.project.on_road.data.ChatMessage
 import com.project.on_road.data.ChatRole
+import com.project.on_road.data.DocCandidate
 import com.project.on_road.data.HelpLine
 import com.project.on_road.data.SignalSource
 import com.project.on_road.data.UserStage
@@ -216,6 +218,8 @@ fun ChatScreen(
     onBack: () -> Unit,
     onOpenPolicy: (String) -> Unit,
     onPrepare: (String) -> Unit = {},
+    /** 상담 → 문서 AI: 고른 서류 후보와 상담 맥락 */
+    onWriteDocument: (DocCandidate, String?) -> Unit = { _, _ -> },
     /** 성장 기록에서 고른 지난 상담 id. 있으면 그 대화를 불러와 이어서 한다 */
     chatId: Long? = null,
     vm: ChatViewModel = viewModel(),
@@ -286,6 +290,7 @@ fun ChatScreen(
                         onOpenPolicy = onOpenPolicy,
                         onPrepare = onPrepare,
                         onAskMore = { runCatching { inputFocus.requestFocus() } },
+                        onWriteDocument = { onWriteDocument(it, msg.handoffContext) },
                     )
                 }
             }
@@ -463,6 +468,7 @@ private fun BotMessage(
     onOpenPolicy: (String) -> Unit,
     onPrepare: (String) -> Unit,
     onAskMore: () -> Unit = {},
+    onWriteDocument: (DocCandidate) -> Unit = {},
 ) {
     Row(Modifier.fillMaxWidth()) {
         BotAvatar()
@@ -482,6 +488,23 @@ private fun BotMessage(
             Spacer(Modifier.height(8.dp))
             Bubble {
                 Text(msg.text, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextPrimary)
+
+                // 문서 AI 로 넘기기: 쓸 서류 고르기
+                if (msg.kind == ChatKind.DOCUMENT && msg.candidates.isNotEmpty()) {
+                    Spacer(Modifier.height(14.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        msg.candidates.forEachIndexed { i, c ->
+                            OnRoadButton(
+                                text = "${c.title} 쓰기",
+                                onClick = { onWriteDocument(c) },
+                                modifier = Modifier.fillMaxWidth(),
+                                variant = if (i == 0) ButtonVariant.Primary else ButtonVariant.Outline,
+                                textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                            )
+                        }
+                    }
+                }
 
                 // 위기 안내: 바로 전화할 수 있는 연락처
                 if (msg.kind == ChatKind.CRISIS && msg.contacts.isNotEmpty()) {

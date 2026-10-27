@@ -51,6 +51,7 @@ import com.project.on_road.ui.screens.ChecklistScreen
 import com.project.on_road.ui.screens.CompareScreen
 import com.project.on_road.ui.screens.DashboardScreen
 import com.project.on_road.ui.screens.DocumentScreen
+import com.project.on_road.ui.screens.DocWriterScreen
 import com.project.on_road.ui.screens.FormGuideScreen
 import com.project.on_road.ui.screens.FormHelperScreen
 import com.project.on_road.ui.screens.GrowthScreen
@@ -95,6 +96,7 @@ object Routes {
     const val ROLEPLAY_PLAY = "coach/roleplay/{id}"
     const val FORMS = "coach/forms"
     const val DOCUMENT = "coach/document"
+    const val DOC_WRITER = "coach/doc?documentId={documentId}&policyId={policyId}&templateId={templateId}&itemId={itemId}&ctx={ctx}"
     const val STICKER_SHOP = "child/shop"
     const val STICKER_BOARD = "child/board"
     const val CHILD_COACH = "child/coach"   // 아동 전용 상담하기
@@ -108,6 +110,28 @@ object Routes {
     fun roleplay(id: String) = "coach/roleplay/$id"
     fun checklist(policyId: String) = "checklist/$policyId"
     fun formGuide(policyId: String) = "form-guide/$policyId"
+
+    /**
+     * 서류 작성 (문서 AI). 쓰던 서류(documentId) 이어 쓰기, 또는 정책 신청서(policyId)·앱 양식(templateId) 새로 시작.
+     * itemId: 연결할 체크리스트 서류 항목 (내보내면 체크), ctx: 상담에서 넘어온 맥락
+     */
+    fun docWriter(
+        documentId: Long? = null,
+        policyId: Long? = null,
+        templateId: String? = null,
+        itemId: Long? = null,
+        context: String? = null,
+    ): String = buildString {
+        append("coach/doc")
+        val params = listOfNotNull(
+            documentId?.let { "documentId=$it" },
+            policyId?.let { "policyId=$it" },
+            templateId?.let { "templateId=${Uri.encode(it)}" },
+            itemId?.let { "itemId=$it" },
+            context?.takeIf { it.isNotBlank() }?.let { "ctx=${Uri.encode(it.take(500))}" },
+        )
+        if (params.isNotEmpty()) append("?").append(params.joinToString("&"))
+    }
     /** 지난 생활비 결과 다시 보기 (3.14) */
     fun simResult(simulationId: String) = "sim/budget/${Uri.encode(simulationId)}"
 
@@ -340,6 +364,7 @@ private fun OnRoadGraph(
                 policyId = entry.arguments?.getString("policyId").orEmpty(),
                 onBack = back,
                 onFormGuide = { go(Routes.formGuide(it)) },
+                onWriteForm = { policyId, itemId -> go(Routes.docWriter(policyId = policyId, itemId = itemId)) },
             )
         }
         composable(
@@ -376,6 +401,7 @@ private fun OnRoadGraph(
                 onBack = back,
                 onOpenPolicy = { go(Routes.policy(it)) },
                 onPrepare = { go(Routes.checklist(it)) },
+                onWriteDocument = { c, ctx -> go(Routes.docWriter(policyId = c.policyId, templateId = c.templateId, context = ctx)) },
                 chatId = entry.arguments?.getString("cid")?.toLongOrNull(),
             )
         }
@@ -400,7 +426,29 @@ private fun OnRoadGraph(
         ) { entry ->
             RoleplayPlayScreen(scenarioId = entry.arguments?.getString("id").orEmpty(), onBack = back)
         }
-        composable(Routes.FORMS) { FormHelperScreen(onBack = back) }
+        composable(Routes.FORMS) {
+            FormHelperScreen(
+                onBack = back,
+                onOpenDocument = { go(Routes.docWriter(documentId = it)) },
+                onStartTemplate = { go(Routes.docWriter(templateId = it)) },
+            )
+        }
+        composable(
+            Routes.DOC_WRITER,
+            arguments = listOf("documentId", "policyId", "templateId", "itemId", "ctx").map {
+                navArgument(it) { type = NavType.StringType; nullable = true; defaultValue = null }
+            },
+        ) { entry ->
+            val args = entry.arguments
+            DocWriterScreen(
+                documentId = args?.getString("documentId")?.toLongOrNull(),
+                policyId = args?.getString("policyId")?.toLongOrNull(),
+                templateId = args?.getString("templateId"),
+                checklistItemId = args?.getString("itemId")?.toLongOrNull(),
+                context = args?.getString("ctx"),
+                onBack = back,
+            )
+        }
         composable(Routes.DOCUMENT) { DocumentScreen(onBack = back) }
     }
 }

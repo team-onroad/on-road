@@ -10,6 +10,8 @@ import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
+import okhttp3.ResponseBody
 
 /** 백엔드 API (docs/api.md). 경로는 BASE_URL(…/api/) 뒤에 붙는다. */
 interface OnRoadService {
@@ -138,6 +140,53 @@ interface OnRoadService {
         @Path("userId") userId: String,
         @Body body: DocumentRequestDto,
     ): DocumentDto
+
+    // ---------------- 3.25~3.32 문서 AI (DocumentDtos.kt) ----------------
+
+    // 이미 있으면 그 문서(200), 없으면 새로 만듦(201)
+    @POST("documents")
+    suspend fun createWriterDocument(@Body body: DocumentCreateDto): WriterDocumentDto
+
+    @GET("users/{userId}/documents")
+    suspend fun listDocuments(@Path("userId") userId: String): DocumentListDto
+
+    @GET("documents/{documentId}")
+    suspend fun getDocument(@Path("documentId") documentId: Long, @Query("user_id") userId: String): WriterDocumentDto
+
+    @PATCH("documents/{documentId}/fields/{fieldId}")
+    suspend fun updateField(
+        @Path("documentId") documentId: Long,
+        @Path("fieldId") fieldId: String,
+        @Query("user_id") userId: String,
+        @Body body: FieldUpdateDto,
+    ): FieldResponseDto
+
+    @POST("documents/{documentId}/fields/{fieldId}/undo")
+    suspend fun undoField(
+        @Path("documentId") documentId: Long,
+        @Path("fieldId") fieldId: String,
+        @Query("user_id") userId: String,
+    ): FieldResponseDto
+
+    @POST("documents/{documentId}/assist")
+    suspend fun assist(@Path("documentId") documentId: Long, @Body body: AssistRequestDto): AssistResponseDto
+
+    @POST("documents/{documentId}/interview")
+    suspend fun interview(@Path("documentId") documentId: Long, @Body body: InterviewRequestDto): InterviewResponseDto
+
+    @GET("documents/{documentId}/check")
+    suspend fun checkDocument(@Path("documentId") documentId: Long, @Query("user_id") userId: String): CheckDto
+
+    @POST("documents/{documentId}/export")
+    suspend fun exportDocument(@Path("documentId") documentId: Long, @Body body: UserOnlyDto): ExportDto
+
+    @Streaming
+    @GET("documents/{documentId}/file")
+    suspend fun documentFile(
+        @Path("documentId") documentId: Long,
+        @Query("user_id") userId: String,
+        @Query("format") format: String = "pdf",
+    ): ResponseBody
 }
 
 // ---------------- 사용자 ----------------
@@ -502,13 +551,28 @@ data class ContactDto(
 )
 
 data class ChatResponseDto(
-    /** policy / counsel / crisis */
+    /** policy / counsel / crisis / document */
     val type: String,
     /** type = policy 면 null (답변은 search.answer) */
     val message: String?,
     /** type = counsel, crisis 면 null. 3.5 응답과 같은 형식 */
     val search: SearchResponseDto?,
     val contacts: List<ContactDto>,
+    /** type = document 일 때만: 문서 AI 로 넘길 후보 */
+    val handoff: HandoffDto? = null,
+)
+
+data class HandoffCandidateDto(
+    @SerializedName("source_type") val sourceType: String, // template | policy_form
+    @SerializedName("source_id") val sourceId: String?,
+    @SerializedName("policy_id") val policyId: Long?,
+    val title: String,
+)
+
+data class HandoffDto(
+    /** POST /documents 의 context 로 그대로 보낸다 */
+    val context: String,
+    val candidates: List<HandoffCandidateDto>,
 )
 
 // ---------------- 3.16 ~ 3.19 롤플레잉 ----------------
