@@ -207,7 +207,7 @@
           235.3
         ],
         "how": "checkbox",
-        "template_text": "압류방지통장여부 [ ]네 [ ]아니오",
+        "template_text": "압류방지통장 여부 [ ]네 [ ]아니오",
         "options": [
           "네",
           "아니오"
@@ -339,20 +339,6 @@
         "how": "table_right",
         "template_text": null
       }
-    },
-    {
-      "id": "guardian_email",
-      "label": "대리인 E-mail",
-      "section": "1. 신청인",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "대리인의 이메일 주소를 적어요. 대리인이 없으면 비워둬요.",
-      "example": "guardian@example.com",
-      "evidence": null,
-      "sensitive": false,
-      "box": null
     },
     {
       "id": "guardian_birth_date",
@@ -599,10 +585,10 @@
           568.9
         ],
         "how": "checkbox",
-        "template_text": "것에동의함. ([ ]동의함, [ ]동의하지않음)",
+        "template_text": "것에 동의함. ([ ]동의함, [ ]동의하지 않음)",
         "options": [
           "동의함",
-          "동의하지않음"
+          "동의하지 않음"
         ]
       }
     },
@@ -687,7 +673,8 @@
     "'동의함': 근거 문장이 원문과 달라 근거를 지움",
     "'년 월 일': 근거 문장이 원문과 달라 근거를 지움",
     "'신청인(대리신청인) 성명:': 근거 문장이 원문과 달라 근거를 지움",
-    "값 자리를 못 찾음 (별지에 적음): 은행, 대리인 E-mail"
+    "양식에 없는 칸이라 버림: '대리인 E-mail' (대리인 묶음에 없음)",
+    "값 자리를 못 찾음 (별지에 적음): 은행"
   ],
   "checked": false
 }
