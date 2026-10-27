@@ -6,7 +6,7 @@
 import json
 
 from formguide.extract import FormText
-from formguide.prompts import EXTRACT_SYSTEM, EXTRACT_USER, MAX_FORM_CHARS
+from formguide.prompts import EXTRACT_HINTS, EXTRACT_SYSTEM, EXTRACT_USER, MAX_FORM_CHARS
 from rag.openai_client import RagFormatError, _client
 from rag.settings import get_rag_settings
 
@@ -21,6 +21,8 @@ RETRIES = 1  # 형식이 틀리면 한 번 더 요청
 
 def draft_fields(form: FormText) -> dict:
     text = form.as_prompt_text()[:MAX_FORM_CHARS]
+    if form.hints:
+        text += EXTRACT_HINTS.format(hints="\n".join(f"- {h}" for h in form.hints))
     for attempt in range(1 + RETRIES):
         resp = _client().with_options(timeout=TIMEOUT_SECONDS).chat.completions.create(
             model=get_rag_settings().rag_chat_model,
