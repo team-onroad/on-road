@@ -43,10 +43,12 @@ DATE_LEFT_SPACE = 60  # "년" 앞에 연도를 쓸 공간
 SECTION_MAX = 20  # 구역 제목 길이 (이보다 긴 "1. …" 줄은 유의사항 문장)
 MARK_BOX_MAX = 12  # 체크박스 네모(□) 크기
 MARK_BRACKET_GAP = 30  # "[ ]" 의 [ 와 ] 사이 최대 거리 (제목의 "[ … ]" 묶음 괄호와 구분)
-ACCOUNT_LINE_H = 10  # 계좌번호를 "은행" 줄 위·아래에 쓸 최소 높이
+ACCOUNT_LINE_H = 10
+OPTION_GAP = 20  # 선택지 글자 사이가 이보다 벌어지면 다른 셀 글자  # 계좌번호를 "은행" 줄 위·아래에 쓸 최소 높이
 CONFIRM_OPTION = "확인"
 CONFIRM_FIELD_ID = "notice_confirm"
 SIGN_MARK = "(서명 또는 인)"
+_SIGN_RE = re.compile(r"\(\s*(서명\s*또는\s*인|서명|인)\s*\)")
 
 
 def _norm(text: str | None) -> str:
@@ -234,13 +236,16 @@ def _marks(page, rect: tuple) -> dict[str, list[float]]:
     for start_x, top, cx, cy in sorted(starts, key=lambda t: (round(t[1]), t[0])):
         same = [c for c in chars if abs((c["top"] + c["bottom"]) / 2 - cy) < 5 and c["x0"] >= start_x - 0.5]
         nxt = min([t[0] for t in starts if abs(t[3] - cy) < 5 and t[0] > start_x + 1] or [x1 + 1])
-        text = ""
+        text, prev_x1 = "", None
         for c in sorted(same, key=lambda c: c["x0"]):
-            if c["x0"] >= nxt - 6 or c["text"] in "[]()□☐":
+            if c["x0"] >= nxt - 6 or c["text"] in "[]()□☐" or (
+                text.strip() and prev_x1 is not None and c["x0"] - prev_x1 > OPTION_GAP
+            ):  # 다음 선택지·괄호, 또는 멀리 떨어진 옆 셀 글자 (예: "처리기간")
                 if text.strip():
                     break
                 continue
             text += c["text"]
+            prev_x1 = c["x1"]
         opt = " ".join(text.split()).strip(" ,.·")
         if opt and opt not in out:
             out[opt] = [round(cx, 1), round(cy, 1)]
@@ -578,13 +583,14 @@ def _core_label(f: FormField, cell: Cell) -> str:
 def _checkbox_in_text(pdf, label: str) -> dict | None:
     """표 밖 문장 속 체크박스 (예: "것에 동의함. ([ ]동의함, [ ]동의하지 않음)")"""
     target = _norm(label)
+    want = {_norm(o) for o in _options(label)}  # label 에 "[ ]동의함, [ ]동의하지 않음"까지 들어 있으면 선택지로 찾는다
     for pno, page in enumerate(pdf.pages):
         for ln in page.extract_text_lines():
-            if target not in _norm(ln["text"]) or "[" not in ln["text"]:
+            if "[" not in ln["text"] or (target not in _norm(ln["text"]) and not want):
                 continue
             rect = (ln["x0"] - 1, ln["top"] - 2, ln["x1"] + 1, ln["bottom"] + 2)
             marks = _marks(page, rect)
-            if marks:
+            if marks and (target in _norm(ln["text"]) or want <= {_norm(o) for o in marks}):
                 return {"page": pno, "rect": rect, "how": "checkbox", "options": list(marks), "marks": marks,
                         "template_text": " ".join(ln["text"].split())}
     return None
@@ -681,9 +687,11 @@ def _split_bank(fields: list[FormField]) -> list[FormField]:
 
 def _signature(f: FormField) -> FormField:
     """"신청인 성명: ____ (서명 또는 인)" 줄: 이름은 프로필로 채우고, 서명·도장만 손으로 (서명 자리는 비워 둔다)"""
-    if "성명" not in _norm(f.label) or not (f.input_type == "signature" or f.sensitive or f.value_source == "handwrite"):
+    label = _SIGN_RE.sub("", f.label).strip()
+    sign_like = f.input_type == "signature" or f.sensitive or f.value_source == "handwrite" or label != f.label.strip()
+    if "성명" not in _norm(label) or not sign_like:
         return f
-    return f.model_copy(update={
+    return f.model_copy(update={"label": label,
         "input_type": "text", "value_source": "profile", "profile_key": "name", "sensitive": False, "example": None,
         "guide": "신청인 이름을 적어요. 출력한 뒤 옆에 직접 서명하거나 도장을 찍어요.",
     })
@@ -705,24 +713,74 @@ def _sign_mark(pdf_path: Path, box: dict) -> dict:
     return {**box, "sign_mark": SIGN_MARK}
 
 
+def _first_group(pdf_path: Path) -> str:
+    """양식에서 먼저 나오는 묶음 이름 (신청인 본인, 예: "대상아동")"""
+    with pdfplumber.open(pdf_path) as pdf:
+        cells = [c for grid in _cells(pdf) for row in grid for c in row if c is not None and c.group]
+    return _norm(min(cells, key=lambda c: c.order).group) if cells else ""
+
+
+def _unhint(f: FormField, first_group: str) -> FormField:
+    """AI 가 칸 후보 형식("대리인 > 성명")을 그대로 label 에 쓴 경우.
+    신청인 본인 묶음·구역 이름은 떼고, 다른 묶음은 앞에 띄어 붙인다 ("대리인 성명", "보호기관 전화 :")"""
+    if ">" not in f.label:
+        return f
+    parts = [p.strip() for p in f.label.split(">") if p.strip()]
+    core, prefix = parts[-1], [p for p in parts[:-1] if not _SECTION_RE.match(p)]
+    if prefix and _norm(prefix[-1]) != first_group and not _norm(core).startswith(_norm(prefix[-1])):
+        label = f"{prefix[-1]} {core}"
+    else:
+        label = core
+    return f.model_copy(update={"label": label, "section": f.section or (" ".join(parts[:-1]) or None)})
+
+
+def _is_group_head(f: FormField, fields: list[FormField]) -> bool:
+    """"연락처"처럼 작은 칸(전화 :, 휴대전화 :)을 묶는 이름: 같은 묶음에 전화 칸이 따로 있으면 버린다"""
+    words = f.label.split()
+    if _norm(words[-1] if words else "") != "연락처":
+        return False
+    prefix = _norm(" ".join(words[:-1]))
+    return any(
+        g is not f and "전화" in _norm(g.label) and _norm(g.label).startswith(prefix) for g in fields
+    )
+
+
 def attach_boxes(spec: FormSpec, pdf_path: Path) -> FormSpec:
-    kept = [f for f in spec.fields if f.id != CONFIRM_FIELD_ID]
+    first_group = _first_group(pdf_path)
+    kept = [_unhint(f, first_group) for f in spec.fields if f.id != CONFIRM_FIELD_ID]
+    heads = [f for f in kept if _is_group_head(f, kept)]
+    kept = [f for f in kept if f not in heads]
     sign_ids = {f.id for f in kept if _signature(f) is not f or (f.box or {}).get("sign_mark")}
     source = _split_bank([_signature(f) for f in kept])
     boxes = locate(pdf_path, source)
     groups = group_names(pdf_path)
     warnings = [w for w in spec.warnings if not w.startswith("값 자리를 못 찾음")]
+    warnings += [w for w in (f"작은 칸을 묶는 이름이라 버림: '{f.label}'" for f in heads) if w not in warnings]
     fields = []
     for f in source:
         words = f.label.split()
         # "대리인 E-mail"처럼 묶음 이름을 붙였는데 그 묶음에 칸이 없으면 AI 가 지어낸 칸
         if f.id not in boxes and len(words) >= 2 and _norm(words[0]) in groups and f.value_source in ("profile", "user"):
-            warnings.append(f"양식에 없는 칸이라 버림: '{f.label}' ({words[0]} 묶음에 없음)")
+            w = f"양식에 없는 칸이라 버림: '{f.label}' ({words[0]} 묶음에 없음)"
+            if w not in warnings:
+                warnings.append(w)
             continue
         box = boxes.get(f.id)
         if box and f.id in sign_ids and box["how"] in ("table_right", "text_right"):
             box = _sign_mark(pdf_path, box)
-        fields.append(f.model_copy(update={"box": box}))
+        update: dict = {"box": box}
+        if _bank_role(f) in ("bank", "holder") and f.value_source == "handwrite":
+            update.update(value_source="user", sensitive=False)  # 은행 이름·예금주는 민감 정보가 아니다
+        if f.input_type == "checkbox" and f.value_source == "office" and "동의" in f.label:
+            update["value_source"] = "user"  # "담당 공무원이 … 확인하는 것에 동의함" 은 신청인이 고르는 칸
+        if box and box.get("options") and "[" in f.label:
+            head = f.label.split("[")[0].strip()
+            # 선택지만 있는 체크박스(제목 속 "□자립수당 지급 □의료비 지원")는 선택지를 "/"로 잇는다
+            mixed = not head or any(_norm(o) in _norm(head) for o in box["options"])
+            update["label"] = "/".join(box["options"]) if mixed else head
+            if mixed and len(head) > 20:
+                update["guide"] = head.rstrip(" (")  # 긴 안내 문장은 칸 설명으로
+        fields.append(f.model_copy(update=update))
     # 유의사항 "확인(√ 체크)" 열: AI 가 뽑지 않아도 양식에서 찾아 칸 하나로 넣는다 (모두 체크)
     with pdfplumber.open(pdf_path) as pdf:
         confirm = _confirm_column(pdf, _cells(pdf))
@@ -765,7 +823,10 @@ def main() -> None:
     args = parser.parse_args()
 
     spec_path = args.out / f"{args.form_id}.json"
-    spec = FormSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
+    extracted = args.out / f"{args.form_id}.extracted.json"  # AI 가 뽑은 그대로 (build 가 저장). 있으면 여기서 다시 시작
+    spec = FormSpec.model_validate_json((extracted if extracted.is_file() else spec_path).read_text(encoding="utf-8"))
+    if extracted.is_file():
+        print(f"AI 추출 결과에서 다시 시작: {extracted.name} (LLM 안 씀)")
     src = args.pdf or args.out / f"{args.form_id}.pdf"
     redraw = has_broken_fonts(src) if args.redraw_text is None else args.redraw_text
     pdf = save_layout_pdf(src, args.out, args.form_id, redraw)

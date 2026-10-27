@@ -139,7 +139,7 @@ def find_form(policy_key: str) -> FormSpec | None:
         return None
     specs: list[FormSpec] = []
     for path in sorted(forms_dir.glob("*.json")):
-        if path.name.endswith(".source.json"):
+        if path.name.endswith((".source.json", ".extracted.json")):  # extracted: AI 추출 원본 (좌표 넣기 전)
             continue
         data = _load_json(path)
         if not isinstance(data, dict) or data.get("policy_key") != policy_key:
