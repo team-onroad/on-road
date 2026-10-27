@@ -8,6 +8,8 @@ import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
+import okhttp3.ResponseBody
 
 /** 백엔드 API (docs/api.md). 경로는 BASE_URL(…/api/) 뒤에 붙는다. */
 interface OnRoadService {
@@ -49,6 +51,60 @@ interface OnRoadService {
         @Path("simulationId") simulationId: Long,
         @Query("user_id") userId: String,
     ): SimulationDto
+
+    // ---------------- 문서 AI (3.25~3.32) ----------------
+
+    @GET("forms/templates")
+    suspend fun formTemplates(@Query("stage") stage: String?): TemplateListDto
+
+    // 정책 신청서 항목이 있는지 확인용 (없으면 404 FORM_GUIDE_NOT_FOUND)
+    @GET("policies/{policyId}/form-guide")
+    suspend fun formGuide(@Path("policyId") policyId: Long, @Query("user_id") userId: String?): ResponseBody
+
+    // 이미 있으면 그 문서(200), 없으면 새로 만듦(201)
+    @POST("documents")
+    suspend fun createDocument(@Body body: DocumentCreateDto): DocumentDto
+
+    @GET("users/{userId}/documents")
+    suspend fun listDocuments(@Path("userId") userId: String): DocumentListDto
+
+    @GET("documents/{documentId}")
+    suspend fun getDocument(@Path("documentId") documentId: Long, @Query("user_id") userId: String): DocumentDto
+
+    @PATCH("documents/{documentId}/fields/{fieldId}")
+    suspend fun updateField(
+        @Path("documentId") documentId: Long,
+        @Path("fieldId") fieldId: String,
+        @Query("user_id") userId: String,
+        @Body body: FieldUpdateDto,
+    ): FieldResponseDto
+
+    @POST("documents/{documentId}/fields/{fieldId}/undo")
+    suspend fun undoField(
+        @Path("documentId") documentId: Long,
+        @Path("fieldId") fieldId: String,
+        @Query("user_id") userId: String,
+    ): FieldResponseDto
+
+    @POST("documents/{documentId}/assist")
+    suspend fun assist(@Path("documentId") documentId: Long, @Body body: AssistRequestDto): AssistResponseDto
+
+    @POST("documents/{documentId}/interview")
+    suspend fun interview(@Path("documentId") documentId: Long, @Body body: InterviewRequestDto): InterviewResponseDto
+
+    @GET("documents/{documentId}/check")
+    suspend fun checkDocument(@Path("documentId") documentId: Long, @Query("user_id") userId: String): CheckDto
+
+    @POST("documents/{documentId}/export")
+    suspend fun exportDocument(@Path("documentId") documentId: Long, @Body body: UserOnlyDto): ExportDto
+
+    @Streaming
+    @GET("documents/{documentId}/file")
+    suspend fun documentFile(
+        @Path("documentId") documentId: Long,
+        @Query("user_id") userId: String,
+        @Query("format") format: String = "pdf",
+    ): ResponseBody
 }
 
 // ---------------- 사용자 ----------------

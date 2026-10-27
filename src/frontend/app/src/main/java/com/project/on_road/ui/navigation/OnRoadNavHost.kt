@@ -42,6 +42,7 @@ import com.project.on_road.ui.screens.ChecklistScreen
 import com.project.on_road.ui.screens.CompareScreen
 import com.project.on_road.ui.screens.DashboardScreen
 import com.project.on_road.ui.screens.DocumentScreen
+import com.project.on_road.ui.screens.DocWriterScreen
 import com.project.on_road.ui.screens.FormHelperScreen
 import com.project.on_road.ui.screens.GrowthScreen
 import com.project.on_road.ui.screens.HousingScreen
@@ -83,6 +84,7 @@ object Routes {
     const val ROLEPLAY_PLAY = "coach/roleplay/{id}"
     const val FORMS = "coach/forms"
     const val DOCUMENT = "coach/document"
+    const val DOC_WRITER = "coach/doc?documentId={documentId}&policyId={policyId}&templateId={templateId}"
     const val STICKER_SHOP = "child/shop"
     const val STICKER_BOARD = "child/board"
     const val CHILD_COACH = "child/coach"   // 아동 전용 상담하기
@@ -91,6 +93,17 @@ object Routes {
     fun practice(id: String) = "sim/practice/$id"
     fun roleplay(id: String) = "coach/roleplay/$id"
     fun checklist(policyId: String) = "checklist/$policyId"
+
+    /** 서류 작성: 쓰던 서류(documentId) 이어 쓰기, 또는 정책 신청서(policyId)·앱 양식(templateId) 새로 시작 */
+    fun docWriter(documentId: Long? = null, policyId: Long? = null, templateId: String? = null): String = buildString {
+        append("coach/doc")
+        val params = listOfNotNull(
+            documentId?.let { "documentId=$it" },
+            policyId?.let { "policyId=$it" },
+            templateId?.let { "templateId=${Uri.encode(it)}" },
+        )
+        if (params.isNotEmpty()) append("?").append(params.joinToString("&"))
+    }
 
     fun policy(policyId: String? = null, query: String? = null): String = buildString {
         append("policy")
@@ -260,7 +273,11 @@ private fun OnRoadGraph(
             Routes.CHECKLIST,
             arguments = listOf(navArgument("policyId") { type = NavType.StringType }),
         ) { entry ->
-            ChecklistScreen(policyId = entry.arguments?.getString("policyId").orEmpty(), onBack = back)
+            ChecklistScreen(
+                policyId = entry.arguments?.getString("policyId").orEmpty(),
+                onBack = back,
+                onWriteForm = { go(Routes.docWriter(policyId = it)) },
+            )
         }
 
         composable(
@@ -306,7 +323,27 @@ private fun OnRoadGraph(
         ) { entry ->
             RoleplayPlayScreen(scenarioId = entry.arguments?.getString("id").orEmpty(), onBack = back)
         }
-        composable(Routes.FORMS) { FormHelperScreen(onBack = back) }
+        composable(Routes.FORMS) {
+            FormHelperScreen(
+                onBack = back,
+                onOpenDocument = { go(Routes.docWriter(documentId = it)) },
+                onStartTemplate = { go(Routes.docWriter(templateId = it)) },
+            )
+        }
+        composable(
+            Routes.DOC_WRITER,
+            arguments = listOf("documentId", "policyId", "templateId").map {
+                navArgument(it) { type = NavType.StringType; nullable = true; defaultValue = null }
+            },
+        ) { entry ->
+            val args = entry.arguments
+            DocWriterScreen(
+                documentId = args?.getString("documentId")?.toLongOrNull(),
+                policyId = args?.getString("policyId")?.toLongOrNull(),
+                templateId = args?.getString("templateId"),
+                onBack = back,
+            )
+        }
         composable(Routes.DOCUMENT) { DocumentScreen(onBack = back) }
     }
 }

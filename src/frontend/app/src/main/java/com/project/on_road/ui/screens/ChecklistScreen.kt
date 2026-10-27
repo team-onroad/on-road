@@ -25,6 +25,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -225,9 +227,15 @@ class ChecklistViewModel : ViewModel() {
 fun ChecklistScreen(
     policyId: String,
     onBack: () -> Unit,
+    onWriteForm: (Long) -> Unit = {},
     vm: ChecklistViewModel = viewModel(),
 ) {
     LaunchedEffect(policyId) { vm.load(policyId) }
+    // 신청서 항목이 준비된 정책이면 '신청서 쓰기' (문서 AI)
+    var hasForm by remember { mutableStateOf(false) }
+    LaunchedEffect(policyId) {
+        hasForm = policyId.toLongOrNull()?.let { runCatching { AppContainer.documents.hasPolicyForm(it) }.getOrDefault(false) } ?: false
+    }
     val uri = LocalUriHandler.current
     val c = vm.checklist
     val error = vm.error
@@ -279,6 +287,25 @@ fun ChecklistScreen(
                                 easy = step.type in vm.easy,
                                 onToggle = { vm.toggleStep(step.type) },
                                 onToggleEasy = { vm.toggleEasy(step.type) },
+                            )
+                        }
+                    }
+
+                    if (hasForm) {
+                        Spacer(Modifier.height(32.dp))
+                        OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
+                            Text("신청서, AI와 대화하며 쓰기", style = OnRoadType.Title3, color = OnRoadColors.Primary)
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "묻는 말에 답하면 원래 신청서 양식에 채운 PDF를 만들어 줘요. 다 쓰면 준비 서류도 체크돼요.",
+                                style = OnRoadType.Caption,
+                                color = OnRoadColors.TextTertiary,
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            OnRoadButton(
+                                "신청서 쓰기", { policyId.toLongOrNull()?.let(onWriteForm) }, Modifier.fillMaxWidth(),
+                                height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
                             )
                         }
                     }
