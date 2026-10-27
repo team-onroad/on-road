@@ -89,6 +89,10 @@ class Document(BaseModel):
     is_checked: bool
     is_not_applicable: bool
     checked_at: datetime | None
+    # 문서 AI 로 쓰는 서류면 그 문서 (POST /documents 의 checklist_item_id 로 연결).
+    # document_status 가 exported 면 체크가 문서를 따르고, 이 항목은 직접 바꿀 수 없다 (409 DOCUMENT_WRITTEN)
+    document_id: int | None = None
+    document_status: Literal["writing", "exported"] | None = None
 
 
 class Step(BaseModel):
