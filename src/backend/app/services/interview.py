@@ -35,6 +35,7 @@ EXPORTED_MESSAGE = "모든 칸을 채우고 서류를 만들었어요. PDF로 �
 NOT_READY_MESSAGE = "다 채웠는데 고칠 칸이 있어요. 아래 내용을 확인해 주세요."
 
 _DIGITS_RE = re.compile(r"\d+")
+BRIEF_CHARS = 70
 
 
 def _flat(text: str) -> str:
@@ -76,7 +77,11 @@ def _question(row: DocumentField, spec: dict, pending: bool) -> Question:
         confirm = True
     else:
         confirm = False
-        if options:
+        box = spec.get("box") or {}
+        if box.get("how") == "confirm":
+            items = "\n".join(f"- {_brief(item)}" for item in box.get("items") or [])
+            text = f"유의사항 {len(box.get('items') or [])}가지를 읽고 확인해야 해요.\n{items}\n다 읽었으면 '확인'이라고 해 주세요."
+        elif options:
             text = f"'{name}'에서 골라 주세요: {', '.join(options)}"
         elif spec.get("essay"):
             outline = spec.get("outline")
@@ -102,6 +107,10 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
     """(칸에 넣을 값, 다시 물을 때 안내). 값이 None 이면 다시 묻는다"""
     flat = _flat(answer)
     options = spec.get("options")
+    if (spec.get("box") or {}).get("how") == "confirm":
+        if flat in CONFIRM_WORDS or "확인" in flat or "읽었" in flat:
+            return options[0] if options else "확인", None
+        return None, "유의사항을 읽고 '확인'이라고 해 주세요. 궁금한 항목이 있으면 물어봐도 돼요."
     if options:
         chosen = [o for o in options if _flat(o) in flat]
         # 긴 선택지가 짧은 선택지를 품으면 긴 것만 (예: "기타" vs "기타사유")
@@ -123,6 +132,12 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
             except ValueError:
                 pass
         return None, "날짜를 다시 알려 주세요. (예: 2026.10.27)"
+    if kind == "account":
+        digits = "".join(_DIGITS_RE.findall(answer))
+        if 10 <= len(digits) <= 16:
+            kept = re.sub(r"[^\d-]", "", answer).strip("-")
+            return (kept if "".join(_DIGITS_RE.findall(kept)) == digits else digits), None
+        return None, "계좌번호를 다시 알려 주세요. 숫자 10~16자리예요. (예: 123-456-789012)"
     if kind == "phone":
         digits = "".join(_DIGITS_RE.findall(answer))
         if 9 <= len(digits) <= 11 and digits.startswith("0"):
@@ -131,6 +146,32 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
             return format_phone(digits) if len(digits) >= 10 else f"{digits[:2]}-{digits[2:5]}-{digits[5:]}", None
         return None, "전화번호를 다시 알려 주세요. (예: 010-1234-5678)"
     return answer.strip(), None
+
+
+def _brief(text: str, limit: int = BRIEF_CHARS) -> str:
+    """유의사항 항목 앞부분 (첫 문장, 길면 줄임)"""
+    text = " ".join(text.split())
+    first = re.split(r"(?<=[다요]\.)\s", text, maxsplit=1)[0]
+    return first if len(first) <= limit else first[:limit].rstrip() + "…"
+
+
+def _handwrite_note(specs: dict) -> str:
+    """내보낸 뒤 손으로 써야 할 것 (주민등록번호 등 앱에 받지 않는 칸, 서명)"""
+    labels = []
+    for spec in specs.values():
+        if spec.get("value_source") == "handwrite":
+            name = " ".join(spec["label"].replace(":", "").split())
+            if name not in labels:
+                labels.append(name)
+    # 서명란 이름 칸 ("신청인 성명: ____ (서명 또는 인)", formguide/layout.py _signature)
+    signs = any(spec.get("profile_key") == "name" and "신청인" in spec["label"] and "성명" in _flat(spec["label"])
+                for spec in specs.values())
+    parts = []
+    if labels:
+        parts.append(f"출력한 뒤 {', '.join(labels)} 칸은 직접 써 주세요.")
+    if signs:
+        parts.append("이름 옆 (서명 또는 인) 자리에 서명하거나 도장을 찍어 주세요.")
+    return " ".join(parts)
 
 
 def _is_question(text: str) -> bool:
@@ -213,7 +254,8 @@ def _response(
         result = w.check(db, user, doc)
         if result.ready:
             export = w.export(db, user, doc)
-            message = f"{message} {EXPORTED_MESSAGE}".strip() if message else EXPORTED_MESSAGE
+            done = f"{EXPORTED_MESSAGE} {_handwrite_note(specs)}".strip()
+            message = f"{message} {done}".strip() if message else done
         else:
             check = result
             message = f"{message} {NOT_READY_MESSAGE}".strip() if message else NOT_READY_MESSAGE
@@ -245,7 +287,7 @@ def interview(
     spec = specs[current]
     state["current"] = current
 
-    if _is_question(msg):
+    if _is_question(msg) and spec.get("input_type") != "account":  # 계좌번호 답은 LLM 에 보내지 않는다
         context = {"screen": "document", "document_title": doc.title, "field_label": spec["label"]}
         routed = call_llm("route_message", doc_llm.route_message, w._check_route, msg, [], context)
         if routed["route"] == "policy":
