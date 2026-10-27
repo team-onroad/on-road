@@ -1,6 +1,5 @@
 package com.project.on_road.ui.screens
 
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -378,6 +377,44 @@ fun ChecklistScreen(
                         }
                     }
 
+                    // 신청서 작성 도우미 (문서 AI): 준비 서류 바로 위. 신청서 항목이 준비된 정책만
+                    if (hasForm) {
+                        val formItem = c.docs.firstOrNull { "신청서" in it.name }
+                        Spacer(Modifier.height(40.dp))
+                        OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("신청서 작성 도우미", style = OnRoadType.Title3, color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
+                                if (formItem?.checked == true) {
+                                    OnRoadTag("작성 완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
+                                }
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "AI가 묻는 말에 답하면 원래 신청서 양식에 채운 PDF를 만들어 줘요. 다 쓰면 아래 준비 서류도 체크돼요.",
+                                style = OnRoadType.Caption,
+                                color = OnRoadColors.TextTertiary,
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OnRoadButton(
+                                    "AI와 대화하며 쓰기",
+                                    { c.policyId.toLongOrNull()?.let { onWriteForm(it, formItem?.itemId) } },
+                                    Modifier.weight(1.4f),
+                                    height = 40.dp,
+                                    textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                                )
+                                OnRoadButton(
+                                    "칸별 안내 보기",
+                                    { onFormGuide(c.policyId) },
+                                    Modifier.weight(1f),
+                                    variant = ButtonVariant.Outline,
+                                    height = 40.dp,
+                                    textStyle = OnRoadType.Caption,
+                                )
+                            }
+                        }
+                    }
+
                     if (c.docs.isNotEmpty()) {
                         Spacer(Modifier.height(40.dp))
                         Row(verticalAlignment = Alignment.Bottom) {
@@ -408,38 +445,6 @@ fun ChecklistScreen(
 
                 Column(Modifier.padding(horizontal = 20.dp)) {
                     Spacer(Modifier.height(24.dp))
-                    if (hasForm) {
-                        // 문서 AI: 대화로 신청서 채우기 → 원본 양식 PDF, 내보내면 신청서 서류 항목 체크
-                        val formItem = c.docs.firstOrNull { "신청서" in it.name }
-                        OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
-                            Text("신청서, AI와 대화하며 쓰기", style = OnRoadType.Title3, color = OnRoadColors.Primary)
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                "묻는 말에 답하면 원래 신청서 양식에 채운 PDF를 만들어 줘요. 다 쓰면 준비 서류도 체크돼요.",
-                                style = OnRoadType.Caption,
-                                color = OnRoadColors.TextTertiary,
-                            )
-                            Spacer(Modifier.height(14.dp))
-                            OnRoadButton(
-                                "신청서 쓰기",
-                                { c.policyId.toLongOrNull()?.let { onWriteForm(it, formItem?.itemId) } },
-                                Modifier.fillMaxWidth(),
-                                height = 40.dp,
-                                textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
-                            )
-                        }
-                        Spacer(Modifier.height(10.dp))
-                    }
-                    // 3.24 신청서 작성 도우미
-                    OnRoadButton(
-                        text = "신청서 작성 도우미",
-                        onClick = { onFormGuide(c.policyId) },
-                        modifier = Modifier.fillMaxWidth(),
-                        variant = ButtonVariant.Outline,
-                        shape = OnRoadShapes.Inner,
-                    )
-                    Spacer(Modifier.height(10.dp))
                     // 공식 신청 페이지가 없으면 버튼을 숨긴다
                     c.policy.applyUrl?.let { url ->
                         OnRoadButton(
