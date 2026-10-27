@@ -7,53 +7,70 @@ from formguide.schema import FormField, FormSpec
 from formguide.tests.sample_form import make_form
 
 
-def f(fid, label, **kw):
-    return FormField(id=fid, label=label, guide="안내", **kw)
+def f(fid, label, section="1. 신청인", **kw):
+    return FormField(id=fid, label=label, section=section, guide="안내", **kw)
 
 
 FIELDS = [
     f("name", "성명", value_source="profile", profile_key="name"),
     f("birth", "생년월일", input_type="date"),
-    f("rrn", "주민등록번호", value_source="handwrite", sensitive=True),
     f("addr", "주소"),
-    f("phone", "연락처"),
-    f("end", "보호종료일", input_type="date"),
-    f("reason", "신청 사유"),
-    f("acct", "수급 계좌", value_source="handwrite", sensitive=True),
-    f("rcpt", "접수번호", value_source="office"),
-    f("appl", "신청인", value_source="handwrite"),
+    f("phone", "전화:"),
+    f("holder", "예금주"),
+    f("seizure", "압류방지통장 여부", input_type="checkbox"),
+    f("g_name", "대리인 성명"),
+    f("g_phone", "대리인 전화:"),
+    f("notice", "통지방법", input_type="checkbox"),
+    f("agency_phone", "전화:", section="2. 보호기관"),
+    f("reason", "신청 사유", section=None),
+    f("date", "년 월 일", section=None, input_type="date"),
+    f("sign", "신청인", section=None, value_source="handwrite"),
 ]
 
 
 @pytest.fixture
-def form(tmp_path):
-    return make_form(tmp_path / "form.pdf")
+def boxes(tmp_path):
+    return locate(make_form(tmp_path / "form.pdf"), FIELDS)
 
 
-def test_finds_value_cells(form):
-    boxes = locate(form, FIELDS)
-
-    assert boxes["name"] == {"page": 0, "rect": [130.0, 100.0, 300.0, 128.0], "how": "table_right", "template_text": None}
-    assert boxes["birth"]["rect"] == [380.0, 100.0, 545.0, 128.0]  # 한 줄에 칸 두 개
-    assert boxes["addr"]["rect"] == [130.0, 156.0, 545.0, 184.0]  # 병합된 넓은 칸
-    assert boxes["end"]["template_text"] == "년 월 일"  # 날짜 칸은 안내 글자가 있어도 빈 칸으로 본다
+def test_value_cells(boxes):
+    assert boxes["name"] == {"page": 0, "rect": [130.0, 95.0, 300.0, 123.0], "how": "table_right", "template_text": None}
+    assert boxes["birth"]["rect"] == [380.0, 95.0, 545.0, 123.0]  # 한 줄에 칸 두 개
     assert boxes["reason"]["how"] == "table_below"  # 칸 이름 아래 큰 칸
-    assert boxes["reason"]["rect"] == [50.0, 236.0, 545.0, 326.0]
-    assert boxes["appl"]["how"] == "text_right"  # 표 밖 "신청인 ____"
-    assert "acct" not in boxes  # 안내 글자("은행명 / 계좌번호")가 있는 칸에는 쓰지 않는다
+    assert boxes["holder"]["rect"][0] == 138.0  # ":" 구분 셀은 건너뛴다
+    assert boxes["sign"]["how"] == "text_right"  # 표 밖 "신청인 ____"
 
 
-def test_attach_boxes_warns_missing(form, tmp_path):
-    spec = FormSpec(form_id="X", policy_key="P", title="t", source="s",
-                    fields=FIELDS + [f("memo", "추가 메모")])
+def test_repeated_labels_follow_group_and_section(boxes):
+    assert boxes["phone"]["rect"][1] == 123.0  # 묶음 이름이 없으면 먼저 나오는 대상아동 칸
+    assert boxes["g_name"]["rect"][1] == 199.0  # "대리인 성명" → 대리인 묶음의 성명
+    assert boxes["g_phone"]["rect"][1] == 227.0
+    assert boxes["agency_phone"]["rect"][1] == 303.0  # 구역 "2. 보호기관"의 전화
+
+
+def test_checkbox_options(boxes):
+    assert boxes["seizure"]["how"] == "checkbox"
+    assert boxes["seizure"]["options"] == ["네", "아니오"]
+    assert boxes["notice"]["options"] == ["서면", "전자우편", "문자메시지"]
+    assert boxes["notice"]["rect"][0] == 130.0  # 칸 이름 오른쪽 영역
+
+
+def test_date_line(boxes):
+    assert boxes["date"]["how"] == "date_line"
+    assert boxes["date"]["template_text"] == "년 월 일"
+
+
+def test_attach_boxes_warns_missing(tmp_path):
+    form = make_form(tmp_path / "form.pdf")
+    spec = FormSpec(form_id="X", policy_key="P", title="t", source="s", fields=FIELDS + [f("memo", "추가 메모")])
     out = attach_boxes(spec, form)
     assert next(x for x in out.fields if x.id == "name").box["how"] == "table_right"
     assert out.warnings == ["값 자리를 못 찾음 (별지에 적음): 추가 메모"]
     assert attach_boxes(out, form).warnings == out.warnings  # 다시 돌려도 경고가 쌓이지 않음
 
 
-
-def test_save_layout_pdf(form, tmp_path):
+def test_save_layout_pdf(tmp_path):
+    form = make_form(tmp_path / "form.pdf")
     out_dir = tmp_path / "forms"
     out_dir.mkdir()
     copied = save_layout_pdf(form, out_dir, "X")

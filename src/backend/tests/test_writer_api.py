@@ -498,22 +498,31 @@ def test_policy_form_exports_on_original_layout(api, db_session, doc_llm, forms_
     policy = make_policy(db_session, policy_key="P001", name="자립수당")
     pdf = make_form(forms_dir / "P001-apply.pdf")
     fields = [
-        FormField(id="name", label="성명", value_source="profile", profile_key="name", guide="이름"),
-        FormField(id="phone", label="연락처", value_source="profile", profile_key="phone", guide="전화"),
-        FormField(id="rrn", label="주민등록번호", input_type="id_number", value_source="handwrite",
-                  sensitive=True, guide="직접"),
-        FormField(id="end", label="보호종료일", input_type="date", guide="날짜"),
+        FormField(id="name", label="성명", section="1. 신청인", value_source="profile", profile_key="name", guide="이름"),
+        FormField(id="phone", label="전화:", section="1. 신청인", value_source="profile", profile_key="phone",
+                  guide="전화"),
+        FormField(id="seizure", label="압류방지통장 여부", input_type="checkbox", guide="고르기"),
         FormField(id="reason", label="신청 사유", guide="사유"),
+        FormField(id="date", label="년 월 일", input_type="date", guide="신청일"),
+        FormField(id="sign", label="신청인", value_source="handwrite", input_type="signature", sensitive=True,
+                  guide="서명"),
         FormField(id="memo", label="추가 메모", guide="메모"),  # 양식에 없는 칸 → 별지
     ]
     spec = attach_boxes(FormSpec(form_id="P001-apply", policy_key="P001", title="자립수당 지급 신청서",
                                  source="test.pdf", fields=fields), pdf)
     (forms_dir / "P001-apply.json").write_text(spec.model_dump_json(), encoding="utf-8")
+    blank_drawings = len(pymupdf.open(pdf)[0].get_drawings())
 
     data = api.post("/api/documents", json={
         "user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id,
     }).json()
-    _complete_all(api, user, data, {"end": "2026.02.28", "reason": "혼자 생활하며 월세가 부담됩니다.", "memo": "메모"})
+    assert _field(data, "seizure")["options"] == ["네", "아니오"]
+    _patch(api, user, data["document_id"], "seizure", value="모름")
+    assert _field(api.get(f"/api/documents/{data['document_id']}?user_id={user.id}").json(), "seizure")["warnings"]
+
+    _complete_all(api, user, data, {
+        "seizure": "아니오", "reason": "혼자 생활하며 월세가 부담됩니다.", "date": "2026.10.27", "memo": "메모",
+    })
     exported = api.post(f"/api/documents/{data['document_id']}/export", json={"user_id": str(user.id)}).json()
     assert exported["pdf_layout"] == "original"
 
@@ -524,7 +533,8 @@ def test_policy_form_exports_on_original_layout(api, db_session, doc_llm, forms_
     assert out.page_count == 2  # 원본 1쪽 + 별지 1쪽
     assert "자립수당 지급 신청서 (가상 양식)" in first  # 원본 양식 그대로
     assert "김민지" in first and "010-1234-5678" in first and "월세가 부담됩니다" in first
-    assert "2026" in first and "28" in first  # 년·월·일 자리에 숫자
+    assert "2026" in first and "10" in first and "27" in first  # 년·월·일 자리에 숫자
+    assert "아니오" in first and len(out[0].get_drawings()) == blank_drawings + 1  # 체크 표시 1개
     assert "메모" not in first
     assert "추가 메모" in out[1].get_text() and "별지" in out[1].get_text()
 
