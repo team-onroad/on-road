@@ -55,7 +55,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.project.on_road.ui.navigation.Routes
+import com.project.on_road.ui.screens.navigation.Routes
 import com.project.on_road.ui.theme.OnRoadColors
 import com.project.on_road.ui.theme.OnRoadShapes
 import com.project.on_road.ui.theme.OnRoadType

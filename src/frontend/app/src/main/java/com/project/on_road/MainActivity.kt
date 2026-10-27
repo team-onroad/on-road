@@ -7,7 +7,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.project.on_road.data.AppContainer
-import com.project.on_road.ui.navigation.OnRoadNavHost
+import com.project.on_road.ui.screens.navigation.OnRoadNavHost
 import com.project.on_road.ui.theme.OnRoadTheme
 
 class MainActivity : ComponentActivity() {
