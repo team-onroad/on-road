@@ -132,6 +132,12 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
             except ValueError:
                 pass
         return None, "날짜를 다시 알려 주세요. (예: 2026.10.27)"
+    if kind == "account":
+        digits = "".join(_DIGITS_RE.findall(answer))
+        if 10 <= len(digits) <= 16:
+            kept = re.sub(r"[^\d-]", "", answer).strip("-")
+            return (kept if "".join(_DIGITS_RE.findall(kept)) == digits else digits), None
+        return None, "계좌번호를 다시 알려 주세요. 숫자 10~16자리예요. (예: 123-456-789012)"
     if kind == "phone":
         digits = "".join(_DIGITS_RE.findall(answer))
         if 9 <= len(digits) <= 11 and digits.startswith("0"):
@@ -150,7 +156,7 @@ def _brief(text: str, limit: int = BRIEF_CHARS) -> str:
 
 
 def _handwrite_note(specs: dict) -> str:
-    """내보낸 뒤 손으로 써야 할 것 (주민등록번호·계좌번호 등 앱에 받지 않는 칸, 서명)"""
+    """내보낸 뒤 손으로 써야 할 것 (주민등록번호 등 앱에 받지 않는 칸, 서명)"""
     labels = []
     for spec in specs.values():
         if spec.get("value_source") == "handwrite":
@@ -281,7 +287,7 @@ def interview(
     spec = specs[current]
     state["current"] = current
 
-    if _is_question(msg):
+    if _is_question(msg) and spec.get("input_type") != "account":  # 계좌번호 답은 LLM 에 보내지 않는다
         context = {"screen": "document", "document_title": doc.title, "field_label": spec["label"]}
         routed = call_llm("route_message", doc_llm.route_message, w._check_route, msg, [], context)
         if routed["route"] == "policy":

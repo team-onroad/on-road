@@ -122,16 +122,18 @@ def test_create_is_get_or_create(api, db_session, doc_llm):
     assert res.json()["context"] == "장학금 신청서 써야 해"
 
 
-def test_sensitive_field_is_handwrite(api, db_session, doc_llm):
+def test_account_field_is_user_but_never_sent_to_ai(api, db_session, doc_llm):
     user = make_user(db_session)
     data = _create(api, user, source_id="allowance").json()
     account = _field(data, "account")
 
-    assert (account["value_source"], account["writable"], account["example"]) == ("handwrite", False, None)
-    assert data["progress"]["total"] == 5  # 계좌 칸은 진행률에서 빠짐
-    assert any("직접 써 주세요" in n for n in data["notices"])
-    _err(_assist(api, user, data["document_id"], "account", "예시 써 줘"), 422, "FIELD_NOT_WRITABLE")
-    _err(_patch(api, user, data["document_id"], "account", value="123"), 422, "FIELD_NOT_WRITABLE")
+    assert (account["value_source"], account["input_type"], account["writable"]) == ("user", "account", True)
+    assert data["progress"]["total"] == 6  # 계좌번호도 앱에서 받아 양식에 채운다
+    assert _patch(api, user, data["document_id"], "account", value="123-456-789012").status_code == 200
+    res = _assist(api, user, data["document_id"], "account", "이거 맞아? 123-456-789012")
+    assert res.status_code == 200 and res.json()["action"] == "tip"
+    assert "AI 에 보내지 않아요" in res.json()["field"]["tip"]
+    assert doc_llm.calls == []  # 라우터·작성 도우미 모두 부르지 않음
 
 
 def test_create_errors(api, db_session, doc_llm):
