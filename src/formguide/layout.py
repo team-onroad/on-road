@@ -816,7 +816,10 @@ def main() -> None:
     args = parser.parse_args()
 
     spec_path = args.out / f"{args.form_id}.json"
-    spec = FormSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
+    extracted = args.out / f"{args.form_id}.extracted.json"  # AI 가 뽑은 그대로 (build 가 저장). 있으면 여기서 다시 시작
+    spec = FormSpec.model_validate_json((extracted if extracted.is_file() else spec_path).read_text(encoding="utf-8"))
+    if extracted.is_file():
+        print(f"AI 추출 결과에서 다시 시작: {extracted.name} (LLM 안 씀)")
     src = args.pdf or args.out / f"{args.form_id}.pdf"
     redraw = has_broken_fonts(src) if args.redraw_text is None else args.redraw_text
     pdf = save_layout_pdf(src, args.out, args.form_id, redraw)
