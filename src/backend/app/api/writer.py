@@ -195,7 +195,12 @@ MEDIA = {
 def download(target: QueryTarget, db: DB, format: Literal["pdf", "docx"] = "pdf") -> Response:
     _, doc = target
     rows = service.file_rows(db, doc)
-    data = doc_export.render_pdf(doc.title, rows) if format == "pdf" else doc_export.render_docx(doc.title, rows)
+    if format == "docx":
+        data = doc_export.render_docx(doc.title, rows)
+    elif doc_export.has_layout(pdf := service.original_pdf(doc), rows):
+        data = doc_export.render_overlay(pdf, doc.title, rows)
+    else:
+        data = doc_export.render_pdf(doc.title, rows)
     filename = f"document-{doc.id}.{format}"
     return Response(
         content=data,

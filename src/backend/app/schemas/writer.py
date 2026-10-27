@@ -214,3 +214,4 @@ class ExportResponse(BaseModel):
     checklist: ChecklistUpdate | None  # 연결된 체크리스트 서류 항목을 체크했으면
     warnings: list[str]
     files: dict[str, str]  # {"pdf": 다운로드 경로, "docx": 다운로드 경로}
+    pdf_layout: Literal["original", "table"]  # original: 원본 양식 위에 채움 (넘치는 칸은 별지), table: 표 문서

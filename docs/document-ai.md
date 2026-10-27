@@ -205,17 +205,22 @@
 {"document": { 문서 객체 },
  "checklist": {"checklist_id": 5, "item_id": 12, "label": "장학금 신청서", "is_checked": true},
  "warnings": [],
- "files": {"pdf": "/api/documents/3/file?format=pdf", "docx": "/api/documents/3/file?format=docx"}}
+ "files": {"pdf": "/api/documents/3/file?format=pdf", "docx": "/api/documents/3/file?format=docx"},
+ "pdf_layout": "original"}
 ```
 
 - `checklist`: 연결된 항목이 없으면 null
 - 파일: `files` 경로에 `&user_id=` 를 붙여 GET. 내보내기 전이면 409 NOT_EXPORTED
-- 파일 내용: 제목 + 칸 이름/내용 표. 민감 칸은 "(양식에 직접 작성)", 공무원 칸은 "(담당자 기재란)"으로 비워 둔다. 원본 양식 배치 그대로 채우는 기능은 다음 단계(업로드 양식 좌표 인식)
+- `pdf_layout: "original"`: 정책 신청서에 원본 양식 PDF(`data/forms/{form_id}.pdf`)와 칸별 값 자리(`box`)가 있으면 **원본 양식 위에 작성 내용을 채운다**
+  - 표 칸은 칸 이름 오른쪽 빈 셀, 없으면 아래 셀에 쓴다. `년 월 일` 칸은 숫자를 각 글자 앞에 맞춰 쓴다
+  - 칸에 다 안 들어가면(7pt까지 줄여도) 칸에 "별지 참조"를 쓰고 마지막 별지 쪽에 전체 내용을 적는다. 값 자리를 못 찾은 칸도 별지로
+  - 민감 칸·공무원 기재란·서명란은 비워 둔다 (출력 후 손으로)
+- `pdf_layout: "table"`: 원본 양식이 없는 앱 양식은 제목 + 칸 이름/내용 표 문서. 민감 칸은 "(양식에 직접 작성)", 공무원 칸은 "(담당자 기재란)"
+- DOCX 는 원본 배치를 옮길 수 없어 항상 표 문서
 
 <br/>
 
 ## 4. 다음 단계
 
 - 양식 업로드(OCR): 사진·PDF → formguide 추출·검사 → `source_type: "upload"` 문서
-- 원본 양식 위에 값 채워 내보내기 (PDF 좌표)
 - 대화 중 사용자 정보 변경 확인 카드 (두 AI 공통)
