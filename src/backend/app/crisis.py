@@ -1,5 +1,7 @@
 """위기 신호 규칙 (api.md 1.6, 3.15). LLM 안 씀"""
 
+import re
+
 # 띄어쓰기 지우고 비교. "죽" 단독처럼 일상 표현과 겹치는 말은 제외
 CRISIS_WORDS = (
     # 자살·자해
@@ -19,6 +21,12 @@ CRISIS_CONTACTS = (
 )
 
 
+# "혼자 살면서"를 붙여 쓰면 "혼자살면서" 안에 "자살"이 생긴다. "자살"은 앞 글자가 "혼"이 아닐 때만 위기로 본다
+_SUICIDE_RE = re.compile(r"(?<!혼)자살")
+
+
 def is_crisis(message: str) -> bool:
     text = "".join(message.split())
-    return any(w in text for w in CRISIS_WORDS)
+    if _SUICIDE_RE.search(text):
+        return True
+    return any(w in text for w in CRISIS_WORDS if w != "자살")

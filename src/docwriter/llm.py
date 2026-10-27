@@ -146,11 +146,17 @@ def assist_field(req: dict, generate: Generate | None = None) -> dict:
         max_chars=max_chars,
         context=_context(req),
     )
+    force = req.get("force_action")
+    if force in ("draft", "revise"):
+        # 대화형 작성: 사용자가 말한 내용으로 바로 칸을 채우거나 고친다 (넣을 내용 안내·문장 구조가 아님)
+        system += f'\n이번 요청 종류는 "{force}"로 정해져 있다. 사용자가 말한 사실만 써서 칸에 들어갈 글을 쓴다.'
     out = (generate or _openai_generate)([
         {"role": "system", "content": system},
         {"role": "user", "content": _user_message(req)},
     ])
     action = out.get("action") if isinstance(out, dict) else None
+    if force in ("draft", "revise") and action in ("outline", "draft", "revise"):
+        action = force
     text = _text(out.get("text") if isinstance(out, dict) else None)
     if action not in ACTIONS or not text:
         raise DocwriterFormatError("작성 도우미 출력 형식이 다릅니다.")

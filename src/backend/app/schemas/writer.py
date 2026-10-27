@@ -100,6 +100,25 @@ class AssistRequest(BaseModel):
         return v
 
 
+class InterviewRequest(BaseModel):
+    """message 가 없으면 지금 물어볼 칸을 돌려준다 (시작·이어 하기)"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str
+    message: str | None = None
+
+    @field_validator("message")
+    @classmethod
+    def _message(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if not 1 <= len(v) <= PROMPT_MAX:
+            raise ValueError(f"message 는 공백을 제외하고 1~{PROMPT_MAX}자여야 합니다.")
+        return v
+
+
 class UserOnly(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -190,6 +209,17 @@ class AssistResponse(BaseModel):
     contacts: list[Contact]
 
 
+class Question(BaseModel):
+    field_id: str
+    label: str
+    text: str  # 앱이 말풍선으로 보여 줄 질문
+    input_type: str
+    options: list[str] | None  # 체크박스면 선택지 버튼
+    current_value: str | None  # 미리 채운 값·AI 초안 (확인 질문일 때)
+    awaiting_confirm: bool  # "네"면 이 값으로 완료
+    can_skip: bool  # 필수가 아니면 "해당 없음"으로 넘길 수 있다
+
+
 class Problem(BaseModel):
     field_id: str
     label: str
@@ -216,3 +246,16 @@ class ExportResponse(BaseModel):
     warnings: list[str]
     files: dict[str, str]  # {"pdf": 다운로드 경로, "docx": 다운로드 경로}
     pdf_layout: Literal["original", "table"]  # original: 원본 양식 위에 채움 (넘치는 칸은 별지), table: 표 문서
+
+
+class InterviewResponse(BaseModel):
+    route: Literal["field", "policy", "counsel", "crisis"]
+    message: str | None  # 방금 답에 대한 짧은 말 (예: "적었어요."), 정책·고민·위기 안내
+    field: DocField | None  # 방금 채우거나 완료한 칸
+    question: Question | None  # 다음에 물어볼 칸. null 이면 다 채움
+    progress: DocProgress
+    done: bool
+    export: ExportResponse | None  # 다 채우고 검사를 통과하면 바로 내보낸 결과 (PDF 경로·체크리스트)
+    check: CheckResponse | None  # 다 채웠는데 검사에 걸리면 문제 목록
+    search: SearchResponse | None
+    contacts: list[Contact]

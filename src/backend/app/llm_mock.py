@@ -85,7 +85,11 @@ def assist_field(req: dict) -> dict:
     label = field.get("label") or "이 칸"
     outline = [o for o in field.get("outline") or [] if o] or [f"{label}에 대한 핵심 내용"]
     current = (req.get("current_text") or "").strip()
-    action = _mock_action(req.get("prompt") or "", current)
+    action = req.get("force_action") or _mock_action(req.get("prompt") or "", current)
+    if action == "draft" and req.get("force_action"):
+        # 대화형 작성: 사용자가 말한 내용을 그대로 문장으로 (사실을 더하지 않음)
+        said = (req.get("prompt") or "").split("내가 넣고 싶은 내용:", 1)[-1].strip()
+        return {"action": "draft", "text": f"{said.rstrip('.')}입니다." if said else f"[{label}]"}
     if action == "tip":
         lines = [TIP_INTRO, *(f"- {o}" for o in outline)]
         if field.get("guide"):
