@@ -49,7 +49,8 @@ def _chars(page: pymupdf.Page) -> tuple[list[dict], list[pymupdf.Rect]]:
                 areas.append(pymupdf.Rect(span["bbox"]))
                 bold = bool(span["flags"] & 16) or "bold" in span["font"].lower()
                 for ch in span["chars"]:
-                    if ch["c"].strip():
+                    # 띄어쓰기도 글자로 남겨야 다시 뽑을 때 "동의하지 않음"이 "동의하지않음"으로 붙지 않는다
+                    if ch["c"].strip() or ch["c"] == " ":
                         out.append({
                             "c": ch["c"], "x": ch["origin"][0], "y": ch["origin"][1], "bbox": ch["bbox"],
                             "size": span["size"], "bold": bold, "color": span["color"], "span": span_no,
