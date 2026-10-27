@@ -21,4 +21,9 @@ def test_evidence_with_table_separators_is_kept():
          {"id": "c", "label": "주민등록번호", "guide": "g", "evidence": "없는 문장"}], FORM,
     )
     assert [f.evidence for f in fields] == ["대리인 | 성명", "대리인 > 전화:", None]
-    assert warnings == ["'주민등록번호': 근거 문장이 원문과 달라 근거를 지움"]
+    assert warnings == ["'주민등록번호': 근거 문장이 원문과 달라 근거를 지움 (근거: '없는 문장')"]
+
+
+def test_evidence_joined_from_table_cells_is_kept():
+    fields, _ = check_fields([{"id": "a", "label": "성명", "guide": "g", "evidence": "대리인 성명 전화:"}], FORM)
+    assert fields[0].evidence == "대리인 성명 전화:"
