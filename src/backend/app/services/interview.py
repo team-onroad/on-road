@@ -15,6 +15,7 @@ from datetime import date
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app import profile_signal
 from app.crisis import CRISIS_CONTACTS, CRISIS_MESSAGE, is_crisis
 from app.doc_llm import DocLlm
 from app.llm_client import call_llm
@@ -292,6 +293,16 @@ def _response(
 
 
 def interview(
+    db: Session, user: User, doc: Document, body: InterviewRequest, today: date, doc_llm: DocLlm, rag: SearchPolicies,
+) -> InterviewResponse:
+    res = _interview(db, user, doc, body, today, doc_llm, rag)
+    # 답 속 프로필 변경 후보 ("부산으로 이사했어요" 등). 확인 카드는 앱이, 반영은 사용자가 승인할 때만
+    if body.message and res.route != "crisis":
+        res.profile_changes = profile_signal.detect(body.message, user, today)
+    return res
+
+
+def _interview(
     db: Session, user: User, doc: Document, body: InterviewRequest, today: date, doc_llm: DocLlm, rag: SearchPolicies,
 ) -> InterviewResponse:
     state = _state(doc)

@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator, model_validator
 
-from app.schemas.chat import Contact
+from app.schemas.chat import Contact, ProfileChange
 from app.schemas.policies import SearchResponse
 
 PROMPT_MAX = 500
@@ -208,6 +208,7 @@ class AssistResponse(BaseModel):
     message: str | None  # counsel·crisis 안내
     search: SearchResponse | None  # route=policy 일 때 상담 AI 정책 검색 결과
     contacts: list[Contact]
+    profile_changes: list[ProfileChange] = []  # 요청에서 찾은 프로필 변경 후보 (상담과 같음)
 
 
 class Question(BaseModel):
@@ -260,3 +261,4 @@ class InterviewResponse(BaseModel):
     check: CheckResponse | None  # 다 채웠는데 검사에 걸리면 문제 목록
     search: SearchResponse | None
     contacts: list[Contact]
+    profile_changes: list[ProfileChange] = []  # 답에서 찾은 프로필 변경 후보 (상담과 같음)

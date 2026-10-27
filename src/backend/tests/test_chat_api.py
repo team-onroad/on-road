@@ -75,7 +75,7 @@ def test_counsel(api, db_session, llm, rag):
     res = _chat(api, user.id)
 
     assert res.status_code == 200
-    assert res.json() == {"type": "counsel", "message": "상담 답변", "search": None, "contacts": [], "handoff": None}
+    assert res.json() == {"type": "counsel", "message": "상담 답변", "search": None, "contacts": [], "handoff": None, "profile_changes": []}
     assert rag.calls == []
 
 
@@ -129,7 +129,7 @@ def test_crisis_skips_llm(api, db_session, llm, rag, message):
     res = _chat(api, user.id, message=message)
 
     assert res.status_code == 200
-    assert res.json() == {"type": "crisis", "message": CRISIS_MESSAGE, "search": None, "contacts": CONTACTS, "handoff": None}
+    assert res.json() == {"type": "crisis", "message": CRISIS_MESSAGE, "search": None, "contacts": CONTACTS, "handoff": None, "profile_changes": []}
     assert llm.calls == [] and rag.calls == []
 
 
@@ -322,3 +322,21 @@ def test_never_says_apply_possible(api, db_session, rag):
     rag.answer_with(("P001", "근거"))
     for message in ("요즘 막막해", "자립수당 신청", "죽고 싶어"):
         assert "신청 가능" not in _chat(api, user.id, message=message).text
+
+
+def test_profile_change_card(api, db_session, llm, rag):
+    user = make_user(db_session, region="서울")
+    res = _chat(api, user.id, "저 이번에 부산으로 이사했는데 월세 지원 받을 수 있어?")
+    assert res.status_code == 200, res.text
+    assert res.json()["profile_changes"] == [{
+        "field": "region", "label": "사는 지역", "current": "서울", "proposed": "부산", "proposed_label": "부산",
+    }]
+    db_session.refresh(user)
+    assert user.region == "서울"  # 승인 전에는 바꾸지 않는다
+
+    # 앱이 카드에서 '바꾸기' → 회원정보 수정 API
+    assert api.patch(f"/api/users/{user.id}", json={"region": "부산"}).json()["region"] == "부산"
+    assert _chat(api, user.id, "부산으로 이사했어요").json()["profile_changes"] == []
+
+    crisis = _chat(api, user.id, "서울로 이사했는데 죽고 싶어").json()
+    assert crisis["type"] == "crisis" and "profile_changes" not in crisis or crisis["profile_changes"] == []

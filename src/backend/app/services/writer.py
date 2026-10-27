@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app import doc_export, doc_spec
 from app.config import get_settings
+from app import profile_signal
 from app.crisis import CRISIS_CONTACTS, CRISIS_MESSAGE, is_crisis
 from app.doc_llm import DocLlm
 from app.errors import AppError
@@ -431,6 +432,15 @@ def _check_assist(v: object) -> bool:
 
 
 def assist(
+    db: Session, user: User, doc: Document, body: AssistRequest, today: date, doc_llm: DocLlm, rag: SearchPolicies,
+) -> AssistResponse:
+    res = _assist(db, user, doc, body, today, doc_llm, rag)
+    if res.route != "crisis":
+        res.profile_changes = profile_signal.detect(body.prompt, user, today)
+    return res
+
+
+def _assist(
     db: Session, user: User, doc: Document, body: AssistRequest, today: date, doc_llm: DocLlm, rag: SearchPolicies,
 ) -> AssistResponse:
     row, spec = _get_row(db, doc, body.field_id)
