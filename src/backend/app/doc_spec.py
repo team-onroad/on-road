@@ -4,7 +4,8 @@
 value_source
 - profile: 프로필로 미리 채우는 칸 (이름·생년월일·연락처·시/도)
 - user: 앱에서 직접 쓰는 칸 (AI 도우미 사용 가능)
-- handwrite: 앱에 입력하지 않고 양식에 손으로 쓰는 민감 칸 (주민등록번호·계좌·서명)
+- handwrite: 앱에 입력하지 않고 양식에 손으로 쓰는 민감 칸 (주민등록번호·서명)
+- 계좌번호는 user 칸(input_type account)으로 받아 양식에 채운다. LLM 에는 보내지 않는다
 - office: 담당 공무원 기재란
 """
 
@@ -15,7 +16,7 @@ from app import ai_content
 from app.forms import FormTemplate, get_templates
 
 WRITABLE = ("profile", "user")
-SENSITIVE_WORDS = ("주민등록번호", "외국인등록번호", "계좌", "서명", "(인)", "날인", "도장", "비밀번호", "카드번호")
+SENSITIVE_WORDS = ("주민등록번호", "외국인등록번호", "서명", "(인)", "날인", "도장", "비밀번호", "카드번호")
 ESSAY_WORDS = ("사유", "동기", "계획", "소개", "포부", "목표", "경험", "이유", "하고 싶은")
 # 앱 서류 양식의 field_id → 프로필 키
 TEMPLATE_PROFILE_KEYS = {"name": "name", "birth": "birth_date", "phone": "phone"}
@@ -45,8 +46,10 @@ def from_template(t: FormTemplate) -> list[dict]:
     fields = []
     for f in t.fields:
         profile_key = TEMPLATE_PROFILE_KEYS.get(f.field_id)
-        if _sensitive(f.label) or f.field_id == "account":
-            source, input_type = "handwrite", "account" if "계좌" in f.label or f.field_id == "account" else "other"
+        if f.field_id == "account" or "계좌" in f.label:
+            source, input_type = "user", "account"
+        elif _sensitive(f.label):
+            source, input_type = "handwrite", "other"
         else:
             source = "profile" if profile_key else "user"
             input_type = TEMPLATE_INPUT_TYPES.get(f.field_id, "text")
@@ -62,11 +65,13 @@ def from_form_spec(spec) -> list[dict]:
     """formguide FormSpec → 작성 칸. 민감·공무원 칸 구분은 formguide/validate.py 결과를 따른다"""
     fields = []
     for f in spec.fields:
-        source = "handwrite" if f.sensitive else f.value_source
+        is_account = f.input_type == "account" or "계좌번호" in f.label.replace(" ", "")
+        source = "user" if is_account else "handwrite" if f.sensitive else f.value_source
         essay = source in WRITABLE and f.input_type == "text" and any(w in f.label for w in ESSAY_WORDS)
         fields.append(_field(
             field_id=f.id, label=f.label, section=f.section, guide=f.guide, example=None if f.sensitive else f.example,
-            multiline=essay, essay=essay, required=f.required, input_type=f.input_type, value_source=source,
+            multiline=essay, essay=essay, required=f.required, input_type="account" if is_account else f.input_type,
+            value_source=source,
             profile_key=f.profile_key if source == "profile" else None, box=f.box,
             options=(f.box or {}).get("options") if f.input_type == "checkbox" else None,
         ))

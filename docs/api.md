@@ -848,7 +848,7 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 }
 ```
 
-- `value_source`: `profile`(미리 채움) / `user`(직접 입력) / `handwrite`(앱에 입력하지 않고 양식에 손으로, 주민등록번호·계좌·서명) / `office`(담당 공무원 기재란)
+- `value_source`: `profile`(미리 채움) / `user`(직접 입력) / `handwrite`(앱에 입력하지 않고 양식에 손으로, 주민등록번호·서명. 계좌번호는 `user`·`input_type: "account"` 로 받되 LLM 에 보내지 않음) / `office`(담당 공무원 기재란)
 - 민감 항목은 `example`·`prefill`이 항상 null
 - 같은 정책에 양식이 여러 개면 `checked: true` 우선, 그다음 `form_id` 순
 - `notices`는 항상 화면에 표시한다
