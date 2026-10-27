@@ -48,7 +48,7 @@ import com.project.on_road.ui.components.ProgressBar
 import com.project.on_road.ui.components.OnRoadTag
 import com.project.on_road.ui.components.SectionHeader
 import com.project.on_road.ui.components.TagStyle
-import com.project.on_road.ui.navigation.Routes
+import com.project.on_road.ui.screens.navigation.Routes
 import com.project.on_road.ui.screens.RoadmapProgressCard
 import com.project.on_road.ui.theme.OnRoadColors
 import com.project.on_road.ui.theme.OnRoadDimens

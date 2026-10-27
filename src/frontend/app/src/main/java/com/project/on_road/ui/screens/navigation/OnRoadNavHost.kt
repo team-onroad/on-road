@@ -1,4 +1,4 @@
-package com.project.on_road.ui.navigation
+package com.project.on_road.ui.screens.navigation
 
 import com.project.on_road.ui.child.ChildCoachScreen
 import com.project.on_road.ui.child.ChildFindScreen

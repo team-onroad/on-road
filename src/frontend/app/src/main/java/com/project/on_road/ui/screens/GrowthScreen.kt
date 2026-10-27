@@ -26,7 +26,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.*
 import com.project.on_road.ui.components.*
-import com.project.on_road.ui.navigation.Routes
+import com.project.on_road.ui.screens.navigation.Routes
 import com.project.on_road.ui.theme.*
 import kotlinx.coroutines.launch
 
