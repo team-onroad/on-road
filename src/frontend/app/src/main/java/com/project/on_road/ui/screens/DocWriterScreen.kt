@@ -246,11 +246,11 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier) {
     val context = LocalContext.current
     val list = rememberLazyListState()
     val selected = vm.field(vm.selectedId)
-    val writable = d.fields.filter { it.writable }
-    val handwrite = d.fields.filter { !it.writable && it.valueSource == "handwrite" }
+    // 양식 순서대로: 앱에서 쓰는 칸 + 출력 후 손으로 쓰는 칸 (공무원 기재란은 뺀다)
+    val shown = d.fields.filter { it.writable || it.valueSource == "handwrite" }
 
     LaunchedEffect(vm.selectedId) {
-        val i = writable.indexOfFirst { it.fieldId == vm.selectedId }
+        val i = shown.indexOfFirst { it.fieldId == vm.selectedId }
         if (i >= 0) list.animateScrollToItem(i + 1) // 0번은 안내 묶음
     }
     Column(modifier) {
@@ -287,8 +287,8 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier) {
                     d.notices.forEach { NoticeBox(it) }
                 }
             }
-            items(writable, key = { it.fieldId }) { f ->
-                FieldCard(
+            items(shown, key = { it.fieldId }) { f ->
+                if (!f.writable) HandwriteCard(f) else FieldCard(
                     f = f,
                     text = vm.text(f),
                     selected = f.fieldId == vm.selectedId,
@@ -301,15 +301,6 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier) {
                     onReopen = { vm.reopen(f) },
                     onUndo = { vm.undo(f) },
                 )
-            }
-            if (handwrite.isNotEmpty()) {
-                item(key = "handwrite") {
-                    SubtleCard(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                        Text("출력한 뒤 직접 쓰는 칸", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSlateDark)
-                        Spacer(Modifier.height(4.dp))
-                        Text(handwrite.joinToString(" · ") { it.label }, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
-                    }
-                }
             }
         }
         HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
@@ -375,9 +366,22 @@ private fun FieldCard(
             if (done) OnRoadTag("완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
             else SpeakButton("${f.name}. ${f.guide}", modifier = Modifier.size(28.dp))
         }
+        // 칸별 안내: 쓰는 법 · 예시 · 주의 (완료한 칸은 고를 때만)
         if (!done || selected) {
-            Spacer(Modifier.height(4.dp))
-            Text(f.guide, style = OnRoadType.Micro, color = OnRoadColors.TextPrimary.copy(alpha = 0.6f))
+            Spacer(Modifier.height(6.dp))
+            Text(f.guide, style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight), color = OnRoadColors.TextSlateDark)
+            f.example?.let {
+                Spacer(Modifier.height(2.dp))
+                Text("예) $it", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+            }
+            f.outline?.takeIf { it.isNotEmpty() && f.essay }?.let {
+                Spacer(Modifier.height(2.dp))
+                Text("순서: ${it.joinToString(" → ")}", style = OnRoadType.Micro, color = OnRoadColors.Primary)
+            }
+            f.caution?.let {
+                Spacer(Modifier.height(8.dp))
+                NoticeBox(it, tone = NoticeTone.Warning)
+            }
         }
         f.reusedFrom?.let {
             Spacer(Modifier.height(4.dp))
@@ -396,7 +400,7 @@ private fun FieldCard(
             else -> OnRoadTextField(
                 value = text,
                 onValueChange = onEdit,
-                placeholder = f.example?.let { "예) $it" }.orEmpty(),
+                placeholder = if (f.essay) "직접 쓰거나 위 AI 칸에 내용을 말해 주세요" else "",
                 singleLine = !(f.multiline || f.essay),
                 minLines = if (f.multiline || f.essay) 4 else 1,
                 enabled = !done && !locked,
@@ -411,10 +415,6 @@ private fun FieldCard(
         f.warnings.takeIf { it.isNotEmpty() && !done }?.let { w ->
             Spacer(Modifier.height(8.dp))
             w.forEach { Text("· $it", style = OnRoadType.Micro, color = OnRoadColors.Danger) }
-        }
-        f.caution?.takeIf { selected && !done }?.let {
-            Spacer(Modifier.height(8.dp))
-            NoticeBox(it, tone = NoticeTone.Warning)
         }
 
         if (selected && !locked) {
@@ -431,6 +431,21 @@ private fun FieldCard(
                 }
             }
         }
+    }
+}
+
+/** 출력한 뒤 손으로 쓰는 칸 (주민등록번호·서명 등): 앱에 입력하지 않고 쓰는 법만 */
+@Composable
+private fun HandwriteCard(f: DocFieldDto) {
+    SubtleCard(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(f.name, style = OnRoadType.Body1.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSlateDark, modifier = Modifier.weight(1f))
+            OnRoadTag("출력 후 직접", style = TagStyle.Warning, textStyle = OnRoadType.Tiny)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(f.guide, style = OnRoadType.Caption2, color = OnRoadColors.TextSlateDark)
+        Spacer(Modifier.height(4.dp))
+        Text("개인정보라 앱에 입력하지 않아요. 내보낸 PDF를 출력해서 직접 써 주세요.", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
     }
 }
 

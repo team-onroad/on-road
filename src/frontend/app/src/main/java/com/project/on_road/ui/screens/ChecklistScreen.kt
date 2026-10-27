@@ -295,8 +295,8 @@ fun ChecklistScreen(
     policyId: String,
     onBack: () -> Unit,
     onFormGuide: (String) -> Unit = {},
-    /** 문서 AI 로 신청서 쓰기 (정책 id, 연결할 서류 항목 id) */
-    onWriteForm: (Long, Long?) -> Unit = { _, _ -> },
+    /** 서류 작성 (문서 AI): 이 정책의 준비 서류 중 쓸 서류 고르기 */
+    onOpenDocs: (String) -> Unit = {},
     vm: ChecklistViewModel = viewModel(),
 ) {
     LaunchedEffect(policyId) { vm.load(policyId) }
@@ -377,41 +377,29 @@ fun ChecklistScreen(
                         }
                     }
 
-                    // 신청서 작성 도우미 (문서 AI): 준비 서류 바로 위. 신청서 항목이 준비된 정책만
+                    // 서류 작성 (문서 AI): 준비 서류 바로 위. 쓸 서류는 다음 화면에서 고른다
                     if (hasForm) {
-                        val formItem = c.docs.firstOrNull { "신청서" in it.name }
+                        val writtenForm = c.docs.firstOrNull { "신청서" in it.name }?.checked == true
                         Spacer(Modifier.height(40.dp))
-                        OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
+                        OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary, onClick = { onOpenDocs(c.policyId) }) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("신청서 작성 도우미", style = OnRoadType.Title3, color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
-                                if (formItem?.checked == true) {
-                                    OnRoadTag("작성 완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
-                                }
+                                Text("서류 작성 도우미", style = OnRoadType.Title3, color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
+                                if (writtenForm) OnRoadTag("신청서 작성 완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
                             }
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                "AI가 묻는 말에 답하면 원래 신청서 양식에 채운 PDF를 만들어 줘요. 다 쓰면 아래 준비 서류도 체크돼요.",
+                                "준비 서류 중 신청서처럼 직접 쓰는 서류를 골라 AI와 함께 써요. 칸마다 쓰는 법도 알려 주고, 다 쓰면 원래 양식 PDF로 만들어 줘요.",
                                 style = OnRoadType.Caption,
                                 color = OnRoadColors.TextTertiary,
                             )
                             Spacer(Modifier.height(14.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OnRoadButton(
-                                    "AI와 대화하며 쓰기",
-                                    { c.policyId.toLongOrNull()?.let { onWriteForm(it, formItem?.itemId) } },
-                                    Modifier.weight(1.4f),
-                                    height = 40.dp,
-                                    textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                                )
-                                OnRoadButton(
-                                    "칸별 안내 보기",
-                                    { onFormGuide(c.policyId) },
-                                    Modifier.weight(1f),
-                                    variant = ButtonVariant.Outline,
-                                    height = 40.dp,
-                                    textStyle = OnRoadType.Caption,
-                                )
-                            }
+                            OnRoadButton(
+                                "서류 고르고 쓰기",
+                                { onOpenDocs(c.policyId) },
+                                Modifier.fillMaxWidth(),
+                                height = 40.dp,
+                                textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                            )
                         }
                     }
 
