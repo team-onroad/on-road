@@ -26,6 +26,9 @@ class FormField(BaseModel):
     example: str | None = None  # 가상의 예시 답변 (민감 항목은 None)
     evidence: str | None = None  # 근거가 된 양식 원문 (칸 이름·작성요령)
     sensitive: bool = False
+    # 원본 양식에서 값을 쓸 자리 {"page", "rect": [x0, y0, x1, y1], "how", "template_text"} (formguide/layout.py)
+    # 못 찾으면 None → 문서 AI 내보내기 때 별지에 적는다
+    box: dict | None = None
 
 
 class FormSpec(BaseModel):

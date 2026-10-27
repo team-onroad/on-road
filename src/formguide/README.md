@@ -14,6 +14,7 @@ AI 는 양식 파일을 만들지 않는다. 사용자는 공식 양식이나 �
 | 3. 추출 | 양식마다 한 번 | PDF 글자·표 추출, 스캔본은 거부 (`extract.py`) |
 | 4. 항목 초안 | 양식마다 한 번 | LLM 이 칸 이름·설명·예시·근거를 JSON 으로 (`llm.py`, `prompts.py`) |
 | 5. 자동 검사 | 양식마다 한 번 | 원문에 없는 칸 버림, 민감 칸(주민등록번호·계좌·서명)은 예시 지우고 손으로 쓰게, 공무원 기재란 표시 (`validate.py`) |
+| 5-1. 값 자리 | 양식마다 한 번 | 칸마다 원본 PDF 에서 값을 쓸 좌표(`box`)를 찾고 원본 PDF 를 `data/forms/{form_id}.pdf` 로 저장. 문서 AI 가 이 위에 작성 내용을 채워 내보낸다 (`layout.py`) |
 | 6. 사람 확인 | 양식마다 한 번 | `data/forms/{form_id}.json` 을 원본과 대조하고 `"checked": true` 로 바꿈 |
 | 7. 안내 | 앱 요청 시 | 항목 + 프로필 → 칸별 안내. 프로필 값은 LLM 에 보내지 않음 (`guide.py`) |
 
@@ -38,6 +39,9 @@ backend\.venv\Scripts\python -m formguide.notice "https://공고 페이지 주�
 # 공고 페이지에서 바로 항목 JSON 만들기 (신청서 점수 1위 자동 선택, 다른 파일은 --pick N)
 backend\.venv\Scripts\python -m formguide.build --notice "https://공고 페이지 주소" --policy-key P001 --form-id P001-apply
 
+# 이미 만든 항목 JSON 에 값 자리(좌표)만 다시 넣기 (원본 PDF 를 같이 주면 data/forms 로 복사)
+backend\.venv\Scripts\python -m formguide.layout P001-apply --pdf "C:\경로\자립수당_신청서.pdf"
+
 # 안내 보기
 backend\.venv\Scripts\python -m formguide.guide P001-apply --demo-user
 backend\.venv\Scripts\python -m formguide.guide P001-apply --demo-user --json   # 앱 응답 형식
@@ -48,7 +52,7 @@ backend\.venv\Scripts\python -m pytest formguide/tests
 
 - HWP 변환은 한글 프로그램이 설치된 Windows 에서만 된다. 처음 실행 때 한글이 파일 접근 허용 창을 띄우면 허용한다.
   변환이 안 되면 한글에서 "PDF로 저장" 한 파일을 넣으면 된다.
-- 결과물: `data/forms/{form_id}.json`(항목), `{form_id}.source.txt`(대조용 원문). `data/forms/_work/`는 커밋하지 않는다.
+- 결과물: `data/forms/{form_id}.json`(항목·값 자리), `{form_id}.pdf`(원본 양식), `{form_id}.source.txt`(대조용 원문). `data/forms/_work/`는 커밋하지 않는다.
 
 ## 안내 응답 형식 (`make_guide`)
 
