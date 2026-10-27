@@ -184,11 +184,18 @@ def _check_mark(page: pymupdf.Page, x: float, y: float, size: float = 7.5) -> No
     )
 
 
-def _fill_checkbox(page: pymupdf.Page, rect: pymupdf.Rect, value: str, options: list[str]) -> bool:
-    """고른 선택지 앞 "[ ]" 안에 체크 표시. 선택지 앞에 "["가 없는 글자(칸 이름 등)는 건너뛴다"""
+def _fill_checkbox(
+    page: pymupdf.Page, rect: pymupdf.Rect, value: str, options: list[str], marks: dict | None = None,
+) -> bool:
+    """고른 선택지 앞 "[ ]"·□ 안에 체크 표시. 양식 준비 때 찾아 둔 자리(marks)가 있으면 그 자리,
+    없으면 선택지 글자 앞 "["를 찾는다 (선택지 앞에 "["가 없는 글자 — 칸 이름 등 — 는 건너뛴다)"""
     chosen = [p.strip() for p in value.split(",") if p.strip() in options]
     if not chosen:
         return False
+    if marks and all(opt in marks for opt in chosen):
+        for opt in chosen:
+            _check_mark(page, *marks[opt])
+        return True
     for opt in chosen:
         mark = None
         for hit in page.search_for(opt, clip=rect + (-2, -2, 2, 2)):
@@ -239,7 +246,8 @@ def render_overlay(pdf_path: Path, title: str, rows: list[tuple[dict, str]]) -> 
         rect = pymupdf.Rect(box["rect"]) + (BOX_INSET, BOX_INSET, -BOX_INSET, -BOX_INSET)
         template = box.get("template_text") or ""
         if box.get("how") == "checkbox":
-            if not _fill_checkbox(page, pymupdf.Rect(box["rect"]), text, spec.get("options") or box.get("options") or []):
+            options = spec.get("options") or box.get("options") or []
+            if not _fill_checkbox(page, pymupdf.Rect(box["rect"]), text, options, box.get("marks")):
                 leftovers.append((spec, text))
             continue
         is_date = box.get("how") == "date_line" or (template and all(u in template for u in ("년", "월", "일")))

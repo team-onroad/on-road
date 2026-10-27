@@ -40,7 +40,7 @@ def _label_in(label: str, source: str) -> bool:
     """칸 이름이 원문에 있는지. "대리인 전화:"처럼 구역 이름을 붙인 칸 이름은 낱말이 모두 원문에 있으면 인정"""
     if normalize(label) in source:
         return True
-    words = label.split()
+    words = label.replace("/", " ").split()  # "자립수당 지급/의료비 지원"처럼 선택지를 이은 체크박스 이름
     return len(words) >= 2 and all(normalize(w) in source for w in words)
 
 
