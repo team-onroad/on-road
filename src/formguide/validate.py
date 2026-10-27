@@ -28,8 +28,32 @@ def _slug(text: str, fallback: str) -> str:
     return s[:40] or fallback
 
 
+def _loose(text: str) -> str:
+    """표 칸 구분자(|)까지 지운 비교용 글자"""
+    return normalize(text).replace("|", "")
+
+
+_PART_RE = re.compile(r"[|>/,·]+")
+
+
+def _label_in(label: str, source: str) -> bool:
+    """칸 이름이 원문에 있는지. "대리인 전화:"처럼 구역 이름을 붙인 칸 이름은 낱말이 모두 원문에 있으면 인정"""
+    if normalize(label) in source:
+        return True
+    words = label.split()
+    return len(words) >= 2 and all(normalize(w) in source for w in words)
+
+
+def _evidence_in(evidence: str, loose_source: str) -> bool:
+    if _loose(evidence) in loose_source:
+        return True
+    parts = [_loose(p) for p in _PART_RE.split(evidence) if _loose(p)]
+    return bool(parts) and all(p in loose_source for p in parts)
+
+
 def check_fields(raw_fields: object, form: FormText) -> tuple[list[FormField], list[str]]:
     source = form.normalized()
+    loose_source = _loose(form.as_prompt_text())
     fields: list[FormField] = []
     warnings: list[str] = []
     seen: set[str] = set()
@@ -41,12 +65,12 @@ def check_fields(raw_fields: object, form: FormText) -> tuple[list[FormField], l
             warnings.append(f"항목 {i + 1}: 형식 오류로 버림 ({e.error_count()}건)")
             continue
 
-        if not f.label.strip() or normalize(f.label) not in source:
+        if not f.label.strip() or not _label_in(f.label, source):
             warnings.append(f"'{f.label}': 양식 원문에 없는 칸 이름이라 버림")
             continue
 
         updates: dict = {}
-        if f.evidence and normalize(f.evidence) not in source:
+        if f.evidence and not _evidence_in(f.evidence, loose_source):
             warnings.append(f"'{f.label}': 근거 문장이 원문과 달라 근거를 지움")
             updates["evidence"] = None
 

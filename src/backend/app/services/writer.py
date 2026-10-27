@@ -130,6 +130,9 @@ def _field_warnings(spec: dict, value: str) -> list[str]:
         warnings.append("날짜 형식을 확인해 주세요 (예: 2007.03.15).")
     if text and spec["input_type"] == "phone" and not _PHONE_RE.match(text):
         warnings.append("전화번호 형식을 확인해 주세요 (예: 010-1234-5678).")
+    options = spec.get("options")
+    if text and options and any(p.strip() not in options for p in text.split(",")):
+        warnings.append(f"선택지 중에서 골라 주세요: {', '.join(options)}")
     return warnings
 
 
@@ -140,6 +143,7 @@ def _to_field(row: DocumentField, spec: dict) -> DocField:
             "field_id", "label", "easy_label", "section", "guide", "caution", "example", "outline",
             "multiline", "essay", "required", "input_type", "value_source",
         )},
+        options=spec.get("options"),
         writable=_writable(spec),
         value=value,
         segments=[Segment(**s) for s in row.segments],
@@ -502,7 +506,7 @@ def check(db: Session, user: User, doc: Document) -> CheckResponse:
                                     message=f"'{label}' 칸이 비어 있어요."))
             continue
         for w in _field_warnings(spec, value):
-            reason = "placeholder_left" if w.endswith("빈칸을 채워 주세요.") else "invalid_format"
+            reason = "placeholder_left" if w.endswith("빈칸을 채워 주세요.") else "invalid_format"  # 형식·선택지
             problems.append(Problem(field_id=r.field_id, label=label, reason=reason, message=f"'{label}': {w}"))
     return CheckResponse(ready=not problems, problems=problems, warnings=_consistency(db, user, doc))
 
