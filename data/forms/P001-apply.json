@@ -1,162 +1,234 @@
 {
   "form_id": "P001-apply",
   "policy_key": "P001",
-  "title": "보호종료아동 자립수당 지급 신청서",
-  "source": "자립수당_신청서.pdf",
+  "title": "자립준비청년 지원 신청서",
+  "source": "자립준비청년 자립수당 신청서.hwp",
   "fields": [
     {
-      "id": "applicant_name",
-      "label": "성명",
-      "section": "1. 신청인",
-      "input_type": "text",
-      "value_source": "profile",
-      "profile_key": "name",
+      "id": "support_application",
+      "label": "자립수당 지급/의료비 지원",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
       "required": true,
-      "guide": "신청인의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": null,
+      "guide": "신청할 지원 항목을 선택해요.",
+      "example": null,
+      "evidence": "자립수당 지급 자립준비청년 [ ] 지원 신청서 의료비 지원",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          138.9,
-          138.9,
-          204.1,
-          167.3
+          58.2,
+          104.4,
+          536.8,
+          126.9
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "checkbox",
+        "template_text": "자립수당 지급 처리기간 자립준비청년 [ ] 지원 신청서 의료비 지원 별도안내",
+        "options": [
+          "자립수당 지급",
+          "의료비 지원"
+        ],
+        "marks": {
+          "자립수당 지급": [
+            230.7,
+            109.9
+          ],
+          "의료비 지원": [
+            230.7,
+            122.2
+          ]
+        }
       }
     },
     {
-      "id": "applicant_email",
-      "label": "E-mail",
-      "section": "1. 신청인",
+      "id": "target_child_name",
+      "label": "성 명",
+      "section": "신청인",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청인의 이메일 주소를 적어요.",
+      "guide": "대상 아동의 이름을 적어주세요.",
+      "example": "홍길동",
+      "evidence": "성 명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          162.3,
+          144.8,
+          219.5,
+          171.1
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "target_child_email",
+      "label": "E-mail",
+      "section": "신청인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "대상 아동의 이메일 주소를 적어주세요.",
       "example": "example@example.com",
-      "evidence": null,
+      "evidence": "E-mail",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          275.5,
-          138.9,
-          352.9,
-          167.3
+          261.9,
+          144.8,
+          348.7,
+          171.1
         ],
         "how": "table_right",
         "template_text": null
       }
     },
     {
-      "id": "applicant_phone",
-      "label": "전화:",
-      "section": "1. 신청인",
-      "input_type": "phone",
-      "value_source": "profile",
-      "profile_key": "phone",
-      "required": true,
-      "guide": "신청인의 전화번호를 적어요.",
-      "example": "010-1234-5678",
-      "evidence": null,
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          452.3,
-          167.3,
-          538.6,
-          181.4
-        ],
-        "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "applicant_address",
-      "label": "주소",
-      "section": "1. 신청인",
-      "input_type": "address",
-      "value_source": "profile",
-      "profile_key": "region",
-      "required": true,
-      "guide": "신청인의 주소를 적어요.",
-      "example": "서울특별시 강남구",
-      "evidence": null,
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          138.9,
-          167.3,
-          352.9,
-          195.6
-        ],
-        "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "applicant_birth_date",
-      "label": "주민등록번호",
-      "section": "1. 신청인",
+      "id": "target_child_id_number",
+      "label": "주민등록번호 (외국인등록번호)",
+      "section": "신청인",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "신청인의 주민등록번호를 적어요.",
+      "guide": "대상 아동의 주민등록번호를 적어주세요.",
       "example": null,
-      "evidence": null,
+      "evidence": "주민등록번호 (외국인등록번호)",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          425.3,
-          138.9,
-          538.6,
-          167.3
+          415.2,
+          144.8,
+          529.5,
+          171.1
         ],
         "how": "table_right",
         "template_text": null
       }
     },
     {
-      "id": "applicant_account_number",
-      "label": "계좌번호",
-      "section": "1. 신청인",
-      "input_type": "account",
-      "value_source": "handwrite",
-      "profile_key": null,
-      "required": true,
-      "guide": "본인 명의의 계좌번호를 적어요.",
-      "example": null,
-      "evidence": null,
-      "sensitive": true,
-      "box": null
-    },
-    {
-      "id": "applicant_bank",
-      "label": "은행",
-      "section": "1. 신청인",
-      "input_type": "text",
+      "id": "target_child_address",
+      "label": "주 소",
+      "section": "신청인",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "본인 계좌의 은행 이름을 적어요.",
-      "example": "신한은행",
-      "evidence": null,
+      "guide": "대상 아동의 주소를 적어주세요.",
+      "example": "서울특별시 강남구",
+      "evidence": "주 소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          140.9,
-          199.9,
-          195.5,
-          212.9
+          162.3,
+          171.1,
+          348.7,
+          199.3
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "target_child_phone",
+      "label": "전화 :",
+      "section": "신청인",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "대상 아동의 전화번호를 적어주세요.",
+      "example": "02-123-4567",
+      "evidence": "전화 :",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          452.0,
+          173.3,
+          527.5,
+          187.2
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "target_child_mobile",
+      "label": "휴대전화 :",
+      "section": "신청인",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "대상 아동의 휴대전화 번호를 적어주세요.",
+      "example": "010-9876-5432",
+      "evidence": "휴대전화 :",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          471.9,
+          183.4,
+          527.5,
+          197.3
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "target_child_account_number",
+      "label": "계좌번호",
+      "section": "신청인",
+      "input_type": "account",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "대상 아동의 계좌번호를 적어주세요.",
+      "example": null,
+      "evidence": "계좌번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          164.3,
+          200.3,
+          527.5,
+          215.2
+        ],
+        "how": "above_line",
+        "template_text": null
+      }
+    },
+    {
+      "id": "target_child_bank",
+      "label": "은행",
+      "section": "신청인",
+      "input_type": "text",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "돈을 받을 통장의 은행 이름 (예: 국민)",
+      "example": null,
+      "evidence": "은행 (예금주: )",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          164.3,
+          214.2,
+          245.2,
+          228.2
         ],
         "how": "before_word",
         "template_text": "은행",
@@ -165,254 +237,278 @@
       }
     },
     {
-      "id": "applicant_account_holder",
+      "id": "target_child_bank_holder",
       "label": "예금주",
-      "section": "1. 신청인",
+      "section": "신청인",
       "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "name",
       "required": true,
-      "guide": "계좌의 예금주 이름을 적어요.",
-      "example": "홍길동",
+      "guide": "통장 주인 이름. 본인 명의 통장만 됩니다.",
+      "example": null,
       "evidence": null,
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          263.4,
-          199.9,
-          373.2,
-          212.9
+          311.4,
+          214.2,
+          348.3,
+          228.2
         ],
         "how": "cell_inline",
         "template_text": null
       }
     },
     {
-      "id": "applicant_protection_account",
+      "id": "target_child_protection_account",
       "label": "압류방지통장 여부",
-      "section": "1. 신청인",
+      "section": "신청인",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "압류방지통장 여부를 선택해요. 네 또는 아니오 중 하나를 선택해요.",
+      "guide": "압류방지통장 여부를 선택해요.",
       "example": null,
-      "evidence": null,
+      "evidence": "압류방지통장 여부 [ ] 네 [ ] 아니오",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          138.9,
-          215.5,
-          538.6,
-          235.3
+          162.3,
+          232.9,
+          529.5,
+          253.2
         ],
         "how": "checkbox",
-        "template_text": "압류방지통장 여부 [ ]네 [ ]아니오",
+        "template_text": "압류방지통장 여부 [ ] 네 [ ] 아니오",
         "options": [
           "네",
           "아니오"
         ],
         "marks": {
           "네": [
-            237.7,
-            226.2
+            268.1,
+            243.1
           ],
           "아니오": [
-            277.2,
-            226.2
+            304.5,
+            243.1
           ]
         }
+      }
+    },
+    {
+      "id": "proxy_name",
+      "label": "대리인 성명",
+      "section": "신청인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "대리인의 이름을 적어주세요.",
+      "example": "김철수",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          162.3,
+          268.1,
+          219.5,
+          296.4
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "proxy_relationship",
+      "label": "대리인 대상아동과의 관계",
+      "section": "신청인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "대리인과 대상 아동의 관계를 적어주세요.",
+      "example": "친구",
+      "evidence": "대상아동과의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          297.4,
+          268.1,
+          348.7,
+          296.4
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "proxy_id_number",
+      "label": "대리인 주민등록번호",
+      "section": "신청인",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "대리인의 주민등록번호를 적어주세요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          415.2,
+          268.1,
+          529.5,
+          296.4
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "proxy_address",
+      "label": "대리인 주소",
+      "section": "신청인",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "대리인의 주소를 적어주세요.",
+      "example": "서울특별시 강서구",
+      "evidence": "주소",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          162.3,
+          296.4,
+          348.7,
+          324.7
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "proxy_phone",
+      "label": "대리인 전화 :",
+      "section": "신청인",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "대리인의 전화번호를 적어주세요.",
+      "example": "02-222-3333",
+      "evidence": "전화 :",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          452.0,
+          298.8,
+          527.5,
+          312.8
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "proxy_mobile",
+      "label": "대리인 휴대전화 :",
+      "section": "신청인",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "대리인의 휴대전화 번호를 적어주세요.",
+      "example": "010-4444-5555",
+      "evidence": "휴대전화 :",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          471.9,
+          308.9,
+          527.5,
+          322.8
+        ],
+        "how": "cell_inline",
+        "template_text": null
       }
     },
     {
       "id": "notification_method",
       "label": "통지방법",
-      "section": "1. 신청인",
+      "section": "신청인",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "통지받고 싶은 방법을 선택해요. 서면, 전자우편, 문자메시지, 기타 중 하나를 선택해요.",
+      "guide": "통지받을 방법을 선택해요.",
       "example": null,
-      "evidence": null,
+      "evidence": "통지방법 [ ] 서면 [ ] 전자우편 [ ] 문자 메시지 [ ] 기타( )",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          138.9,
-          306.2,
-          538.6,
-          326.9
+          92.2,
+          325.6,
+          498.0,
+          339.5
         ],
         "how": "checkbox",
-        "template_text": "[ ]서면 [ ]전자우편 [ ]문자메시지 [ ]기타( )",
         "options": [
           "서면",
           "전자우편",
-          "문자메시지",
+          "문자 메시지",
           "기타"
         ],
         "marks": {
           "서면": [
-            150.7,
-            316.9
+            205.8,
+            332.5
           ],
           "전자우편": [
-            196.0,
-            316.9
+            257.3,
+            332.5
           ],
-          "문자메시지": [
-            258.5,
-            316.9
+          "문자 메시지": [
+            328.7,
+            332.5
           ],
           "기타": [
-            329.5,
-            316.9
+            415.1,
+            332.5
           ]
-        }
-      }
-    },
-    {
-      "id": "guardian_name",
-      "label": "대리인 성명",
-      "section": "1. 신청인",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "대리인의 이름을 적어요. 대리인이 없으면 비워둬요.",
-      "example": "김철수",
-      "evidence": null,
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          138.9,
-          249.5,
-          204.1,
-          277.9
-        ],
-        "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "guardian_relationship",
-      "label": "대상아동과의 관계",
-      "section": "1. 신청인",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "대리인과 대상 아동의 관계를 적어요. 대리인이 없으면 비워둬요.",
-      "example": "친구",
-      "evidence": null,
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          289.2,
-          249.5,
-          352.9,
-          277.9
-        ],
-        "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "guardian_phone",
-      "label": "대리인 전화:",
-      "section": "1. 신청인",
-      "input_type": "phone",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "대리인의 전화번호를 적어요. 대리인이 없으면 비워둬요.",
-      "example": "010-9876-5432",
-      "evidence": null,
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          458.7,
-          277.9,
-          538.6,
-          291.4
-        ],
-        "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "guardian_address",
-      "label": "대리인 주소",
-      "section": "1. 신청인",
-      "input_type": "address",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "대리인의 주소를 적어요. 대리인이 없으면 비워둬요.",
-      "example": "서울특별시 강서구",
-      "evidence": null,
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          138.9,
-          277.9,
-          352.9,
-          306.2
-        ],
-        "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "guardian_birth_date",
-      "label": "대리인 주민등록번호",
-      "section": "1. 신청인",
-      "input_type": "id_number",
-      "value_source": "handwrite",
-      "profile_key": null,
-      "required": false,
-      "guide": "대리인의 주민등록번호를 적어요. 대리인이 없으면 비워둬요.",
-      "example": null,
-      "evidence": null,
-      "sensitive": true,
-      "box": {
-        "page": 0,
-        "rect": [
-          425.3,
-          249.5,
-          538.6,
-          277.9
-        ],
-        "how": "table_right",
-        "template_text": null
+        },
+        "template_text": "통지방법 [ ] 서면 [ ] 전자우편 [ ] 문자 메시지 [ ] 기타( )"
       }
     },
     {
       "id": "institution_name",
-      "label": "보호기관명 *",
-      "section": "2. 보호기관",
+      "label": "보호기관명*",
+      "section": "보호기관",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "보호기관의 이름을 적어요.",
+      "guide": "보호기관의 이름을 적어주세요.",
       "example": "아동복지센터",
-      "evidence": null,
+      "evidence": "보호기관명*",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          138.9,
-          348.7,
-          251.5,
-          377.2
+          162.3,
+          356.9,
+          261.9,
+          385.0
         ],
         "how": "table_right",
         "template_text": null
@@ -420,47 +516,47 @@
     },
     {
       "id": "institution_registration_number",
-      "label": "사업자등록번호 * (고유번호)",
-      "section": "2. 보호기관",
+      "label": "보호기관 사업자등록번호* (고유번호)",
+      "section": "보호기관",
       "input_type": "text",
-      "value_source": "handwrite",
+      "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "보호기관의 사업자등록번호를 적어요.",
-      "example": null,
-      "evidence": null,
-      "sensitive": true,
+      "guide": "보호기관의 사업자등록번호를 적어주세요.",
+      "example": "123-45-67890",
+      "evidence": "사업자등록번호* (고유번호)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          337.6,
           348.7,
-          538.6,
-          377.2
+          356.9,
+          529.5,
+          385.0
         ],
         "how": "table_right",
         "template_text": null
       }
     },
     {
-      "id": "institution_representative",
-      "label": "대표자명 (위탁부모)",
-      "section": "2. 보호기관",
+      "id": "representative_name",
+      "label": "보호기관 대표자명 (위탁부모)",
+      "section": "보호기관",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "보호기관의 대표자 이름을 적어요.",
+      "guide": "보호기관의 대표자 이름을 적어주세요.",
       "example": "이영희",
-      "evidence": null,
+      "evidence": "대표자명 (위탁부모)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          138.9,
-          377.2,
-          251.5,
-          405.3
+          162.3,
+          385.0,
+          261.9,
+          413.3
         ],
         "how": "table_right",
         "template_text": null
@@ -468,47 +564,71 @@
     },
     {
       "id": "institution_phone",
-      "label": "전화:",
-      "section": "2. 보호기관",
+      "label": "보호기관 전화 :",
+      "section": "보호기관",
       "input_type": "phone",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "보호기관의 전화번호를 적어요.",
-      "example": "02-123-4567",
-      "evidence": null,
+      "required": false,
+      "guide": "보호기관의 전화번호를 적어주세요.",
+      "example": "02-555-6666",
+      "evidence": "전화 :",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          393.7,
-          377.2,
-          515.9,
-          391.6
+          385.4,
+          387.6,
+          527.5,
+          401.6
         ],
-        "how": "table_right",
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "institution_mobile",
+      "label": "보호기관 휴대전화 :",
+      "section": "보호기관",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "보호기관의 휴대전화 번호를 적어주세요.",
+      "example": "010-7777-8888",
+      "evidence": "휴대전화 :",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          405.4,
+          397.6,
+          527.5,
+          411.5
+        ],
+        "how": "cell_inline",
         "template_text": null
       }
     },
     {
       "id": "institution_address",
       "label": "보호기관(위탁가정) 주소",
-      "section": "2. 보호기관",
+      "section": "보호기관",
       "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "보호기관의 주소를 적어요.",
-      "example": "서울특별시 중구",
-      "evidence": null,
+      "guide": "보호기관의 주소를 적어주세요.",
+      "example": "서울특별시 송파구",
+      "evidence": "보호기관(위탁가정) 주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          138.9,
-          405.3,
-          538.6,
-          434.4
+          162.3,
+          413.3,
+          529.5,
+          438.4
         ],
         "how": "table_right",
         "template_text": null
@@ -516,50 +636,50 @@
     },
     {
       "id": "institution_email",
-      "label": "E-mail",
-      "section": "2. 보호기관",
+      "label": "보호기관 E-mail",
+      "section": "보호기관",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "보호기관의 이메일 주소를 적어요.",
+      "required": false,
+      "guide": "보호기관의 이메일 주소를 적어주세요.",
       "example": "institution@example.com",
-      "evidence": null,
+      "evidence": "E-mail",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          138.9,
-          434.4,
-          251.5,
-          476.3
+          162.3,
+          438.4,
+          261.9,
+          477.7
         ],
         "how": "table_right",
         "template_text": null
       }
     },
     {
-      "id": "protection_type",
-      "label": "보호구분",
-      "section": "2. 보호기관",
+      "id": "institution_protection_type",
+      "label": "보호기관 보호구분",
+      "section": "보호기관",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "보호기관의 구분을 선택해요. 아동양육시설, 공동생활가정, 아동일시보호시설, 아동보호치료시설, 가정위탁, 기타 중 하나를 선택해요.",
+      "guide": "보호기관의 구분을 선택해요.",
       "example": null,
-      "evidence": null,
+      "evidence": "보호구분 [ ] 아동양육시설 [ ] 공동생활가정 [ ] 아동일시보호시설 [ ] 아동보호치료시설 [ ] 가정위탁 [ ] 기타",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          337.6,
-          434.4,
-          538.6,
-          476.3
+          348.7,
+          438.4,
+          529.5,
+          477.7
         ],
         "how": "checkbox",
-        "template_text": "[ ]아동양육시설 [ ]공동생활가정 [ ] 아동일시보호시설 [ ]아동보호치료시설 [ ]가정위탁 [ ]기타",
+        "template_text": "[ ] 아동양육시설 [ ] 공동생활가정 [ ] 아동일시보호시설 [ ] 아동보호치료시설 [ ] 가정위탁 [ ] 기타",
         "options": [
           "아동양육시설",
           "공동생활가정",
@@ -570,51 +690,51 @@
         ],
         "marks": {
           "아동양육시설": [
-            347.7,
-            441.7
+            357.4,
+            445.3
           ],
           "공동생활가정": [
-            447.0,
-            441.7
+            447.9,
+            445.3
           ],
           "아동일시보호시설": [
-            347.7,
-            455.8
+            357.4,
+            458.4
           ],
           "아동보호치료시설": [
-            447.0,
-            455.8
+            447.9,
+            458.4
           ],
           "가정위탁": [
-            347.7,
-            470.0
+            357.4,
+            471.5
           ],
           "기타": [
-            447.0,
-            470.0
+            447.9,
+            471.5
           ]
         }
       }
     },
     {
-      "id": "other_protection_reason",
-      "label": "보호구분 기타사유",
-      "section": "2. 보호기관",
+      "id": "institution_protection_reason",
+      "label": "보호기관 보호구분 기타사유",
+      "section": "보호기관",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "기타 사유가 있으면 적어요. 없으면 비워둬요.",
+      "guide": "기타 보호구분 사유를 적어주세요.",
       "example": "특별한 사유",
-      "evidence": null,
+      "evidence": "보호구분 기타사유",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          138.9,
-          476.3,
-          538.6,
-          504.6
+          162.3,
+          477.7,
+          529.5,
+          505.8
         ],
         "how": "table_right",
         "template_text": null
@@ -622,89 +742,64 @@
     },
     {
       "id": "agreement",
-      "label": "동의함",
-      "section": "3. 필요시",
+      "label": "필요시 담당 공무원이 아동의 가족관계등록부, 연락처, 주민등록정보 등을 발급받아 확인하는 것에 동의함. ([ ]동의함, [ ]동의하지 않음)",
+      "section": null,
       "input_type": "checkbox",
-      "value_source": "user",
+      "value_source": "office",
       "profile_key": null,
       "required": true,
-      "guide": "아동의 정보 확인에 동의하는지 선택해요.",
+      "guide": "공무원이 정보를 확인하는 것에 동의해요.",
       "example": null,
-      "evidence": null,
+      "evidence": "([ ]동의함, [ ]동의하지 않음)",
       "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          56.7,
-          558.5,
-          538.6,
-          568.9
-        ],
-        "how": "checkbox",
-        "template_text": "것에 동의함. ([ ]동의함, [ ]동의하지 않음)",
-        "options": [
-          "동의함",
-          "동의하지 않음"
-        ],
-        "marks": {
-          "동의함": [
-            145.0,
-            565.2
-          ],
-          "동의하지 않음": [
-            204.7,
-            565.2
-          ]
-        }
-      }
+      "box": null
     },
     {
       "id": "application_date",
       "label": "년 월 일",
-      "section": "신청인",
+      "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
-      "example": null,
-      "evidence": null,
+      "guide": "신청 날짜를 적어주세요.",
+      "example": "2023-10-01",
+      "evidence": "년 월 일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          352.1,
-          652.8,
-          519.5,
-          669.8
+          288.4,
+          617.0,
+          437.1,
+          634.9
         ],
         "how": "date_line",
         "template_text": "년 월 일"
       }
     },
     {
-      "id": "applicant_signature",
+      "id": "applicant_name",
       "label": "신청인(대리신청인) 성명:",
-      "section": "신청인",
+      "section": null,
       "input_type": "text",
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
       "guide": "신청인 이름을 적어요. 출력한 뒤 옆에 직접 서명하거나 도장을 찍어요.",
       "example": null,
-      "evidence": null,
+      "evidence": "신청인(대리신청인) 성명: (서명 또는 인)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          358.6,
-          674.6,
-          477.9,
-          714.3
+          328.8,
+          649.0,
+          431.2,
+          662.9
         ],
-        "how": "table_right",
-        "template_text": ":",
-        "sign_mark": "(서명 또는 인)"
+        "how": "text_right",
+        "template_text": null
       }
     },
     {
@@ -722,86 +817,67 @@
       "box": {
         "page": 1,
         "rect": [
-          496.0,
-          176.0,
-          552.9,
-          498.9
+          494.6,
+          171.3,
+          542.6,
+          521.0
         ],
         "how": "confirm",
         "spots": [
           [
-            524.1,
-            243.2
+            520.4,
+            234.8
           ],
           [
-            524.1,
-            341.0
+            520.4,
+            328.0
           ],
           [
-            524.1,
-            396.3
+            520.4,
+            382.1
           ],
           [
-            524.1,
-            443.1
+            520.4,
+            429.5
           ],
           [
-            524.1,
-            474.3
+            520.4,
+            461.9
           ],
           [
-            524.1,
-            491.3
+            520.4,
+            487.6
+          ],
+          [
+            520.4,
+            513.3
           ]
         ],
         "items": [
-          "1. 보건복지부장관 또는 특별자치시장·특별자치도지사·시장·군수·구청장은 보호종료아동 자립수당의 신청을 위해 필요한 경우 아동에게 제공된 서비스, 상담, 사례관리 내역 등을 열람할 수 있습니다. 또한, 보호종료아동 자립수당 사업의 수행을 위하여 필요한 경우 인적사항 및 연락처 확인에 관한 정보, 사회보장급여의 수혜이력에 관한정보, 그 밖에 수급권자를 선정하기 위하여 필요한 정보로서 주민등록 전산정보·가족관계등록전산정보, 출입국·병무·교정·자립관련 교육과정 이수 등 관련 정보를 정기적으로 관계 기관에 요청하거나 관련 정보통신망(행정정보공동이용 포함)을 통해 조회 및 적용 할 수 있으며, 「사회보장급여의 이용·제공 및 수급권자 발굴에 관한 법률」 제34조에 따라 5 년 간 보유 하고(지원 대상자 보호에 필요한 사회보장정보는 5년을 초과하여 보유할 수 있음), 그 기간이 지나면 파기함을 알려 드립니다.",
-          "2. 자립수당을 받으면서 정지사유(90일 이상 지속하여 해외 체류, 교정시설 입소, 주민등록말소, 거주불명등록, 행방불명·실종) 가 발 생 할 경 우 에 는 해당 기간 동안 자립수당 지원이 정지 되 므반로드 , 시그사 실을아동의 주소지 읍·면·동 주민센터에 알려야 합니다. (유학, 취업 인턴으로 해외 체류하는 기간은 정지사유에서 제외되나, 해당 사유에 대한 증빙 신고 필요)",
-          "3. 거 짓 이 나 그 밖 의 부 정 한 방 법 으 로 자 립 수 당 을 지 급 받 은 경 에우 는이 미지급 된보호종료아 동자립수당 전부 또는 일부를 그 보호종료아동 자립수당을 받은 자 또는 보호종료아동 자립수당을 받게 한 자로부터 환수할 수 있습니다.",
-          "4. 자립수당 수급자에 대한 사례관리를 위해 자립지원전담요원 등 자립담당자에게 신청인의 연락처, 이 메 일 주 소 를 제 공 하는 것에 동의합니다 .또한 ,추후 사례관리 등 자립수당 수급자로서의 의무를 다하지 않은 경우 자립수당 지급이 중지될 수 있습니다.",
-          "5. 자 립 수 당 수 급 자 의 연 락 처 , 이 메 일 주 소 를 통해 자 립 지 원 정 보 를 하제 는공 것에동의합니다.",
-          "6. 보호종료아동 자립수당 지급 신청을 위해 작성·제출하신 서류는 반환되지 않습니다."
+          "1. 보건복지부장관 또는 특별자치시장･특별자치도지사･시장･군수･구청장은 자립준비청년 자립수당/의료비 지원의 신청을 위해 필요한 경우 아동에게 제공된 서비스, 상담, 사례관리 내역 등을 열람할 수 있습니다. 또한, 자립준비청년 자립수당/의료비 지원 사업의 수행을 위하여 필요한 경우 인적사항 및 연락처 확인에 관한 정보, 사회보장급여의 수혜이력에 관한 정보, 그 밖에 수급권자를 선정하기 위하여 필요한 정보로서 주민등록전산정보･가족관계등록전산정보, 출입국･병무･교정･자립관련 교육과정 이수 등 관련 정보를 정기적으로 관계 기관에 요청하거나 관련 정보통신망(행정정보공동이용 포함)을 통해 조회 및 적용할 수 있으며, ｢사회보장급여의 이용･제공 및 수급권자 발굴에 관한 법률｣ 제34조에 따라 5년간 보유하고(지원 대상자 보호에 필요한 사회보장정보는 5년을 초과하여 보유할 수 있음), 그 기간이 지나면 파기함을 알려 드립니다.",
+          "2. 자립수당을 받으면서 정지사유(90일 이상 지속하여 해외 체류, 교정시설 입소, 주민등록말소, 거주불명 등록, 행방불명･실종)가 발생할 경우에는 해당 기간 동안 자립수당/의료비 지원이 정지되므로, 반드시 그 사실을 아동의 주소지 읍·면·동 행정복지센터에 알려야 합니다.(유학, 취업 인턴으로 해외 체류하는 기간은 정지사유에서 제외되나, 해당 사유에 대한 증빙 신고 필요)",
+          "3. 거짓이나 그 밖의 부정한 방법으로 자립수당을 지급받은 경우에는 이미 지급된 자립준비청년 자립수당 전부 또는 일부를 그 자립준비청년 자립수당을 받은 자 또는 자립준비청년 자립수당을 받게 한 자로부터 환수할 수 있습니다.",
+          "4. 자립수당수급자에 대한 사후관리 및 자립지원 서비스 제공을 위해 아동권리보장원, 자립지원전담기관의 자립지원담당자에게 신청인의 연락처, 이메일 주소를 제공하는 것에 동의합니다. 또한, 추후 자립지원전담 기관의 사후관리 참여 등 자립수당 수급자로서의 의무를 다하지 않은 경우 자립수당 지급이 중지될 수 있습니다.",
+          "5. 자립수당 수급자의 연락처, 이메일 주소를 통해 자립지원 정보를 제공하는 것에 동의합니다.",
+          "6. 자립준비청년 자립 지원 제도 개선을 위해 보호종료아동 실태조사, 만족도 조사 등에 자립수당 수급자의 연락처, 이메일 주소를 제공하는 것에 동의합니다.",
+          "7. 자립준비청년 자립수당 지급 / 의료비 지원 신청을 위해 작성･제출하신 서류는 반환되지 않습니다."
         ],
         "options": [
           "확인"
         ],
-        "template_text": "확 인"
+        "template_text": "확 인 (√ 체크)"
       }
     }
   ],
   "notes": [
     "처리기한 30일 이내(특별한 사유가 있는 경우 60일)",
-    "첨부서류: 사이버강의 이수증, 신분증, 위임장 및 대리인의 신분증, 압류방지 통장 사본, 자격확인 증빙서류(보호종료 확인서)"
+    "첨부서류: 1. 사이버강의 이수증 2. 신분증 3. 위임장 및 대리인의 신분증 4. 압류방지 통장 사본 5. 자격확인 증빙서류(보호종료 확인서)",
+    "자립수당 수급자의 연락처, 이메일 주소를 통해 자립지원 정보를 제공하는 것에 동의합니다."
   ],
   "warnings": [
-    "'성명': 근거 문장이 원문과 달라 근거를 지움",
-    "'E-mail': 근거 문장이 원문과 달라 근거를 지움",
-    "'전화:': 근거 문장이 원문과 달라 근거를 지움",
-    "'주소': 근거 문장이 원문과 달라 근거를 지움",
-    "'주민등록번호': 근거 문장이 원문과 달라 근거를 지움",
-    "'계좌번호': 근거 문장이 원문과 달라 근거를 지움",
-    "'은행': 근거 문장이 원문과 달라 근거를 지움",
-    "'예금주': 근거 문장이 원문과 달라 근거를 지움",
-    "'압류방지통장 여부': 근거 문장이 원문과 달라 근거를 지움",
-    "'통지방법': 근거 문장이 원문과 달라 근거를 지움",
-    "'대리인 성명': 근거 문장이 원문과 달라 근거를 지움",
-    "'대상아동과의 관계': 근거 문장이 원문과 달라 근거를 지움",
-    "'대리인 전화:': 근거 문장이 원문과 달라 근거를 지움",
-    "'대리인 주소': 근거 문장이 원문과 달라 근거를 지움",
-    "'대리인 E-mail': 근거 문장이 원문과 달라 근거를 지움",
-    "'대리인 주민등록번호': 근거 문장이 원문과 달라 근거를 지움",
-    "'보호기관명 *': 근거 문장이 원문과 달라 근거를 지움",
-    "'사업자등록번호 * (고유번호)': 근거 문장이 원문과 달라 근거를 지움",
-    "'대표자명 (위탁부모)': 근거 문장이 원문과 달라 근거를 지움",
-    "'전화:': 근거 문장이 원문과 달라 근거를 지움",
-    "'보호기관(위탁가정) 주소': 근거 문장이 원문과 달라 근거를 지움",
-    "'E-mail': 근거 문장이 원문과 달라 근거를 지움",
-    "'보호구분': 근거 문장이 원문과 달라 근거를 지움",
-    "'보호구분 기타사유': 근거 문장이 원문과 달라 근거를 지움",
-    "'동의함': 근거 문장이 원문과 달라 근거를 지움",
-    "'년 월 일': 근거 문장이 원문과 달라 근거를 지움",
-    "'신청인(대리신청인) 성명:': 근거 문장이 원문과 달라 근거를 지움",
-    "양식에 없는 칸이라 버림: '대리인 E-mail' (대리인 묶음에 없음)"
+    "작은 칸을 묶는 이름이라 버림: '연락처'",
+    "작은 칸을 묶는 이름이라 버림: '대리인 연락처'",
+    "작은 칸을 묶는 이름이라 버림: '보호기관 연락처'"
   ],
   "checked": false
 }
