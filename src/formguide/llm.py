@@ -14,22 +14,36 @@ from rag.settings import get_rag_settings
 TIMEOUT_SECONDS = 180.0
 
 
+# 칸이 20개를 넘는 양식은 항목 JSON 이 길어 4000 토큰에서 잘렸다 (끝이 잘린 JSON → 형식 오류)
+MAX_OUTPUT_TOKENS = 12000
+RETRIES = 1  # 형식이 틀리면 한 번 더 요청
+
+
 def draft_fields(form: FormText) -> dict:
     text = form.as_prompt_text()[:MAX_FORM_CHARS]
-    resp = _client().with_options(timeout=TIMEOUT_SECONDS).chat.completions.create(
-        model=get_rag_settings().rag_chat_model,
-        temperature=0,
-        max_tokens=4000,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": EXTRACT_SYSTEM},
-            {"role": "user", "content": EXTRACT_USER.format(form_text=text)},
-        ],
-    )
-    try:
-        draft = json.loads(resp.choices[0].message.content or "")
-    except json.JSONDecodeError:
-        raise RagFormatError("LLM 출력이 JSON 이 아닙니다.") from None
-    if not isinstance(draft, dict):
-        raise RagFormatError("LLM 출력 형식이 다릅니다.")
-    return draft
+    for attempt in range(1 + RETRIES):
+        resp = _client().with_options(timeout=TIMEOUT_SECONDS).chat.completions.create(
+            model=get_rag_settings().rag_chat_model,
+            temperature=0,
+            max_tokens=MAX_OUTPUT_TOKENS,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": EXTRACT_SYSTEM},
+                {"role": "user", "content": EXTRACT_USER.format(form_text=text)},
+            ],
+        )
+        choice = resp.choices[0]
+        try:
+            draft = json.loads(choice.message.content or "")
+        except json.JSONDecodeError:
+            if attempt < RETRIES:
+                continue
+            if choice.finish_reason == "length":
+                raise RagFormatError(
+                    f"LLM 출력이 {MAX_OUTPUT_TOKENS} 토큰에서 잘렸습니다. 양식이 너무 길면 쪽을 나눠 PDF 로 넣어 주세요."
+                ) from None
+            raise RagFormatError("LLM 출력이 JSON 이 아닙니다.") from None
+        if not isinstance(draft, dict):
+            raise RagFormatError("LLM 출력 형식이 다릅니다.")
+        return draft
+    raise RagFormatError("LLM 출력이 JSON 이 아닙니다.")
