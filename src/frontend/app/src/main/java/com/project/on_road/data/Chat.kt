@@ -8,7 +8,10 @@ enum class ChatRole { USER, ASSISTANT }
  * 답변 종류 (3.15 type).
  * LOCAL: 첫 인사·오류 안내처럼 앱이 만든 문구 (서버로 보내는 이전 대화에서 뺀다)
  */
-enum class ChatKind { POLICY, COUNSEL, CRISIS, LOCAL }
+enum class ChatKind { POLICY, COUNSEL, CRISIS, DOCUMENT, LOCAL }
+
+/** 상담 → 문서 AI 로 넘길 서류 후보 (3.15 handoff). policyId 가 있으면 정책 신청서, 아니면 앱 양식(templateId) */
+data class DocCandidate(val title: String, val policyId: Long?, val templateId: String?)
 
 /** 도움 연락처 (위기 안내에 함께 옴) */
 data class HelpLine(val name: String, val phone: String)
@@ -22,6 +25,9 @@ data class ChatMessage(
     val needsCheck: Boolean = false,
     val kind: ChatKind = ChatKind.POLICY,
     val contacts: List<HelpLine> = emptyList(),
+    /** kind = DOCUMENT: 서류 작성 후보와 상담 맥락 (문서 AI 가 처음부터 묻지 않게 넘긴다) */
+    val candidates: List<DocCandidate> = emptyList(),
+    val handoffContext: String? = null,
 )
 
 /** AI 상담 API 계약 (3.15). history: 지금까지 대화 (방금 보낸 message 포함 가능, 구현체가 정리해서 보냄) */

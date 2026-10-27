@@ -10,6 +10,7 @@ import com.project.on_road.data.ChatApi
 import com.project.on_road.data.ChatKind
 import com.project.on_road.data.ChatMessage
 import com.project.on_road.data.ChatRole
+import com.project.on_road.data.DocCandidate
 import com.project.on_road.data.Checklist
 import com.project.on_road.data.ConditionCheck
 import com.project.on_road.data.ChecklistDoc
@@ -312,6 +313,17 @@ class RemoteChatApi(private val service: OnRoadService) : ChatApi {
                 role = ChatRole.ASSISTANT,
                 text = res.message.orEmpty(),
                 kind = ChatKind.COUNSEL,
+            )
+            // 서류를 쓰고 싶다는 말 → 문서 AI 로 넘긴다 (라우터)
+            "document" -> ChatMessage(
+                id = 0,
+                role = ChatRole.ASSISTANT,
+                text = res.message ?: "서류 작성을 도와드릴게요. 어떤 서류를 쓸까요?",
+                kind = ChatKind.DOCUMENT,
+                candidates = res.handoff?.candidates.orEmpty().map {
+                    DocCandidate(it.title, it.policyId, if (it.sourceType == "template") it.sourceId else null)
+                },
+                handoffContext = res.handoff?.context,
             )
             else -> {
                 val search = res.search
