@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.project.on_road.data.AppContainer
 import com.project.on_road.data.DDate
 import com.project.on_road.ui.components.*
-import com.project.on_road.ui.navigation.Routes
+import com.project.on_road.ui.screens.navigation.Routes
 import com.project.on_road.ui.theme.*
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit

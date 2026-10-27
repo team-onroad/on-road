@@ -59,7 +59,7 @@ import com.project.on_road.data.ActivityStore
 import com.project.on_road.data.AppContainer
 import com.project.on_road.ui.components.SpeakOnce
 import com.project.on_road.ui.components.rememberSpeechInput
-import com.project.on_road.ui.navigation.Routes
+import com.project.on_road.ui.screens.navigation.Routes
 import java.time.LocalDate
 
 /*

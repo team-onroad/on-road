@@ -1,6 +1,12 @@
 package com.project.on_road.ui.screens
 
+import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.foundation.clickable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.platform.LocalContext
+import com.project.on_road.ui.components.ChoiceChip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -180,6 +186,27 @@ private fun ProgressCount(done: Int, total: Int, unit: String) {
 
 /* ======================= 상세 ======================= */
 
+/**
+ * 준비 서류를 사람마다 다르게 하는 신청 상황 (서류 condition 으로 나눈다).
+ * 켜면 그 상황의 서류를 보여 주고, 끄면 숨기고 '해당 없음'으로 둔다 (서류 진행률에서 빠짐)
+ */
+enum class DocSituation(val label: String) {
+    PROXY("대리인이 신청"),
+    MAIL("우편·팩스로 신청"),
+    SEIZURE("압류방지통장 사용"),
+}
+
+fun situationOf(condition: String?): DocSituation? {
+    val c = condition ?: return null
+    return when {
+        "대리" in c -> DocSituation.PROXY
+        c.startsWith("방문 신청 시") -> null // 기본 서류 (방문 신청)
+        "우편" in c || "팩스" in c -> DocSituation.MAIL
+        "압류방지" in c -> DocSituation.SEIZURE
+        else -> null
+    }
+}
+
 class ChecklistViewModel : ViewModel() {
     private val api = AppContainer.api
     private val userId: String get() = AppContainer.session.userId.orEmpty()
@@ -200,19 +227,70 @@ class ChecklistViewModel : ViewModel() {
     var policyInfo by mutableStateOf<Policy?>(null)
         private set
 
+    /** 켜 둔 신청 상황. 처음 연 체크리스트는 모두 꺼 둔다 (본인이 직접 방문 신청) */
+    val situations = mutableStateMapOf<DocSituation, Boolean>()
+    private var prefs: SharedPreferences? = null
+
+    fun attach(context: Context) {
+        if (prefs == null) prefs = context.applicationContext.getSharedPreferences("onroad_doc_situations", Context.MODE_PRIVATE)
+    }
+
+    private fun key(checklistId: Long, s: DocSituation) = "c${checklistId}_${s.name}"
+
+    /** 체크리스트를 받은 뒤: 저장된 상황(없으면 꺼짐)에 맞춰 서류의 '해당 없음'을 맞춘다 */
+    private fun applySituations(c: Checklist) {
+        situations.clear()
+        val present = c.docs.mapNotNull { situationOf(it.condition) }.distinct()
+        present.forEach { s ->
+            val k = key(c.id, s)
+            val stored = prefs?.takeIf { it.contains(k) }?.getBoolean(k, false)
+            val on = stored ?: false
+            situations[s] = on
+            if (stored == null) {
+                prefs?.edit()?.putBoolean(k, false)?.apply()
+                setGroup(c, s, on = false)
+            }
+        }
+    }
+
+    fun toggleSituation(s: DocSituation) {
+        val c = checklist ?: return
+        val on = situations[s] != true
+        situations[s] = on
+        prefs?.edit()?.putBoolean(key(c.id, s), on)?.apply()
+        setGroup(c, s, on)
+    }
+
+    private fun setGroup(c: Checklist, s: DocSituation, on: Boolean) {
+        c.docs.filter { situationOf(it.condition) == s && it.notApplicable == on && !it.written }.forEach { d ->
+            updateDoc(d.itemId) { if (on) it.copy(notApplicable = false) else it.copy(notApplicable = true, checked = false) }
+            send(d.itemId, notApplicable = !on)
+        }
+    }
+
+    /** 지금 상황에 맞는 서류 (꺼 둔 상황의 서류는 숨김) */
+    fun visibleDocs(c: Checklist): List<ChecklistDoc> =
+        c.docs.filter { d -> situationOf(d.condition)?.let { situations[it] == true } ?: true }
+
     private var loadedFor: String? = null
     /** 항목별 보내기 대기 (연속 입력은 0.3초 모아서 마지막 값만 보냄) */
     private val pending = mutableMapOf<Long, Job>()
 
     /** 3.9 이 정책의 체크리스트 열기 (없으면 서버가 새로 만든다) */
     fun load(policyId: String) {
-        if (loadedFor == policyId) return
+        if (loadedFor == policyId) {
+            // 다른 화면(서류 작성 등)에서 돌아오면 조용히 새로 받는다
+            val c = checklist ?: return
+            viewModelScope.launch { runCatching { api.getChecklist(userId, c.id) }.onSuccess { checklist = it } }
+            return
+        }
         loadedFor = policyId
         viewModelScope.launch {
             loading = true
             error = null
             try {
                 checklist = api.openChecklist(userId, policyId)
+                checklist?.let(::applySituations)
                 policyInfo = runCatching { api.getPolicy(policyId) }.getOrNull()
             } catch (e: Exception) {
                 error = e.userMessage("체크리스트를 불러오지 못했어요.")
@@ -231,6 +309,7 @@ class ChecklistViewModel : ViewModel() {
 
     /** 서류 체크. 해당 없음인 서류를 체크하면 해당 없음이 풀린다 */
     fun toggleDoc(doc: ChecklistDoc) {
+        if (doc.written) return // 문서 AI 로 쓴 서류는 서류 작성 화면에서만 바뀐다
         val next = !doc.checked || doc.notApplicable
         updateDoc(doc.itemId) { it.copy(checked = next, notApplicable = false) }
         send(doc.itemId, checked = next)
@@ -238,7 +317,7 @@ class ChecklistViewModel : ViewModel() {
 
     /** "해당 없음" (조건이 있는 서류만). 고르면 체크가 풀리고, 취소하면 체크하지 않은 상태로 둔다 */
     fun toggleNotApplicable(doc: ChecklistDoc) {
-        if (doc.condition == null) return
+        if (doc.condition == null || doc.written) return
         val next = !doc.notApplicable
         updateDoc(doc.itemId) { if (next) it.copy(notApplicable = true, checked = false) else it.copy(notApplicable = false) }
         send(doc.itemId, notApplicable = next)
@@ -295,9 +374,22 @@ fun ChecklistScreen(
     policyId: String,
     onBack: () -> Unit,
     onFormGuide: (String) -> Unit = {},
+    /** 서류 작성 (문서 AI): 이 정책의 준비 서류 중 쓸 서류 고르기 */
+    onOpenDocs: (String) -> Unit = {},
+    /** 문서 AI 로 쓴 서류 열기 */
+    onOpenDocument: (Long) -> Unit = {},
     vm: ChecklistViewModel = viewModel(),
 ) {
-    LaunchedEffect(policyId) { vm.load(policyId) }
+    val ctx = LocalContext.current
+    LaunchedEffect(policyId) {
+        vm.attach(ctx)
+        vm.load(policyId)
+    }
+    // 신청서 항목이 준비된 정책(자립수당 등)이면 '신청서 쓰기'
+    var hasForm by remember { mutableStateOf(false) }
+    LaunchedEffect(policyId) {
+        hasForm = policyId.toLongOrNull()?.let { AppContainer.documents.hasPolicyForm(it) } ?: false
+    }
     val uri = LocalUriHandler.current
     val c = vm.checklist
     val error = vm.error
@@ -370,6 +462,32 @@ fun ChecklistScreen(
                         }
                     }
 
+                    // 서류 작성 (문서 AI): 준비 서류 바로 위. 쓸 서류는 다음 화면에서 고른다
+                    if (hasForm) {
+                        val writtenForm = c.docs.firstOrNull { "신청서" in it.name }?.checked == true
+                        Spacer(Modifier.height(40.dp))
+                        OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary, onClick = { onOpenDocs(c.policyId) }) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("서류 작성 도우미", style = OnRoadType.Title3, color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
+                                if (writtenForm) OnRoadTag("신청서 작성 완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "준비 서류 중 신청서처럼 직접 쓰는 서류를 골라 AI와 함께 써요. 칸마다 쓰는 법도 알려 주고, 다 쓰면 원래 양식 PDF로 만들어 줘요.",
+                                style = OnRoadType.Caption,
+                                color = OnRoadColors.TextTertiary,
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            OnRoadButton(
+                                "서류 고르고 쓰기",
+                                { onOpenDocs(c.policyId) },
+                                Modifier.fillMaxWidth(),
+                                height = 40.dp,
+                                textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                            )
+                        }
+                    }
+
                     if (c.docs.isNotEmpty()) {
                         Spacer(Modifier.height(40.dp))
                         Row(verticalAlignment = Alignment.Bottom) {
@@ -378,12 +496,26 @@ fun ChecklistScreen(
                         }
                         Spacer(Modifier.height(8.dp))
                         ProgressBar(c.docProgress)
+                        // 신청 상황 태그: 켠 상황의 서류만 보인다
+                        if (vm.situations.isNotEmpty()) {
+                            Spacer(Modifier.height(14.dp))
+                            Text("내 상황에 해당하면 눌러 주세요", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                DocSituation.entries.filter { it in vm.situations }.forEach { s ->
+                                    ChoiceChip(s.label, selected = vm.situations[s] == true) { vm.toggleSituation(s) }
+                                }
+                            }
+                        }
                         Spacer(Modifier.height(16.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            c.docs.forEach { doc ->
+                            vm.visibleDocs(c).forEach { doc ->
                                 DocRow(
                                     doc,
-                                    onClick = { vm.toggleDoc(doc) },
+                                    onClick = { doc.documentId?.takeIf { doc.written }?.let(onOpenDocument) ?: vm.toggleDoc(doc) },
                                     onNotApplicable = { vm.toggleNotApplicable(doc) },
                                 )
                             }
@@ -400,15 +532,6 @@ fun ChecklistScreen(
 
                 Column(Modifier.padding(horizontal = 20.dp)) {
                     Spacer(Modifier.height(24.dp))
-                    // 3.24 신청서 작성 도우미
-                    OnRoadButton(
-                        text = "신청서 작성 도우미",
-                        onClick = { onFormGuide(c.policyId) },
-                        modifier = Modifier.fillMaxWidth(),
-                        variant = ButtonVariant.Outline,
-                        shape = OnRoadShapes.Inner,
-                    )
-                    Spacer(Modifier.height(10.dp))
                     // 공식 신청 페이지가 없으면 버튼을 숨긴다
                     c.policy.applyUrl?.let { url ->
                         OnRoadButton(
@@ -784,6 +907,9 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
                     )
                 }
                 DocLabelParts(label)
+                if (doc.written) {
+                    Text("문서 AI로 작성했어요. 누르면 서류를 열어요.", style = OnRoadType.Micro, color = OnRoadColors.Primary, modifier = Modifier.padding(top = 2.dp))
+                }
                 if (short == null) {
                     DocCondition(doc.condition)
                 } else {
@@ -803,10 +929,12 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
                 }
             }
             when {
+                doc.written -> OnRoadTag("AI로 작성 완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
+                doc.documentStatus == "writing" -> OnRoadTag("작성 중", style = TagStyle.PrimaryOutline, textStyle = OnRoadType.Tiny)
                 checked -> Text("준비 완료", style = OnRoadType.Micro, color = OnRoadColors.Primary)
                 doc.notApplicable -> Text("해당 없음", style = OnRoadType.Micro, color = OnRoadColors.TextMuted)
             }
-            if (doc.condition != null) {
+            if (doc.condition != null && !doc.written) {
                 Spacer(Modifier.width(8.dp))
                 SmallBoxButton(
                     text = if (doc.notApplicable) "해당 없음 취소" else "해당 없음",
