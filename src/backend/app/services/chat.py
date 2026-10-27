@@ -4,6 +4,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from app import profile_signal
 from app.crisis import CRISIS_CONTACTS, CRISIS_MESSAGE, is_crisis
 from app.doc_llm import DocLlm
 from app.llm_client import Llm, call_llm
@@ -35,7 +36,8 @@ def _check_route(v: object) -> bool:
 def chat(
     db: Session, user: User, body: ChatRequest, today: date, llm: Llm, rag: SearchPolicies, doc_llm: DocLlm,
 ) -> ChatResponse:
-    """라우터: 위기(규칙) → 서류 작성 요청이면 문서 AI 로 핸드오프 → 정책 질문(RAG) / 고민 상담"""
+    """라우터: 위기(규칙) → 서류 작성 요청이면 문서 AI 로 핸드오프 → 정책 질문(RAG) / 고민 상담.
+    위기가 아니면 대화에서 찾은 프로필 변경 후보(profile_changes)를 같이 준다"""
     if is_crisis(body.message):
         return ChatResponse(
             type="crisis",
@@ -43,7 +45,14 @@ def chat(
             search=None,
             contacts=[Contact(**c) for c in CRISIS_CONTACTS],
         )
+    res = _answer(db, user, body, today, llm, rag, doc_llm)
+    res.profile_changes = profile_signal.detect(body.message, user, today)
+    return res
 
+
+def _answer(
+    db: Session, user: User, body: ChatRequest, today: date, llm: Llm, rag: SearchPolicies, doc_llm: DocLlm,
+) -> ChatResponse:
     history = [h.model_dump() for h in body.history]
     routed = call_llm("route_message", doc_llm.route_message, _check_route, body.message, history, {"screen": "chat"})
     if routed["route"] == "document":
