@@ -202,6 +202,17 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 
 <br/>
 
+### 3.7 `documents`, `document_fields` — 문서 AI 작성 세션
+
+[document-ai.md](document-ai.md) 참고. 마이그레이션 `0004_documents`.
+
+| 테이블 | 주요 컬럼 |
+|---|---|
+| documents | `user_id`, `source_type`(template·policy_form), `source_id`, `title`, `policy_id`(SET NULL), `checklist_item_id`(SET NULL), `context`, `spec`(JSONB, 만들 때의 칸 정의 스냅샷), `status`(writing·exported), `exported_at`. UNIQUE (user_id, source_type, source_id) |
+| document_fields | `document_id`(CASCADE), `field_id`, `sort_order`, `segments`(JSONB [{text, source}]), `previous_segments`(되돌리기 1단계), `tip`, `reused_from`, `is_completed`, `completed_at`. UNIQUE (document_id, field_id) |
+
+<br/>
+
 ## 4. 코드값 정의
 
 모든 코드값은 PostgreSQL ENUM 대신 `VARCHAR + CHECK`로 관리 (값 추가 시 마이그레이션이 단순함)

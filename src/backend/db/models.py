@@ -141,6 +141,51 @@ class Simulation(Base):
     created_at: Mapped[datetime] = _created_at()
 
 
+class Document(Base):
+    """문서 AI 작성 세션. spec 은 만들 때의 항목 정의 스냅샷 (양식 파일이 바뀌어도 작성 중 문서는 유지)"""
+
+    __tablename__ = "documents"
+    __table_args__ = (UniqueConstraint("user_id", "source_type", "source_id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    source_type: Mapped[str] = mapped_column(String(20), nullable=False)  # template | policy_form
+    source_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    policy_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("policies.id", ondelete="SET NULL"))
+    checklist_item_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("checklist_items.id", ondelete="SET NULL")
+    )
+    context: Mapped[str | None] = mapped_column(Text)  # 상담 AI 에서 넘어온 요청 요약
+    spec: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="writing")
+    exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+
+class DocumentField(Base):
+    __tablename__ = "document_fields"
+    __table_args__ = (UniqueConstraint("document_id", "field_id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    document_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    field_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    # [{"text": ..., "source": "user" | "ai" | "profile" | "reused"}]
+    segments: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'"))
+    previous_segments: Mapped[list[dict] | None] = mapped_column(JSONB)  # 되돌리기 1단계
+    tip: Mapped[str | None] = mapped_column(Text)  # "어떤 내용을 넣으면 좋을까?" 안내
+    reused_from: Mapped[str | None] = mapped_column(String(200))  # 가져온 다른 서류 제목
+    is_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = _updated_at()
+
+
 class RoleplayResult(Base):
     __tablename__ = "roleplay_results"
 
