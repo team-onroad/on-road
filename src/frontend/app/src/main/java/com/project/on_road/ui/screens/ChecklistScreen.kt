@@ -262,7 +262,7 @@ class ChecklistViewModel : ViewModel() {
     }
 
     private fun setGroup(c: Checklist, s: DocSituation, on: Boolean) {
-        c.docs.filter { situationOf(it.condition) == s && it.notApplicable == on }.forEach { d ->
+        c.docs.filter { situationOf(it.condition) == s && it.notApplicable == on && !it.written }.forEach { d ->
             updateDoc(d.itemId) { if (on) it.copy(notApplicable = false) else it.copy(notApplicable = true, checked = false) }
             send(d.itemId, notApplicable = !on)
         }
@@ -278,7 +278,12 @@ class ChecklistViewModel : ViewModel() {
 
     /** 3.9 이 정책의 체크리스트 열기 (없으면 서버가 새로 만든다) */
     fun load(policyId: String) {
-        if (loadedFor == policyId) return
+        if (loadedFor == policyId) {
+            // 다른 화면(서류 작성 등)에서 돌아오면 조용히 새로 받는다
+            val c = checklist ?: return
+            viewModelScope.launch { runCatching { api.getChecklist(userId, c.id) }.onSuccess { checklist = it } }
+            return
+        }
         loadedFor = policyId
         viewModelScope.launch {
             loading = true
@@ -304,6 +309,7 @@ class ChecklistViewModel : ViewModel() {
 
     /** 서류 체크. 해당 없음인 서류를 체크하면 해당 없음이 풀린다 */
     fun toggleDoc(doc: ChecklistDoc) {
+        if (doc.written) return // 문서 AI 로 쓴 서류는 서류 작성 화면에서만 바뀐다
         val next = !doc.checked || doc.notApplicable
         updateDoc(doc.itemId) { it.copy(checked = next, notApplicable = false) }
         send(doc.itemId, checked = next)
@@ -311,7 +317,7 @@ class ChecklistViewModel : ViewModel() {
 
     /** "해당 없음" (조건이 있는 서류만). 고르면 체크가 풀리고, 취소하면 체크하지 않은 상태로 둔다 */
     fun toggleNotApplicable(doc: ChecklistDoc) {
-        if (doc.condition == null) return
+        if (doc.condition == null || doc.written) return
         val next = !doc.notApplicable
         updateDoc(doc.itemId) { if (next) it.copy(notApplicable = true, checked = false) else it.copy(notApplicable = false) }
         send(doc.itemId, notApplicable = next)
@@ -370,6 +376,8 @@ fun ChecklistScreen(
     onFormGuide: (String) -> Unit = {},
     /** 서류 작성 (문서 AI): 이 정책의 준비 서류 중 쓸 서류 고르기 */
     onOpenDocs: (String) -> Unit = {},
+    /** 문서 AI 로 쓴 서류 열기 */
+    onOpenDocument: (Long) -> Unit = {},
     vm: ChecklistViewModel = viewModel(),
 ) {
     val ctx = LocalContext.current
@@ -507,7 +515,7 @@ fun ChecklistScreen(
                             vm.visibleDocs(c).forEach { doc ->
                                 DocRow(
                                     doc,
-                                    onClick = { vm.toggleDoc(doc) },
+                                    onClick = { doc.documentId?.takeIf { doc.written }?.let(onOpenDocument) ?: vm.toggleDoc(doc) },
                                     onNotApplicable = { vm.toggleNotApplicable(doc) },
                                 )
                             }
@@ -899,6 +907,9 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
                     )
                 }
                 DocLabelParts(label)
+                if (doc.written) {
+                    Text("문서 AI로 작성했어요. 누르면 서류를 열어요.", style = OnRoadType.Micro, color = OnRoadColors.Primary, modifier = Modifier.padding(top = 2.dp))
+                }
                 if (short == null) {
                     DocCondition(doc.condition)
                 } else {
@@ -918,10 +929,12 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
                 }
             }
             when {
+                doc.written -> OnRoadTag("AI로 작성 완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
+                doc.documentStatus == "writing" -> OnRoadTag("작성 중", style = TagStyle.PrimaryOutline, textStyle = OnRoadType.Tiny)
                 checked -> Text("준비 완료", style = OnRoadType.Micro, color = OnRoadColors.Primary)
                 doc.notApplicable -> Text("해당 없음", style = OnRoadType.Micro, color = OnRoadColors.TextMuted)
             }
-            if (doc.condition != null) {
+            if (doc.condition != null && !doc.written) {
                 Spacer(Modifier.width(8.dp))
                 SmallBoxButton(
                     text = if (doc.notApplicable) "해당 없음 취소" else "해당 없음",

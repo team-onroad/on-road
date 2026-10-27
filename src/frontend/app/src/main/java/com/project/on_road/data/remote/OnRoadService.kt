@@ -376,6 +376,9 @@ data class ChecklistDocDto(
     @SerializedName("is_checked") val isChecked: Boolean,
     @SerializedName("is_not_applicable") val isNotApplicable: Boolean,
     @SerializedName("checked_at") val checkedAt: String?,
+    /** 이 서류로 연결된 문서 AI 문서 (없으면 null). exported 면 체크를 앱에서 바꿀 수 없다 */
+    @SerializedName("document_id") val documentId: Long? = null,
+    @SerializedName("document_status") val documentStatus: String? = null,
 )
 
 data class ChecklistStepDto(
