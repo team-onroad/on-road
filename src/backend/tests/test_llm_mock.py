@@ -79,6 +79,7 @@ def test_call_llm_errors():
 @pytest.mark.parametrize(
     "message",
     ["죽고 싶어", "죽고싶다", "자살", "자해했어", "사라지고 싶어", "목숨을 끊고 싶어", "뛰어내리고 싶어",
+     "혼자 살기 싫어", "자살하고 싶어",
      "성추행 당했어", "아빠한테 폭행 당해", "협박 받고 있어"],
 )
 def test_crisis_detected(message):
@@ -87,7 +88,8 @@ def test_crisis_detected(message):
 
 @pytest.mark.parametrize(
     "message",
-    ["배고파 죽겠다", "죽 먹고 싶어", "취업이 걱정돼", "월세가 너무 비싸", "요즘 막막해", "맞았어 정답이야"],
+    ["배고파 죽겠다", "죽 먹고 싶어", "취업이 걱정돼", "월세가 너무 비싸", "요즘 막막해", "맞았어 정답이야",
+     "혼자 살면서 등록금이 부담돼요"],
 )
 def test_crisis_not_detected(message):
     assert not is_crisis(message)
