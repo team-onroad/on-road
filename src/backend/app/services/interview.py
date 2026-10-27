@@ -311,6 +311,11 @@ def interview(
         _save(db, doc, state)
         return _response(db, user, doc, state, message="확인했어요.", field_row=row)
 
+    # 물어본 칸에 값이 없는데 "네"만 온 경우 → 값으로 넣지 않고 다시 묻는다
+    if (not value or spec.get("profile_key") == "region") and not pending and flat in CONFIRM_WORDS and not (spec.get("box") or {}).get("how") == "confirm":
+        name = spec.get("easy_label") or spec["label"]
+        return _response(db, user, doc, state, message=f"'{name}'에 쓸 내용을 알려 주세요.")
+
     # 해당 없음 (필수가 아닌 칸) / 나중에 (필수 칸)
     if flat in NOT_APPLICABLE_WORDS or any(flat.startswith(x) for x in LATER_WORDS):
         if spec.get("required") is not True and flat in NOT_APPLICABLE_WORDS:

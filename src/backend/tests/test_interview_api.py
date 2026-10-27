@@ -202,3 +202,12 @@ def test_notice_confirm_and_handwrite_note(api, db_session, doc_llm, forms_dir, 
     assert "출력한 뒤 주민등록번호 칸은 직접 써 주세요." in done["message"] and "계좌번호" not in done["message"]
     assert all(name != "assist_field" or "123-456" not in str(args) for name, args in doc_llm.calls)
     assert "(서명 또는 인) 자리에 서명하거나 도장을" in done["message"]
+
+
+def test_bare_yes_is_not_a_value(api, db_session, doc_llm):
+    user = make_user(db_session, phone="01012345678")
+    doc_id = _start(api, user)
+    for _ in range(3):
+        _say(api, user, doc_id, "네")
+    r = _say(api, user, doc_id, "네")  # 주소 칸은 시/도만 있음 → "네"를 주소로 넣지 않는다
+    assert r["message"] == "'사는 곳 주소'에 쓸 내용을 알려 주세요." and r["question"]["field_id"] == "address"

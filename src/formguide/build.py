@@ -58,6 +58,8 @@ def build(
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{form_id}.source.txt").write_text(form.as_prompt_text(), encoding="utf-8")
     spec = build_spec(form, form_id, policy_key, source, draft)
+    # AI 가 뽑은 항목(좌표 넣기 전)을 따로 둔다 → 좌표 규칙을 고쳐도 LLM 없이 formguide.layout 으로 다시 넣을 수 있다
+    (out_dir / f"{form_id}.extracted.json").write_text(spec.model_dump_json(indent=2), encoding="utf-8")
     spec = attach_boxes(spec, save_layout_pdf(pdf, out_dir, form_id, redraw))
     out = out_dir / f"{form_id}.json"
     out.write_text(spec.model_dump_json(indent=2), encoding="utf-8")
