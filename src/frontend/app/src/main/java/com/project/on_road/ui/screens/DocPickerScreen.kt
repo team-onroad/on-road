@@ -91,12 +91,6 @@ fun DocPickerScreen(
             c == null -> NoticeBox(vm.error ?: "잠시 후 다시 시도해 주세요.", title = "불러오지 못했어요", tone = NoticeTone.Warning)
             else -> {
                 ScreenHeadline(c.policyName, "어떤 서류를 준비할까요?")
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "신청서처럼 직접 쓰는 서류는 AI와 함께 쓰고, 증명서는 기관에서 발급받아요.",
-                    style = OnRoadType.Caption2,
-                    color = OnRoadColors.TextMuted,
-                )
 
                 val writable = vm.choices.filter { it.writable }
                 // 체크리스트에서 꺼 둔 상황(대리 신청 등)의 서류는 빼고 보여 준다
@@ -124,8 +118,6 @@ fun DocPickerScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         issued.forEach { IssuedDocCard(it) }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Footnote("발급받은 서류는 체크리스트의 준비 서류에서 체크해 주세요.")
                 }
             }
         }
@@ -148,15 +140,6 @@ private fun WritableDocCard(ch: DocChoice, onWrite: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(ch.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-                Text(
-                    when {
-                        done -> "작성해서 PDF로 내보냈어요"
-                        writing -> "쓰던 서류가 있어요. 이어서 써요"
-                        else -> "묻는 말에 답하면 원래 양식에 채워 드려요"
-                    },
-                    style = OnRoadType.Micro,
-                    color = OnRoadColors.TextTertiary,
-                )
             }
             if (done) OnRoadTag("완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
             else if (writing) OnRoadTag("작성 중", style = TagStyle.PrimaryOutline, textStyle = OnRoadType.Tiny)
@@ -184,10 +167,6 @@ private fun IssuedDocCard(ch: DocChoice) {
                 ch.doc.notApplicable -> OnRoadTag("해당 없음", style = TagStyle.Gray, textStyle = OnRoadType.Tiny)
                 ch.doc.checked -> OnRoadTag("준비 완료", style = TagStyle.PrimarySoft, textStyle = OnRoadType.Tiny)
             }
-        }
-        ch.doc.condition?.let {
-            Spacer(Modifier.height(4.dp))
-            Text("필요한 경우: $it", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
         }
     }
 }

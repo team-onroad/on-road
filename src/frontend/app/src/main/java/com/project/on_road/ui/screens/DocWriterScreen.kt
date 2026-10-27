@@ -610,16 +610,10 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier) {
                     leadingIcon = Icons.Outlined.Description,
                 )
                 Spacer(Modifier.height(6.dp))
-                Text(
-                    vm.exported?.checklist?.let { "체크리스트의 '${it.label}'도 체크했어요. " }.orEmpty() +
-                        "고칠 칸을 눌러 '다시 고치기'하면 체크리스트 체크가 풀려요.",
-                    style = OnRoadType.Tiny,
-                    color = OnRoadColors.TextTertiary,
-                )
+                Text("칸을 다시 고치면 체크리스트 체크가 풀려요.", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
             } else {
                 OnRoadButton("검사하고 내보내기", vm::export, Modifier.fillMaxWidth(), loading = vm.busy)
-                Spacer(Modifier.height(6.dp))
-                Text("모든 칸을 완료하면 원래 양식에 채운 PDF로 내보내요.", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
+
             }
         }
     }
@@ -744,8 +738,6 @@ private fun HandwriteCard(f: DocFieldDto) {
         }
         Spacer(Modifier.height(6.dp))
         Text(f.guide, style = OnRoadType.Caption2, color = OnRoadColors.TextSlateDark)
-        Spacer(Modifier.height(4.dp))
-        Text("개인정보라 앱에 입력하지 않아요. 내보낸 PDF를 출력해서 직접 써 주세요.", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
     }
 }
 

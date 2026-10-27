@@ -423,12 +423,6 @@ fun ChecklistScreen(
                         style = OnRoadType.Caption2,
                         color = OnRoadColors.TextMuted,
                     )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        "체크할 때마다 자동으로 저장돼요. 단계를 꼼꼼히 확인해 보세요.",
-                        style = OnRoadType.Caption2,
-                        color = OnRoadColors.TextMuted,
-                    )
                     if (!c.policy.isActive) {
                         Spacer(Modifier.height(16.dp))
                         NoticeBox(
@@ -471,13 +465,7 @@ fun ChecklistScreen(
                                 Text("서류 작성 도우미", style = OnRoadType.Title3, color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
                                 if (writtenForm) OnRoadTag("신청서 작성 완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
                             }
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                "준비 서류 중 신청서처럼 직접 쓰는 서류를 골라 AI와 함께 써요. 칸마다 쓰는 법도 알려 주고, 다 쓰면 원래 양식 PDF로 만들어 줘요.",
-                                style = OnRoadType.Caption,
-                                color = OnRoadColors.TextTertiary,
-                            )
-                            Spacer(Modifier.height(14.dp))
+                            Spacer(Modifier.height(12.dp))
                             OnRoadButton(
                                 "서류 고르고 쓰기",
                                 { onOpenDocs(c.policyId) },
@@ -499,8 +487,6 @@ fun ChecklistScreen(
                         // 신청 상황 태그: 켠 상황의 서류만 보인다
                         if (vm.situations.isNotEmpty()) {
                             Spacer(Modifier.height(14.dp))
-                            Text("내 상황에 해당하면 눌러 주세요", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
-                            Spacer(Modifier.height(8.dp))
                             Row(
                                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -907,9 +893,6 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
                     )
                 }
                 DocLabelParts(label)
-                if (doc.written) {
-                    Text("문서 AI로 작성했어요. 누르면 서류를 열어요.", style = OnRoadType.Micro, color = OnRoadColors.Primary, modifier = Modifier.padding(top = 2.dp))
-                }
                 if (short == null) {
                     DocCondition(doc.condition)
                 } else {
