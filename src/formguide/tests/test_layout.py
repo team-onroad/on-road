@@ -62,10 +62,14 @@ def test_date_line(boxes):
 
 def test_attach_boxes_warns_missing(tmp_path):
     form = make_form(tmp_path / "form.pdf")
-    spec = FormSpec(form_id="X", policy_key="P", title="t", source="s", fields=FIELDS + [f("memo", "추가 메모")])
+    spec = FormSpec(form_id="X", policy_key="P", title="t", source="s",
+                    fields=FIELDS + [f("memo", "추가 메모"), f("g_mail", "대리인 E-mail")])
     out = attach_boxes(spec, form)
     assert next(x for x in out.fields if x.id == "name").box["how"] == "table_right"
-    assert out.warnings == ["값 자리를 못 찾음 (별지에 적음): 추가 메모"]
+    assert "g_mail" not in {x.id for x in out.fields}  # 대리인 묶음에 없는 칸 → AI 가 지어낸 칸
+    assert out.warnings == [
+        "양식에 없는 칸이라 버림: '대리인 E-mail' (대리인 묶음에 없음)", "값 자리를 못 찾음 (별지에 적음): 추가 메모",
+    ]
     assert attach_boxes(out, form).warnings == out.warnings  # 다시 돌려도 경고가 쌓이지 않음
 
 
