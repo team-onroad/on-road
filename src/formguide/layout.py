@@ -43,10 +43,12 @@ DATE_LEFT_SPACE = 60  # "년" 앞에 연도를 쓸 공간
 SECTION_MAX = 20  # 구역 제목 길이 (이보다 긴 "1. …" 줄은 유의사항 문장)
 MARK_BOX_MAX = 12  # 체크박스 네모(□) 크기
 MARK_BRACKET_GAP = 30  # "[ ]" 의 [ 와 ] 사이 최대 거리 (제목의 "[ … ]" 묶음 괄호와 구분)
-ACCOUNT_LINE_H = 10  # 계좌번호를 "은행" 줄 위·아래에 쓸 최소 높이
+ACCOUNT_LINE_H = 10
+OPTION_GAP = 20  # 선택지 글자 사이가 이보다 벌어지면 다른 셀 글자  # 계좌번호를 "은행" 줄 위·아래에 쓸 최소 높이
 CONFIRM_OPTION = "확인"
 CONFIRM_FIELD_ID = "notice_confirm"
 SIGN_MARK = "(서명 또는 인)"
+_SIGN_RE = re.compile(r"\(\s*(서명\s*또는\s*인|서명|인)\s*\)")
 
 
 def _norm(text: str | None) -> str:
@@ -234,13 +236,16 @@ def _marks(page, rect: tuple) -> dict[str, list[float]]:
     for start_x, top, cx, cy in sorted(starts, key=lambda t: (round(t[1]), t[0])):
         same = [c for c in chars if abs((c["top"] + c["bottom"]) / 2 - cy) < 5 and c["x0"] >= start_x - 0.5]
         nxt = min([t[0] for t in starts if abs(t[3] - cy) < 5 and t[0] > start_x + 1] or [x1 + 1])
-        text = ""
+        text, prev_x1 = "", None
         for c in sorted(same, key=lambda c: c["x0"]):
-            if c["x0"] >= nxt - 6 or c["text"] in "[]()□☐":
+            if c["x0"] >= nxt - 6 or c["text"] in "[]()□☐" or (
+                text.strip() and prev_x1 is not None and c["x0"] - prev_x1 > OPTION_GAP
+            ):  # 다음 선택지·괄호, 또는 멀리 떨어진 옆 셀 글자 (예: "처리기간")
                 if text.strip():
                     break
                 continue
             text += c["text"]
+            prev_x1 = c["x1"]
         opt = " ".join(text.split()).strip(" ,.·")
         if opt and opt not in out:
             out[opt] = [round(cx, 1), round(cy, 1)]
@@ -681,9 +686,11 @@ def _split_bank(fields: list[FormField]) -> list[FormField]:
 
 def _signature(f: FormField) -> FormField:
     """"신청인 성명: ____ (서명 또는 인)" 줄: 이름은 프로필로 채우고, 서명·도장만 손으로 (서명 자리는 비워 둔다)"""
-    if "성명" not in _norm(f.label) or not (f.input_type == "signature" or f.sensitive or f.value_source == "handwrite"):
+    label = _SIGN_RE.sub("", f.label).strip()
+    sign_like = f.input_type == "signature" or f.sensitive or f.value_source == "handwrite" or label != f.label.strip()
+    if "성명" not in _norm(label) or not sign_like:
         return f
-    return f.model_copy(update={
+    return f.model_copy(update={"label": label,
         "input_type": "text", "value_source": "profile", "profile_key": "name", "sensitive": False, "example": None,
         "guide": "신청인 이름을 적어요. 출력한 뒤 옆에 직접 서명하거나 도장을 찍어요.",
     })
@@ -760,7 +767,13 @@ def attach_boxes(spec: FormSpec, pdf_path: Path) -> FormSpec:
         box = boxes.get(f.id)
         if box and f.id in sign_ids and box["how"] in ("table_right", "text_right"):
             box = _sign_mark(pdf_path, box)
-        fields.append(f.model_copy(update={"box": box}))
+        update = {"box": box}
+        if box and box.get("options") and "[" in f.label:
+            head = f.label.split("[")[0].strip()
+            # 선택지만 있는 체크박스(제목 속 "□자립수당 지급 □의료비 지원")는 선택지를 "/"로 잇는다
+            mixed = not head or any(_norm(o) in _norm(head) for o in box["options"])
+            update["label"] = "/".join(box["options"]) if mixed else head
+        fields.append(f.model_copy(update=update))
     # 유의사항 "확인(√ 체크)" 열: AI 가 뽑지 않아도 양식에서 찾아 칸 하나로 넣는다 (모두 체크)
     with pdfplumber.open(pdf_path) as pdf:
         confirm = _confirm_column(pdf, _cells(pdf))
