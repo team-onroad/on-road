@@ -583,13 +583,14 @@ def _core_label(f: FormField, cell: Cell) -> str:
 def _checkbox_in_text(pdf, label: str) -> dict | None:
     """표 밖 문장 속 체크박스 (예: "것에 동의함. ([ ]동의함, [ ]동의하지 않음)")"""
     target = _norm(label)
+    want = {_norm(o) for o in _options(label)}  # label 에 "[ ]동의함, [ ]동의하지 않음"까지 들어 있으면 선택지로 찾는다
     for pno, page in enumerate(pdf.pages):
         for ln in page.extract_text_lines():
-            if target not in _norm(ln["text"]) or "[" not in ln["text"]:
+            if "[" not in ln["text"] or (target not in _norm(ln["text"]) and not want):
                 continue
             rect = (ln["x0"] - 1, ln["top"] - 2, ln["x1"] + 1, ln["bottom"] + 2)
             marks = _marks(page, rect)
-            if marks:
+            if marks and (target in _norm(ln["text"]) or want <= {_norm(o) for o in marks}):
                 return {"page": pno, "rect": rect, "how": "checkbox", "options": list(marks), "marks": marks,
                         "template_text": " ".join(ln["text"].split())}
     return None
@@ -767,12 +768,18 @@ def attach_boxes(spec: FormSpec, pdf_path: Path) -> FormSpec:
         box = boxes.get(f.id)
         if box and f.id in sign_ids and box["how"] in ("table_right", "text_right"):
             box = _sign_mark(pdf_path, box)
-        update = {"box": box}
+        update: dict = {"box": box}
+        if _bank_role(f) in ("bank", "holder") and f.value_source == "handwrite":
+            update.update(value_source="user", sensitive=False)  # 은행 이름·예금주는 민감 정보가 아니다
+        if f.input_type == "checkbox" and f.value_source == "office" and "동의" in f.label:
+            update["value_source"] = "user"  # "담당 공무원이 … 확인하는 것에 동의함" 은 신청인이 고르는 칸
         if box and box.get("options") and "[" in f.label:
             head = f.label.split("[")[0].strip()
             # 선택지만 있는 체크박스(제목 속 "□자립수당 지급 □의료비 지원")는 선택지를 "/"로 잇는다
             mixed = not head or any(_norm(o) in _norm(head) for o in box["options"])
             update["label"] = "/".join(box["options"]) if mixed else head
+            if mixed and len(head) > 20:
+                update["guide"] = head.rstrip(" (")  # 긴 안내 문장은 칸 설명으로
         fields.append(f.model_copy(update=update))
     # 유의사항 "확인(√ 체크)" 열: AI 가 뽑지 않아도 양식에서 찾아 칸 하나로 넣는다 (모두 체크)
     with pdfplumber.open(pdf_path) as pdf:
