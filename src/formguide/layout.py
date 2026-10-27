@@ -311,11 +311,25 @@ def _round(box: dict) -> dict:
     return {**box, "rect": [round(v, 1) for v in box["rect"]]}
 
 
+def group_names(pdf_path: Path) -> set[str]:
+    """표의 묶음 이름 (예: "대상아동", "대리인"), 공백 없이"""
+    with pdfplumber.open(pdf_path) as pdf:
+        return {_norm(c.group) for grid in _cells(pdf) for row in grid for c in row if c is not None and c.group}
+
+
 def attach_boxes(spec: FormSpec, pdf_path: Path) -> FormSpec:
     boxes = locate(pdf_path, spec.fields)
-    fields = [f.model_copy(update={"box": boxes.get(f.id)}) for f in spec.fields]
-    missing = [f.label for f in fields if f.box is None and f.value_source in ("profile", "user")]
+    groups = group_names(pdf_path)
     warnings = [w for w in spec.warnings if not w.startswith("값 자리를 못 찾음")]
+    fields = []
+    for f in spec.fields:
+        words = f.label.split()
+        # "대리인 E-mail"처럼 묶음 이름을 붙였는데 그 묶음에 칸이 없으면 AI 가 지어낸 칸
+        if f.id not in boxes and len(words) >= 2 and _norm(words[0]) in groups and f.value_source in ("profile", "user"):
+            warnings.append(f"양식에 없는 칸이라 버림: '{f.label}' ({words[0]} 묶음에 없음)")
+            continue
+        fields.append(f.model_copy(update={"box": boxes.get(f.id)}))
+    missing = [f.label for f in fields if f.box is None and f.value_source in ("profile", "user")]
     if missing:
         warnings.append(f"값 자리를 못 찾음 (별지에 적음): {', '.join(missing)}")
     return spec.model_copy(update={"fields": fields, "warnings": warnings})
