@@ -21,6 +21,9 @@ object AppContainer {
     }
     val chatApi: ChatApi by lazy { if (USE_REMOTE) RemoteChatApi(service) else FakeChatApi() }
 
+    /** 문서 AI (서버 전용, 서류 작성 도우미·신청서 작성) */
+    val documents: DocumentRepository by lazy { DocumentRepository(service) { session.userId.orEmpty() } }
+
     /** 코치(흥미 탐색·롤플레이·서류) API는 백엔드에 아직 없어서 가짜 유지 */
     val coachApi: CoachApi = FakeCoachApi()
 
