@@ -113,3 +113,19 @@ def test_signature_line_gets_name_and_mark(tmp_path):
     printed = make_form(tmp_path / "g.pdf", sign_text=True)
     s2 = by_id(attach_boxes(spec(sign), printed))["sign"]
     assert "sign_mark" not in s2.box and s2.box["rect"][2] < 450  # 양식에 있으면 그 글자 앞까지만
+
+
+def test_hint_format_labels_are_cleaned(tmp_path):
+    from formguide.tests.sample_form import make_form as make_group_form
+
+    pdf = make_group_form(tmp_path / "g.pdf")
+    out = attach_boxes(spec(
+        f("name", "대상아동 > 성 명"), f("g_name", "대리인 > 성 명"),
+        f("contact", "대리인 > 연락처"), f("g_phone", "대리인 > 전화:", input_type="phone"),
+    ), pdf)
+    fields = by_id(out)
+    assert fields["name"].label == "성 명" and fields["name"].box["rect"][1] == 95.0  # 본인 묶음 이름은 뗀다
+    assert fields["g_name"].label == "대리인 성 명" and fields["g_name"].box["rect"][1] == 199.0
+    assert fields["g_phone"].label == "대리인 전화:" and fields["g_phone"].box is not None
+    assert "contact" not in fields  # "연락처"는 전화 칸을 묶는 이름
+    assert "작은 칸을 묶는 이름이라 버림: '대리인 연락처'" in out.warnings
