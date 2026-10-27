@@ -200,6 +200,16 @@ def to_response(db: Session, doc: Document) -> DocumentResponse:
     )
 
 
+def _uncheck_linked_item(db: Session, doc: Document) -> None:
+    if doc.checklist_item_id is None:
+        return
+    item = db.get(ChecklistItem, doc.checklist_item_id)
+    cl = db.get(Checklist, item.checklist_id) if item is not None else None
+    if item is not None and cl is not None and cl.user_id == doc.user_id and item.is_checked:
+        checklist_service._apply(item, ItemToggle(is_checked=False))
+        cl.updated_at = func.now()
+
+
 def list_documents(db: Session, user: User) -> DocumentList:
     docs = db.scalars(
         select(Document).where(Document.user_id == user.id).order_by(Document.updated_at.desc(), Document.id.desc())
@@ -209,7 +219,8 @@ def list_documents(db: Session, user: User) -> DocumentList:
         progress, _ = _progress(_rows(db, d), _specs(d))
         out.append(DocumentSummary(
             document_id=d.id, title=d.title, source_type=d.source_type, source_id=d.source_id,
-            policy_id=d.policy_id, status=d.status, progress=progress, updated_at=d.updated_at,
+            policy_id=d.policy_id, checklist_item_id=d.checklist_item_id, status=d.status, progress=progress,
+            updated_at=d.updated_at,
         ))
     return DocumentList(documents=out)
 
@@ -353,6 +364,8 @@ def update_field(db: Session, doc: Document, field_id: str, body: FieldUpdate) -
     if reopen and row.is_completed:
         row.is_completed = False
         row.completed_at = None
+        if doc.status == "exported":
+            _uncheck_linked_item(db, doc)  # 내보낸 서류를 다시 고치면 체크리스트 체크도 풀린다
         doc.status = "writing"
     if writes:
         new = [{"text": body.value, "source": "user"}] if "value" in sent else [s.model_dump() for s in body.segments]

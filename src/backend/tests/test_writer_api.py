@@ -373,8 +373,21 @@ def test_export_checks_linked_checklist_item(api, db_session, doc_llm):
     assert docx.status_code == 200
     assert docx.content.startswith(b"PK")
 
+    # 내보낸 서류: 체크리스트에서 문서 상태를 보여 주고, 직접 바꾸지 못한다
+    doc_item = detail["steps"][2]["documents"][0]
+    assert (doc_item["document_id"], doc_item["document_status"]) == (data["document_id"], "exported")
+    assert detail["steps"][2]["documents"][1]["document_id"] is None
+    item_url = f"/api/checklists/{checklist['checklist_id']}/items/{item_id}?user_id={user.id}"
+    _err(api.patch(item_url, json={"is_checked": False}), 409, "DOCUMENT_WRITTEN")
+    listed = api.get(f"/api/users/{user.id}/documents").json()["documents"][0]
+    assert listed["checklist_item_id"] == item_id
+
     reopened = _patch(api, user, data["document_id"], "reason", is_completed=False).json()
     assert reopened["status"] == "writing"
+    # 다시 고치면 체크도 풀리고, 직접 바꿀 수 있다
+    after = api.get(f"/api/checklists/{checklist['checklist_id']}?user_id={user.id}").json()["steps"][2]["documents"][0]
+    assert (after["is_checked"], after["document_status"]) == (False, "writing")
+    assert api.patch(item_url, json={"is_checked": True}).status_code == 200
 
 
 def test_export_warns_about_different_values(api, db_session, doc_llm):

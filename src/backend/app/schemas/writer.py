@@ -183,6 +183,7 @@ class DocumentSummary(BaseModel):
     source_type: SourceType
     source_id: str
     policy_id: int | None
+    checklist_item_id: int | None  # 연결된 체크리스트 서류 항목
     status: Literal["writing", "exported"]
     progress: DocProgress
     updated_at: datetime
