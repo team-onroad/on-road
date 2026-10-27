@@ -70,7 +70,7 @@ def route_message(message: str, history: list[dict], context: dict) -> dict:
 
 def _mock_action(prompt: str, current: str) -> str:
     text = prompt.replace(" ", "")
-    if any(w in text for w in ("어떤내용", "뭘써", "무엇을", "뭐써", "뭐넣", "어떤걸", "내용추천")):
+    if any(w in text for w in ("어떤내용", "뭘써", "뭘쓰", "무엇을", "뭐써", "뭐쓰", "뭐넣", "어떤걸", "내용추천")):
         return "tip"
     if any(w in text for w in ("구조", "틀", "순서", "목차")):
         return "outline"
