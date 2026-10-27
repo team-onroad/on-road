@@ -26,6 +26,7 @@ from pathlib import Path
 
 import pdfplumber
 
+from formguide.redraw import has_broken_fonts, redraw_text
 from formguide.schema import FormField, FormSpec
 
 _SPACE_RE = re.compile(r"\s+")
@@ -320,10 +321,17 @@ def attach_boxes(spec: FormSpec, pdf_path: Path) -> FormSpec:
     return spec.model_copy(update={"fields": fields, "warnings": warnings})
 
 
-def save_layout_pdf(pdf_path: Path, out_dir: Path, form_id: str) -> Path:
-    """원본 양식 PDF 를 data/forms/{form_id}.pdf 로 복사 (백엔드가 내보낼 때 바탕으로 씀)"""
+def save_layout_pdf(pdf_path: Path, out_dir: Path, form_id: str, redraw: bool | None = None) -> Path:
+    """원본 양식 PDF 를 data/forms/{form_id}.pdf 로 저장 (백엔드가 내보낼 때 바탕으로 씀).
+    redraw: 깨진 글자를 다시 그릴지 (None 이면 글꼴이 잘못 들어간 PDF 일 때만, formguide/redraw.py)"""
     out = out_dir / f"{form_id}.pdf"
-    if pdf_path.resolve() != out.resolve():
+    if redraw is None:
+        redraw = has_broken_fonts(pdf_path)
+    if redraw:
+        tmp = out.with_suffix(".redraw.pdf")
+        redraw_text(pdf_path, tmp)
+        tmp.replace(out)
+    elif pdf_path.resolve() != out.resolve():
         shutil.copyfile(pdf_path, out)
     return out
 
@@ -335,11 +343,17 @@ def main() -> None:
     parser.add_argument("form_id")
     parser.add_argument("--pdf", type=Path, help="양식 PDF (없으면 data/forms/{form_id}.pdf)")
     parser.add_argument("--out", type=Path, default=FORMS_DIR)
+    parser.add_argument("--redraw-text", action=argparse.BooleanOptionalAction, default=None,
+                        help="양식 글자를 깨끗한 글꼴로 다시 그린다 (기본: 글꼴이 깨진 PDF 만)")
     args = parser.parse_args()
 
     spec_path = args.out / f"{args.form_id}.json"
     spec = FormSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
-    pdf = save_layout_pdf(args.pdf, args.out, args.form_id) if args.pdf else args.out / f"{args.form_id}.pdf"
+    src = args.pdf or args.out / f"{args.form_id}.pdf"
+    redraw = has_broken_fonts(src) if args.redraw_text is None else args.redraw_text
+    pdf = save_layout_pdf(src, args.out, args.form_id, redraw)
+    if redraw:
+        print("양식 글자를 깨끗한 글꼴로 다시 그렸습니다.")
     spec = attach_boxes(spec, pdf)
     spec_path.write_text(spec.model_dump_json(indent=2), encoding="utf-8")
     found = sum(1 for f in spec.fields if f.box)

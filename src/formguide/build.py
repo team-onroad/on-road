@@ -9,7 +9,8 @@
 결과:
     data/forms/P001-apply.json         작성 항목 (checked: false 로 저장 → 원본과 대조 후 true 로 바꾼다)
     data/forms/P001-apply.source.txt   PDF 에서 뽑은 원문 (대조용)
-    data/forms/P001-apply.pdf          원본 양식 PDF (문서 AI 가 이 위에 작성 내용을 채워 내보낸다)
+    data/forms/P001-apply.pdf          원본 양식 PDF (문서 AI 가 이 위에 작성 내용을 채워 내보낸다.
+                                       글꼴이 깨진 PDF 는 글자를 다시 그려 저장, --redraw-text / --no-redraw-text)
     data/forms/_work/                  내려받은 파일·변환한 PDF (커밋하지 않음)
 """
 
@@ -43,7 +44,7 @@ def build_spec(form: FormText, form_id: str, policy_key: str, source: str, draft
 
 def build(
     source: str, form_id: str, policy_key: str, out_dir: Path = FORMS_DIR,
-    draft: Draft | None = None, suggested_name: str | None = None,
+    draft: Draft | None = None, suggested_name: str | None = None, redraw: bool | None = None,
 ) -> Path:
     if draft is None:
         from formguide.llm import draft_fields as draft
@@ -56,7 +57,7 @@ def build(
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{form_id}.source.txt").write_text(form.as_prompt_text(), encoding="utf-8")
     spec = build_spec(form, form_id, policy_key, source, draft)
-    spec = attach_boxes(spec, save_layout_pdf(pdf, out_dir, form_id))
+    spec = attach_boxes(spec, save_layout_pdf(pdf, out_dir, form_id, redraw))
     out = out_dir / f"{form_id}.json"
     out.write_text(spec.model_dump_json(indent=2), encoding="utf-8")
     return out
@@ -72,6 +73,8 @@ def main() -> None:
     parser.add_argument("--policy-key", required=True, help="연결할 정책 키 (예: P001)")
     parser.add_argument("--form-id", required=True, help="저장 이름 (예: P001-apply)")
     parser.add_argument("--out", type=Path, default=FORMS_DIR)
+    parser.add_argument("--redraw-text", action=argparse.BooleanOptionalAction, default=None,
+                        help="양식 글자를 깨끗한 글꼴로 다시 그린다 (기본: 글꼴이 깨진 PDF 만)")
     args = parser.parse_args()
     if sum(map(bool, (args.source, args.notice, args.search))) != 1:
         parser.error("파일 경로·URL, --notice, --search 중 하나만 주세요.")
@@ -108,7 +111,7 @@ def main() -> None:
         print(f"선택: {chosen.name}")
         source, name = chosen.url, chosen.name
 
-    out = build(source, args.form_id, args.policy_key, args.out, suggested_name=name)
+    out = build(source, args.form_id, args.policy_key, args.out, suggested_name=name, redraw=args.redraw_text)
     spec = FormSpec.model_validate_json(out.read_text(encoding="utf-8"))
     print(f"저장: {out}")
     print(f"항목 {len(spec.fields)}개, 유의사항 {len(spec.notes)}개, 경고 {len(spec.warnings)}개")
