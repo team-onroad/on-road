@@ -164,3 +164,36 @@ def test_interview_errors(api, db_session, doc_llm):
     _err(api.post(f"/api/documents/{doc_id}/interview", json={"user_id": str(other.id)}), 404, "DOCUMENT_NOT_FOUND")
     _err(api.post(f"/api/documents/{doc_id}/interview", json={"user_id": str(user.id), "message": "  "}),
          422, "VALIDATION_ERROR")
+
+
+def test_notice_confirm_and_handwrite_note(api, db_session, doc_llm, forms_dir, clock):
+    user = make_user(db_session, name="김민지")
+    policy = make_policy(db_session, policy_key="P001", name="자립수당")
+    items = ["1. 자립수당 지원을 위해 필요한 정보를 열람할 수 있습니다. 또한 5년간 보유합니다.", "2. 서류는 돌려주지 않습니다."]
+    spec = {
+        "form_id": "P001-apply", "policy_key": "P001", "title": "자립수당 지급 신청서", "source": "t.pdf",
+        "fields": [
+            {"id": "acc", "label": "계좌번호", "input_type": "account", "value_source": "handwrite", "sensitive": True,
+             "guide": "직접"},
+            {"id": "sign", "label": "신청인(대리신청인) 성명:", "value_source": "profile", "profile_key": "name",
+             "guide": "이름", "required": True},
+            {"id": "notice_confirm", "label": "유의사항 확인", "input_type": "checkbox", "required": True, "guide": "확인",
+             "box": {"page": 1, "rect": [0, 0, 10, 10], "how": "confirm", "spots": [[1, 1], [1, 5]], "items": items,
+                     "options": ["확인"]}},
+        ],
+    }
+    (forms_dir / "P001-apply.json").write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+    doc_id = api.post("/api/documents", json={
+        "user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id,
+    }).json()["document_id"]
+
+    _say(api, user, doc_id)
+    q = _say(api, user, doc_id, "네")["question"]
+    assert q["field_id"] == "notice_confirm"
+    assert q["text"].startswith("유의사항 2가지를 읽고 확인해야 해요.")
+    assert "- 1. 자립수당 지원을 위해 필요한 정보를 열람할 수 있습니다." in q["text"] and "5년간" not in q["text"]  # 첫 문장만
+    assert _say(api, user, doc_id, "음")["message"].startswith("유의사항을 읽고 '확인'")
+    done = _say(api, user, doc_id, "다 읽었어")
+    assert done["field"]["value"] == "확인" and done["done"] is True
+    assert "출력한 뒤 계좌번호 칸은 직접 써 주세요." in done["message"]
+    assert "(서명 또는 인) 자리에 서명하거나 도장을" in done["message"]
