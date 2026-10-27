@@ -28,7 +28,14 @@ from db.models import Document, DocumentField, User
 CONFIRM_WORDS = ("네", "예", "응", "ㅇㅇ", "맞아", "맞아요", "맞습니다", "좋아", "좋아요", "그대로", "확인", "오케이", "ok", "괜찮아")
 NOT_APPLICABLE_WORDS = ("해당없음", "해당없어", "없음", "없어", "없어요", "안씀", "안써", "비워", "빈칸")
 LATER_WORDS = ("건너뛰", "넘어가", "나중에", "패스", "몰라", "모르겠")
-QUESTION_WORDS = ("뭐야", "뭐예요", "뭔가요", "어떻게", "언제까지", "무슨", "왜", "되나요", "돼?", "할까", "알려줘")
+QUESTION_WORDS = (
+    "뭐야", "뭐예요", "뭔가요", "뭔데", "뭐지", "어떻게", "어떡", "어때", "언제까지", "무슨", "왜", "되나요", "돼?",
+    "할까", "될까", "일까", "인가요", "알려줘", "알려주", "가르쳐", "궁금",
+)
+# 짧은 칸 답이 이 말로 끝나고 띄어쓰기가 있으면 대화 문장일 수 있다 → 바로 적지 않고 "이렇게 적을까요?"로 확인
+_TALK_ENDINGS = ("어", "야", "지", "래", "까", "니", "네", "요", "해", "줘", "다", "음", "ㅋ", "ㅎ")
+# 짧은 칸 답 끝의 말버릇은 떼고 적는다 (예: "OO아동복지원이요" → "OO아동복지원")
+_TRAILING_RE = re.compile(r"\s*(이에요|예요|이요|입니다|이에용|요)[.!~]*$")
 
 DONE_MESSAGE = "모든 칸을 채웠어요."
 EXPORTED_MESSAGE = "모든 칸을 채우고 서류를 만들었어요. PDF로 받아 볼 수 있어요."
@@ -55,6 +62,7 @@ def _state(doc: Document) -> dict:
     s.setdefault("current", None)
     s.setdefault("skipped", [])
     s.setdefault("pending", None)
+    s.setdefault("confirm_text", None)  # {"field": 칸, "text": 적을까 물어본 답} (대화 문장 같은 짧은 칸 답)
     return s
 
 
@@ -64,11 +72,18 @@ def _todo(rows: list[DocumentField], specs: dict, skipped: list[str]) -> list[st
     return [f for f in open_ids if f not in skipped] + [f for f in open_ids if f in skipped]
 
 
-def _question(row: DocumentField, spec: dict, pending: bool) -> Question:
+def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str | None = None) -> Question:
     name = spec.get("easy_label") or spec["label"]
     value = w._value(row.segments).strip()
     can_skip = spec.get("required") is not True
     options = spec.get("options")
+    if confirm_text is not None:
+        text = (f"'{name}'에 '{confirm_text}'(이)라고 적을까요? 맞으면 '네', 아니면 칸에 쓸 내용을 다시 알려 주세요. "
+                "궁금한 게 있으면 물어봐도 돼요.")
+        return Question(
+            field_id=row.field_id, label=spec["label"], text=text, input_type=spec.get("input_type", "text"),
+            options=None, current_value=confirm_text, awaiting_confirm=True, can_skip=can_skip,
+        )
     if pending and value:
         text = f"이렇게 써 봤어요.\n\n{value}\n\n괜찮으면 '좋아', 고칠 점이 있으면 말해 주세요."
         confirm = True
@@ -176,7 +191,17 @@ def _handwrite_note(specs: dict) -> str:
 
 def _is_question(text: str) -> bool:
     flat = _flat(text)
-    return "?" in text or any(q in flat for q in QUESTION_WORDS)
+    return "?" in text or "？" in text or any(q in flat for q in QUESTION_WORDS)
+
+
+def _talk_like(text: str) -> bool:
+    """짧은 칸 답인데 대화 문장처럼 보이는지 (띄어쓰기가 있고 말끝이 대화체). 이름·주소·기관명은 보통 아니다"""
+    t = text.strip().rstrip(".!~ ")
+    return " " in t and t.endswith(_TALK_ENDINGS)
+
+
+def _short_value(text: str) -> str:
+    return _TRAILING_RE.sub("", text.strip()) or text.strip()
 
 
 def _save(db: Session, doc: Document, state: dict) -> None:
@@ -249,7 +274,8 @@ def _response(
             state["current"], state["pending"] = current, None
             _save(db, doc, state)
         row = next(r for r in rows if r.field_id == current)
-        question = _question(row, specs[current], state["pending"] == current)
+        confirm = state["confirm_text"] if (state["confirm_text"] or {}).get("field") == current else None
+        question = _question(row, specs[current], state["pending"] == current, confirm and confirm["text"])
     elif route == "field":
         result = w.check(db, user, doc)
         if result.ready:
@@ -304,6 +330,17 @@ def interview(
     value = w._value(row.segments).strip()
     pending = state["pending"] == current
 
+    # "이렇게 적을까요?" 확인 중: "네"면 그 답을 적고, 아니면 이번 말을 새 답으로 본다
+    asked = state["confirm_text"] if (state["confirm_text"] or {}).get("field") == current else None
+    state["confirm_text"] = None
+    if asked is not None and flat in CONFIRM_WORDS:
+        if current in state["skipped"]:
+            state["skipped"].remove(current)
+        _complete(row, [{"text": asked["text"], "source": "user"}])
+        state["pending"] = None
+        _save(db, doc, state)
+        return _response(db, user, doc, state, message="적었어요.", field_row=row)
+
     # 확인: AI 초안·미리 채운 값을 그대로
     if value and flat in CONFIRM_WORDS and (pending or spec.get("profile_key") != "region"):
         _complete(row)
@@ -339,7 +376,16 @@ def interview(
     # 짧은 칸: 규칙으로 정리해 바로 완료
     normalized, retry = _normalize(spec, msg, today)
     if normalized is None:
+        _save(db, doc, state)
         return _response(db, user, doc, state, message=retry)
+    free_text = not spec.get("options") and spec.get("input_type") not in ("date", "phone", "account")
+    if free_text:
+        normalized = _short_value(normalized)
+        if _talk_like(msg):
+            # 대화 문장 같은 답 (예: "오늘 날씨 좋다"): 바로 적지 않고 확인 (LLM 에 보내지 않음)
+            state["confirm_text"] = {"field": current, "text": normalized}
+            _save(db, doc, state)
+            return _response(db, user, doc, state)
     if current in state["skipped"]:
         state["skipped"].remove(current)
     _complete(row, [{"text": normalized, "source": "user"}])
