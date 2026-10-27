@@ -37,6 +37,7 @@ INK = (0.05, 0.1, 0.35)  # 원본 양식 위에 쓰는 글자 (볼펜 느낌의 
 FONT_NAME = "onroadkr"  # 양식 PDF 에 원래 있는 글꼴 이름과 겹치지 않게 (겹치면 그 글꼴의 일부 글자만 쓰게 됨)
 OVERLAY_SIZES = (10, 9, 8, 7)
 BOX_INSET = 2.5
+SIGN_SIZE = 9
 _DATE_RE = re.compile(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})")
 
 
@@ -214,13 +215,18 @@ def _fill_checkbox(
     return True
 
 
-def _fill_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str) -> bool:
-    """칸에 들어가면 True. 한 줄이면 세로 가운데, 여러 줄이면 위에서부터. 글자 크기를 줄여 가며 맞춘다"""
+def _fill_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str, align: str = "left") -> bool:
+    """칸에 들어가면 True. 한 줄이면 세로 가운데, 여러 줄이면 위에서부터. 글자 크기를 줄여 가며 맞춘다.
+    align="right": 칸 오른쪽 끝에 붙여 쓴다 (예: "____은행" 의 은행 이름)"""
     font = _font()
+    if rect.is_empty or rect.width < 4:
+        return False
     for size in OVERLAY_SIZES:
-        if "\n" not in text and font.text_length(text, fontsize=size) <= rect.width:
+        width = font.text_length(text, fontsize=size)
+        if "\n" not in text and width <= rect.width:
             baseline = rect.y0 + (rect.height + size * 0.7) / 2
-            page.insert_text((rect.x0, baseline), text, fontname=FONT_NAME, fontsize=size, color=INK)
+            x = rect.x1 - width if align == "right" else rect.x0
+            page.insert_text((x, baseline), text, fontname=FONT_NAME, fontsize=size, color=INK)
             return True
         if page.insert_textbox(rect, text, fontname=FONT_NAME, fontsize=size, color=INK, lineheight=1.25) >= 0:
             return True
@@ -245,6 +251,18 @@ def render_overlay(pdf_path: Path, title: str, rows: list[tuple[dict, str]]) -> 
             fonted.add(page.number)
         rect = pymupdf.Rect(box["rect"]) + (BOX_INSET, BOX_INSET, -BOX_INSET, -BOX_INSET)
         template = box.get("template_text") or ""
+        if box.get("how") == "confirm":  # 유의사항 확인 열: 항목마다 모두 체크
+            for x, y in box.get("spots") or []:
+                _check_mark(page, x, y)
+            continue
+        if box.get("suffix") and text.replace(" ", "").endswith(box["suffix"]):
+            text = text.replace(" ", "")[: -len(box["suffix"])] or text  # "국민은행" → 양식의 "은행" 앞에 "국민"
+        if box.get("sign_mark"):  # 양식에 "(서명 또는 인)" 글자가 없으면 이름 오른쪽에 그려 둔다
+            mark_w = _font().text_length(box["sign_mark"], fontsize=SIGN_SIZE)
+            baseline = rect.y0 + (rect.height + SIGN_SIZE * 0.7) / 2
+            page.insert_text((rect.x1 - mark_w, baseline), box["sign_mark"], fontname=FONT_NAME,
+                             fontsize=SIGN_SIZE, color=(0.2, 0.2, 0.2))
+            rect = pymupdf.Rect(rect.x0, rect.y0, rect.x1 - mark_w - 6, rect.y1)
         if box.get("how") == "checkbox":
             options = spec.get("options") or box.get("options") or []
             if not _fill_checkbox(page, pymupdf.Rect(box["rect"]), text, options, box.get("marks")):
@@ -253,7 +271,7 @@ def render_overlay(pdf_path: Path, title: str, rows: list[tuple[dict, str]]) -> 
         is_date = box.get("how") == "date_line" or (template and all(u in template for u in ("년", "월", "일")))
         if is_date and _fill_date(page, pymupdf.Rect(box["rect"]), text, OVERLAY_SIZES[0]):
             continue
-        if not _fill_box(page, rect, text):
+        if not _fill_box(page, rect, text, box.get("align", "left")):
             _fill_box(page, rect, SEE_ATTACHMENT)
             leftovers.append((spec, text))
     if leftovers:

@@ -29,7 +29,7 @@ import pdfplumber
 from formguide.redraw import has_broken_fonts, redraw_text
 from formguide.schema import FormField, FormSpec
 
-_SPACE_RE = re.compile(r"\s+")
+_SPACE_RE = re.compile(r"[\s\x00]+")  # HWP 에서 바꾼 PDF 는 띄어쓰기 자리에 \x00 이 들어 있다
 # 셀에 원래 적힌 안내 글자만 있으면 빈 셀로 본다 (예: "    년   월   일", "(   )")
 _BLANKISH_RE = re.compile(r"^[\s년월일().:/~\-·]*$")
 _SECTION_RE = re.compile(r"^\s*\d+\s*\.\s*\S")
@@ -43,6 +43,10 @@ DATE_LEFT_SPACE = 60  # "년" 앞에 연도를 쓸 공간
 SECTION_MAX = 20  # 구역 제목 길이 (이보다 긴 "1. …" 줄은 유의사항 문장)
 MARK_BOX_MAX = 12  # 체크박스 네모(□) 크기
 MARK_BRACKET_GAP = 30  # "[ ]" 의 [ 와 ] 사이 최대 거리 (제목의 "[ … ]" 묶음 괄호와 구분)
+ACCOUNT_LINE_H = 10  # 계좌번호를 "은행" 줄 위·아래에 쓸 최소 높이
+CONFIRM_OPTION = "확인"
+CONFIRM_FIELD_ID = "notice_confirm"
+SIGN_MARK = "(서명 또는 인)"
 
 
 def _norm(text: str | None) -> str:
@@ -329,6 +333,132 @@ def _text_right(page, label: str) -> tuple[float, float, float, float] | None:
     return None
 
 
+def _line_words(page, word: dict) -> list[dict]:
+    return sorted((v for v in page.extract_words() if abs(v["top"] - word["top"]) < 3), key=lambda v: v["x0"])
+
+
+def _bank_slots(pdf, grids) -> dict[str, dict]:
+    """계좌 줄 "____ 은행 (예금주: ____ )": 은행 이름은 "은행" 글자 앞, 예금주는 "예금주:" 뒤,
+    계좌번호는 따로 칸이 없으면 같은 셀의 그 줄 위(또는 아래) 빈 자리. {"bank"|"holder"|"account": box}"""
+    for grid in grids:
+        for row in grid:
+            for c in row:
+                if c is None or "은행" not in _norm(c.text) or len(_norm(c.text)) > 40:
+                    continue
+                page = pdf.pages[c.page]
+                inside = [
+                    w for w in page.extract_words()
+                    if "은행" in w["text"] and c.bbox[0] - 1 <= (w["x0"] + w["x1"]) / 2 <= c.bbox[2] + 1
+                    and c.bbox[1] - 1 <= (w["top"] + w["bottom"]) / 2 <= c.bbox[3] + 1
+                ]
+                if not inside:
+                    continue
+                w = inside[0]
+                line = _line_words(page, w)
+                if not any("예금주" in v["text"] for v in line):
+                    continue
+                h = c.bbox[3] - c.bbox[1]
+                parts = [x for x in row if x is not None and _overlaps_v(x.bbox, c.bbox) and x.bbox[3] - x.bbox[1] <= h + 1]
+                rx0, rx1 = min(x.bbox[0] for x in parts), max(x.bbox[2] for x in parts)
+                ry0, ry1 = c.bbox[1], c.bbox[3]
+                ly0, ly1 = max(ry0, w["top"] - 2), min(ry1, w["bottom"] + 2)
+                out: dict[str, dict] = {}
+                left = [v for v in line if v["x1"] <= w["x0"] + 0.5 and v["x0"] >= rx0]
+                bx0 = max([v["x1"] + TEXT_GAP for v in left] or [rx0 + 2])
+                if w["x0"] - 1.5 - bx0 >= MIN_BOX_W:
+                    out["bank"] = {"page": c.page, "rect": (bx0, ly0, w["x0"] - 1.5, ly1), "how": "before_word",
+                                   "template_text": "은행", "suffix": "은행", "align": "right"}
+                i = next(k for k, v in enumerate(line) if "예금주" in v["text"])
+                j = i + 1 if i + 1 < len(line) and line[i + 1]["text"] == ":" else i
+                hx0 = line[j]["x1"] + TEXT_GAP
+                hx1 = min([v["x0"] - TEXT_GAP for v in line[j + 1:]] or [rx1 - 2])
+                if hx1 - hx0 >= MIN_BOX_W:
+                    out["holder"] = {"page": c.page, "rect": (hx0, ly0, hx1, ly1), "how": "cell_inline", "template_text": None}
+                # 계좌번호 칸이 따로 없으면 "은행" 줄 위(없으면 아래) 빈 자리에 쓴다
+                if w["top"] - ry0 >= ACCOUNT_LINE_H:
+                    out["account"] = {"page": c.page, "rect": (rx0 + 2, ry0 + 1, rx1 - 2, w["top"] - 1),
+                                      "how": "above_line", "template_text": None}
+                elif ry1 - w["bottom"] >= ACCOUNT_LINE_H:
+                    out["account"] = {"page": c.page, "rect": (rx0 + 2, w["bottom"] + 1, rx1 - 2, ry1 - 1),
+                                      "how": "below_line", "template_text": None}
+                return out
+    return {}
+
+
+def _bank_role(f: FormField) -> str | None:
+    label = _norm(f.label)
+    if "은행" in label and "예금주" not in label:
+        return "bank"
+    if "예금주" in label and "은행" not in label:
+        return "holder"
+    if "계좌" in label and "번호" in label or f.input_type == "account":
+        return "account"
+    return None
+
+
+def _bracket_spots(page, rect: tuple) -> list[list[float]]:
+    """영역 안 "[ ]"·□ 가운데 좌표 (선택지 글자가 없어도)"""
+    x0, y0, x1, y1 = rect
+    chars = [c for c in page.chars if x0 - 1 <= c["x0"] and c["x1"] <= x1 + 1 and y0 - 1 <= c["top"] and c["bottom"] <= y1 + 1]
+    spots = []
+    for c in chars:
+        if c["text"] != "[":
+            continue
+        close = next((d for d in sorted(chars, key=lambda d: d["x0"]) if d["text"] == "]" and abs(d["top"] - c["top"]) < 3
+                      and 0 <= d["x0"] - c["x1"] <= MARK_BRACKET_GAP), None)
+        if close:
+            spots.append([round((c["x1"] + close["x0"]) / 2, 1), round((c["top"] + c["bottom"]) / 2, 1)])
+    for r in [*page.rects, *page.curves]:
+        if (r.get("stroke") and 4 <= r["width"] <= MARK_BOX_MAX and abs(r["width"] - r["height"]) <= 3
+                and x0 - 1 <= r["x0"] and r["x1"] <= x1 + 1 and y0 - 1 <= r["top"] and r["bottom"] <= y1 + 1):
+            spot = [round((r["x0"] + r["x1"]) / 2, 1), round((r["top"] + r["bottom"]) / 2, 1)]
+            if not any(abs(spot[0] - s[0]) < 3 and abs(spot[1] - s[1]) < 3 for s in spots):
+                spots.append(spot)
+    return spots
+
+
+def _confirm_column(pdf, grids) -> dict | None:
+    """유의사항 표의 "확인(√ 체크)" 열: 항목마다 "[ ]" 가 있는 열. 신청인이 읽고 모두 체크해야 한다.
+    → {"page", "rect", "how": "confirm", "spots": [[x, y], …], "items": [항목 글, …]}"""
+    for grid in grids:
+        cells = [c for row in grid for c in row if c is not None]
+        for head in cells:
+            if not _norm(head.text).startswith("확인") or len(_norm(head.text)) > 10:
+                continue
+            page = pdf.pages[head.page]
+            hx0, _, hx1, _ = head.bbox
+            below = sorted(
+                (c for c in cells if c.bbox[1] >= head.bbox[3] - 0.5 and abs(c.bbox[0] - hx0) < 2 and abs(c.bbox[2] - hx1) < 2),
+                key=lambda c: c.bbox[1],
+            )
+            column = []
+            for c in below:
+                if _norm(c.text) in ("", "()", "(√체크)", "√체크"):
+                    if _norm(c.text):
+                        continue  # 둘로 나뉜 머리글의 아랫줄
+                    break
+                if _norm(c.text) != "[]":
+                    break
+                column.append(c)
+            if len(column) < 2:
+                continue
+            table_x0 = min(c.bbox[0] for c in cells)
+            spots, items = [], []
+            for c in column:
+                found = _bracket_spots(page, c.bbox)
+                if not found:
+                    continue
+                spots.append(found[0])
+                text = page.crop((table_x0, c.bbox[1], c.bbox[0], c.bbox[3])).extract_text() or ""
+                items.append(_SPACE_RE.sub(" ", text).strip())
+            if len(spots) < 2:
+                continue
+            rect = (hx0, column[0].bbox[1], hx1, column[-1].bbox[3])
+            return {"page": head.page, "rect": rect, "how": "confirm", "spots": spots, "items": items,
+                    "options": [CONFIRM_OPTION], "template_text": _SPACE_RE.sub(" ", head.text).strip()}
+    return None
+
+
 def _candidates(f: FormField, grids, used: set) -> list[tuple[Cell, int]]:
     """(셀, 일치 정도). 칸 이름 앞에 묶음 이름이 붙은 경우(예: "대리인 전화:")는 떼고도 찾는다"""
     out = []
@@ -375,8 +505,15 @@ def locate(pdf_path: Path, fields: list[FormField]) -> dict[str, dict]:
         grids = _cells(pdf)
         labels = {_norm(f.label) for f in fields}
         used: set[tuple[int, int, int]] = set()
+        bank = _bank_slots(pdf, grids)
         for f in fields:
             box = None
+            role = _bank_role(f)
+            if role in bank:
+                out[f.id] = _round(bank[role])
+                continue
+            if role == "account" and bank:
+                continue  # 계좌 줄에 계좌번호 쓸 자리가 따로 없음 (옆 빈칸은 은행 이름 자리)
             if _norm(f.label) in DATE_LABELS:
                 for pno, page in enumerate(pdf.pages):
                     rect = _date_line(page)
@@ -524,18 +661,77 @@ def group_names(pdf_path: Path) -> set[str]:
         return {_norm(c.group) for grid in _cells(pdf) for row in grid for c in row if c is not None and c.group}
 
 
+def _split_bank(fields: list[FormField]) -> list[FormField]:
+    """"은행 (예금주: )"처럼 한 칸으로 뽑힌 계좌 줄 → 은행 이름 칸 + 예금주 칸 (예금주는 프로필 이름)"""
+    has_holder = any(_bank_role(f) == "holder" for f in fields)
+    out = []
+    for f in fields:
+        label = _norm(f.label)
+        if "은행" in label and "예금주" in label:
+            out.append(f.model_copy(update={"label": "은행", "input_type": "text", "guide": "돈을 받을 통장의 은행 이름 (예: 국민)"}))
+            if not has_holder:
+                out.append(FormField(
+                    id=f"{f.id}_holder", label="예금주", section=f.section, input_type="text", value_source="profile",
+                    profile_key="name", required=f.required, guide="통장 주인 이름. 본인 명의 통장만 됩니다.",
+                ))
+            continue
+        out.append(f)
+    return out
+
+
+def _signature(f: FormField) -> FormField:
+    """"신청인 성명: ____ (서명 또는 인)" 줄: 이름은 프로필로 채우고, 서명·도장만 손으로 (서명 자리는 비워 둔다)"""
+    if "성명" not in _norm(f.label) or not (f.input_type == "signature" or f.sensitive or f.value_source == "handwrite"):
+        return f
+    return f.model_copy(update={
+        "input_type": "text", "value_source": "profile", "profile_key": "name", "sensitive": False, "example": None,
+        "guide": "신청인 이름을 적어요. 출력한 뒤 옆에 직접 서명하거나 도장을 찍어요.",
+    })
+
+
+def _sign_mark(pdf_path: Path, box: dict) -> dict:
+    """이름 칸 오른쪽에 "(서명 또는 인)" 글자가 없으면 내보낼 때 그려 넣도록 표시"""
+    with pdfplumber.open(pdf_path) as pdf:
+        page = pdf.pages[box["page"]]
+        x0, y0, _, y1 = box["rect"]
+        line = page.crop((x0, max(0, y0 - 4), page.width, min(page.height, y1 + 4))).extract_text() or ""
+        # 칸 경계가 "성명:" 글자에 걸쳐 있으면 글자 뒤부터 쓴다
+        label_end = max([w["x1"] for w in page.extract_words()
+                         if w["x0"] < x0 < w["x1"] + TEXT_GAP and w["top"] >= y0 - 1 and w["bottom"] <= y1 + 1] or [x0])
+    if label_end > x0:
+        box = {**box, "rect": [round(label_end + TEXT_GAP, 1), *box["rect"][1:]]}
+    if any(w in _norm(line) for w in ("서명", "(인)", "날인")):
+        return box
+    return {**box, "sign_mark": SIGN_MARK}
+
+
 def attach_boxes(spec: FormSpec, pdf_path: Path) -> FormSpec:
-    boxes = locate(pdf_path, spec.fields)
+    kept = [f for f in spec.fields if f.id != CONFIRM_FIELD_ID]
+    sign_ids = {f.id for f in kept if _signature(f) is not f or (f.box or {}).get("sign_mark")}
+    source = _split_bank([_signature(f) for f in kept])
+    boxes = locate(pdf_path, source)
     groups = group_names(pdf_path)
     warnings = [w for w in spec.warnings if not w.startswith("값 자리를 못 찾음")]
     fields = []
-    for f in spec.fields:
+    for f in source:
         words = f.label.split()
         # "대리인 E-mail"처럼 묶음 이름을 붙였는데 그 묶음에 칸이 없으면 AI 가 지어낸 칸
         if f.id not in boxes and len(words) >= 2 and _norm(words[0]) in groups and f.value_source in ("profile", "user"):
             warnings.append(f"양식에 없는 칸이라 버림: '{f.label}' ({words[0]} 묶음에 없음)")
             continue
-        fields.append(f.model_copy(update={"box": boxes.get(f.id)}))
+        box = boxes.get(f.id)
+        if box and f.id in sign_ids and box["how"] in ("table_right", "text_right"):
+            box = _sign_mark(pdf_path, box)
+        fields.append(f.model_copy(update={"box": box}))
+    # 유의사항 "확인(√ 체크)" 열: AI 가 뽑지 않아도 양식에서 찾아 칸 하나로 넣는다 (모두 체크)
+    with pdfplumber.open(pdf_path) as pdf:
+        confirm = _confirm_column(pdf, _cells(pdf))
+    if confirm:
+        fields = [f for f in fields if not ("확인" in _norm(f.label) and "체크" in _norm(f.label))]
+        fields.append(FormField(
+            id=CONFIRM_FIELD_ID, label="유의사항 확인", section="유의사항", input_type="checkbox", value_source="user",
+            required=True, guide="뒤쪽 유의사항을 읽고 항목마다 확인 칸에 체크해요.", box=_round(confirm),
+        ))
     missing = [f.label for f in fields if f.box is None and f.value_source in ("profile", "user")]
     if missing:
         warnings.append(f"값 자리를 못 찾음 (별지에 적음): {', '.join(missing)}")
