@@ -10,10 +10,13 @@ from formguide.prompts import EXTRACT_SYSTEM, EXTRACT_USER, MAX_FORM_CHARS
 from rag.openai_client import RagFormatError, _client
 from rag.settings import get_rag_settings
 
+# 양식 하나를 통째로 읽고 항목을 길게 써서 앱 상담용 기본 20초로는 모자란다
+TIMEOUT_SECONDS = 180.0
+
 
 def draft_fields(form: FormText) -> dict:
     text = form.as_prompt_text()[:MAX_FORM_CHARS]
-    resp = _client().chat.completions.create(
+    resp = _client().with_options(timeout=TIMEOUT_SECONDS).chat.completions.create(
         model=get_rag_settings().rag_chat_model,
         temperature=0,
         max_tokens=4000,
