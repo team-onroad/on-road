@@ -6,6 +6,8 @@ import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.project.on_road.data.ActivityStore
+import com.project.on_road.data.KidMood
 import com.project.on_road.ui.components.SpeakOnce
 
 /*
@@ -163,6 +167,33 @@ private val CoachScript: Map<String, CoachNode> = mapOf(
     ),
 )
 
+/** 기분을 고르는 대답 → 기분 달력 */
+private val MoodNodes = mapOf(
+    "good" to KidMood.GOOD, "happy" to KidMood.EXCITED, "sad" to KidMood.SAD,
+    "angry" to KidMood.ANGRY, "unsure" to KidMood.UNSURE, "tired" to KidMood.TIRED,
+)
+
+/** 내 기록에 남길 이야기 주제 (고른 버튼 이름만 남긴다) */
+private val TopicLabels = setOf("친구랑 다퉜어", "숙제가 어려워", "칭찬받았어", "친구랑 놀았어", "맛있는 거 먹었어", "화해하고 싶어", "꿈 이야기")
+
+/**
+ * 고른 대답을 휴대폰 안 기록에 남긴다.
+ * - 기분 버튼 → 오늘 기분(기분 달력) + 내 기록
+ * - 이야기 주제 버튼 → 내 기록
+ * 말로 한 내용, 위험 신호, '말하기 싫어'는 남기지 않는다. 기록은 누구에게도 자동으로 보내지 않는다.
+ */
+private fun recordCoach(r: CoachReply) {
+    val go = r.go as? CoachGo.Node ?: return
+    MoodNodes[go.id]?.let { mood ->
+        ActivityStore.setMood(mood)
+        ActivityStore.logKid(KidRecordKind.COUNSEL.name, "오늘 기분 · ${mood.label}", "기분 달력에 남겼어")
+        return
+    }
+    if (r.label in TopicLabels) {
+        ActivityStore.logKid(KidRecordKind.COUNSEL.name, "${r.label} 이야기", "코치랑 이야기했어")
+    }
+}
+
 /** 화면에 쌓이는 말 */
 private data class CoachLine(val fromCoach: Boolean, val text: String, val nodeId: String? = null, val easy: Boolean = false)
 
@@ -180,6 +211,7 @@ fun ChildCoachScreen(onBack: () -> Unit, onFind: () -> Unit) {
 
     fun answer(r: CoachReply) {
         lines += CoachLine(false, r.label)
+        recordCoach(r)
         when (val go = r.go) {
             is CoachGo.Node -> coach(go.id)
             CoachGo.Help -> { coach("teacher"); showHelp = true }
@@ -256,14 +288,15 @@ fun ChildCoachScreen(onBack: () -> Unit, onFind: () -> Unit) {
                     pair.forEachIndexed { col, r ->
                         val idx = row * 2 + col
                         val tone = KidCoach.ChipTones[idx % KidCoach.ChipTones.size]
+                        // 누르는 동안 파스텔 + 손그림 테두리 (다른 고르는 칸과 같은 모양)
+                        val press = remember { MutableInteractionSource() }
+                        val pressed by press.collectIsPressedAsState()
                         Box(
                             Modifier
                                 .weight(1f)
                                 .height(60.dp)
-                                .handOutline(18.dp, seed = if (idx % 3 == 0) 7 else 21)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(tone.bg)
-                                .clickable { answer(r) },
+                                .kidPick(pressed, tone, 18.dp, if (idx % 3 == 0) 7 else 21)
+                                .clickable(interactionSource = press, indication = null) { answer(r) },
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(r.label, style = hanaText(21.sp, lineHeight = 1.2f), color = RoadKit.Ink, textAlign = TextAlign.Center, maxLines = 1)

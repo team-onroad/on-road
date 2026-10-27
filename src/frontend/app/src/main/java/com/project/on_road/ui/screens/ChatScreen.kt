@@ -43,6 +43,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalUriHandler
@@ -51,10 +53,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.project.on_road.data.ActivityStore
 import com.project.on_road.data.AppContainer
 import com.project.on_road.data.AppState
+import com.project.on_road.data.ChatKind
 import com.project.on_road.data.ChatMessage
 import com.project.on_road.data.ChatRole
+import com.project.on_road.data.HelpLine
+import com.project.on_road.data.SignalSource
+import com.project.on_road.data.UserStage
 import com.project.on_road.ui.components.ButtonVariant
 import com.project.on_road.ui.components.LogoSlot
 import com.project.on_road.ui.components.NumberedPoint
@@ -82,29 +89,51 @@ private val helpContacts = listOf(
     HelpContact("긴급 신고", "위험한 상황일 때", "112"),
 )
 
-private val starters = listOf(
-    "퇴소하면 매달 받을 수 있는 돈이 있어?",
-    "혼자 살 집은 어떻게 구해?",
-    "취업 준비는 뭐부터 해야 할까?",
-    "요즘 앞으로가 너무 막막해",
-)
+/** 단계별 첫 질문 예시 */
+private fun startersFor(stage: UserStage): List<String> = when (stage) {
+    UserStage.YOUNG_ADULT -> listOf(
+        "퇴소하면 매달 받을 수 있는 돈이 있어?",
+        "혼자 살 집은 어떻게 구해?",
+        "취업 준비는 뭐부터 해야 할까?",
+        "요즘 앞으로가 너무 막막해",
+    )
+    else -> listOf(
+        "받을 수 있는 장학금이 있어?",
+        "진로를 어떻게 정해야 할지 모르겠어",
+        "아르바이트할 때 알아야 할 게 있어?",
+        "요즘 친구 관계가 힘들어",
+    )
+}
+
+/** 질문 길이 (3.15 message 1~500자) */
+private const val MESSAGE_LIMIT = 500
 
 private fun nowLabel(): String = SimpleDateFormat("a h:mm", Locale.KOREAN).format(Date())
 
+private fun dayLabel(millis: Long): String = SimpleDateFormat("M월 d일", Locale.KOREAN).format(Date(millis))
+
+private fun greeting() = ChatMessage(
+    0L, ChatRole.ASSISTANT,
+    "안녕하세요, 온로드 AI 상담이에요.\n자립 준비, 진로, 지원 제도처럼 궁금한 것을 편하게 물어보세요.",
+    kind = ChatKind.LOCAL,
+)
+
 class ChatViewModel : ViewModel() {
     private var nextId = 1L
-    val messages = mutableStateListOf(
-        ChatMessage(
-            0L, ChatRole.ASSISTANT,
-            "안녕하세요, 온로드 AI 상담이에요.\n자립 준비, 진로, 지원 제도처럼 궁금한 것을 편하게 물어보세요.",
-        ),
-    )
+    /** 이 대화의 저장 id (휴대폰 안 상담 기록) */
+    private var chatId = System.currentTimeMillis()
+    private var startedAt = chatId
+    val messages = mutableStateListOf(greeting())
     /** 메시지 id → 보낸 시각 */
     val times = mutableStateMapOf(0L to nowLabel())
     var input by mutableStateOf("")
     var sending by mutableStateOf(false)
         private set
+    /** 지난 상담을 이어서 하는 중이면 그 대화를 시작한 날 */
+    var resumedFrom by mutableStateOf<String?>(null)
+        private set
     private var askedInitial = false
+    private var resumedOnce = false
 
     fun askInitial(question: String?) {
         if (askedInitial || question.isNullOrBlank()) return
@@ -112,24 +141,70 @@ class ChatViewModel : ViewModel() {
         send(question)
     }
 
+    /** 처음 열 때 한 번: 성장 기록에서 고른 지난 상담 불러오기 */
+    fun resumeOnce(id: Long?) {
+        if (resumedOnce || id == null) return
+        resumedOnce = true
+        load(id)
+    }
+
+    /** 지난 상담 불러오기 (이어서 질문하면 같은 대화에 쌓인다) */
+    fun load(id: Long) {
+        if (sending) return
+        val saved = ActivityStore.chat(id) ?: return
+        chatId = saved.id
+        startedAt = saved.startedAt
+        messages.clear()
+        times.clear()
+        nextId = 1L
+        messages.add(greeting())
+        times[0L] = dayLabel(saved.startedAt)
+        saved.messages.forEach { m ->
+            val copy = m.copy(id = nextId++)
+            messages.add(copy)
+            times[copy.id] = dayLabel(saved.updatedAt)
+        }
+        resumedFrom = dayLabel(saved.startedAt)
+    }
+
+    /** 새 상담 시작 */
+    fun startNew() {
+        if (sending) return
+        chatId = System.currentTimeMillis()
+        startedAt = chatId
+        messages.clear()
+        times.clear()
+        nextId = 1L
+        messages.add(greeting())
+        times[0L] = nowLabel()
+        resumedFrom = null
+    }
+
+    private fun persist() {
+        ActivityStore.saveChat(chatId, startedAt, messages.filter { it.id != 0L })
+    }
+
     fun send(text: String = input) {
-        val t = text.trim()
+        val t = text.trim().take(MESSAGE_LIMIT)
         if (t.isEmpty() || sending) return
         val userMsg = ChatMessage(nextId++, ChatRole.USER, t)
         messages.add(userMsg)
         times[userMsg.id] = nowLabel()
         input = ""
+        // 관심 분야 신호 (주거·생활비·취업 …) → 관심사·다음 할 일 추천에 쓰인다
+        ActivityStore.logQuestion(t, SignalSource.CHAT)
         viewModelScope.launch {
             sending = true
             val reply = runCatching {
                 AppContainer.chatApi.reply(AppContainer.session.userId.orEmpty(), messages.toList(), t)
             }.getOrElse {
-                ChatMessage(0L, ChatRole.ASSISTANT, "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.", needsCheck = true)
+                ChatMessage(0L, ChatRole.ASSISTANT, "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.", needsCheck = true, kind = ChatKind.LOCAL)
             }
             val msg = reply.copy(id = nextId++)
             messages.add(msg)
             times[msg.id] = nowLabel()
             sending = false
+            persist()
         }
     }
 }
@@ -141,11 +216,16 @@ fun ChatScreen(
     onBack: () -> Unit,
     onOpenPolicy: (String) -> Unit,
     onPrepare: (String) -> Unit = {},
+    /** 성장 기록에서 고른 지난 상담 id. 있으면 그 대화를 불러와 이어서 한다 */
+    chatId: Long? = null,
     vm: ChatViewModel = viewModel(),
 ) {
+    LaunchedEffect(chatId) { vm.resumeOnce(chatId) }
     LaunchedEffect(initialQuestion) { vm.askInitial(initialQuestion) }
     val listState = rememberLazyListState()
+    val inputFocus = remember { FocusRequester() }
     var showHelp by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
 
     LaunchedEffect(vm.messages.size, vm.sending) {
         // 마지막 항목(안내 문구) 위치 = 메시지 수 + 입력 중 표시
@@ -153,8 +233,39 @@ fun ChatScreen(
     }
 
     Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
-        OnRoadTopBar(title = "상담", onBack = onBack)
+        OnRoadTopBar(
+            title = "상담",
+            onBack = onBack,
+            trailing = {
+                Text(
+                    "지난 상담",
+                    style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                    color = OnRoadColors.TextSecondary,
+                    modifier = Modifier
+                        .clip(OnRoadShapes.Chip)
+                        .clickable { showHistory = true }
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                )
+            },
+        )
         HelpStrip { showHelp = true }
+        vm.resumedFrom?.let { day ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(OnRoadColors.SurfaceSubtle)
+                    .padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("$day 상담을 이어서 하고 있어요", style = OnRoadType.Micro, color = OnRoadColors.TextSlate, modifier = Modifier.weight(1f))
+                Text(
+                    "새 상담",
+                    style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold),
+                    color = OnRoadColors.Primary,
+                    modifier = Modifier.clickable { vm.startNew() },
+                )
+            }
+        }
 
         LazyColumn(
             state = listState,
@@ -170,10 +281,11 @@ fun ChatScreen(
                     BotMessage(
                         msg = msg,
                         time = time,
-                        starters = if (msg.id == 0L && vm.messages.size == 1) starters else emptyList(),
+                        starters = if (msg.id == 0L && vm.messages.size == 1) startersFor(AppState.stage) else emptyList(),
                         onStarter = { vm.send(it) },
                         onOpenPolicy = onOpenPolicy,
                         onPrepare = onPrepare,
+                        onAskMore = { runCatching { inputFocus.requestFocus() } },
                     )
                 }
             }
@@ -191,14 +303,69 @@ fun ChatScreen(
         HorizontalDivider(thickness = 1.dp, color = OnRoadColors.BorderInput)
         ChatInputBar(
             value = vm.input,
-            onValueChange = { vm.input = it },
+            onValueChange = { vm.input = it.take(MESSAGE_LIMIT) },
             enabled = !vm.sending,
             onSend = { vm.send() },
-            onVoice = { vm.input = (vm.input + " " + it).trim() },
+            onVoice = { vm.input = (vm.input + " " + it).trim().take(MESSAGE_LIMIT) },
+            focusRequester = inputFocus,
         )
     }
 
     if (showHelp) HelpDialog { showHelp = false }
+    if (showHistory) {
+        HistoryDialog(
+            onPick = { id -> showHistory = false; vm.load(id) },
+            onNew = { showHistory = false; vm.startNew() },
+            onDismiss = { showHistory = false },
+        )
+    }
+}
+
+/* ---------------------------- 지난 상담 ---------------------------- */
+
+@Composable
+private fun HistoryDialog(onPick: (Long) -> Unit, onNew: () -> Unit, onDismiss: () -> Unit) {
+    val chats = remember { ActivityStore.chats() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        shape = OnRoadShapes.Card,
+        title = { Text("지난 상담", style = OnRoadType.Title3, color = OnRoadColors.TextPrimary) },
+        text = {
+            if (chats.isEmpty()) {
+                Text("아직 저장된 상담이 없어요.\n질문하면 이 휴대폰에 대화가 남아요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+            } else {
+                LazyColumn(Modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(chats, key = { it.id }) { c ->
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(OnRoadShapes.Inner)
+                                .border(1.dp, OnRoadColors.BorderSlate, OnRoadShapes.Inner)
+                                .clickable { onPick(c.id) }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                        ) {
+                            Text(c.title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "${dayLabel(c.updatedAt)} · 질문 ${c.questionCount}개" +
+                                    if (c.topics.isNotEmpty()) " · " + c.topics.joinToString(", ") { it.label } else "",
+                                style = OnRoadType.Micro,
+                                color = OnRoadColors.TextTertiary,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onNew) { Text("새 상담 시작", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("닫기", style = OnRoadType.Caption, color = OnRoadColors.TextSlate) }
+        },
+    )
 }
 
 /* ---------------------------- 도움 연락처 ---------------------------- */
@@ -295,6 +462,7 @@ private fun BotMessage(
     onStarter: (String) -> Unit,
     onOpenPolicy: (String) -> Unit,
     onPrepare: (String) -> Unit,
+    onAskMore: () -> Unit = {},
 ) {
     Row(Modifier.fillMaxWidth()) {
         BotAvatar()
@@ -314,6 +482,14 @@ private fun BotMessage(
             Spacer(Modifier.height(8.dp))
             Bubble {
                 Text(msg.text, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextPrimary)
+
+                // 위기 안내: 바로 전화할 수 있는 연락처
+                if (msg.kind == ChatKind.CRISIS && msg.contacts.isNotEmpty()) {
+                    Spacer(Modifier.height(16.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        msg.contacts.forEach { ContactRow(it) }
+                    }
+                }
 
                 if (msg.evidence.isNotEmpty()) {
                     Spacer(Modifier.height(16.dp))
@@ -352,6 +528,16 @@ private fun BotMessage(
                 }
             }
 
+            // 상담 답변 아래 안내 (1.6)
+            if (msg.kind == ChatKind.COUNSEL) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "AI 답변은 참고용이에요. 금액·자격은 담당 기관에서 꼭 확인해 주세요.",
+                    style = OnRoadType.Tiny,
+                    color = OnRoadColors.TextQuaternary,
+                )
+            }
+
             if (msg.policies.isNotEmpty()) {
                 val first = msg.policies.first()
                 Spacer(Modifier.height(8.dp))
@@ -368,7 +554,7 @@ private fun BotMessage(
                             height = 34.dp, textStyle = OnRoadType.Caption, shape = OnRoadShapes.Chip,
                         )
                         OnRoadButton(
-                            "다른 것도 물어볼래요", { onStarter("다른 지원 제도도 알려줘") }, Modifier.weight(1f),
+                            "다른 것도 물어볼래요", onAskMore, Modifier.weight(1f),
                             variant = ButtonVariant.Gray, height = 34.dp, textStyle = OnRoadType.Caption, shape = OnRoadShapes.Chip,
                         )
                     }
@@ -377,13 +563,31 @@ private fun BotMessage(
 
             if (starters.isNotEmpty()) {
                 Spacer(Modifier.height(24.dp))
-                Text("* 청년들이 자주 묻는 주제", style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
+                Text(if (AppState.stage == UserStage.YOUNG_ADULT) "* 청년들이 자주 묻는 주제" else "* 청소년들이 자주 묻는 주제", style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
                 Spacer(Modifier.height(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     starters.forEach { SuggestionChip(it) { onStarter(it) } }
                 }
             }
         }
+    }
+}
+
+/** 위기 안내 연락처 한 줄. 누르면 전화 화면으로 */
+@Composable
+private fun ContactRow(line: HelpLine) {
+    val uri = LocalUriHandler.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(OnRoadShapes.Inner)
+            .border(1.dp, OnRoadColors.BorderSlate, OnRoadShapes.Inner)
+            .clickable { runCatching { uri.openUri("tel:${line.phone}") } }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(line.name, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+        Text(line.phone, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
     }
 }
 
@@ -435,6 +639,7 @@ private fun ChatInputBar(
     enabled: Boolean,
     onSend: () -> Unit,
     onVoice: (String) -> Unit,
+    focusRequester: FocusRequester? = null,
 ) {
     val listen = rememberSpeechInput(onVoice)
     val active = enabled && value.isNotBlank()
@@ -461,7 +666,7 @@ private fun ChatInputBar(
                 maxLines = 4,
                 textStyle = OnRoadType.Caption.copy(color = OnRoadColors.TextPrimary),
                 cursorBrush = SolidColor(OnRoadColors.Primary),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).let { m -> if (focusRequester != null) m.focusRequester(focusRequester) else m },
                 decorationBox = { inner ->
                     if (value.isEmpty()) Text("입력하세요..", style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
                     inner()

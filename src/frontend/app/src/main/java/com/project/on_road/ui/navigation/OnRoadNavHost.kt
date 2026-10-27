@@ -4,6 +4,15 @@ import com.project.on_road.ui.child.ChildCoachScreen
 import com.project.on_road.ui.child.ChildFindScreen
 import com.project.on_road.ui.child.StickerBoardScreen
 import com.project.on_road.ui.child.StickerShopScreen
+import com.project.on_road.ui.child.ChildJournalScreen
+import com.project.on_road.ui.child.kidRecords
+import com.project.on_road.ui.child.saveKidFind
+import com.project.on_road.ui.teen.BasicMissionScreen
+import com.project.on_road.ui.teen.BasicsListScreen
+import com.project.on_road.data.ActivityStore
+import com.project.on_road.data.BasicLink
+import com.project.on_road.data.DDate
+import com.project.on_road.ui.screens.GoalTimelineScreen
 import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
@@ -42,6 +51,7 @@ import com.project.on_road.ui.screens.ChecklistScreen
 import com.project.on_road.ui.screens.CompareScreen
 import com.project.on_road.ui.screens.DashboardScreen
 import com.project.on_road.ui.screens.DocumentScreen
+import com.project.on_road.ui.screens.FormGuideScreen
 import com.project.on_road.ui.screens.FormHelperScreen
 import com.project.on_road.ui.screens.GrowthScreen
 import com.project.on_road.ui.screens.HousingScreen
@@ -68,16 +78,18 @@ object Routes {
     const val SIMULATION = "simulation"
     const val CHECKLISTS = "checklists"
     const val CHECKLIST = "checklist/{policyId}"
+    const val FORM_GUIDE = "form-guide/{policyId}"
     const val COMPARE = "compare?ids={ids}"
     const val NEXT_ACTIONS = "next-actions"
     const val SIM_BUDGET = "sim/budget"
+    const val SIM_RESULT = "sim/budget/{simId}"
     const val SIM_HOUSING = "sim/housing"
     const val SIM_SAVINGS = "sim/savings"
     const val SIM_TIMELINE = "sim/timeline"
     const val PRACTICE = "sim/practice"
     const val PRACTICE_PLAY = "sim/practice/{id}"
     const val GROWTH = "growth"
-    const val CHAT = "chat?q={q}"
+    const val CHAT = "chat?q={q}&cid={cid}"
     const val INTEREST = "coach/interest"
     const val ROLEPLAY = "coach/roleplay"
     const val ROLEPLAY_PLAY = "coach/roleplay/{id}"
@@ -87,10 +99,17 @@ object Routes {
     const val STICKER_BOARD = "child/board"
     const val CHILD_COACH = "child/coach"   // 아동 전용 상담하기
     const val CHILD_FIND = "child/find"     // 아동 전용 좋아하는 거 찾기
+    const val CHILD_JOURNAL = "child/journal" // 아동 내 기록장 (기분 달력 · 좋아하는 것 도감 · 미션 기록)
+    const val BASICS = "teen/basics"        // 청소년 자립 기초 미션
+    const val BASIC = "teen/basics/{id}"
 
     fun practice(id: String) = "sim/practice/$id"
+    fun basic(id: String) = "teen/basics/$id"
     fun roleplay(id: String) = "coach/roleplay/$id"
     fun checklist(policyId: String) = "checklist/$policyId"
+    fun formGuide(policyId: String) = "form-guide/$policyId"
+    /** 지난 생활비 결과 다시 보기 (3.14) */
+    fun simResult(simulationId: String) = "sim/budget/${Uri.encode(simulationId)}"
 
     fun policy(policyId: String? = null, query: String? = null): String = buildString {
         append("policy")
@@ -101,8 +120,14 @@ object Routes {
         if (params.isNotEmpty()) append("?").append(params.joinToString("&"))
     }
 
-    fun chat(question: String? = null): String =
-        if (question.isNullOrBlank()) "chat" else "chat?q=${Uri.encode(question)}"
+    fun chat(question: String? = null, chatId: Long? = null): String = buildString {
+        append("chat")
+        val params = listOfNotNull(
+            question?.takeIf { it.isNotBlank() }?.let { "q=${Uri.encode(it)}" },
+            chatId?.let { "cid=$it" },
+        )
+        if (params.isNotEmpty()) append("?").append(params.joinToString("&"))
+    }
 
     fun compare(ids: List<String> = emptyList()): String =
         if (ids.isEmpty()) "compare" else "compare?ids=${ids.joinToString(",")}"
@@ -113,6 +138,17 @@ fun actionRoute(action: NextAction): String = when (action.kind) {
         action.policyId?.let(Routes::checklist) ?: Routes.CHECKLISTS
     ActionKind.RUN_SIMULATION -> Routes.SIM_BUDGET
     ActionKind.SEARCH_POLICY -> Routes.policy()
+    ActionKind.SEARCH_TOPIC -> Routes.policy(query = action.query)
+    ActionKind.OPEN_TIMELINE -> Routes.SIM_TIMELINE
+    ActionKind.PRACTICE -> action.scenarioId?.let(Routes::roleplay) ?: Routes.ROLEPLAY
+    ActionKind.EXPLORE_CAREER, ActionKind.ROADMAP -> Routes.INTEREST
+    ActionKind.BASIC_MISSION -> action.query?.let(Routes::basic) ?: Routes.BASICS
+}
+
+fun basicLinkRoute(link: BasicLink): String = when (link) {
+    BasicLink.SAVINGS -> Routes.SIM_SAVINGS
+    BasicLink.BUDGET -> Routes.SIM_BUDGET
+    BasicLink.PRACTICE -> Routes.ROLEPLAY
 }
 
 fun timelineRoute(link: TimelineLink): String = when (link) {
@@ -196,7 +232,9 @@ private fun OnRoadGraph(
         }
 
         composable(Routes.STICKER_BOARD) {
-            StickerBoardScreen(onBack = back, onShop = { go(Routes.STICKER_SHOP) })
+            // 내 기록 탭: 미션·상담·좋아하는 거 찾기·스티커 기록 (휴대폰 안 저장)
+            val records = remember(ActivityStore.version) { kidRecords() }
+            StickerBoardScreen(onBack = back, onShop = { go(Routes.STICKER_SHOP) }, records = records)
         }
 
         composable(Routes.CHILD_COACH) {
@@ -204,15 +242,39 @@ private fun OnRoadGraph(
         }
 
         composable(Routes.CHILD_FIND) {
-            ChildFindScreen(onBack = back)
+            ChildFindScreen(onBack = back, onDone = { result ->
+                saveKidFind(result)
+                back()
+            })
+        }
+
+        composable(Routes.CHILD_JOURNAL) {
+            ChildJournalScreen(onBack = back, onFind = { go(Routes.CHILD_FIND) }, onCoach = { go(Routes.CHILD_COACH) })
+        }
+
+        composable(Routes.BASICS) { BasicsListScreen(onBack = back, onOpen = { go(Routes.basic(it)) }) }
+        composable(
+            Routes.BASIC,
+            arguments = listOf(navArgument("id") { type = NavType.StringType }),
+        ) { entry ->
+            BasicMissionScreen(
+                missionId = entry.arguments?.getString("id").orEmpty(),
+                onBack = back,
+                onLink = { go(basicLinkRoute(it)) },
+            )
         }
 
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = back, onReset = {
-                AppContainer.session.clear()
-                AppState.updateStage(UserStage.YOUNG_ADULT)
-                nav.navigate(Routes.ONBOARDING) { popUpTo(nav.graph.id) { inclusive = true } }
-            })
+            SettingsScreen(
+                onBack = back,
+                onReset = {
+                    AppContainer.session.clear()
+                    AppState.updateStage(UserStage.YOUNG_ADULT)
+                    nav.navigate(Routes.ONBOARDING) { popUpTo(nav.graph.id) { inclusive = true } }
+                },
+                // 계정을 바꾸면 그 계정 단계의 홈으로 새로 연다
+                onSwitched = { nav.navigate(Routes.DASHBOARD) { popUpTo(nav.graph.id) { inclusive = true } } },
+            )
         }
 
         composable(
@@ -233,9 +295,23 @@ private fun OnRoadGraph(
 
         composable(Routes.SIMULATION) { SimulationHubScreen(onBack = back, onNavigate = go) }
         composable(Routes.SIM_BUDGET) { BudgetSimulationScreen(onBack = back, onOpenPolicy = { go(Routes.policy(it)) }) }
+        composable(
+            Routes.SIM_RESULT,
+            arguments = listOf(navArgument("simId") { type = NavType.StringType }),
+        ) { entry ->
+            BudgetSimulationScreen(
+                onBack = back,
+                onOpenPolicy = { go(Routes.policy(it)) },
+                simulationId = entry.arguments?.getString("simId"),
+            )
+        }
         composable(Routes.SIM_HOUSING) { HousingScreen(onBack = back, onOpenPolicy = { go(Routes.policy(it)) }) }
         composable(Routes.SIM_SAVINGS) { SavingsScreen(onBack = back, onOpenPolicy = { go(Routes.policy(it)) }) }
-        composable(Routes.SIM_TIMELINE) { TimelineScreen(onBack = back, onLink = { go(timelineRoute(it)) }) }
+        composable(Routes.SIM_TIMELINE) {
+            // 퇴소 전: 퇴소일 기준 타임라인 / 퇴소 후: 내가 정한 목표 D-day (같은 d_date 를 다른 뜻으로 쓰므로 화면을 나눈다)
+            if (DDate.isGoal(AppContainer.session.status)) GoalTimelineScreen(onBack = back, onLink = { go(timelineRoute(it)) })
+            else TimelineScreen(onBack = back, onLink = { go(timelineRoute(it)) })
+        }
 
         composable(Routes.PRACTICE) { PracticeListScreen(onBack = back, onOpen = { go(Routes.practice(it)) }) }
         composable(
@@ -260,7 +336,17 @@ private fun OnRoadGraph(
             Routes.CHECKLIST,
             arguments = listOf(navArgument("policyId") { type = NavType.StringType }),
         ) { entry ->
-            ChecklistScreen(policyId = entry.arguments?.getString("policyId").orEmpty(), onBack = back)
+            ChecklistScreen(
+                policyId = entry.arguments?.getString("policyId").orEmpty(),
+                onBack = back,
+                onFormGuide = { go(Routes.formGuide(it)) },
+            )
+        }
+        composable(
+            Routes.FORM_GUIDE,
+            arguments = listOf(navArgument("policyId") { type = NavType.StringType }),
+        ) { entry ->
+            FormGuideScreen(policyId = entry.arguments?.getString("policyId").orEmpty(), onBack = back)
         }
 
         composable(
@@ -280,13 +366,17 @@ private fun OnRoadGraph(
 
         composable(
             Routes.CHAT,
-            arguments = listOf(navArgument("q") { type = NavType.StringType; nullable = true; defaultValue = null }),
+            arguments = listOf(
+                navArgument("q") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("cid") { type = NavType.StringType; nullable = true; defaultValue = null },
+            ),
         ) { entry ->
             ChatScreen(
                 initialQuestion = entry.arguments?.getString("q"),
                 onBack = back,
                 onOpenPolicy = { go(Routes.policy(it)) },
                 onPrepare = { go(Routes.checklist(it)) },
+                chatId = entry.arguments?.getString("cid")?.toLongOrNull(),
             )
         }
 
@@ -295,6 +385,10 @@ private fun OnRoadGraph(
                 onBack = back,
                 onOpenPolicy = { go(Routes.policy(it)) },
                 onOpenChecklist = { go(Routes.checklist(it)) },
+                onOpenSimulation = { go(Routes.simResult(it)) },
+                onOpenRoleplay = { go(Routes.roleplay(it)) },
+                onOpenChat = { go(Routes.chat(chatId = it)) },
+                onNavigate = go,
             )
         }
 

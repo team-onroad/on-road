@@ -4,23 +4,43 @@ import kotlinx.coroutines.delay
 
 enum class ChatRole { USER, ASSISTANT }
 
+/**
+ * 답변 종류 (3.15 type).
+ * LOCAL: 첫 인사·오류 안내처럼 앱이 만든 문구 (서버로 보내는 이전 대화에서 뺀다)
+ */
+enum class ChatKind { POLICY, COUNSEL, CRISIS, LOCAL }
+
+/** 도움 연락처 (위기 안내에 함께 옴) */
+data class HelpLine(val name: String, val phone: String)
+
 data class ChatMessage(
     val id: Long,
     val role: ChatRole,
     val text: String,
     val evidence: List<Evidence> = emptyList(),
     val policies: List<Policy> = emptyList(),
-    val needsCheck: Boolean = false
+    val needsCheck: Boolean = false,
+    val kind: ChatKind = ChatKind.POLICY,
+    val contacts: List<HelpLine> = emptyList(),
 )
 
-/** AI 상담 API 계약. 백엔드(RAG + LLM) 준비 후 서버 구현체로 교체한다. */
+/** AI 상담 API 계약 (3.15). history: 지금까지 대화 (방금 보낸 message 포함 가능, 구현체가 정리해서 보냄) */
 interface ChatApi {
     suspend fun reply(userId: String, history: List<ChatMessage>, message: String): ChatMessage
 }
 
+/** 위기 신호일 때 보여 줄 연락처 (서버 고정값과 같음, 가짜 모드용) */
+val CRISIS_LINES = listOf(
+    HelpLine("자살예방상담전화", "109"),
+    HelpLine("청소년상담전화", "1388"),
+    HelpLine("보건복지상담센터", "129"),
+    HelpLine("경찰", "112"),
+)
+
 /** 화면 확인용 가짜 답변. 키워드로 예시 정책을 찾아 템플릿 답변을 만든다. */
 class FakeChatApi : ChatApi {
     private val feelingWords = listOf("힘들", "외로", "무서", "불안", "우울", "막막", "걱정", "지쳐")
+    private val crisisWords = listOf("죽고싶", "자살", "자해", "사라지고싶")
 
     override suspend fun reply(userId: String, history: List<ChatMessage>, message: String): ChatMessage {
         delay(1200)
@@ -29,6 +49,16 @@ class FakeChatApi : ChatApi {
             .filter { p -> p.keywords.any { q.contains(it.replace(" ", "")) } }
             .take(3)
         val feeling = feelingWords.any { q.contains(it) }
+
+        if (crisisWords.any { q.contains(it) }) {
+            return ChatMessage(
+                id = 0,
+                role = ChatRole.ASSISTANT,
+                text = "많이 힘드셨겠어요. 혼자 견디지 않아도 괜찮아요. 지금 바로 이야기할 수 있는 곳이에요.",
+                kind = ChatKind.CRISIS,
+                contacts = CRISIS_LINES,
+            )
+        }
 
         return when {
             matched.isNotEmpty() -> ChatMessage(
@@ -49,7 +79,7 @@ class FakeChatApi : ChatApi {
                 text = "이야기해 줘서 고마워요. 그런 마음이 드는 건 자연스러운 일이에요.\n\n" +
                     "혼자 감당하기 어렵다면 믿을 수 있는 어른이나 자립지원전담기관 선생님과 이야기해 보는 것도 방법이에요. " +
                     "위쪽의 '도움 연락처'에서 바로 연결할 수도 있어요.",
-                policies = listOfNotNull(SamplePolicies.find("counsel"))
+                kind = ChatKind.COUNSEL
             )
             else -> ChatMessage(
                 id = 0,

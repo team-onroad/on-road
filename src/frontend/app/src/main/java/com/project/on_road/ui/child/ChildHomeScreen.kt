@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,8 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -44,7 +45,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,16 +55,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.project.on_road.R
+import com.project.on_road.data.ActivityStore
 import com.project.on_road.data.AppContainer
 import com.project.on_road.ui.components.SpeakOnce
+import com.project.on_road.ui.components.rememberSpeechInput
 import com.project.on_road.ui.navigation.Routes
 import java.time.LocalDate
 
 /*
  * 아동 홈 (만 10세 이하) — 시안 D · 길
  * 상단바(로고 · 아동 · ?) → 인사 → 점선 길을 따라
- * 오늘의 미션 → 상담하기 → 좋아하는 거 찾기 → 내 스티커 → 스티커 가게 → 도움이 필요해
+ * 오늘의 미션 → 상담하기 → 좋아하는 거 찾기 → 내 스티커 → 스티커 가게 → 내 기록장 → 도움이 필요해
  * - 공통 색·글씨·손그림 테두리는 ChildRoadKit.kt
  * - 그림 자리는 점선. 그림을 넣으면 KidHome 의 R.drawable 로 바꾸기
  */
@@ -73,11 +74,12 @@ import java.time.LocalDate
 private object KidHome {
     // 그림: res/drawable 에 넣고 R.drawable.파일이름. null 이면 점선 자리
     @DrawableRes val ImgMission: Int? = null                     // 오늘의 미션 왼쪽 위 작은 스티커
-    @DrawableRes val ImgCounsel: Int? = R.drawable.img_counsel
-    @DrawableRes val ImgFind: Int? = R.drawable.img_find
-    @DrawableRes val ImgSticker: Int? = R.drawable.img_sticker
-    @DrawableRes val ImgShop: Int? = R.drawable.img_shop
-    @DrawableRes val ImgHelp: Int? = R.drawable.img_help_call
+    @DrawableRes val ImgCounsel: Int? = null
+    @DrawableRes val ImgFind: Int? = null
+    @DrawableRes val ImgSticker: Int? = null
+    @DrawableRes val ImgShop: Int? = null
+    @DrawableRes val ImgHelp: Int? = null
+    @DrawableRes val ImgJournal: Int? = null                     // 내 기록장 (그림 넣으면 R.drawable.파일이름)
 
     val MissionSlot = Color(0xFFB99A3E)   // 미션 스티커 자리 점선
 
@@ -115,6 +117,8 @@ fun ChildHomeScreen(onNavigate: (String) -> Unit, onLogout: () -> Unit = {}) {
     var balance by remember { mutableIntStateOf(session.starBalance) }
     var showHelp by remember { mutableStateOf(false) }
     var showLogout by remember { mutableStateOf(false) }
+    var showMission by remember { mutableStateOf(false) }
+    var streak by remember { mutableIntStateOf(ActivityStore.missionStreak()) }
     val name = session.nickname.ifBlank { "친구" }
 
     SpeakOnce(if (doneToday) "${call(name)}, 오늘 미션 성공!" else "${call(name)}, 안녕! 오늘의 미션은 $mission")
@@ -130,7 +134,7 @@ fun ChildHomeScreen(onNavigate: (String) -> Unit, onLogout: () -> Unit = {}) {
             Modifier
                 .fillMaxWidth()
                 .padding(start = KidHome.SideMargin, end = KidHome.SideMargin, top = 10.dp, bottom = 28.dp)
-                .height(800.dp),
+                .height(880.dp),
         ) {
             val w = maxWidth
             val density = LocalDensity.current
@@ -168,16 +172,12 @@ fun ChildHomeScreen(onNavigate: (String) -> Unit, onLogout: () -> Unit = {}) {
             MissionCard(
                 mission = mission,
                 done = doneToday,
+                streak = streak,
                 modifier = Modifier
                     .offset(x = 70.dp, y = 150.dp)
                     .width(w - 80.dp)   // 오른쪽 여백 10
                     .onSizeChanged { missionBottom = 150f + with(density) { it.height.toDp().value } },
-                onStart = {
-                    doneToday = true
-                    session.missionDoneDay = today
-                    session.missionCount = session.missionCount + 1
-                    balance = session.starBalance
-                },
+                onStart = { showMission = true },
             )
 
             // 정거장들
@@ -189,9 +189,11 @@ fun ChildHomeScreen(onNavigate: (String) -> Unit, onLogout: () -> Unit = {}) {
                 modifier = Modifier.align(Alignment.TopStart)) { onNavigate(Routes.STICKER_BOARD) }
             Stop("스티커 가게", "새로운 스티커 구경", Tones.Yellow, KidHome.ImgShop, end = true, y = 600.dp, seed = 7,
                 modifier = Modifier.align(Alignment.TopEnd)) { onNavigate(Routes.STICKER_SHOP) }
+            Stop("내 기록장", "기분·좋아하는 것·미션", Tones.Mint, KidHome.ImgJournal, end = false, y = 680.dp, seed = 21,
+                modifier = Modifier.align(Alignment.TopStart)) { onNavigate(Routes.CHILD_JOURNAL) }
 
             // 길 끝: 도움이 필요해
-            HelpPill(Modifier.offset(y = 722.dp)) { showHelp = true }
+            HelpPill(Modifier.offset(y = 802.dp)) { showHelp = true }
         }
 
         // 처음으로 돌아가기 (로그아웃)
@@ -208,6 +210,24 @@ fun ChildHomeScreen(onNavigate: (String) -> Unit, onLogout: () -> Unit = {}) {
     }
 
     if (showLogout) LogoutDialog(onCancel = { showLogout = false }, onConfirm = { showLogout = false; onLogout() })
+
+    if (showMission) {
+        MissionDoneDialog(
+            mission = mission,
+            onCancel = { showMission = false },
+            onDone = { note ->
+                showMission = false
+                doneToday = true
+                session.missionDoneDay = today
+                session.missionCount = session.missionCount + 1
+                balance = session.starBalance
+                // 미션 기록장 + 내 기록
+                ActivityStore.addMissionNote(mission, note)
+                ActivityStore.logKid(KidRecordKind.MISSION.name, mission, note?.let { "한 줄 · $it" })
+                streak = ActivityStore.missionStreak()
+            },
+        )
+    }
 
     if (showHelp) {
         Dialog(
@@ -239,7 +259,8 @@ private fun RoadLine(modifier: Modifier, missionBottom: Float) {
             floatArrayOf(66f, 428f, 66f, 463f, 288f, 412f, 288f, 446f),
             floatArrayOf(288f, 514f, 288f, 544f, 66f, 494f, 66f, 520f),
             floatArrayOf(66f, 588f, 66f, 623f, 288f, 570f, 288f, 600f),
-            floatArrayOf(288f, 668f, 288f, 698f, 200f, 700f, 190f, 722f),
+            floatArrayOf(288f, 668f, 288f, 698f, 66f, 650f, 66f, 680f),
+            floatArrayOf(66f, 748f, 66f, 778f, 160f, 780f, 190f, 802f),
         )
         val path = Path()
         segs.forEach { s ->
@@ -260,7 +281,7 @@ private fun RoadLine(modifier: Modifier, missionBottom: Float) {
 
 /** 오늘의 미션: 흰 카드 + 손그림 테두리 + 왼쪽 위 작은 스티커 자리 + 대표색 버튼 */
 @Composable
-private fun MissionCard(mission: String, done: Boolean, modifier: Modifier, onStart: () -> Unit) {
+private fun MissionCard(mission: String, done: Boolean, streak: Int, modifier: Modifier, onStart: () -> Unit) {
     val shape = RoundedCornerShape(18.dp)
     Box(modifier) {
         Column(
@@ -283,6 +304,14 @@ private fun MissionCard(mission: String, done: Boolean, modifier: Modifier, onSt
                 maxLines = 3,
                 modifier = Modifier.padding(start = 10.dp),
             )
+            if (streak >= 2) {
+                Text(
+                    "${streak}일 연속 성공 중!",
+                    style = hanaText(17.sp, FontWeight.Normal, 1.25f),
+                    color = RoadKit.Star,
+                    modifier = Modifier.padding(start = 10.dp),
+                )
+            }
             if (done) {
                 Box(
                     Modifier
@@ -396,7 +425,7 @@ private fun HelpPill(modifier: Modifier, onClick: () -> Unit) {
 /** 처음으로 돌아가기 확인 */
 @Composable
 private fun LogoutDialog(onCancel: () -> Unit, onConfirm: () -> Unit) {
-    SpeakOnce("처음 화면으로 갈까? 다시 들어오려면 이름이랑 생일을 다시 써야 해.")
+    SpeakOnce("처음 화면으로 갈까? 다음에 이미 사용 중이에요를 누르면 다시 들어올 수 있어.")
     Dialog(onDismissRequest = onCancel) {
         Column(
             Modifier
@@ -411,7 +440,7 @@ private fun LogoutDialog(onCancel: () -> Unit, onConfirm: () -> Unit) {
             Text("처음 화면으로 갈까?", style = hanaText(25.sp, lineHeight = 1.3f), color = RoadKit.Ink, textAlign = TextAlign.Center)
             Spacer(Modifier.height(8.dp))
             Text(
-                "다시 들어오려면\n이름이랑 생일을 다시 써야 해.",
+                "다음에 '이미 사용 중이에요'를 누르면\n다시 들어올 수 있어.",
                 style = hanaText(19.sp, FontWeight.Normal, 1.4f),
                 color = RoadKit.InkSub,
                 textAlign = TextAlign.Center,
@@ -429,3 +458,73 @@ private fun LogoutDialog(onCancel: () -> Unit, onConfirm: () -> Unit) {
         }
     }
 }
+
+/**
+ * 미션 했어? — 한 줄 남기기(안 써도 됨, 말로도 가능) → 미션 기록장에 저장
+ */
+@Composable
+private fun MissionDoneDialog(mission: String, onCancel: () -> Unit, onDone: (String?) -> Unit) {
+    var note by remember { mutableStateOf("") }
+    val listen = rememberSpeechInput { note = (note + " " + it).trim().take(60) }
+    SpeakOnce("미션 했어? 한 줄로 남겨도 되고, 안 써도 괜찮아.")
+    Dialog(onDismissRequest = onCancel) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
+                .handOutline(24.dp, seed = 7)
+                .clip(RoundedCornerShape(24.dp))
+                .background(RoadKit.Background)
+                .padding(24.dp),
+        ) {
+            Text("미션 했어?", style = hanaText(26.sp, lineHeight = 1.3f), color = RoadKit.Ink)
+            Spacer(Modifier.height(6.dp))
+            Text(mission, style = hanaText(19.sp, FontWeight.Normal, 1.35f), color = RoadKit.InkSub)
+            Spacer(Modifier.height(18.dp))
+            Text("한 줄 남기기 (안 써도 돼)", style = hanaText(18.sp, lineHeight = 1.3f), color = RoadKit.Ink)
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .dashedOutline(RoadKit.Road, 16.dp)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                BasicTextField(
+                    value = note,
+                    onValueChange = { note = it.take(60) },
+                    textStyle = hanaText(20.sp, FontWeight.Normal, 1.35f).copy(color = RoadKit.Ink),
+                    cursorBrush = SolidColor(RoadKit.Ink),
+                    modifier = Modifier.fillMaxWidth(),
+                    decorationBox = { inner ->
+                        if (note.isEmpty()) Text("예: 선생님께 소방관이 궁금하다고 물어봤어", style = hanaText(18.sp, FontWeight.Normal, 1.35f), color = RoadKit.InkMuted)
+                        inner()
+                    },
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(RoadKit.Chip)
+                    .clickable(onClick = listen)
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text("말로 남기기", style = hanaText(18.sp, lineHeight = 1.2f), color = RoadKit.Ink) }
+            Spacer(Modifier.height(20.dp))
+            Box(
+                Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(28.dp)).background(RoadKit.Accent)
+                    .clickable { onDone(note.trim().ifBlank { null }) },
+                contentAlignment = Alignment.Center,
+            ) { Text("다 했어! 별 받기", style = hanaText(22.sp, lineHeight = 1.2f), color = Color.White) }
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(26.dp)).background(RoadKit.Chip).clickable(onClick = onCancel),
+                contentAlignment = Alignment.Center,
+            ) { Text("아직이야", style = hanaText(20.sp, lineHeight = 1.2f), color = RoadKit.InkSub) }
+        }
+    }
+}
+

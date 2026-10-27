@@ -23,11 +23,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.*
+import com.project.on_road.data.remote.userMessage
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
 import kotlinx.coroutines.launch
@@ -44,8 +46,11 @@ private fun RoleplayLevel.tag(): TagStyle = when (this) {
 fun RoleplayListScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     val stage = AppState.stage
     var list by remember { mutableStateOf<List<RoleplayScenario>?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(stage) {
-        list = runCatching { AppContainer.coachApi.roleplayScenarios(stage) }.getOrDefault(emptyList())
+        list = runCatching { AppContainer.coachApi.roleplayScenarios(stage) }
+            .onFailure { error = it.userMessage("연습할 상황을 불러오지 못했어요.") }
+            .getOrDefault(emptyList())
     }
 
     OnRoadScreen(if (stage == UserStage.TEEN) "면접 연습" else "실전 상황 연습", onBack) {
@@ -57,6 +62,10 @@ fun RoleplayListScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
         ScreenHeadline("AI가 상대역을 맡아요.", "실제처럼 대답해 보세요.")
         Spacer(Modifier.height(6.dp))
         Text("대화가 끝나면 잘한 점과 빠뜨린 점을 정리해 드려요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+        error?.let {
+            Spacer(Modifier.height(16.dp))
+            NoticeBox(it, title = "불러오지 못했어요", tone = NoticeTone.Warning)
+        }
 
         Spacer(Modifier.height(OnRoadDimens.BlockGap))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -67,24 +76,32 @@ fun RoleplayListScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
                     onClick = { onOpen(s.id) },
                     contentPadding = PaddingValues(20.dp),
                 ) {
-                    Row(verticalAlignment = Alignment.Top) {
+                    // 제목 한 줄 → 상황 한 줄 → AI 상대역 (목표는 연습 화면에서 보여 준다)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             s.title,
                             style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold),
                             color = if (i == 0) OnRoadColors.Primary else OnRoadColors.TextPrimary,
                             modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
+                        Spacer(Modifier.width(8.dp))
                         OnRoadTag(s.level.label, style = s.level.tag())
                     }
                     Spacer(Modifier.height(6.dp))
-                    Text(s.setting, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
-                    Spacer(Modifier.height(12.dp))
+                    Text(s.setting, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ColorDot(OnRoadColors.Primary, 6.dp)
                         Spacer(Modifier.width(6.dp))
-                        Text("AI ${s.partner}", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
-                        Spacer(Modifier.weight(1f))
-                        Text("목표 · ${s.goal}", style = OnRoadType.Tiny, color = OnRoadColors.TextQuaternary, maxLines = 1)
+                        Text(
+                            "AI ${s.partner}",
+                            style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold),
+                            color = OnRoadColors.Primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -109,48 +126,103 @@ class RoleplayViewModel : ViewModel() {
         private set
     var finishing by mutableStateOf(false)
         private set
+    /** 대화 중 오류 안내 (AI 연결 실패, 없는 상황 등) */
+    var error by mutableStateOf<String?>(null)
+        private set
+    /** 기록에 남기는 중 / 남김 */
+    var saving by mutableStateOf(false)
+        private set
+    var saveError by mutableStateOf<String?>(null)
+        private set
 
     fun start(id: String) {
         if (scenarioId == id) return
         scenarioId = id
+        error = null
         viewModelScope.launch {
             scenario = runCatching { AppContainer.coachApi.roleplayScenarios(stage) }.getOrDefault(emptyList()).find { it.id == id }
             waiting = true
-            runCatching { AppContainer.coachApi.roleplayOpening(id, stage) }.onSuccess { turns.add(it) }
+            runCatching { AppContainer.coachApi.roleplayOpening(id, stage) }
+                .onSuccess { turns.add(it) }
+                .onFailure { error = it.userMessage("첫 대사를 불러오지 못했어요.") }
             waiting = false
         }
     }
 
+    /** 첫 대사를 받은 뒤에만 보낼 수 있다 (서버는 이전 대화가 1개 이상이어야 함) */
+    val canSend: Boolean get() = !waiting && feedback == null && turns.isNotEmpty()
+
     fun send(text: String = input) {
-        val t = text.trim()
-        if (t.isEmpty() || waiting || feedback != null) return
+        val t = text.trim().take(MESSAGE_LIMIT)
+        if (t.isEmpty() || !canSend) return
         turns.add(RoleplayTurn(true, t))
         input = ""
+        error = null
         viewModelScope.launch {
             waiting = true
             runCatching { AppContainer.coachApi.roleplayReply(userId, scenarioId, stage, turns.toList()) }
-                .onSuccess { turns.add(it) }
+                .onSuccess { r ->
+                    turns.add(RoleplayTurn(false, r.text))
+                    // 상대역이 대화를 마무리하면 바로 피드백
+                    if (r.finished) {
+                        waiting = false
+                        finish()
+                    }
+                }
+                .onFailure {
+                    // 보내지 못한 말은 입력창으로 돌려놓는다
+                    if (turns.lastOrNull()?.fromUser == true) turns.removeAt(turns.lastIndex)
+                    input = t
+                    error = it.userMessage("대답을 받지 못했어요. 잠시 후 다시 보내 주세요.")
+                }
             waiting = false
         }
     }
 
     fun finish() {
-        if (finishing) return
+        if (finishing || turns.none { it.fromUser }) return
         finishing = true
+        error = null
         viewModelScope.launch {
-            feedback = runCatching { AppContainer.coachApi.roleplayFeedback(userId, scenarioId, turns.toList()) }.getOrNull()
+            runCatching { AppContainer.coachApi.roleplayFeedback(userId, scenarioId, turns.toList()) }
+                .onSuccess {
+                    feedback = it
+                    // 연습할 때마다 휴대폰에 남겨서 지난번과 비교한다 (대화 내용은 남기지 않음)
+                    com.project.on_road.data.ActivityStore.logPractice(
+                        scenarioId, scenario?.title ?: "실전 연습", it.good.size, it.missed.size,
+                    )
+                }
+                .onFailure { error = it.userMessage("피드백을 만들지 못했어요. 잠시 후 다시 끝내기를 눌러 주세요.") }
             finishing = false
+        }
+    }
+
+    /** "기록에 남기기": 같은 대화로 피드백을 저장한다 (대화 내용은 저장하지 않음) → 성장 기록에 표시 */
+    fun save() {
+        val fb = feedback ?: return
+        if (saving || fb.roleplayId != null) return
+        saving = true
+        saveError = null
+        viewModelScope.launch {
+            runCatching { AppContainer.coachApi.roleplayFeedback(userId, scenarioId, turns.toList(), save = true) }
+                .onSuccess { feedback = it }
+                .onFailure { saveError = it.userMessage("기록에 남기지 못했어요. 잠시 후 다시 시도해 주세요.") }
+            saving = false
         }
     }
 
     fun retry() {
         feedback = null
+        saveError = null
         turns.clear()
         val id = scenarioId
         scenarioId = ""
         start(id)
     }
 }
+
+/** 대사 길이 (3.18 message 1~500자) */
+private const val MESSAGE_LIMIT = 500
 
 private val BubbleBorder = OnRoadColors.BorderSage.copy(alpha = 0.4f)
 
@@ -188,7 +260,14 @@ fun RoleplayPlayScreen(scenarioId: String, onBack: () -> Unit, vm: RoleplayViewM
 
         val fb = vm.feedback
         if (fb != null) {
-            FeedbackPage(fb, onRetry = vm::retry, onDone = onBack)
+            FeedbackPage(
+                fb,
+                saving = vm.saving,
+                saveError = vm.saveError,
+                onSave = vm::save,
+                onRetry = vm::retry,
+                onDone = onBack,
+            )
             return@Column
         }
         if (vm.finishing) {
@@ -251,13 +330,16 @@ fun RoleplayPlayScreen(scenarioId: String, onBack: () -> Unit, vm: RoleplayViewM
                     Text("상대역이 말하는 중…", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
                 }
             }
+            vm.error?.let { message ->
+                item(key = "error") { NoticeBox(message, tone = NoticeTone.Warning) }
+            }
         }
 
         HorizontalDivider(thickness = 1.dp, color = OnRoadColors.BorderInput)
         RoleplayInput(
             value = vm.input,
-            onValueChange = { vm.input = it },
-            enabled = !vm.waiting,
+            onValueChange = { vm.input = it.take(MESSAGE_LIMIT) },
+            enabled = vm.canSend,
             onSend = { vm.send() },
             onVoice = { vm.send(it) },
         )
@@ -323,7 +405,14 @@ private fun RoleplayInput(
 }
 
 @Composable
-private fun FeedbackPage(fb: RoleplayFeedback, onRetry: () -> Unit, onDone: () -> Unit) {
+private fun FeedbackPage(
+    fb: RoleplayFeedback,
+    saving: Boolean,
+    saveError: String?,
+    onSave: () -> Unit,
+    onRetry: () -> Unit,
+    onDone: () -> Unit,
+) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
             Spacer(Modifier.height(24.dp))
@@ -351,6 +440,21 @@ private fun FeedbackPage(fb: RoleplayFeedback, onRetry: () -> Unit, onDone: () -
             Spacer(Modifier.height(24.dp))
             Footnote("서류와 절차는 기관마다 다를 수 있어요.\n방문 전에 담당 기관에 확인해 주세요.")
             Spacer(Modifier.height(24.dp))
+            // 피드백 결과만 성장 기록에 남긴다 (대화 내용은 남기지 않음)
+            val saved = fb.roleplayId != null
+            OnRoadButton(
+                if (saved) "기록에 남겼어요" else "기록에 남기기",
+                onSave,
+                Modifier.fillMaxWidth(),
+                variant = ButtonVariant.Outline,
+                enabled = !saved,
+                loading = saving,
+            )
+            saveError?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, style = OnRoadType.Caption2, color = OnRoadColors.Danger)
+            }
+            Spacer(Modifier.height(8.dp))
             OnRoadButton("다시 연습하기", onRetry, Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
             OnRoadButton("목록으로", onDone, Modifier.fillMaxWidth(), variant = ButtonVariant.Outline)

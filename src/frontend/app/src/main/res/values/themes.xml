@@ -3,6 +3,9 @@
 
     <style name="Theme.On_road" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <!-- 배경을 투명하게 설정하여 잔상을 방지합니다 -->
+        <item name="android:windowBackground">@android:color/transparent</item>
     </style>
 
 </resources>

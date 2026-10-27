@@ -36,7 +36,6 @@ import androidx.core.content.ContextCompat
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.project.on_road.data.LivingStatus
 import com.project.on_road.data.UserUpdate
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -63,8 +62,8 @@ class TimelineViewModel(app: Application) : AndroidViewModel(app) {
         private set
     val done = mutableStateListOf<String>().apply { addAll(session.timelineDone) }
 
-    /** 퇴소 후면 '목표일', 아니면 '퇴소 예정일' */
-    val dateLabel: String get() = if (session.status == LivingStatus.LEFT) "목표일" else "퇴소 예정일"
+    /** 이 화면은 퇴소 전 전용 (퇴소 후는 GoalTimelineScreen) */
+    val dateLabel: String get() = "퇴소 예정일"
 
     fun updateDate(date: LocalDate) {
         leaveDate = date

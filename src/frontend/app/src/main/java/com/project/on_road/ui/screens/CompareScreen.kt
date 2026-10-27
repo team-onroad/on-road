@@ -86,7 +86,7 @@ private val keyRows: List<Pair<String, (Policy) -> String>> = listOf(
 private val detailRows: List<Pair<String, (Policy) -> String>> = listOf(
     "지원 대상" to { p -> p.target },
     "신청 방법" to { p -> p.howToApply },
-    "필요 서류" to { p -> p.requiredDocs.joinToString(", ").ifBlank { "공고문에서 확인" } },
+    "필요 서류" to { p -> p.requiredDocs.joinToString(", ") { it.label }.ifBlank { "공고문에서 확인" } },
 )
 
 /** 정책 비교 (디자인: 정책비교). 어느 쪽이 낫다고 단정하지 않고 조건만 나란히 보여 준다. */

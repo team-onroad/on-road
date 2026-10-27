@@ -22,6 +22,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.*
+import com.project.on_road.data.remote.userMessage
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
 import kotlinx.coroutines.launch
@@ -33,6 +34,8 @@ class DocumentViewModel : ViewModel() {
         private set
     var doc by mutableStateOf<GeneratedDoc?>(null)
         private set
+    var error by mutableStateOf<String?>(null)
+        private set
     /** 섹션·문장 위치별 사용자가 고친 내용 */
     val edits = mutableStateMapOf<String, String>()
 
@@ -41,15 +44,28 @@ class DocumentViewModel : ViewModel() {
     fun select(i: Int) {
         typeIndex = i
         doc = null
+        error = null
         edits.clear()
     }
 
+    /** 3.22 초안 만들기. 서버에 없는 앱 기록(저장한 정책 수, 흥미 탐색 결과)을 함께 보낸다 */
     fun generate() {
         val t = type ?: return
+        val session = AppContainer.session
+        val userId = session.userId.orEmpty()
         loading = true
+        error = null
         viewModelScope.launch {
-            doc = runCatching { AppContainer.coachApi.generateDocument(AppContainer.session.userId.orEmpty(), t) }.getOrNull()
-            edits.clear()
+            val records = AppRecords(
+                savedPolicyCount = runCatching { AppContainer.api.getSavedPolicyIds(userId).size }.getOrDefault(0),
+                interestSummary = AppRecords.interestSentence(session.interestTypes),
+            )
+            runCatching { AppContainer.coachApi.generateDocument(userId, t, records) }
+                .onSuccess {
+                    doc = it
+                    edits.clear()
+                }
+                .onFailure { error = it.userMessage("초안을 만들지 못했어요. 잠시 후 다시 시도해 주세요.") }
             loading = false
         }
     }
@@ -93,6 +109,10 @@ fun DocumentScreen(onBack: () -> Unit, vm: DocumentViewModel = viewModel()) {
                 vm.types.isEmpty() -> EmptyState(Icons.Outlined.Edit, "지금 단계에서는 쓸 수 없어요", "청소년·자립준비청년 화면에서 쓸 수 있어요.")
                 vm.loading -> LoadingState("앱에 쌓인 기록으로 초안을 만들고 있어요")
                 d == null -> {
+                    vm.error?.let {
+                        NoticeBox(it, title = "초안을 만들지 못했어요", tone = NoticeTone.Warning)
+                        Spacer(Modifier.height(16.dp))
+                    }
                     ScreenHeadline("앱에 쌓인 기록으로", "${vm.type?.label} 초안을 만들어요.")
                     Spacer(Modifier.height(24.dp))
                     OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
@@ -100,7 +120,7 @@ fun DocumentScreen(onBack: () -> Unit, vm: DocumentViewModel = viewModel()) {
                         Spacer(Modifier.height(8.dp))
                         Text(
                             "체크리스트 완료, 실천 과제, 진로 탐색 기록을 바탕으로 만들어요. " +
-                                "앱에 기록된 내용만 쓰고, 없는 경험은 만들지 않아요.",
+                                    "앱에 기록된 내용만 쓰고, 없는 경험은 만들지 않아요.",
                             style = OnRoadType.Caption,
                             color = OnRoadColors.TextTertiary,
                         )
@@ -109,7 +129,12 @@ fun DocumentScreen(onBack: () -> Unit, vm: DocumentViewModel = viewModel()) {
                     }
                 }
                 else -> {
-                    NoticeBox(d.notice, title = "초안이에요")
+                    // AI 초안 안내 (1.6)
+                    NoticeBox("${d.notice}\n직접 확인하고 고쳐서 쓰세요.", title = "AI가 만든 초안이에요")
+                    vm.error?.let {
+                        Spacer(Modifier.height(12.dp))
+                        NoticeBox(it, title = "다시 만들지 못했어요", tone = NoticeTone.Warning)
+                    }
                     d.sections.forEachIndexed { si, s ->
                         Spacer(Modifier.height(OnRoadDimens.BlockGap))
                         SubHeader(s.title)

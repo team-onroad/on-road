@@ -27,6 +27,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.*
+import com.project.on_road.data.remote.userMessage
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
 import kotlinx.coroutines.launch
@@ -45,6 +46,37 @@ class SimulationViewModel : ViewModel() {
         private set
     var error by mutableStateOf<String?>(null)
         private set
+    /** 항목별 권장 최소 금액 (만원). 서버 기준표(3.7)로 바꾸고, 못 받으면 기본값 */
+    val minimums = mutableStateMapOf<BudgetCategory, Int>().apply {
+        BudgetCategory.entries.forEach { put(it, it.minimum) }
+    }
+    private var loadedSimulation: String? = null
+
+    init {
+        viewModelScope.launch {
+            runCatching { AppContainer.api.getCriteria() }.onSuccess { minimums.putAll(it) }
+        }
+    }
+
+    /** 3.14 지난 결과 다시 보기 */
+    fun loadResult(simulationId: String) {
+        if (loadedSimulation == simulationId) return
+        loadedSimulation = simulationId
+        viewModelScope.launch {
+            loading = true
+            error = null
+            try {
+                val r = AppContainer.api.getSimulation(AppContainer.session.userId.orEmpty(), simulationId)
+                incomeText = r.income.toString()
+                r.allocation.forEach { (k, v) -> allocation[k] = v }
+                result = r
+            } catch (e: Exception) {
+                error = e.userMessage("지난 결과를 불러오지 못했어요.")
+            } finally {
+                loading = false
+            }
+        }
+    }
 
     val income: Int get() = incomeText.toIntOrNull() ?: 0
     val total: Int get() = allocation.values.sum()
@@ -84,6 +116,7 @@ class SimulationViewModel : ViewModel() {
             error = null
             try {
                 result = AppContainer.api.simulate(AppContainer.session.userId.orEmpty(), income, allocation.toMap())
+                    .also { r -> com.project.on_road.data.ActivityStore.logSimulation(r.shortages.map { it.category }) }
             } catch (e: com.project.on_road.data.remote.ApiException) {
                 error = when (e.code) {
                     "SUM_EXCEEDS_INCOME" -> "나눈 금액의 합계가 수입보다 커요. 금액을 줄여 주세요."
@@ -108,8 +141,11 @@ class SimulationViewModel : ViewModel() {
 fun BudgetSimulationScreen(
     onBack: () -> Unit,
     onOpenPolicy: (String) -> Unit,
+    /** 지난 결과를 다시 볼 때 시뮬레이션 id (홈·성장 기록에서) */
+    simulationId: String? = null,
     vm: SimulationViewModel = viewModel(),
 ) {
+    LaunchedEffect(simulationId) { simulationId?.let(vm::loadResult) }
     val result = vm.result
     BackHandler(enabled = result != null) { vm.backToInput() }
 
@@ -177,7 +213,7 @@ private fun SimulationInput(vm: SimulationViewModel) {
             Spacer(Modifier.height(16.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 BudgetCategory.entries.forEach { c ->
-                    CategorySlider(c, vm.allocation[c] ?: 0, income) { vm.setAmount(c, it) }
+                    CategorySlider(c, vm.allocation[c] ?: 0, income, vm.minimums[c] ?: c.minimum) { vm.setAmount(c, it) }
                 }
             }
 
@@ -264,9 +300,9 @@ private fun CategoryLegend() {
 }
 
 @Composable
-private fun CategorySlider(c: BudgetCategory, value: Int, income: Int, onChange: (Int) -> Unit) {
+private fun CategorySlider(c: BudgetCategory, value: Int, income: Int, minimum: Int, onChange: (Int) -> Unit) {
     val maxValue = max(income, 1).toFloat()
-    val short = income > 0 && value < c.minimum
+    val short = income > 0 && value < minimum
     SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 15.dp, end = 15.dp, top = 15.dp, bottom = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconTile(c.icon, tint = c.color)
@@ -286,7 +322,7 @@ private fun CategorySlider(c: BudgetCategory, value: Int, income: Int, onChange:
         )
         Row {
             Text(
-                "권장 최소 ${c.minimum}만원",
+                "권장 최소 ${minimum}만원",
                 style = OnRoadType.Tiny,
                 color = if (short) OnRoadColors.Danger else OnRoadColors.TextTertiary,
             )

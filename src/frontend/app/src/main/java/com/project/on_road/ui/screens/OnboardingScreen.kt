@@ -2,13 +2,11 @@ package com.project.on_road.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -57,6 +55,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -73,6 +72,7 @@ import com.project.on_road.ui.components.IconTile
 import com.project.on_road.ui.components.NoticeBox
 import com.project.on_road.ui.components.NoticeTone
 import com.project.on_road.ui.components.OnRoadButton
+import com.project.on_road.ui.components.LogoColors
 import com.project.on_road.ui.components.OnRoadLogo
 import com.project.on_road.ui.components.OnRoadSelectBox
 import com.project.on_road.ui.components.OnRoadTextField
@@ -96,7 +96,8 @@ import java.time.YearMonth
 /* ================================================================== */
 
 /** DDATE: 퇴소 예정이면 퇴소 예정일, 퇴소 후면 목표일(건너뛰기 가능). 시설 생활이면 건너뜀 */
-enum class OnboardStep { INTRO, WHO, NAME, BIRTH, REGION, STATUS, DDATE, DONE }
+/** LOGIN: 이 휴대폰에서 써 본 계정(또는 아이디)으로 다시 들어가기 */
+enum class OnboardStep { INTRO, LOGIN, WHO, NAME, BIRTH, REGION, STATUS, DDATE, DONE }
 
 /** 단계별 만 나이 범위 (서버 규칙: 10세 이하 아동, 11~17세 청소년, 18세 이상 자립준비청년) */
 private fun ageRange(stage: UserStage): IntRange = when (stage) {
@@ -278,6 +279,8 @@ class OnboardingViewModel : ViewModel() {
 
     fun canNext(): Boolean = when (step) {
         OnboardStep.INTRO, OnboardStep.DONE -> true
+        // 로그인 화면은 '다음' 버튼 대신 계정 고르기로 진행
+        OnboardStep.LOGIN -> false
         OnboardStep.WHO -> who != null
         OnboardStep.NAME -> name.isNotBlank()
         OnboardStep.BIRTH -> birthDate != null && birthHint == null
@@ -306,10 +309,52 @@ class OnboardingViewModel : ViewModel() {
     fun back() {
         if (!canGoBack) return
         error = null
+        if (step == OnboardStep.LOGIN) {
+            forward = false
+            step = OnboardStep.INTRO
+            return
+        }
         val i = flow.indexOf(step)
         if (i > 0) {
             forward = false
             step = flow[i - 1]
+        }
+    }
+
+    // ---------------- 기존 사용자로 들어가기 ----------------
+
+    /** 로그인 성공 → 화면이 홈으로 보낸다 */
+    var loggedIn by mutableStateOf(false)
+        private set
+    /** 로그인 중인 계정 id (목록에서 그 칸에만 로딩 표시) */
+    var loggingInId by mutableStateOf<String?>(null)
+        private set
+
+    fun openLogin() {
+        error = null
+        forward = true
+        step = OnboardStep.LOGIN
+    }
+
+    fun login(userId: String) {
+        val id = userId.trim()
+        if (id.isEmpty() || loading) return
+        error = null
+        loggingInId = id
+        viewModelScope.launch {
+            loading = true
+            try {
+                if (AppContainer.loginExisting(id)) loggedIn = true
+                else error = "계정을 찾지 못했어요. 아이디를 다시 확인해 주세요."
+            } catch (e: IOException) {
+                error = "서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요."
+            } catch (e: Exception) {
+                android.util.Log.e("OnRoad", "로그인 실패", e)
+                error = "잠시 후 다시 시도해 주세요."
+            } finally {
+                loading = false
+                loggingInId = null
+            }
         }
     }
 
@@ -371,32 +416,38 @@ class OnboardingViewModel : ViewModel() {
 fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = viewModel()) {
     BackHandler(enabled = vm.canGoBack) { vm.back() }
 
-    // 인트로 / 질문 / 완료 세 덩어리는 서로 페이드로, 질문끼리는 옆으로 넘긴다
-    val phase = when (vm.step) {
-        OnboardStep.INTRO -> 0
-        OnboardStep.DONE -> 2
+    // 인트로 / 질문 / 아동 온보딩 / 완료 네 덩어리는 서로 페이드로, 질문끼리는 옆으로 넘긴다.
+    // (아동 온보딩을 질문과 다른 덩어리로 나눠서, 아동을 골랐을 때 화면이 툭 바뀌지 않고 부드럽게 넘어간다)
+    // 기존 사용자로 들어가면 바로 홈으로
+    LaunchedEffect(vm.loggedIn) { if (vm.loggedIn) onDone() }
+
+    val phase = when {
+        vm.step == OnboardStep.INTRO -> 0
+        vm.step == OnboardStep.LOGIN -> 4
+        vm.step == OnboardStep.DONE -> 2
+        vm.isChild && vm.step != OnboardStep.WHO -> 3
         else -> 1
     }
     Box(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
         AnimatedContent(
             targetState = phase,
-            transitionSpec = { fadeIn(tween(380)) togetherWith fadeOut(tween(240)) },
+            transitionSpec = {
+                (fadeIn(tween(420, easing = FastOutSlowInEasing)) togetherWith fadeOut(tween(260, easing = FastOutSlowInEasing)))
+                    .using(SizeTransform(clip = false))
+            },
             label = "onboardPhase",
         ) { p ->
             when (p) {
-                0 -> IntroPage(onStart = vm::next)
-                // 아동을 고르면 이름부터는 아동 전용 화면 (ui/child/ChildOnboarding.kt)
+                0 -> IntroPage(onStart = vm::next, onLogin = vm::openLogin)
+                4 -> LoginPage(vm)
+                1 -> QuestionPage(vm)
                 // 아동을 고르면 테마가 바뀌고 아동 온보딩으로 (ui/child/ChildOnboardingScreen.kt)
-                1 -> if (vm.isChild && vm.step != OnboardStep.WHO) {
-                    ChildOnboardingScreen(
-                        onDone = vm::submitChild,
-                        onBack = vm::back,
-                        loading = vm.loading,
-                        error = vm.error,
-                    )
-                } else {
-                    QuestionPage(vm)
-                }
+                3 -> ChildOnboardingScreen(
+                    onDone = vm::submitChild,
+                    onBack = vm::back,
+                    loading = vm.loading,
+                    error = vm.error,
+                )
                 // 아동은 길 소개의 '시작하기'가 끝이라 완료 화면 없이 바로 홈으로
                 else -> if (vm.isChild) LaunchedEffect(Unit) { onDone() } else DonePage(vm, onDone)
             }
@@ -409,48 +460,34 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = viewModel()) 
 /* ------------------------------------------------------------------ */
 
 @Composable
-private fun IntroPage(onStart: () -> Unit) {
+private fun IntroPage(onStart: () -> Unit, onLogin: () -> Unit) {
     val reveal = remember { Animatable(0f) }
     val drop = remember { Animatable(0f) }
     val text = remember { Animatable(0f) }
     val button = remember { Animatable(0f) }
 
+    // 길(A)은 페이드로 나타나고 → 점이 위에서 부드럽게 내려오고 → 글씨·버튼이 차례로 페이드
     LaunchedEffect(Unit) {
         delay(150)
-        reveal.animateTo(1f, tween(650, easing = FastOutSlowInEasing))
-        // 점이 위에서 부드럽게 내려와 제자리에
-        launch { drop.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
-        delay(350)
-        text.animateTo(1f, tween(450, easing = FastOutSlowInEasing))
-        button.animateTo(1f, tween(350))
+        reveal.animateTo(1f, tween(500, easing = LinearOutSlowInEasing))
+        launch { drop.animateTo(1f, tween(800, easing = LinearOutSlowInEasing)) }
+        delay(450)
+        launch { text.animateTo(1f, tween(500, easing = LinearOutSlowInEasing)) }
+        delay(250)
+        button.animateTo(1f, tween(450, easing = LinearOutSlowInEasing))
     }
 
-    // 다 나타난 뒤 점이 숨쉬듯 살짝 커졌다 작아짐
-    val idle = rememberInfiniteTransition(label = "logoIdle")
-    val pulse by idle.animateFloat(
-        1f, 1.1f,
-        infiniteRepeatable(tween(1100, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "dotPulse",
-    )
 
     Column(
         Modifier.fillMaxSize().padding(horizontal = 27.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
-        OnRoadLogo(
-            size = 128.dp,
-            reveal = reveal.value,
-            dotDrop = drop.value,
-            dotScale = if (drop.value >= 0.99f) pulse else 1f,
-        )
+        IntroLogo(reveal = { reveal.value }, drop = { drop.value })
         Spacer(Modifier.height(36.dp))
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.graphicsLayer {
-                alpha = text.value
-                translationY = (1f - text.value) * 36f
-            },
+            modifier = Modifier.graphicsLayer { alpha = text.value },
         ) {
             Text("온로드", style = OnRoadType.Hero, color = OnRoadColors.TextStrong)
             Spacer(Modifier.height(8.dp))
@@ -458,10 +495,7 @@ private fun IntroPage(onStart: () -> Unit) {
         }
         Spacer(Modifier.weight(1.2f))
         Column(
-            Modifier.fillMaxWidth().graphicsLayer {
-                alpha = button.value
-                translationY = (1f - button.value) * 24f
-            },
+            Modifier.fillMaxWidth().graphicsLayer { alpha = button.value },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -473,15 +507,222 @@ private fun IntroPage(onStart: () -> Unit) {
             Spacer(Modifier.height(20.dp))
             OnRoadButton(
                 text = "시작하기",
-                onClick = onStart,
+                // 비활성 → 활성으로 바뀌면 색이 툭 바뀌므로, 버튼은 늘 활성 색으로 두고 페이드만 한다.
+                // 다 나타나기 전 누름만 무시
+                onClick = { if (button.value > 0.5f) onStart() },
                 modifier = Modifier.fillMaxWidth(),
                 height = 56.dp,
                 textStyle = OnRoadType.Title3.copy(fontWeight = FontWeight.Medium),
                 trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
-                enabled = button.value > 0.5f,
+            )
+            Spacer(Modifier.height(4.dp))
+            // 기존 사용자: 온보딩 없이 바로 들어가기
+            Text(
+                "이미 사용 중이에요",
+                style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                color = OnRoadColors.TextSecondary,
+                modifier = Modifier
+                    .clip(OnRoadShapes.Chip)
+                    .clickable { if (button.value > 0.5f) onLogin() }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             )
         }
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(20.dp))
+    }
+}
+
+/**
+ * 인트로 로고: 길(A)은 페이드, 점은 위에서 부드럽게 내려와 멈춘다 (움직임 반복 없음).
+ * 값이 매 프레임 바뀌므로 따로 떼어서, 로고만 다시 그리고 글씨·버튼은 다시 그리지 않게 한다.
+ */
+@Composable
+private fun IntroLogo(reveal: () -> Float, drop: () -> Float) {
+    OnRoadLogo(
+        size = 128.dp,
+        reveal = 1f,
+        markColor = LogoColors.Mark.copy(alpha = reveal()),
+        dotDrop = drop(),
+    )
+}
+
+/* ------------------------------------------------------------------ */
+/*  기존 사용자로 들어가기                                                  */
+/* ------------------------------------------------------------------ */
+
+/** 이 휴대폰에서 써 본 계정 목록 + 아이디로 불러오기 */
+@Composable
+private fun LoginPage(vm: OnboardingViewModel) {
+    var accounts by remember { mutableStateOf(AppContainer.session.accounts) }
+    var idText by remember { mutableStateOf("") }
+    var deleting by remember { mutableStateOf<com.project.on_road.data.SavedAccount?>(null) }
+
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = vm::back, enabled = !vm.loading) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로", tint = OnRoadColors.TextPrimary.copy(alpha = 0.85f))
+            }
+        }
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp),
+        ) {
+            Spacer(Modifier.height(24.dp))
+            Text("다시 오셨네요", style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
+            Spacer(Modifier.height(8.dp))
+            Text("쓰던 계정을 고르면 바로 이어서 시작해요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+            Spacer(Modifier.height(28.dp))
+
+            if (accounts.isEmpty()) {
+                Text(
+                    "이 휴대폰에 저장된 계정이 없어요.\n아래에 아이디를 넣어 불러올 수 있어요.",
+                    style = OnRoadType.Caption,
+                    color = OnRoadColors.TextTertiary,
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    accounts.forEach { a ->
+                        AccountRow(
+                            name = a.name.ifBlank { "이름 없음" },
+                            stage = a.stage.label,
+                            lastUsed = a.lastUsed,
+                            loading = vm.loggingInId == a.userId,
+                            enabled = !vm.loading,
+                            onDelete = { deleting = a },
+                        ) { vm.login(a.userId) }
+                    }
+                }
+            }
+
+            vm.error?.let {
+                Spacer(Modifier.height(16.dp))
+                NoticeBox(it, title = "들어가지 못했어요", tone = NoticeTone.Warning)
+            }
+
+            // 다른 휴대폰에서 쓰던 계정: 설정 > 내 아이디 를 복사해 넣는다
+            Spacer(Modifier.height(36.dp))
+            Text("다른 휴대폰에서 쓰던 계정", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            Spacer(Modifier.height(4.dp))
+            Text("설정의 '내 아이디'를 붙여 넣어 주세요.", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+            Spacer(Modifier.height(12.dp))
+            OnRoadTextField(
+                value = idText,
+                onValueChange = { idText = it.trim().take(64) },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = "아이디",
+                showClear = true,
+            )
+            Spacer(Modifier.height(10.dp))
+            OnRoadButton(
+                text = "불러오기",
+                onClick = { vm.login(idText) },
+                modifier = Modifier.fillMaxWidth(),
+                height = 48.dp,
+                textStyle = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                enabled = idText.isNotBlank() && !vm.loading,
+                loading = vm.loading && vm.loggingInId == idText.trim(),
+            )
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+
+    deleting?.let { a ->
+        DeleteAccountDialog(
+            name = a.name.ifBlank { "이름 없음" },
+            onCancel = { deleting = null },
+            onConfirm = {
+                AppContainer.session.removeAccount(a.userId)
+                accounts = AppContainer.session.accounts
+                deleting = null
+            },
+        )
+    }
+}
+
+/** 이 휴대폰에서 계정 지우기 확인 (서버 계정은 그대로) */
+@Composable
+internal fun DeleteAccountDialog(name: String, onCancel: () -> Unit, onConfirm: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onCancel,
+        containerColor = Color.White,
+        shape = OnRoadShapes.Card,
+        title = { Text("‘$name’ 계정을 지울까요?", style = OnRoadType.Title3, color = OnRoadColors.TextPrimary) },
+        text = {
+            Text(
+                "이 휴대폰에서 계정과 상담·기록장 같은 기록이 지워져요. 지운 뒤에는 목록에서 다시 고를 수 없어요.",
+                style = OnRoadType.Caption,
+                color = OnRoadColors.TextTertiary,
+            )
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onConfirm) {
+                Text("지우기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Danger)
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onCancel) {
+                Text("취소", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+            }
+        },
+    )
+}
+
+@Composable
+private fun AccountRow(
+    name: String,
+    stage: String,
+    lastUsed: Long,
+    loading: Boolean,
+    enabled: Boolean,
+    onDelete: () -> Unit,
+    onClick: () -> Unit,
+) {
+    val shape = OnRoadShapes.Inner
+    val used = java.time.Instant.ofEpochMilli(lastUsed).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, OnRoadColors.BorderInput, shape)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(name, style = OnRoadType.Title3, color = OnRoadColors.TextPrimary, maxLines = 1)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    stage,
+                    style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold),
+                    color = OnRoadColors.Primary,
+                    modifier = Modifier
+                        .clip(OnRoadShapes.Tag)
+                        .background(OnRoadColors.PrimarySoft)
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            Text("마지막 사용 ${used.monthValue}월 ${used.dayOfMonth}일", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+        }
+        if (loading) {
+            androidx.compose.material3.CircularProgressIndicator(color = OnRoadColors.Primary, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+        } else {
+            Text(
+                "지우기",
+                style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
+                color = OnRoadColors.TextQuaternary,
+                modifier = Modifier
+                    .clip(OnRoadShapes.Chip)
+                    .clickable(enabled = enabled, onClick = onDelete)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
@@ -524,9 +765,12 @@ private fun QuestionPage(vm: OnboardingViewModel) {
         AnimatedContent(
             targetState = vm.step,
             transitionSpec = {
+                // 들어오는 화면과 나가는 화면을 같은 속도·곡선으로 움직여야 끊기지 않는다
                 val dir = if (vm.forward) 1 else -1
-                (slideInHorizontally(tween(320)) { it * dir / 3 } + fadeIn(tween(320))) togetherWith
-                        (slideOutHorizontally(tween(260)) { -it * dir / 3 } + fadeOut(tween(200)))
+                val move = tween<IntOffset>(340, easing = FastOutSlowInEasing)
+                (slideInHorizontally(move) { it * dir / 4 } + fadeIn(tween(300, delayMillis = 40))) togetherWith
+                    (slideOutHorizontally(move) { -it * dir / 4 } + fadeOut(tween(180))) using
+                    SizeTransform(clip = false)
             },
             modifier = Modifier.weight(1f),
             label = "onboardStep",

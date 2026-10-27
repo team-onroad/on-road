@@ -5,6 +5,9 @@ object SamplePolicies {
     private const val CHECKED = "2026.09 (예시)"
     private const val BOKJIRO = "https://www.bokjiro.go.kr"
 
+    /** 조건 없는 서류 목록 */
+    private fun docs(vararg names: String) = names.map { RequiredDoc(it) }
+
     val all = listOf(
         Policy(
             id = "jarip-allowance",
@@ -19,7 +22,7 @@ object SamplePolicies {
             period = "보호종료 후 최대 5년",
             howToApply = "주민센터 방문 또는 복지로 온라인 신청",
             applyUrl = BOKJIRO,
-            requiredDocs = listOf("신분증", "보호종료확인서", "본인 명의 통장 사본"),
+            requiredDocs = docs("신분증", "보호종료확인서", "본인 명의 통장 사본") + RequiredDoc("위임장", "대리 신청 시"),
             evidence = listOf(
                 Evidence("보건복지부 자립준비청년 지원 안내 (예시)", "자립수당은 보호종료 후 5년 이내인 자립준비청년에게 월 50만 원을 지급한다."),
                 Evidence("복지로 서비스 안내 (예시)", "신청은 주소지 읍·면·동 주민센터 방문 또는 복지로 온라인으로 가능하다.")
@@ -39,7 +42,7 @@ object SamplePolicies {
             period = "보호종료 시 1회",
             howToApply = "보호종료 전 시설 또는 지자체를 통해 신청",
             applyUrl = BOKJIRO,
-            requiredDocs = listOf("신분증", "보호종료(예정)확인서", "본인 명의 통장 사본", "자립 계획서"),
+            requiredDocs = docs("신분증", "보호종료(예정)확인서", "본인 명의 통장 사본", "자립 계획서"),
             evidence = listOf(
                 Evidence("시·도 자립정착금 지원 기준 (예시)", "자립정착금은 보호종료 시 지급하며, 지급액은 시·도 여건에 따라 달리 정한다.")
             ),
@@ -58,7 +61,7 @@ object SamplePolicies {
             period = "가입 후 만기까지",
             howToApply = "시설 또는 지자체를 통해 가입, 보호종료 후 해지·수령",
             applyUrl = BOKJIRO,
-            requiredDocs = listOf("신분증", "가입 확인서", "본인 명의 통장 사본"),
+            requiredDocs = docs("신분증", "가입 확인서", "본인 명의 통장 사본"),
             evidence = listOf(
                 Evidence("아동발달지원계좌 운영 안내 (예시)", "아동이 적립한 금액에 대해 월 10만 원 한도 내에서 1:2로 매칭하여 지원한다.")
             ),
@@ -77,7 +80,7 @@ object SamplePolicies {
             period = "재계약 시 연장 가능",
             howToApply = "LH 청약플러스 온라인 신청",
             applyUrl = "https://apply.lh.or.kr",
-            requiredDocs = listOf("신분증", "보호종료확인서", "주민등록등본", "소득 확인 서류"),
+            requiredDocs = docs("신분증", "보호종료확인서", "주민등록등본", "소득 확인 서류"),
             evidence = listOf(
                 Evidence("LH 청년 주거지원 공고 (예시)", "보호종료아동 등 자립준비청년은 공공임대주택 입주자 선정 시 우선공급 대상에 포함된다.")
             ),
@@ -96,7 +99,7 @@ object SamplePolicies {
             period = "재계약 시 연장 가능",
             howToApply = "LH 청약플러스 온라인 신청",
             applyUrl = "https://apply.lh.or.kr",
-            requiredDocs = listOf("신분증", "보호종료확인서", "주민등록등본"),
+            requiredDocs = docs("신분증", "보호종료확인서", "주민등록등본"),
             evidence = listOf(
                 Evidence("LH 전세임대 공급 안내 (예시)", "입주대상자가 거주할 주택을 물색하면 LH가 전세계약을 체결한 후 재임대한다.")
             ),
@@ -115,7 +118,7 @@ object SamplePolicies {
             period = "보호종료 후 5년 이내",
             howToApply = "주민센터 문의 후 신청",
             applyUrl = BOKJIRO,
-            requiredDocs = listOf("신분증", "보호종료확인서"),
+            requiredDocs = docs("신분증", "보호종료확인서"),
             evidence = listOf(
                 Evidence("자립준비청년 의료비 지원 안내 (예시)", "보호종료 5년 이내 자립준비청년의 본인부담 의료비를 의료급여 수준으로 지원한다.")
             ),
@@ -134,7 +137,7 @@ object SamplePolicies {
             period = "보호종료 후 5년",
             howToApply = "거주 지역 자립지원전담기관에 연락",
             applyUrl = BOKJIRO,
-            requiredDocs = listOf("신분증"),
+            requiredDocs = docs("신분증"),
             evidence = listOf(
                 Evidence("자립준비청년 사후관리 지침 (예시)", "자립지원전담기관은 보호종료 후 5년간 자립준비청년의 사후관리를 수행한다.")
             ),
@@ -153,7 +156,7 @@ object SamplePolicies {
             period = "참여 기간 중",
             howToApply = "고용24 온라인 신청 또는 고용센터 방문",
             applyUrl = "https://www.work24.go.kr",
-            requiredDocs = listOf("신분증", "구직 신청서", "소득 확인 서류"),
+            requiredDocs = docs("신분증", "구직 신청서", "소득 확인 서류"),
             evidence = listOf(
                 Evidence("고용노동부 국민취업지원제도 안내 (예시)", "취업을 원하는 사람에게 취업지원서비스를 종합적으로 제공하고 저소득 구직자에게는 생계를 지원한다.")
             ),

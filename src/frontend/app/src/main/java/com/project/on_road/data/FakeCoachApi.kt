@@ -2,6 +2,11 @@ package com.project.on_road.data
 
 import kotlinx.coroutines.delay
 
+/** 가짜 모드에서 저장한 롤플레잉 기록 (성장 기록 화면용) */
+internal object FakeRecords {
+    val roleplays = mutableListOf<RoleplayRecord>()
+}
+
 /** 화면 확인용 가짜 AI 코치. 규칙과 템플릿으로 동작하며, 실제 AI 연결 시 RemoteCoachApi로 교체한다. */
 class FakeCoachApi : CoachApi {
 
@@ -235,7 +240,7 @@ class FakeCoachApi : CoachApi {
         return RoleplayTurn(false, script(scenarioId).opening)
     }
 
-    override suspend fun roleplayReply(userId: String, scenarioId: String, stage: UserStage, history: List<RoleplayTurn>): RoleplayTurn {
+    override suspend fun roleplayReply(userId: String, scenarioId: String, stage: UserStage, history: List<RoleplayTurn>): RoleplayReply {
         latency(900)
         val s = script(scenarioId)
         val hard = levelFor(s.scenario, stage) == RoleplayLevel.HARD
@@ -244,13 +249,11 @@ class FakeCoachApi : CoachApi {
             s.lines.flatMapIndexed { i, l -> listOfNotNull(l, s.hardLines.getOrNull(i)) }
         } else s.lines
         val partnerTurns = history.count { !it.fromUser } - 1  // 첫 인사 제외
-        return RoleplayTurn(
-            false,
-            lines.getOrElse(partnerTurns) { "네, 오늘은 여기까지 할게요. 수고했어요." }
-        )
+        val line = lines.getOrNull(partnerTurns)
+        return RoleplayReply(line ?: "네, 오늘은 여기까지 할게요. 수고했어요.", finished = line == null)
     }
 
-    override suspend fun roleplayFeedback(userId: String, scenarioId: String, history: List<RoleplayTurn>): RoleplayFeedback {
+    override suspend fun roleplayFeedback(userId: String, scenarioId: String, history: List<RoleplayTurn>, save: Boolean): RoleplayFeedback {
         latency(1200)
         val s = script(scenarioId)
         val said = history.filter { it.fromUser }.joinToString(" ") { it.text }
@@ -260,7 +263,19 @@ class FakeCoachApi : CoachApi {
             if (words.any { said.contains(it) }) good.add(msg) else missed.add(msg)
         }
         if (history.count { it.fromUser } >= 3) good.add("끝까지 대화를 이어 갔어요")
-        return RoleplayFeedback(good, missed, s.documents, s.better)
+        val roleplayId = if (save) {
+            val record = RoleplayRecord(
+                id = FakeRecords.roleplays.size + 1L,
+                scenarioId = s.scenario.id,
+                title = s.scenario.title,
+                goodCount = good.size,
+                missedCount = missed.size,
+                createdAt = java.text.SimpleDateFormat("yyyy.MM.dd HH:mm", java.util.Locale.KOREA).format(java.util.Date()),
+            )
+            FakeRecords.roleplays.add(record)
+            record.id
+        } else null
+        return RoleplayFeedback(good, missed, s.documents, s.better, roleplayId)
     }
 
     // ───────────── 서류 양식 ─────────────
@@ -284,14 +299,14 @@ class FakeCoachApi : CoachApi {
         "scholarship" -> commonFields + listOf(
             FormField("school", "소속(학교·학년)", "다니는 학교와 학년", "학교 이름과 학년, 반을 써요."),
             FormField("reason", "신청 사유", "장학금이 필요한 이유", "지금 상황과 장학금을 어디에 쓸지 솔직하게 써요.", caution = "과장하지 말고 사실만 써요. 확인 서류를 요구할 수 있어요.", multiline = true, essay = true,
-                outline = "1) 지금 나의 상황\n2) 장학금이 필요한 이유\n3) 받게 되면 어디에 쓸지\n4) 앞으로의 계획"),
+                outline = listOf("지금 나의 상황", "장학금이 필요한 이유", "받게 되면 어디에 쓸지", "앞으로의 계획")),
             FormField("plan", "학업 계획", "앞으로 공부 계획", "이번 학기·1년 동안 무엇을 할지 구체적으로 써요.", multiline = true, essay = true,
-                outline = "1) 이번 학기 목표\n2) 이를 위해 할 일\n3) 1년 뒤 모습")
+                outline = listOf("이번 학기 목표", "이를 위해 할 일", "1년 뒤 모습"))
         )
         "program" -> commonFields.take(3) + listOf(
             FormField("guardian", "보호자(담당자) 연락처", "시설 선생님 연락처", "보호자 대신 시설 담당 선생님 연락처를 써도 돼요."),
             FormField("motive", "참가 동기", "참가하고 싶은 이유", "이 프로그램에서 기대하는 것을 짧게 써요.", multiline = true, essay = true,
-                outline = "1) 프로그램을 알게 된 계기\n2) 해 보고 싶은 것\n3) 끝나고 얻고 싶은 것")
+                outline = listOf("프로그램을 알게 된 계기", "해 보고 싶은 것", "끝나고 얻고 싶은 것"))
         )
         "allowance" -> commonFields + listOf(
             FormField("end-date", "보호종료일", "보호가 끝난 날", "시설에서 받은 보호종료확인서의 날짜를 그대로 써요.", caution = "날짜가 다르면 심사가 늦어질 수 있어요."),
@@ -308,7 +323,7 @@ class FakeCoachApi : CoachApi {
             FormField("career", "경력사항", "일한 경험", "아르바이트도 기간과 한 일을 함께 쓰면 경력이 돼요.", multiline = true, example = "2025.03~2025.08 ○○카페 아르바이트 (음료 제조, 재고 정리)"),
             FormField("license", "자격증", "가진 자격증", "자격증 이름, 취득일, 발급 기관을 써요."),
             FormField("intro", "자기소개", "나를 소개하는 글", "직무와 연결되는 경험 위주로 써요.", multiline = true, essay = true,
-                outline = "1) 한 줄로 나를 표현하기\n2) 직무와 이어지는 경험\n3) 그 경험에서 배운 점\n4) 입사 후 하고 싶은 일")
+                outline = listOf("한 줄로 나를 표현하기", "직무와 이어지는 경험", "그 경험에서 배운 점", "입사 후 하고 싶은 일"))
         )
         else -> commonFields
     }
@@ -325,36 +340,27 @@ class FakeCoachApi : CoachApi {
     }
 
     override suspend fun analyzeUpload(userId: String, bytes: ByteArray, mimeType: String): FormDraft {
-        latency(1800)
-        return FormDraft(
-            templateId = null,
-            title = "올린 양식",
-            fields = commonFields + FormField(
-                "etc", "기타 기재사항", "그 밖에 적을 내용", "양식에서 요구하는 내용을 확인하고 적어요.",
-                caution = "AI가 읽은 항목이 실제 양식과 다를 수 있어요. 원본과 꼭 비교해 주세요.", multiline = true
-            ),
-            originalExport = false
-        )
+        // hwpx · pdf 에서 실제 항목을 찾는다 (읽지 못하면 FormParser.ReadError)
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            FormParser.parse(bytes, mimeType)
+        }
     }
 
     // ───────────── 이력서·자기소개서·활동 기록 ─────────────
 
-    override suspend fun generateDocument(userId: String, type: DocType): GeneratedDoc {
+    override suspend fun generateDocument(userId: String, type: DocType, appRecords: AppRecords): GeneratedDoc {
         latency(1300)
         val growth = runCatching { AppContainer.api.getGrowth(userId) }.getOrNull()
         val checklists = growth?.completedChecklists.orEmpty()
-        val policies = growth?.savedPolicies.orEmpty()
+        val savedCount = appRecords.savedPolicyCount
         val sims = growth?.simulations.orEmpty()
-        val interest = AppContainer.session.interestTypes
 
         val records = buildList {
             checklists.forEach { add(DocSentence("${it.policyName} 신청 절차를 스스로 확인하고 서류를 준비해 신청을 마쳤습니다.", "체크리스트 완료 · ${it.policyName}")) }
             if (sims.isNotEmpty()) add(DocSentence("생활비 계획을 ${sims.size}번 세워 보며 지출을 관리하는 연습을 했습니다.", "생활 시뮬레이션 ${sims.size}회"))
-            if (policies.isNotEmpty()) add(DocSentence("자립에 필요한 제도 ${policies.size}가지를 찾아보고 정리했습니다.", "저장한 정책 ${policies.size}개"))
+            if (savedCount > 0) add(DocSentence("자립에 필요한 제도 ${savedCount}가지를 찾아보고 정리했습니다.", "저장한 정책 ${savedCount}개"))
         }
-        val interestLine = interest.firstOrNull()?.let {
-            DocSentence("저는 ${it.description.replace("좋아해요", "좋아합니다")}.", "흥미 탐색 결과 · ${it.label}")
-        }
+        val interestLine = appRecords.interestSummary?.takeIf { it.isNotBlank() }?.let { DocSentence(it.trim(), "흥미 탐색 결과") }
         val blank = { hint: String -> DocSentence(hint, null) }
 
         val sections = when (type) {

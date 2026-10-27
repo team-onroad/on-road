@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Balance
 import androidx.compose.material.icons.outlined.Calculate
@@ -86,7 +87,8 @@ enum class HomeFeature(
     HOUSING("주거비 비교", "월세·전세·공공임대", Icons.Outlined.Apartment, { Routes.SIM_HOUSING }),
     TIMELINE("자립 타임라인", "D-day 할 일", Icons.Outlined.Event, { Routes.SIM_TIMELINE }),
     PRACTICE("상황 연습", "이럴 땐 어떻게?", Icons.Outlined.Psychology, { Routes.PRACTICE }),
-    GROWTH("성장 기록", "지금까지 한 일", Icons.Outlined.ShowChart, { Routes.GROWTH });
+    GROWTH("성장 기록", "지금까지 한 일", Icons.Outlined.ShowChart, { Routes.GROWTH }),
+    BASICS("자립 기초", "미션으로 익히기", Icons.Outlined.School, { Routes.BASICS });
 
     companion object {
         /** 홈에 둘 수 있는 최대 개수 */

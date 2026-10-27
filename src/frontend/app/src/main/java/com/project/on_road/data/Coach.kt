@@ -53,11 +53,16 @@ data class RoleplayScenario(
 
 data class RoleplayTurn(val fromUser: Boolean, val text: String)
 
+/** 상대역의 대답 (3.18). finished: 상대역이 대화를 마무리함 → 바로 피드백 */
+data class RoleplayReply(val text: String, val finished: Boolean)
+
 data class RoleplayFeedback(
     val good: List<String>,
     val missed: List<String>,
     val documents: List<String>,
-    val better: List<Pair<String, String>>
+    val better: List<Pair<String, String>>,
+    /** 성장 기록에 남겼으면 기록 id, 아니면 null */
+    val roleplayId: Long? = null,
 )
 
 // ───────────── 서류 양식 도우미 ─────────────
@@ -79,8 +84,12 @@ data class FormField(
     val multiline: Boolean = false,
     /** 자기소개·포트폴리오처럼 AI가 글의 틀을 만들어 주는 항목 */
     val essay: Boolean = false,
-    val outline: String? = null
-)
+    /** 글의 틀 (줄마다 하나). 없으면 null */
+    val outline: List<String>? = null
+) {
+    /** 입력칸에 넣을 글의 틀: "1) 지금 나의 상황\n2) …" */
+    val outlineText: String? get() = outline?.mapIndexed { i, line -> "${i + 1}) $line" }?.joinToString("\n")
+}
 
 data class FormDraft(
     val templateId: String?,
@@ -105,9 +114,26 @@ data class DocSection(val title: String, val sentences: List<DocSentence>)
 
 data class GeneratedDoc(val type: DocType, val sections: List<DocSection>, val notice: String)
 
+/** 초안에 쓰는 앱에만 있는 기록 (3.22 app_records) */
+data class AppRecords(
+    val savedPolicyCount: Int,
+    /** 흥미 탐색 결과 문장. 없으면 null */
+    val interestSummary: String?,
+) {
+    companion object {
+        /** 흥미 탐색 첫 유형으로 만든 문장 (예: "저는 사람을 돕고 … 좋아합니다.") */
+        fun interestSentence(types: List<Riasec>): String? =
+            types.firstOrNull()?.let { "저는 ${it.description.replace("좋아해요", "좋아합니다")}." }
+    }
+}
+
 // ───────────── API 계약 ─────────────
 
-/** AI 성장 코치 기능 API. 지금은 FakeCoachApi가 구현하고, 백엔드 준비 후 RemoteCoachApi로 교체한다. */
+/**
+ * AI 성장 코치 기능 API.
+ * RemoteCoachApi: 롤플레잉(3.16~3.19)·서류 양식(3.20·3.21)·초안(3.22)은 서버,
+ * 흥미 탐색·직업 추천·로드맵·양식 올리기는 서버 API가 없어서 FakeCoachApi 로 처리한다.
+ */
 interface CoachApi {
     suspend fun interestQuestions(stage: UserStage): List<InterestQuestion>
     suspend fun analyzeInterest(userId: String, answers: List<InterestOption>, freeText: String): InterestProfile
@@ -116,12 +142,14 @@ interface CoachApi {
 
     suspend fun roleplayScenarios(stage: UserStage): List<RoleplayScenario>
     suspend fun roleplayOpening(scenarioId: String, stage: UserStage): RoleplayTurn
-    suspend fun roleplayReply(userId: String, scenarioId: String, stage: UserStage, history: List<RoleplayTurn>): RoleplayTurn
-    suspend fun roleplayFeedback(userId: String, scenarioId: String, history: List<RoleplayTurn>): RoleplayFeedback
+    /** history: 첫 대사부터 방금 보낸 내 말까지 (마지막이 내 말) */
+    suspend fun roleplayReply(userId: String, scenarioId: String, stage: UserStage, history: List<RoleplayTurn>): RoleplayReply
+    /** save = true 면 피드백 결과를 성장 기록에 남긴다 (대화 내용은 저장하지 않음) */
+    suspend fun roleplayFeedback(userId: String, scenarioId: String, history: List<RoleplayTurn>, save: Boolean = false): RoleplayFeedback
 
     suspend fun formTemplates(stage: UserStage): List<FormTemplate>
     suspend fun analyzeTemplate(templateId: String): FormDraft
     suspend fun analyzeUpload(userId: String, bytes: ByteArray, mimeType: String): FormDraft
 
-    suspend fun generateDocument(userId: String, type: DocType): GeneratedDoc
+    suspend fun generateDocument(userId: String, type: DocType, records: AppRecords): GeneratedDoc
 }

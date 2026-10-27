@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.NoteAlt
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.TaskAlt
@@ -52,15 +53,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.ActionKind
+import com.project.on_road.data.ActivityStore
 import com.project.on_road.data.AppContainer
-import com.project.on_road.data.Checklist
+import com.project.on_road.data.ChecklistSummary
+import com.project.on_road.data.DDate
+import com.project.on_road.data.LatestSimulation
 import com.project.on_road.data.NextAction
 import com.project.on_road.data.Policy
 import com.project.on_road.data.RoleplayLevel
 import com.project.on_road.data.RoleplayScenario
 import com.project.on_road.data.TimelineRules
 import com.project.on_road.data.TimelineTask
-import com.project.on_road.data.UserProgress
+import com.project.on_road.data.TopicStat
 import com.project.on_road.data.UserStage
 import com.project.on_road.ui.components.IconTile
 import com.project.on_road.ui.components.ListRow
@@ -85,14 +89,25 @@ import java.time.temporal.ChronoUnit
 class DashboardViewModel : ViewModel() {
     private val userId get() = AppContainer.session.userId
 
-    var progress by mutableStateOf(UserProgress.EMPTY)
+    /** 전체 체크리스트 수, 완료 수 (3.4 checklists) */
+    var checklistCount by mutableStateOf(0)
+        private set
+    var completedCount by mutableStateOf(0)
+        private set
+    /** 자립까지 D-day (3.4 user.d_day). null 이면 숨김 */
+    var dDay by mutableStateOf<Int?>(null)
+        private set
+    var loaded by mutableStateOf(false)
+        private set
+    var latestSimulation by mutableStateOf<LatestSimulation?>(null)
         private set
     var action by mutableStateOf<NextAction?>(null)
         private set
-    /** 지금 할 일에 연결된 정책·체크리스트 (있을 때만) */
+    /** 지금 할 일에 연결된 정책 (저장한 정책으로 시작할 때만) */
     var policy by mutableStateOf<Policy?>(null)
         private set
-    var checklist by mutableStateOf<Checklist?>(null)
+    /** 지금 할 일 카드의 진행 중 체크리스트 (3.4 checklists[0]) */
+    var checklist by mutableStateOf<ChecklistSummary?>(null)
         private set
     /** 실전 연습 대표 시나리오와 상대역의 첫 마디 */
     var practice by mutableStateOf<RoleplayScenario?>(null)
@@ -103,11 +118,24 @@ class DashboardViewModel : ViewModel() {
     fun load() {
         val id = userId ?: return
         viewModelScope.launch {
-            runCatching { AppContainer.api.getProgress(id) }.onSuccess { progress = it }
-            val first = runCatching { AppContainer.api.getNextActions(id) }.getOrDefault(emptyList()).firstOrNull()
+            val dash = runCatching { AppContainer.api.getDashboard(id) }.getOrNull()
+            if (dash != null) {
+                dash.user?.let { AppContainer.applyDashboardUser(it) }
+                dDay = dash.user?.dDay
+                loaded = true
+                checklistCount = dash.checklists.size
+                completedCount = dash.checklists.count { it.completed }
+                latestSimulation = dash.latestSimulation
+            }
+            // 지금 할 일: 진행 중 체크리스트(checklists[0])가 있으면 그것, 없으면 추천 첫 번째
+            val current = dash?.checklists?.firstOrNull()?.takeIf { !it.completed }
+            checklist = current
+            val first = runCatching { AppContainer.api.getNextActions(id, dash) }.getOrDefault(emptyList())
+                .let { list -> if (current != null) list.firstOrNull { it.policyId == current.policyId } ?: list.firstOrNull() else list.firstOrNull() }
             action = first
-            policy = first?.policyId?.let { pid -> runCatching { AppContainer.api.getPolicy(pid) }.getOrNull() }
-            checklist = first?.policyId?.let { pid -> runCatching { AppContainer.api.getChecklist(id, pid) }.getOrNull() }
+            policy = if (current == null && first?.kind == ActionKind.START_CHECKLIST) {
+                first.policyId?.let { pid -> runCatching { AppContainer.api.getPolicy(pid) }.getOrNull() }
+            } else null
         }
         if (practice == null) {
             viewModelScope.launch {
@@ -154,7 +182,9 @@ fun DashboardScreen(
     LaunchedEffect(Unit) { vm.load() }
     val session = AppContainer.session
     val leaveDate = session.leaveDate
-    val upcoming = remember(leaveDate) { upcomingTask(leaveDate) }
+    // 퇴소 전: 퇴소 예정일 기준 / 퇴소 후: 내가 정한 목표일 기준 (같은 d_date, 다른 뜻)
+    val goal = DDate.isGoal(session.status)
+    val upcoming = remember(leaveDate, goal) { upcomingFor(goal, leaveDate) }
     var query by remember { mutableStateOf("") }
 
     Column(
@@ -172,10 +202,11 @@ fun DashboardScreen(
 
         Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
             Spacer(Modifier.height(20.dp))
-            if (leaveDate != null) {
-                val days = ChronoUnit.DAYS.between(LocalDate.now(), leaveDate)
+            // 서버 d_day 를 쓰고, 아직 못 받았으면 저장된 퇴소일로 계산
+            val days: Long? = if (vm.loaded) vm.dDay?.toLong() else leaveDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }
+            if (days != null) {
                 OnRoadTag(
-                    "자립까지 ${dLabel(days)}",
+                    "${DDate.untilText(session.status, session.goalTitle)} ${dLabel(days)}",
                     style = TagStyle.Neutral,
                     modifier = Modifier.clickable { onNavigate(Routes.SIM_TIMELINE) },
                 )
@@ -202,7 +233,12 @@ fun DashboardScreen(
                 onStart = { a -> onNavigate(if (a != null) actionRoute(a) else Routes.policy()) },
             )
             Spacer(Modifier.height(12.dp))
-            ScheduleRow(upcoming, hasDate = leaveDate != null) { onNavigate(Routes.SIM_TIMELINE) }
+            ScheduleRow(upcoming, if (goal) "· 목표 D-day" else "· 퇴소 D-day 타임라인") { onNavigate(Routes.SIM_TIMELINE) }
+            val topics = remember(ActivityStore.version) { ActivityStore.topicStats().take(3) }
+            if (topics.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                InterestRow(topics) { onNavigate(Routes.GROWTH) }
+            }
 
             // ── AI와 실전 준비하기 ──
             Spacer(Modifier.height(OnRoadDimens.SectionGap))
@@ -232,7 +268,7 @@ fun DashboardScreen(
                 ListRow("AI 상담", "진로, 자립, 고민까지 편하게 물어봐요") { onNavigate(Routes.chat()) }
                 ListRow(
                     "신청 체크리스트",
-                    if (vm.progress.checklistCount > 0) "준비 중 ${vm.progress.checklistCount}건 · 완료 ${vm.progress.completedChecklists}건"
+                    if (vm.checklistCount > 0) "준비 중 ${vm.checklistCount}건 · 완료 ${vm.completedCount}건"
                     else "단계별로 신청을 준비해요",
                 ) { onNavigate(Routes.CHECKLISTS) }
                 ListRow("생활 시뮬레이션", "생활비·주거·저축을 미리 계산해요") { onNavigate(Routes.SIMULATION) }
@@ -297,45 +333,47 @@ private fun HomeHeader(
 private fun TodoCard(
     action: NextAction?,
     policy: Policy?,
-    checklist: Checklist?,
+    checklist: ChecklistSummary?,
     onStart: (NextAction?) -> Unit,
 ) {
-    val button = when (action?.kind) {
-        ActionKind.START_CHECKLIST -> "신청 준비 시작하기"
-        ActionKind.OPEN_CHECKLIST -> "이어서 작성하기"
-        ActionKind.RUN_SIMULATION -> "생활비 계산하기"
-        ActionKind.SEARCH_POLICY, null -> "정책 찾기"
-    }
+    // 기관·확인일·분야: 진행 중 체크리스트가 있으면 그 정책(3.4 policy), 없으면 저장한 정책
+    val agency = checklist?.policy?.agency ?: policy?.agency
+    val checkedAt = checklist?.policy?.checkedAt ?: policy?.checkedAt
+    val category = checklist?.policy?.category ?: policy?.category
+    val button = action?.kind?.button() ?: "정책 찾기"
     val title = action?.title ?: "받을 수 있는 지원,\n한 번에 찾아볼까요?"
 
     OnRoadCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (policy != null) {
-                Text(policy.agency, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            if (agency != null) {
+                Text(agency, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 Spacer(Modifier.width(4.dp))
-                Text("${policy.checkedAt} 확인", style = OnRoadType.Tiny, color = OnRoadColors.TextQuaternary, maxLines = 1)
+                Text("$checkedAt 확인", style = OnRoadType.Tiny, color = OnRoadColors.TextQuaternary, maxLines = 1)
             } else {
                 Text("오늘의 추천", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
             }
             Spacer(Modifier.weight(1f))
-            if (policy != null) {
+            if (category != null) {
                 Spacer(Modifier.width(8.dp))
-                OnRoadTag(policy.category, style = TagStyle.Neutral)
+                OnRoadTag(category, style = TagStyle.Neutral)
             }
         }
         Spacer(Modifier.height(16.dp))
-        Text(title, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary, maxLines = 3, overflow = TextOverflow.Ellipsis)
-        action?.description?.let {
-            Spacer(Modifier.height(6.dp))
-            Text(it, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(title, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        // 설명은 한 줄: 추천 이유가 있으면 이유만
+        val sub = action?.reason ?: action?.description
+        if (sub != null) {
+            Spacer(Modifier.height(8.dp))
+            if (action?.reason != null) ReasonLine(sub)
+            else Text(sub, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(20.dp))
         HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Border.copy(alpha = 0.6f))
         Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (checklist != null && checklist.steps.isNotEmpty()) {
-                val current = checklist.steps.firstOrNull { !it.done }?.type?.title ?: "모두 완료"
-                Text("${checklist.doneCount}/${checklist.steps.size}", style = OnRoadType.Title2, color = OnRoadColors.TextSecondary)
+            if (checklist != null && checklist.totalSteps > 0) {
+                val current = checklist.nextStep?.title ?: "모두 완료"
+                Text("${checklist.doneSteps}/${checklist.totalSteps}", style = OnRoadType.Title2, color = OnRoadColors.TextSecondary)
                 Spacer(Modifier.width(4.dp))
                 Text("($current)", style = OnRoadType.Micro, color = OnRoadColors.TextQuaternary, maxLines = 1)
             } else if (policy != null) {
@@ -354,8 +392,30 @@ private fun TodoCard(
     }
 }
 
+/** 다음 일정 한 줄에 보여 줄 것 */
+private data class Upcoming(val title: String, val days: Long?)
+
+private fun upcomingFor(goal: Boolean, leaveDate: LocalDate?): Upcoming {
+    val today = LocalDate.now()
+    if (goal) {
+        val s = AppContainer.session
+        val next = s.goalTasks.filter { !it.done && !it.date.isBefore(today) }.minByOrNull { it.date }
+        return when {
+            next != null -> Upcoming(next.title, ChronoUnit.DAYS.between(today, next.date))
+            leaveDate != null -> Upcoming(s.goalTitle?.takeIf { it.isNotBlank() } ?: "목표일", ChronoUnit.DAYS.between(today, leaveDate))
+            else -> Upcoming("목표일을 정하면 할 일을 날짜별로 챙겨요", null)
+        }
+    }
+    val u = upcomingTask(leaveDate)
+    return when {
+        u != null -> Upcoming(u.task.title, u.daysLeft)
+        leaveDate != null -> Upcoming("남은 일정을 모두 챙겼어요", null)
+        else -> Upcoming("퇴소일을 정하면 할 일을 날짜별로 알려 드려요", null)
+    }
+}
+
 @Composable
-private fun ScheduleRow(upcoming: UpcomingTask?, hasDate: Boolean, onClick: () -> Unit) {
+private fun ScheduleRow(upcoming: Upcoming, sub: String, onClick: () -> Unit) {
     SubtleCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = PaddingValues(15.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconTile(Icons.Outlined.Event)
@@ -364,15 +424,11 @@ private fun ScheduleRow(upcoming: UpcomingTask?, hasDate: Boolean, onClick: () -
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("다음 일정", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("· 퇴소 D-day 타임라인", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
+                    Text(sub, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    when {
-                        upcoming != null -> upcoming.task.title
-                        hasDate -> "남은 일정을 모두 챙겼어요"
-                        else -> "퇴소일을 정하면 할 일을 날짜별로 알려 드려요"
-                    },
+                    upcoming.title,
                     style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
                     color = OnRoadColors.TextPrimary,
                     maxLines = 1,
@@ -380,8 +436,31 @@ private fun ScheduleRow(upcoming: UpcomingTask?, hasDate: Boolean, onClick: () -
                 )
             }
             Spacer(Modifier.width(8.dp))
-            if (upcoming != null) {
-                Text(dLabel(upcoming.daysLeft), style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
+            upcoming.days?.let {
+                Text(dLabel(it), style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+/** 요즘 관심사 (상담·검색·저장·생활비에서 자주 나온 분야) */
+@Composable
+private fun InterestRow(topics: List<TopicStat>, onClick: () -> Unit) {
+    SubtleCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = PaddingValues(15.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconTile(Icons.Outlined.Insights)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("요즘 관심사", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSecondary)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    topics.joinToString(" · ") { "${it.topic.label} ${it.count}" },
+                    style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                    color = OnRoadColors.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
         }
@@ -391,12 +470,20 @@ private fun ScheduleRow(upcoming: UpcomingTask?, hasDate: Boolean, onClick: () -
 @Composable
 private fun PracticeCard(s: RoleplayScenario, line: String?, onStart: () -> Unit) {
     OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
-        Row(verticalAlignment = Alignment.Top) {
-            Text("${s.title} 실전 연습", style = OnRoadType.Title2, color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
-            Text("난이도 ${s.level.label}", style = OnRoadType.Tiny, color = OnRoadColors.TextSlate, modifier = Modifier.padding(top = 4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "${s.title} 실전 연습",
+                style = OnRoadType.Title2,
+                color = OnRoadColors.Primary,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(8.dp))
+            OnRoadTag(s.level.label, style = if (s.level == RoleplayLevel.HARD) TagStyle.Danger else TagStyle.Slate)
         }
-        Spacer(Modifier.height(10.dp))
-        Text("${s.setting} ${s.goal}까지 AI와 미리 연습해요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary.copy(alpha = 0.85f))
+        Spacer(Modifier.height(8.dp))
+        Text(s.setting, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (line != null) {
             Spacer(Modifier.height(12.dp))
             Column(
@@ -416,7 +503,7 @@ private fun PracticeCard(s: RoleplayScenario, line: String?, onStart: () -> Unit
                 Row(Modifier.height(IntrinsicSize.Min)) {
                     Box(Modifier.width(2.dp).fillMaxHeight().background(OnRoadColors.Border))
                     Spacer(Modifier.width(10.dp))
-                    Text("“$line”", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+                    Text("“$line”", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.project.on_road.data.ActivityStore
 import com.project.on_road.data.AppContainer
 import com.project.on_road.data.Sticker
 import com.project.on_road.data.StickerStore
@@ -153,6 +154,7 @@ fun StickerShopScreen(onBack: () -> Unit) {
                 if (StickerStore.buy(session, s)) {
                     balance = session.starBalance
                     owned = session.ownedStickers
+                    ActivityStore.logKid(KidRecordKind.STICKER.name, "${s.label} 스티커를 받았어", "별 ${s.price}개")
                 }
                 picking = null
             },

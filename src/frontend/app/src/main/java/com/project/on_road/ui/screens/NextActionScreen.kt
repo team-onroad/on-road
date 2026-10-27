@@ -5,14 +5,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.RecordVoiceOver
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.TaskAlt
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -41,18 +49,37 @@ class NextActionViewModel : ViewModel() {
     }
 }
 
-private fun ActionKind.icon(): ImageVector = when (this) {
+internal fun ActionKind.icon(): ImageVector = when (this) {
     ActionKind.OPEN_CHECKLIST -> Icons.Outlined.Checklist
     ActionKind.START_CHECKLIST -> Icons.Outlined.Flag
     ActionKind.RUN_SIMULATION -> Icons.Outlined.Calculate
-    ActionKind.SEARCH_POLICY -> Icons.Outlined.Search
+    ActionKind.SEARCH_POLICY, ActionKind.SEARCH_TOPIC -> Icons.Outlined.Search
+    ActionKind.OPEN_TIMELINE -> Icons.Outlined.Event
+    ActionKind.PRACTICE -> Icons.Outlined.RecordVoiceOver
+    ActionKind.EXPLORE_CAREER, ActionKind.ROADMAP -> Icons.Outlined.Explore
+    ActionKind.BASIC_MISSION -> Icons.Outlined.School
 }
 
-private fun ActionKind.button(): String = when (this) {
+internal fun ActionKind.button(): String = when (this) {
     ActionKind.START_CHECKLIST -> "신청 준비 시작하기"
     ActionKind.OPEN_CHECKLIST -> "이어서 작성하기"
     ActionKind.RUN_SIMULATION -> "생활비 계산하기"
-    ActionKind.SEARCH_POLICY -> "정책 찾기"
+    ActionKind.SEARCH_POLICY, ActionKind.SEARCH_TOPIC -> "정책 찾기"
+    ActionKind.OPEN_TIMELINE -> "타임라인 보기"
+    ActionKind.PRACTICE -> "연습하러 가기"
+    ActionKind.EXPLORE_CAREER -> "흥미 탐색하기"
+    ActionKind.ROADMAP -> "로드맵 보기"
+    ActionKind.BASIC_MISSION -> "미션 하러 가기"
+}
+
+/** 추천 이유 한 줄 ("왜 추천했나요?") */
+@Composable
+internal fun ReasonLine(reason: String, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Outlined.Lightbulb, null, tint = OnRoadColors.Primary, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(reason, style = OnRoadType.Micro, color = OnRoadColors.Primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
 }
 
 /** 다음 할 일 */
@@ -73,15 +100,19 @@ fun NextActionScreen(
             )
             else -> {
                 ScreenHeadline("지금 상황에 맞춰", "먼저 하면 좋은 순서예요.")
+                Spacer(Modifier.height(6.dp))
+                Text("내 기록을 보고 골랐어요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
                 Spacer(Modifier.height(OnRoadDimens.BlockGap))
 
                 val first = vm.actions.first()
                 OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
                     OnRoadTag("가장 먼저", style = TagStyle.PrimaryFilled)
                     Spacer(Modifier.height(12.dp))
-                    Text(first.title, style = OnRoadType.Title2, color = OnRoadColors.Primary)
-                    Spacer(Modifier.height(6.dp))
-                    Text(first.description, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+                    Text(first.title, style = OnRoadType.Title2, color = OnRoadColors.Primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(8.dp))
+                    // 설명은 한 줄: 추천 이유가 있으면 이유, 없으면 설명
+                    first.reason?.let { ReasonLine(it) }
+                        ?: Text(first.description, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(16.dp))
                     OnRoadButton(
                         first.kind.button(), { onAction(first) }, Modifier.fillMaxWidth(),
@@ -96,7 +127,7 @@ fun NextActionScreen(
                     Spacer(Modifier.height(16.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         vm.actions.drop(1).forEach { a ->
-                            ListRow(a.title, a.description, icon = a.kind.icon()) { onAction(a) }
+                            ListRow(a.title, a.reason ?: a.description, icon = a.kind.icon()) { onAction(a) }
                         }
                     }
                 }

@@ -53,11 +53,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.project.on_road.data.ActivityStore
 import com.project.on_road.data.AppContainer
+import com.project.on_road.ui.components.EasyTextPanel
+import com.project.on_road.data.AppState
+import com.project.on_road.data.UserStage
+import com.project.on_road.data.SignalSource
 import com.project.on_road.data.Policy
 import com.project.on_road.data.SearchResult
 import com.project.on_road.data.remote.ApiException
@@ -81,13 +89,26 @@ import com.project.on_road.ui.theme.OnRoadShapes
 import com.project.on_road.ui.theme.OnRoadType
 import kotlinx.coroutines.launch
 
-private val suggestions = listOf(
-    "혼자 살 집을 구하고 싶어요",
-    "매달 받을 수 있는 지원금이 있나요?",
-    "병원비가 걱정돼요",
-    "취업 준비를 도와주는 제도가 있나요?",
-    "목돈을 모으는 방법이 궁금해요",
-)
+/** 단계별 자주 묻는 주제 (청소년은 학업·장학금·진로 중심, 자립준비청년은 자립 생활 중심) */
+private fun suggestionsFor(stage: UserStage): List<String> = when (stage) {
+    UserStage.YOUNG_ADULT -> listOf(
+        "혼자 살 집을 구하고 싶어요",
+        "매달 받을 수 있는 지원금이 있나요?",
+        "병원비가 걱정돼요",
+        "취업 준비를 도와주는 제도가 있나요?",
+        "목돈을 모으는 방법이 궁금해요",
+    )
+    else -> listOf(
+        "받을 수 있는 장학금이 있나요?",
+        "디딤씨앗통장이 뭐예요?",
+        "진학 준비를 도와주는 제도가 있나요?",
+        "자격증 시험 비용을 지원받을 수 있나요?",
+        "학원비나 교재비 지원이 있나요?",
+    )
+}
+
+private fun topicTitleFor(stage: UserStage): String =
+    if (stage == UserStage.YOUNG_ADULT) "* 청년들이 자주 묻는 주제" else "* 청소년들이 자주 묻는 주제"
 
 class PolicySearchViewModel : ViewModel() {
     private val api = AppContainer.api
@@ -137,10 +158,11 @@ class PolicySearchViewModel : ViewModel() {
         val q = text.trim()
         if (q.isEmpty() || loading) return
         query = q
+        ActivityStore.logQuestion(q, SignalSource.SEARCH)
         viewModelScope.launch {
             loading = true
             error = null
-            compareIds.clear()
+            // 비교 담기는 검색을 바꿔도 유지한다 (다른 검색어로 찾은 정책끼리도 비교할 수 있게)
             evidenceIds.clear()
             try {
                 result = api.searchPolicies(userId, q)
@@ -165,6 +187,7 @@ class PolicySearchViewModel : ViewModel() {
     fun toggleSave(id: String) {
         val save = id !in savedIds
         if (save) savedIds.add(id) else savedIds.remove(id)
+        if (save) result?.policies?.firstOrNull { it.id == id }?.let { ActivityStore.logPolicySaved(it.category, it.name) }
         viewModelScope.launch { runCatching { api.savePolicy(userId, id, save) } }
     }
 
@@ -237,10 +260,10 @@ fun PolicySearchScreen(
                     item {
                         Text("궁금한 제도를 물어보면\n공식 자료에서 찾아볼게요.", style = OnRoadType.Title1Regular, color = OnRoadColors.TextPrimary)
                         Spacer(Modifier.height(24.dp))
-                        Text("* 청년들이 자주 묻는 주제", style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
+                        Text(topicTitleFor(AppState.stage), style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
                         Spacer(Modifier.height(3.dp))
                     }
-                    items(suggestions) { SuggestionChip(it) { submit(it) } }
+                    items(suggestionsFor(AppState.stage)) { SuggestionChip(it) { submit(it) } }
                     item {
                         Spacer(Modifier.height(20.dp))
                         NoticeBox(
@@ -282,7 +305,7 @@ fun PolicySearchScreen(
                                 Text("* 이렇게 다시 물어볼 수 있어요", style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
                                 Spacer(Modifier.height(8.dp))
                                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                    suggestions.take(3).forEach { SuggestionChip(it) { submit(it) } }
+                                    suggestionsFor(AppState.stage).take(3).forEach { SuggestionChip(it) { submit(it) } }
                                 }
                             }
                         }
@@ -414,19 +437,35 @@ fun PolicyCard(
                 .padding(16.dp),
         ) {
             AnimatedContent(targetState = easy, label = "summary") { isEasy ->
-                Text(
-                    if (isEasy) policy.easySummary else policy.summary,
-                    style = OnRoadType.Body2.copy(lineHeight = OnRoadType.Body2.lineHeight * 1.1f),
-                    color = OnRoadColors.TextSlateDark,
-                )
+                if (isEasy) {
+                    // 3.23 단계별 쉬운 말 (서버에 없으면 easySummary)
+                    EasyTextPanel(policyId = policy.id, fallback = policy.easySummary)
+                } else {
+                    Text(
+                        policy.summary,
+                        style = OnRoadType.Body2.copy(lineHeight = OnRoadType.Body2.lineHeight * 1.1f),
+                        color = OnRoadColors.TextSlateDark,
+                    )
+                }
             }
         }
 
         Spacer(Modifier.height(16.dp))
         Column(Modifier.padding(horizontal = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoRow("지원 대상 & 자격요건", policy.target)
-            InfoRow("지원 혜택 & 내용", policy.amount)
-            InfoRow("접수 및 신청 기간", policy.period)
+            val cs = policy.cardSummary
+            if (cs != null) {
+                // 서버 짧은 요약 (지원 대상·받을 수 없는 경우·지원 내용·지원 기간·신청 방법)
+                cs.sections.forEach { sec -> SummaryRow(sec.label, sec.items) }
+                cs.notice?.let { Text(it, style = OnRoadType.Tiny, color = OnRoadColors.TextMuted) }
+                if (!cs.verified) {
+                    Text("AI가 원문에서 정리한 요약이에요. 원문과 함께 확인해 주세요.", style = OnRoadType.Tiny, color = OnRoadColors.TextMuted)
+                }
+            } else {
+                // 요약이 없으면 원문 첫 문장만 두 줄까지, 누르면 전체를 펼친다
+                ShortInfoRow("지원 대상 & 자격요건", policy.target)
+                ShortInfoRow("지원 혜택 & 내용", policy.amount)
+                ShortInfoRow("접수 및 신청 기간", policy.period)
+            }
         }
 
         Spacer(Modifier.height(16.dp))
@@ -545,6 +584,60 @@ private fun CompareBar(count: Int, onCompare: () -> Unit) {
                 style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
                 color = if (count >= 2) OnRoadColors.Primary else Color.White.copy(alpha = 0.5f),
             )
+        }
+    }
+}
+
+/** 요약 한 항목: 왼쪽 라벨, 오른쪽 개조식 목록 */
+@Composable
+private fun SummaryRow(label: String, items: List<String>) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Text(
+            label,
+            style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
+            color = OnRoadColors.TextMuted,
+            modifier = Modifier.width(76.dp),
+        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            items.forEach { Text(if (items.size > 1) "· $it" else it, style = OnRoadType.Micro, color = OnRoadColors.TextSlateDark) }
+        }
+    }
+}
+
+/** 첫 문장만 최대 두 줄로 보여주고, 잘린 내용이 있으면 눌러서 전체를 펼친다 */
+@Composable
+private fun ShortInfoRow(label: String, value: String) {
+    var open by remember(value) { mutableStateOf(false) }
+    val first = remember(value) {
+        val i = Regex("""[.。](\s|$)""").find(value)?.range?.first
+        if (i != null && i + 1 < value.trim().length) value.substring(0, i + 1) else value
+    }
+    val cut = first.length < value.trim().length
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(enabled = cut || open) { open = !open },
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(label, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextMuted)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+            Text(
+                if (open) value else first,
+                style = OnRoadType.Micro,
+                color = OnRoadColors.TextSlateDark,
+                textAlign = TextAlign.End,
+                maxLines = if (open) Int.MAX_VALUE else 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (cut) {
+                Text(
+                    if (open) "접기" else "더보기",
+                    style = OnRoadType.Tiny.copy(fontWeight = FontWeight.Medium),
+                    color = OnRoadColors.Primary,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
         }
     }
 }

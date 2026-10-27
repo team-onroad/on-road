@@ -67,7 +67,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.zIndex
 import com.project.on_road.data.AppContainer
 import com.project.on_road.data.PlacedSticker
 import com.project.on_road.data.Sticker
@@ -101,7 +100,8 @@ private object KidBoard {
  * 나중에 '내 기록'에서 날짜별 페이지를 다시 보여 줄 때 load() 로 꺼내 쓰면 된다.
  */
 object KidPages {
-    private const val PREFS = "kid_pages"
+    /** 계정마다 따로 저장 */
+    private val PREFS: String get() = "kid_pages_" + (AppContainer.session.userId ?: "guest")
 
     fun encode(list: List<PlacedSticker>): String =
         list.joinToString(";") { "${it.sticker.name},${it.x},${it.y}" }

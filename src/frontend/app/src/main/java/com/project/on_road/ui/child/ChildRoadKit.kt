@@ -81,6 +81,7 @@ internal object Tones {
     val Purple = StopTone(Color(0xFFECE6FA), Color(0xFFA796D9), Color(0xFF523F8C), Color(0xFF372D57)) // 내 스티커
     val Yellow = StopTone(Color(0xFFFDF0C7), Color(0xFFD2B160), Color(0xFF7A5410), Color(0xFF473513)) // 스티커 가게
     val Lime = StopTone(Color(0xFFF4FAE6), Color(0xFF8FB45E), Color(0xFF3D5A12), Color(0xFF4F6328))   // 도움이 필요해
+    val Mint = StopTone(Color(0xFFE2F3EE), Color(0xFF7DBFA8), Color(0xFF22614F), Color(0xFF1F3F36))   // 내 기록장
 }
 /* ====================================================== */
 
@@ -229,3 +230,35 @@ internal fun RoadSubHeader(title: String, badge: Color, onBack: () -> Unit, onHe
         }
     }
 }
+
+/** 고르기 전 칸의 점선 색 */
+internal val PickDash = Color(0xFFD9CCBA)
+
+/**
+ * 고르는 칸 공통 모양 (아동 화면 전체 통일).
+ * 고르기 전: 화면 배경과 같은 크림색 + 옅은 점선
+ * 고르면(누르면): 파스텔 배경 + 손그림 테두리
+ *   Modifier.kidPick(selected, tone, 18.dp).clickable { … }
+ */
+internal fun Modifier.kidPick(selected: Boolean, tone: StopTone, radius: Dp, seed: Int = 7): Modifier =
+    if (selected) {
+        this.handOutline(radius, seed).clip(RoundedCornerShape(radius)).background(tone.bg)
+    } else {
+        this.dashedOutline(PickDash, radius, 1.6.dp).clip(RoundedCornerShape(radius)).background(RoadKit.Background)
+    }
+
+/** 고른 표시 (진한 글자색 동그라미 + 체크) */
+@Composable
+internal fun KidCheckBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier.size(22.dp).clip(CircleShape).background(RoadKit.Ink),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(12.dp)) {
+            val s = size.width / 24f
+            val p = Path().apply { moveTo(5 * s, 12 * s); lineTo(10 * s, 17 * s); lineTo(19 * s, 7 * s) }
+            drawPath(p, Color.White, style = Stroke(width = 3.4f * s, cap = StrokeCap.Round))
+        }
+    }
+}
+

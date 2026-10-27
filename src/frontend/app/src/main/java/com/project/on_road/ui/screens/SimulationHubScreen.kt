@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.project.on_road.data.AppContainer
+import com.project.on_road.data.DDate
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.navigation.Routes
 import com.project.on_road.ui.theme.*
@@ -34,6 +35,7 @@ private val simEntries = listOf(
 @Composable
 fun SimulationHubScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
     val leaveDate = AppContainer.session.leaveDate
+    val goal = DDate.isGoal(AppContainer.session.status)
 
     OnRoadScreen("생활 시뮬레이션", onBack) {
         ScreenHeadline("실제로 부딪히기 전에", "미리 연습해 봐요.")
@@ -42,7 +44,7 @@ fun SimulationHubScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
         // 퇴소 D-day: 모든 연습의 기준점이라 가장 크게
         OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary, onClick = { onNavigate(Routes.SIM_TIMELINE) }) {
             Row(verticalAlignment = Alignment.Top) {
-                Text("퇴소 D-day 타임라인", style = OnRoadType.Title2, color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
+                Text(DDate.screenTitle(AppContainer.session.status), style = OnRoadType.Title2, color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
                 if (leaveDate != null) {
                     val days = ChronoUnit.DAYS.between(LocalDate.now(), leaveDate)
                     OnRoadTag(
@@ -57,13 +59,17 @@ fun SimulationHubScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                "퇴소 날짜를 넣으면 언제 무엇을 해야 하는지 날짜별로 정리해 드려요.",
+                if (goal) "내가 정한 목표일까지 할 일을 날짜별로 챙겨요." else "퇴소 날짜를 넣으면 언제 무엇을 해야 하는지 날짜별로 정리해 드려요.",
                 style = OnRoadType.Caption,
                 color = OnRoadColors.TextTertiary,
             )
             Spacer(Modifier.height(16.dp))
             OnRoadButton(
-                text = if (leaveDate == null) "퇴소일 정하기" else "타임라인 보기",
+                text = when {
+                    leaveDate != null -> if (goal) "목표 보기" else "타임라인 보기"
+                    goal -> "목표 정하기"
+                    else -> "퇴소일 정하기"
+                },
                 onClick = { onNavigate(Routes.SIM_TIMELINE) },
                 modifier = Modifier.fillMaxWidth(),
                 height = 40.dp,

@@ -217,16 +217,13 @@ private fun QuestionFrame(
     }
 }
 
-/** 고르는 칸 (고르면 파스텔 + 손그림 테두리, 아니면 점선) */
+/** 고르는 칸 (크림색 + 점선, 고르면 파스텔 + 손그림 테두리) */
 @Composable
 private fun PickCell(label: String, selected: Boolean, tone: StopTone, modifier: Modifier, height: Dp = 54.dp, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(16.dp)
     Box(
         modifier
             .height(height)
-            .then(if (selected) Modifier.handOutline(16.dp, seed = 7) else Modifier.dashedOutline(Color(0xFFD9CCBA), 16.dp, 1.6.dp))
-            .clip(shape)
-            .background(if (selected) tone.bg else RoadKit.Background)
+            .kidPick(selected, tone, 16.dp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -559,7 +556,7 @@ private fun BirthPage(birth: LocalDate?, onPick: (LocalDate) -> Unit, onBack: ()
         },
     ) {
         Text("태어난 해", style = hanaText(20.sp, lineHeight = 1.3f), color = RoadKit.Ink)
-        PickGrid((thisYear - 11..thisYear - 5).toList().reversed(), columns = 3) { y, m ->
+        PickGrid((thisYear - 10..thisYear - 5).toList().reversed(), columns = 3) { y, m ->
             PickCell("${y}년", y == year, Tones.Yellow, m) { year = y }
         }
         Text("태어난 달", style = hanaText(20.sp, lineHeight = 1.3f), color = RoadKit.Ink)

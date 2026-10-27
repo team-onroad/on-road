@@ -2,6 +2,7 @@ package com.project.on_road.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,6 +32,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.*
+import com.project.on_road.data.remote.userMessage
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
 import kotlinx.coroutines.launch
@@ -51,15 +53,24 @@ class FormHelperViewModel : ViewModel() {
 
     init {
         viewModelScope.launch {
-            templates = runCatching { AppContainer.coachApi.formTemplates(stage) }.getOrDefault(emptyList())
+            templates = runCatching { AppContainer.coachApi.formTemplates(stage) }
+                .onFailure { error = it.userMessage("양식 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.") }
+                .getOrDefault(emptyList())
         }
     }
 
-    fun openTemplate(id: String) = load { AppContainer.coachApi.analyzeTemplate(id) }
+    fun openTemplate(id: String) = load("양식을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.") {
+        AppContainer.coachApi.analyzeTemplate(id)
+    }
 
-    fun upload(bytes: ByteArray, mime: String) = load { AppContainer.coachApi.analyzeUpload(userId, bytes, mime) }
+    /** hwpx · pdf 올리기. 양식 제목을 못 찾으면 파일 이름을 제목으로 쓴다 */
+    fun upload(bytes: ByteArray, mime: String, fileName: String?) = load("양식을 읽지 못했어요. PDF나 한글(hwpx) 파일인지 확인해 주세요.") {
+        val d = AppContainer.coachApi.analyzeUpload(userId, bytes, mime)
+        val name = fileName?.substringBeforeLast('.')?.takeIf { it.isNotBlank() }
+        if (d.title == "올린 양식" && name != null) d.copy(title = name) else d
+    }
 
-    private fun load(block: suspend () -> FormDraft) {
+    private fun load(failMessage: String, block: suspend () -> FormDraft) {
         analyzing = true
         error = null
         viewModelScope.launch {
@@ -68,7 +79,7 @@ class FormHelperViewModel : ViewModel() {
                     values.clear()
                     draft = d
                 }
-                .onFailure { error = "양식을 읽지 못했어요. 사진이 선명한지 확인하고 다시 올려 주세요." }
+                .onFailure { error = (it as? FormParser.ReadError)?.message ?: it.userMessage(failMessage) }
             analyzing = false
         }
     }
@@ -99,7 +110,12 @@ fun FormHelperScreen(onBack: () -> Unit, vm: FormHelperViewModel = viewModel()) 
         if (uri != null) {
             val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
             val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
-            if (bytes != null) vm.upload(bytes, mime)
+            val name = runCatching {
+                context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                    if (c.moveToFirst()) c.getString(0) else null
+                }
+            }.getOrNull()
+            if (bytes != null) vm.upload(bytes, mime, name)
         }
     }
     val back = { if (vm.draft != null) vm.close() else onBack() }
@@ -109,7 +125,7 @@ fun FormHelperScreen(onBack: () -> Unit, vm: FormHelperViewModel = viewModel()) 
         OnRoadTopBar(vm.draft?.title ?: "서류 작성 도우미", back)
         val d = vm.draft
         when {
-            vm.analyzing -> LoadingState("양식을 읽고 작성할 항목을 정리하고 있어요")
+            vm.analyzing -> LoadingState("양식에서 작성할 항목을 찾고 있어요")
             d != null -> DraftEditor(d, vm) {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
@@ -146,7 +162,7 @@ private fun TemplateList(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text("내 양식 올리기", style = OnRoadType.Title3, color = OnRoadColors.Primary)
-                    Text("사진이나 PDF로 받은 신청서를 올려요", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+                    Text("PDF·한글(hwpx) 양식을 항목별로 나눠요", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -188,8 +204,8 @@ private fun DraftEditor(d: FormDraft, vm: FormHelperViewModel, onExport: () -> U
             Spacer(Modifier.height(24.dp))
             if (!d.originalExport) {
                 NoticeBox(
-                    "실제 양식과 다를 수 있어요. 작성한 내용은 원본 양식에 옮겨 적어 제출해 주세요.",
-                    title = "AI가 읽은 항목이에요",
+                    "원본과 다를 수 있어요. 다 쓰면 원본 양식에 옮겨 적어요.",
+                    title = "파일에서 찾은 항목 ${d.fields.size}개",
                 )
                 Spacer(Modifier.height(20.dp))
             }
@@ -219,7 +235,7 @@ private fun DraftEditor(d: FormDraft, vm: FormHelperViewModel, onExport: () -> U
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                if (d.originalExport) "원래 양식 파일로 내보내기는 서버 연결 후 지원돼요. 지금은 작성 내용을 보낼 수 있어요."
+                if (d.originalExport) "원래 양식 파일로 내보내기는 아직 지원하지 않아요. 지금은 작성 내용을 보낼 수 있어요."
                 else "작성 내용을 메모나 메신저로 보낼 수 있어요.",
                 style = OnRoadType.Tiny,
                 color = OnRoadColors.TextTertiary,
@@ -258,13 +274,14 @@ private fun FieldCard(field: FormField, value: String, onChange: (String) -> Uni
             Spacer(Modifier.height(10.dp))
             NoticeBox(it, tone = NoticeTone.Warning)
         }
-        if (field.essay && field.outline != null && value.isBlank()) {
+        val outline = field.outlineText
+        if (field.essay && outline != null && value.isBlank()) {
             Spacer(Modifier.height(10.dp))
             Row(
                 Modifier
                     .clip(OnRoadShapes.Badge)
                     .border(1.dp, OnRoadColors.Primary, OnRoadShapes.Badge)
-                    .clickable { onChange(field.outline) }
+                    .clickable { onChange(outline) }
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

@@ -121,7 +121,7 @@ fun ChildFindScreen(onBack: () -> Unit, onDone: (ChildFindResult) -> Unit = { on
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             row.forEachIndexed { c, a ->
                                 val on = a in picked
-                                ActivityCard(a, on, seed = if ((r + c) % 2 == 0) 7 else 21, modifier = Modifier.weight(1f)) {
+                                ActivityCard(a, on, Tones.Pink, seed = if ((r + c) % 2 == 0) 7 else 21, modifier = Modifier.weight(1f)) {
                                     if (on) picked.remove(a) else if (picked.size < KidFind.MaxPick) picked.add(a)
                                 }
                             }
@@ -140,17 +140,12 @@ fun ChildFindScreen(onBack: () -> Unit, onDone: (ChildFindResult) -> Unit = { on
                                     Modifier
                                         .weight(1f)
                                         .height(64.dp)
-                                        .then(
-                                            if (on) Modifier.handOutline(18.dp, if (idx % 2 == 0) 7 else 21)
-                                            else Modifier.dashedOutline(KidFind.CardDash, 18.dp, 1.6.dp),
-                                        )
-                                        .clip(RoundedCornerShape(18.dp))
-                                        .background(if (on) tone.bg else RoadKit.Background)
+                                        .kidPick(on, tone, 18.dp, if (idx % 2 == 0) 7 else 21)
                                         .clickable { if (on) reasons.remove(label) else reasons.add(label) },
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(label, style = hanaText(21.sp, if (on) FontWeight.Bold else FontWeight.Normal, 1.2f), color = RoadKit.Ink)
-                                    if (on) CheckBadge(Modifier.align(Alignment.TopEnd).padding(6.dp))
+                                    if (on) KidCheckBadge(Modifier.align(Alignment.TopEnd).padding(6.dp))
                                 }
                             }
                         }
@@ -289,42 +284,24 @@ private fun StepRoad(step: Int) {
 }
 
 @Composable
-private fun ActivityCard(a: KidActivity, on: Boolean, seed: Int, modifier: Modifier, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
+private fun ActivityCard(a: KidActivity, on: Boolean, tone: StopTone, seed: Int, modifier: Modifier, onClick: () -> Unit) {
     Box(
         modifier
             .height(104.dp)
-            .then(if (on) Modifier.handOutline(18.dp, seed) else Modifier.dashedOutline(KidFind.CardDash, 18.dp, 1.6.dp))
-            .clip(shape)
-            .background(if (on) Tones.Pink.bg else RoadKit.Background)
+            .kidPick(on, tone, 18.dp, seed)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ImageSlot(
                 Modifier.size(44.dp),
-                if (on) Tones.Pink.slot else RoadKit.Road,
+                if (on) tone.slot else RoadKit.Road,
                 radius = 12.dp,
                 image = a.image,
                 fill = if (on) Color.White.copy(alpha = 0.6f) else Color.Transparent,
             )
             Text(a.label, style = hanaText(19.sp, if (on) FontWeight.Bold else FontWeight.Normal, 1.2f), color = RoadKit.Ink, maxLines = 1)
         }
-        if (on) CheckBadge(Modifier.align(Alignment.TopEnd).padding(6.dp))
-    }
-}
-
-/** 고른 표시 (진한 글자색 동그라미 + 체크) */
-@Composable
-private fun CheckBadge(modifier: Modifier) {
-    Box(
-        modifier.size(22.dp).clip(CircleShape).background(RoadKit.Ink),
-        contentAlignment = Alignment.Center,
-    ) {
-        androidx.compose.foundation.Canvas(Modifier.size(12.dp)) {
-            val s = size.width / 24f
-            val p = androidx.compose.ui.graphics.Path().apply { moveTo(5 * s, 12 * s); lineTo(10 * s, 17 * s); lineTo(19 * s, 7 * s) }
-            drawPath(p, Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.4f * s, cap = StrokeCap.Round))
-        }
+        if (on) KidCheckBadge(Modifier.align(Alignment.TopEnd).padding(6.dp))
     }
 }

@@ -255,10 +255,23 @@ fun ListRow(
                 Spacer(Modifier.width(12.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                // 카드 글씨는 제목 한 줄 + 설명 한 줄까지만 (넘치면 …)
+                Text(
+                    title,
+                    style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                    color = OnRoadColors.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 if (description != null) {
                     Spacer(Modifier.height(2.dp))
-                    Text(description, style = OnRoadType.Micro, color = OnRoadColors.TextPrimary.copy(alpha = 0.5f))
+                    Text(
+                        description,
+                        style = OnRoadType.Micro,
+                        color = OnRoadColors.TextPrimary.copy(alpha = 0.5f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
             if (trailing != null) {

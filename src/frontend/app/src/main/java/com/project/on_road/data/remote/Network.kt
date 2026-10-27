@@ -55,3 +55,17 @@ object Network {
             )
         }
 }
+
+/** 화면에 보여 줄 오류 문구 (api.md 1.1 에러 코드 기준). 모르는 오류는 fallback */
+fun Throwable.userMessage(fallback: String = "잠시 후 다시 시도해 주세요."): String =
+    when ((this as? ApiException)?.code) {
+        "AI_UNAVAILABLE" -> "지금은 AI 답변을 잠시 쓸 수 없어요. 잠시 후 다시 시도해 주세요."
+        "RAG_UNAVAILABLE" -> "지금은 공식 자료 검색을 잠시 쓸 수 없어요. 잠시 후 다시 시도해 주세요."
+        "SCENARIO_NOT_FOUND" -> "이 연습 상황을 찾지 못했어요. 목록에서 다시 골라 주세요."
+        "FORM_NOT_FOUND" -> "이 양식을 찾지 못했어요. 목록에서 다시 골라 주세요."
+        "CHECKLIST_NOT_FOUND" -> "체크리스트를 찾지 못했어요."
+        "POLICY_NOT_FOUND" -> "더 이상 제공되지 않는 정책이에요."
+        "SIMULATION_NOT_FOUND" -> "지난 계산 결과를 찾지 못했어요."
+        "USER_NOT_FOUND" -> "사용자 정보를 찾지 못했어요. 앱을 다시 시작해 주세요."
+        else -> fallback
+    }

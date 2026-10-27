@@ -9,16 +9,21 @@ import java.util.Locale
 import java.util.UUID
 
 /**
- * 네트워크 지연을 흉내 내는 메모리 기반 가짜 API. 앱을 재시작하면 데이터가 초기화된다.
- * policyLookup: 정책 조회 방법. 백엔드 연결 시 RemoteOnRoadApi가 서버 조회로 바꿔 넣는다
- * (체크리스트·찜·성장 기록은 서버 API가 생기기 전까지 이 클래스가 메모리에서 처리).
+ * 네트워크 지연을 흉내 내는 메모리 기반 가짜 API (화면 확인용, AppContainer.USE_REMOTE = false).
+ * 앱을 재시작하면 데이터가 초기화된다. 체크·해당 없음·진행률 규칙은 서버 명세와 같게 맞췄다.
  */
 class FakeOnRoadApi(
     private val policyLookup: suspend (String) -> Policy? = { SamplePolicies.find(it) }
 ) : OnRoadApi {
 
     private val users = mutableMapOf<String, UserProfile>()
+    /** userId → (policyId → 체크리스트) */
     private val checklists = mutableMapOf<String, MutableMap<String, Checklist>>()
+    /** 체크리스트 id → 마지막으로 바꾼 순서 (최근 수정순 정렬용) */
+    private val touched = mutableMapOf<Long, Long>()
+    private var nextChecklistId = 1L
+    private var nextItemId = 100L
+    private var clock = 0L
     private val saved = mutableMapOf<String, MutableSet<String>>()
     private val simulations = mutableMapOf<String, MutableList<SimulationResult>>()
 
@@ -85,22 +90,50 @@ class FakeOnRoadApi(
         }
     }
 
-    /** 서버에서 받은 시뮬레이션 결과를 진행률·성장 기록용으로 보관 (RemoteOnRoadApi에서 호출) */
-    fun recordSimulation(userId: String, result: SimulationResult) {
-        simulations.getOrPut(userId) { mutableListOf() }.add(result)
+    // ---------------- 홈 ----------------
+
+    override suspend fun getDashboard(userId: String): Dashboard {
+        latency(300)
+        val user = users[userId]?.let {
+            DashboardUser(it.name, stageOf(it.birthDate), it.status, it.dDate, it.dDate?.let { d -> daysUntil(d) })
+        }
+        val latest = simulations[userId]?.lastOrNull()?.let { LatestSimulation(it.id, it.shortages.size, it.createdAt) }
+        return Dashboard(user, summaries(userId), latest)
     }
 
-    override suspend fun getProgress(userId: String): UserProgress {
-        latency(300)
-        val list = checklists[userId]?.values.orEmpty()
-        return UserProgress(
-            checklistCount = list.size,
-            completedChecklists = list.count { it.completed },
-            overallProgress = if (list.isEmpty()) 0f else list.map { it.progress }.average().toFloat(),
-            simulationCount = simulations[userId]?.size ?: 0,
-            savedPolicyCount = saved[userId]?.size ?: 0
-        )
+    override suspend fun getNextActions(userId: String, dashboard: Dashboard?): List<NextAction> {
+        val dash = dashboard ?: getDashboard(userId)
+        val savedPolicies = saved[userId].orEmpty().mapNotNull { policyLookup(it) }
+        val actions = NextActionRules.build(dash, savedPolicies).toMutableList()
+        // 예시 데이터 전용: 퇴소 예정이면 자립정착금 준비를 먼저 권한다
+        if (users[userId]?.status == LivingStatus.LEAVING_SOON && dash.checklists.none { it.policyId == "settlement" }) {
+            actions += NextAction(
+                ActionKind.START_CHECKLIST,
+                "퇴소 전에 ‘자립정착금’ 준비하기",
+                "보호가 끝나기 전에 신청해야 하는 제도예요.",
+                "settlement",
+                priority = 1,
+            )
+        }
+        return actions.distinctBy { it.title }.sortedBy { it.priority }
     }
+
+    private fun daysUntil(date: LocalDate): Int =
+        java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), date).toInt()
+
+    /** 진행 중 먼저, 완료는 뒤. 각각 최근 수정순 */
+    private fun summaries(userId: String): List<ChecklistSummary> =
+        checklists[userId]?.values.orEmpty()
+            .sortedWith(compareBy<Checklist> { it.completed }.thenByDescending { touched[it.id] ?: 0L })
+            .map { it.toSummary() }
+
+    private fun Checklist.toSummary() = ChecklistSummary(
+        id = id,
+        policy = policy,
+        doneSteps = doneCount,
+        totalSteps = steps.size,
+        nextStep = steps.firstOrNull { !it.done }?.type,
+    )
 
     override suspend fun searchPolicies(userId: String, question: String): SearchResult {
         latency(900)
@@ -108,7 +141,7 @@ class FakeOnRoadApi(
         val matched = SamplePolicies.all
             .map { p ->
                 val score = p.keywords.count { q.contains(it.replace(" ", "")) } * 2 +
-                        (if (q.contains(p.name.replace(" ", ""))) 3 else 0)
+                    (if (q.contains(p.name.replace(" ", ""))) 3 else 0)
                 p to score
             }
             .filter { it.second > 0 }
@@ -144,28 +177,63 @@ class FakeOnRoadApi(
         return saved[userId]?.toSet().orEmpty()
     }
 
-    override suspend fun getChecklists(userId: String): List<Checklist> {
+    // ---------------- 체크리스트 ----------------
+
+    override suspend fun getChecklists(userId: String): List<ChecklistSummary> {
         latency(400)
-        return checklists[userId]?.values?.toList().orEmpty()
+        return summaries(userId)
     }
 
-    override suspend fun getChecklist(userId: String, policyId: String): Checklist? {
-        latency(350)
-        return checklists[userId]?.get(policyId)
-    }
-
-    override suspend fun createChecklist(userId: String, policyId: String): Checklist {
+    override suspend fun openChecklist(userId: String, policyId: String): Checklist {
         latency(400)
+        checklists[userId]?.get(policyId)?.let { return it }
         val policy = policyLookup(policyId) ?: error("정책을 찾을 수 없습니다: $policyId")
         val checklist = buildChecklist(policy)
         checklists.getOrPut(userId) { mutableMapOf() }[policyId] = checklist
+        touched[checklist.id] = ++clock
         return checklist
     }
 
-    override suspend fun saveChecklist(userId: String, checklist: Checklist): Checklist {
+    override suspend fun getChecklist(userId: String, checklistId: Long): Checklist {
         latency(300)
-        checklists.getOrPut(userId) { mutableMapOf() }[checklist.policyId] = checklist
-        return checklist
+        return checklists[userId]?.values?.find { it.id == checklistId } ?: error("체크리스트 없음: $checklistId")
+    }
+
+    override suspend fun updateChecklistItem(
+        userId: String,
+        checklistId: Long,
+        itemId: Long,
+        checked: Boolean?,
+        notApplicable: Boolean?,
+    ): ChecklistItemState {
+        latency(250)
+        require((checked == null) != (notApplicable == null)) { "checked 와 notApplicable 중 하나만" }
+        val map = checklists[userId] ?: error("체크리스트 없음")
+        val c = map.values.find { it.id == checklistId } ?: error("체크리스트 없음: $checklistId")
+
+        c.steps.find { it.itemId == itemId }?.let { step ->
+            require(notApplicable == null) { "단계 항목은 해당 없음을 고를 수 없어요" }
+            val next = c.copy(steps = c.steps.map { if (it.itemId == itemId) it.copy(done = checked!!) else it })
+            map[c.policyId] = next
+            touched[c.id] = ++clock
+            return ChecklistItemState(step.itemId, checked!!, false)
+        }
+
+        val doc = c.docs.find { it.itemId == itemId } ?: error("항목 없음: $itemId")
+        val updated = when {
+            // 해당 없음을 고르면 체크가 풀린다
+            notApplicable == true -> {
+                require(doc.condition != null) { "조건 없는 서류는 해당 없음을 고를 수 없어요" }
+                doc.copy(notApplicable = true, checked = false)
+            }
+            notApplicable == false -> doc.copy(notApplicable = false)
+            // 해당 없음인 서류를 체크하면 해당 없음이 풀린다
+            checked == true -> doc.copy(checked = true, notApplicable = false)
+            else -> doc.copy(checked = false)
+        }
+        map[c.policyId] = c.copy(docs = c.docs.map { if (it.itemId == itemId) updated else it })
+        touched[c.id] = ++clock
+        return ChecklistItemState(updated.itemId, updated.checked, updated.notApplicable)
     }
 
     override suspend fun simulate(
@@ -225,102 +293,58 @@ class FakeOnRoadApi(
         return result
     }
 
-    override suspend fun getNextActions(userId: String): List<NextAction> {
+    override suspend fun getCriteria(): Map<BudgetCategory, Int> {
+        latency(200)
+        return BudgetCategory.entries.associateWith { it.minimum }
+    }
+
+    override suspend fun getSimulation(userId: String, simulationId: String): SimulationResult {
         latency(300)
-        val actions = mutableListOf<NextAction>()
-        val userChecklists = checklists[userId].orEmpty()
-
-        userChecklists.values.filter { !it.completed }.forEach { c ->
-            val next = c.steps.first { !it.done }
-            actions += NextAction(
-                ActionKind.OPEN_CHECKLIST,
-                "‘${c.policyName}’ ${next.type.title} 이어서 하기",
-                "${c.steps.size}단계 중 ${c.doneCount}단계를 마쳤어요.",
-                c.policyId,
-                priority = 1
-            )
-        }
-
-        saved[userId].orEmpty().filter { it !in userChecklists }.forEach { pid ->
-            policyLookup(pid)?.let { p ->
-                actions += NextAction(
-                    ActionKind.START_CHECKLIST,
-                    "저장한 ‘${p.name}’ 신청 준비 시작하기",
-                    "대상 확인부터 차근차근 시작해요.",
-                    p.id,
-                    priority = 2
-                )
-            }
-        }
-
-        if (users[userId]?.status == LivingStatus.LEAVING_SOON && "settlement" !in userChecklists && policyLookup("settlement") != null) {
-            actions += NextAction(
-                ActionKind.START_CHECKLIST,
-                "퇴소 전에 ‘자립정착금’ 준비하기",
-                "보호가 끝나기 전에 신청해야 하는 제도예요.",
-                "settlement",
-                priority = 1
-            )
-        }
-
-        if (simulations[userId].isNullOrEmpty()) {
-            actions += NextAction(
-                ActionKind.RUN_SIMULATION,
-                "첫 달 생활비 계획 세워 보기",
-                "수입을 항목별로 나눠 보고 부족한 곳을 찾아요.",
-                priority = 3
-            )
-        }
-
-        if (userChecklists.isEmpty() && saved[userId].isNullOrEmpty()) {
-            actions += NextAction(
-                ActionKind.SEARCH_POLICY,
-                "나에게 맞는 정책 찾아보기",
-                "궁금한 것을 물어보면 공식 자료에서 찾아 드려요.",
-                priority = 0
-            )
-        }
-
-        return actions.distinctBy { it.title }.sortedBy { it.priority }
+        return simulations[userId]?.find { it.id == simulationId } ?: error("시뮬레이션 없음: $simulationId")
     }
 
     override suspend fun getGrowth(userId: String): GrowthRecord {
         latency(400)
         return GrowthRecord(
             savedPolicies = saved[userId].orEmpty().mapNotNull { policyLookup(it) },
-            completedChecklists = checklists[userId]?.values?.filter { it.completed }.orEmpty(),
-            simulations = simulations[userId]?.reversed().orEmpty()
+            checklists = summaries(userId),
+            simulations = simulations[userId].orEmpty().reversed().map { s ->
+                SimulationSummary(s.id, s.income, s.income - s.allocation.values.sum(), s.shortages.size, s.createdAt)
+            },
+            roleplays = FakeRecords.roleplays.reversed(),
         )
     }
 
-    private fun buildChecklist(p: Policy) = Checklist(
-        id = "c_${p.id}",
-        policyId = p.id,
-        policyName = p.name,
-        requiredDocs = p.requiredDocs,
-        checkedDocs = emptySet(),
-        applyUrl = p.applyUrl,
-        steps = listOf(
-            ChecklistStep(
-                StepType.TARGET,
-                "신청 대상: ${p.target}\n본인이 신청 대상에 해당하는지 확인합니다.",
-                "먼저 내가 받을 수 있는 사람인지 확인해요.\n대상: ${p.target}"
-            ),
-            ChecklistStep(
-                StepType.CONDITION,
-                "지원 내용: ${p.amount}\n지원 기간: ${p.period}\n소득·보호기간 등 세부 요건은 담당 기관(${p.agency})의 최종 확인이 필요합니다.",
-                "받을 수 있는 것: ${p.amount}\n기간: ${p.period}\n자세한 조건은 ${p.agency}에 꼭 물어봐요."
-            ),
-            ChecklistStep(
-                StepType.DOCS,
-                "구비서류 ${p.requiredDocs.size}종을 준비합니다. 기관에 따라 추가 서류를 요구할 수 있습니다.",
-                "아래 서류를 하나씩 챙겨요. 모두 체크하면 이 단계가 저절로 완료돼요."
-            ),
-            ChecklistStep(
-                StepType.APPLY,
-                "신청 방법: ${p.howToApply}",
-                "준비가 끝났다면 이렇게 신청해요.\n${p.howToApply}"
-            )
+    private fun buildChecklist(p: Policy): Checklist {
+        fun id() = nextItemId++
+        val policy = ChecklistPolicy(
+            id = p.id,
+            name = p.name,
+            agency = p.agency,
+            category = p.category,
+            contact = "보건복지상담센터 129",
+            applyUrl = p.applyUrl.ifBlank { null },
+            checkedAt = p.checkedAt,
+            isActive = true,
         )
-    )
+        return Checklist(
+            id = nextChecklistId++,
+            policy = policy,
+            steps = listOf(
+                ChecklistStep(id(), StepType.TARGET, p.target, p.easySummary),
+                ChecklistStep(
+                    id(), StepType.CONDITION,
+                    "${p.target}\n기본 조건(나이·지역) 해당 · 세부 조건은 공식 원문에서 확인",
+                    null,
+                ),
+                ChecklistStep(
+                    id(), StepType.DOCS,
+                    "아래 서류를 하나씩 챙겨요. 서류를 다 챙기면 이 단계도 완료로 표시해 주세요.",
+                    null,
+                ),
+                ChecklistStep(id(), StepType.APPLY, p.howToApply, null),
+            ),
+            docs = p.requiredDocs.map { ChecklistDoc(id(), it.name, it.condition) },
+        )
+    }
 }
