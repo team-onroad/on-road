@@ -8,12 +8,14 @@
 
 import re
 from datetime import date
+from pathlib import Path
 
 from db.models import Checklist, ChecklistItem, Document, DocumentField, Policy, User
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import doc_spec
+from app import doc_export, doc_spec
+from app.config import get_settings
 from app.crisis import CRISIS_CONTACTS, CRISIS_MESSAGE, is_crisis
 from app.doc_llm import DocLlm
 from app.errors import AppError
@@ -547,7 +549,22 @@ def export(db: Session, user: User, doc: Document) -> ExportResponse:
         checklist=checklist,
         warnings=result.warnings,
         files={"pdf": f"{base}?format=pdf", "docx": f"{base}?format=docx"},
+        pdf_layout=pdf_layout(doc),
     )
+
+
+def original_pdf(doc: Document) -> Path | None:
+    """정책 신청서의 원본 양식 PDF (formguide 가 data/forms/{form_id}.pdf 로 저장). 앱 양식은 None"""
+    if doc.source_type != "policy_form":
+        return None
+    path = get_settings().forms_dir / f"{doc.source_id}.pdf"
+    return path if path.is_file() else None
+
+
+def pdf_layout(doc: Document) -> str:
+    """"original": 원본 양식 위에 채움 / "table": 칸 이름·내용 표"""
+    rows = [(f, "") for f in doc.spec]
+    return "original" if doc_export.has_layout(original_pdf(doc), rows) else "table"
 
 
 def file_rows(db: Session, doc: Document) -> list[tuple[dict, str]]:

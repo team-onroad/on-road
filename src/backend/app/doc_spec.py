@@ -32,6 +32,7 @@ def _field(**kw) -> dict:
         "field_id": "", "label": "", "easy_label": None, "section": None, "guide": "", "caution": None,
         "example": None, "outline": None, "multiline": False, "essay": False, "required": None,
         "input_type": "text", "value_source": "user", "profile_key": None,
+        "box": None,  # 원본 양식에서 값을 쓸 자리 (정책 신청서만, formguide/layout.py)
     }
     base.update(kw)
     if base["value_source"] not in WRITABLE:
@@ -65,7 +66,7 @@ def from_form_spec(spec) -> list[dict]:
         fields.append(_field(
             field_id=f.id, label=f.label, section=f.section, guide=f.guide, example=None if f.sensitive else f.example,
             multiline=essay, essay=essay, required=f.required, input_type=f.input_type, value_source=source,
-            profile_key=f.profile_key if source == "profile" else None,
+            profile_key=f.profile_key if source == "profile" else None, box=f.box,
         ))
     return fields
 
