@@ -2,7 +2,7 @@
 
 import pytest
 
-from formguide.layout import attach_boxes, locate, save_layout_pdf
+from formguide.layout import attach_boxes, label_hints, locate, save_layout_pdf
 from formguide.schema import FormField, FormSpec
 from formguide.tests.sample_form import make_form
 
@@ -23,6 +23,10 @@ FIELDS = [
     f("notice", "통지방법", input_type="checkbox"),
     f("agency_phone", "전화:", section="2. 보호기관"),
     f("reason", "신청 사유", section=None),
+    f("tel", "전화 :", section="2. 보호기관"),
+    f("mob", "휴대전화 :", section="2. 보호기관"),
+    f("kind", "자립수당 지급/의료비 지원", section=None, input_type="checkbox"),
+    f("agree", "동의함", section=None, input_type="checkbox"),
     f("date", "년 월 일", section=None, input_type="date"),
     f("sign", "신청인", section=None, value_source="handwrite"),
 ]
@@ -53,6 +57,28 @@ def test_checkbox_options(boxes):
     assert boxes["seizure"]["options"] == ["네", "아니오"]
     assert boxes["notice"]["options"] == ["서면", "전자우편", "문자메시지"]
     assert boxes["notice"]["rect"][0] == 130.0  # 칸 이름 오른쪽 영역
+
+
+def test_inline_labels_in_one_cell(boxes):
+    tel, mob = boxes["tel"], boxes["mob"]
+    assert tel["how"] == mob["how"] == "cell_inline"  # 같은 셀을 두 칸이 나눠 쓴다
+    assert tel["rect"][1] < mob["rect"][1]
+    assert tel["rect"][2] == mob["rect"][2] == 543.0  # 셀 오른쪽 끝까지
+
+
+def test_square_and_text_checkboxes(boxes):
+    assert boxes["kind"]["options"] == ["자립수당 지급", "의료비 지원"]  # □ 네모 선택지
+    assert set(boxes["kind"]["marks"]) == {"자립수당 지급", "의료비 지원"}
+    assert boxes["agree"]["options"] == ["동의함", "동의하지 않음"]  # 표 밖 문장 속 [ ]
+    assert boxes["seizure"]["marks"]["네"][0] < boxes["seizure"]["marks"]["아니오"][0]
+
+
+def test_hints(tmp_path):
+    hints = label_hints(make_form(tmp_path / "form.pdf"))
+    assert "1. 신청인 > 대리인 > 성 명" in hints
+    assert "2. 보호기관 > 전화 :" in hints and "2. 보호기관 > 휴대전화 :" in hints
+    assert any(h.endswith("선택지: 자립수당 지급 / 의료비 지원") for h in hints)
+    assert "날짜 줄 > 년 월 일" in hints
 
 
 def test_date_line(boxes):

@@ -29,7 +29,8 @@ def make_form(path: Path) -> Path:
 
     def group(y, name):
         """묶음 이름 셀(세로 2줄) + 성명/생년월일, 주소/전화 두 줄"""
-        cell(X[0], y, X[1], y + 56, name)
+        cell(X[0], y, X[1], y + 56)
+        text(X[0] + 3, y + 31, name, 7)  # 좁은 묶음 칸에 들어가게 작은 글자
         cell(X[1], y, X[2], y + 28, "성 명")
         cell(X[2], y, X[3], y + 28)
         cell(X[3], y, X[4], y + 28, "생년월일")
@@ -63,6 +64,20 @@ def make_form(path: Path) -> Path:
     y += 22
     cell(X[0], y, X[5], y + 80)
     y += 80
+    # 한 셀 안에 작은 칸 이름 두 개 (새 판 양식의 "전화 : / 휴대전화 :")
+    cell(X[0], y, X[2], y + 30, "연락처")
+    cell(X[2], y, X[5], y + 30)
+    text(X[2] + 4, y + 12, "전화 :")
+    text(X[2] + 4, y + 25, "휴대전화 :")
+    y += 30
+    # 칸 이름 없이 □ 네모 선택지만 있는 칸 (새 판 양식 제목 속 "□자립수당 지급 □의료비 지원")
+    cell(X[0], y, X[5], y + 24)
+    for i, opt in enumerate(("자립수당 지급", "의료비 지원")):
+        bx = X[0] + 10 + i * 150
+        p.draw_rect(pymupdf.Rect(bx, y + 8, bx + 8, y + 16), color=(0, 0, 0), width=0.6)
+        text(bx + 12, y + 16, opt)
+    y += 24
+    text(60, y + 20, "것에 동의함. ([   ]동의함, [   ]동의하지 않음)")
     text(380, y + 40, "년          월          일")
     text(330, y + 75, "신청인                     (서명 또는 인)")
     doc.save(str(path))

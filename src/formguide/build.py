@@ -21,7 +21,7 @@ from pathlib import Path
 from formguide.convert import to_pdf
 from formguide.extract import FormText, extract
 from formguide.fetch import fetch
-from formguide.layout import attach_boxes, save_layout_pdf
+from formguide.layout import attach_boxes, label_hints, save_layout_pdf
 from formguide.schema import FormSpec
 from formguide.validate import check_fields, check_notes
 from rag.settings import PROJECT_ROOT
@@ -53,6 +53,7 @@ def build(
     src = fetch(source, work, suggested_name=suggested_name)
     pdf = to_pdf(src, work)
     form = extract(pdf)
+    form.hints = label_hints(pdf)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{form_id}.source.txt").write_text(form.as_prompt_text(), encoding="utf-8")
