@@ -38,6 +38,27 @@
 - 메시지와 맞는 양식이 없으면 사용자 단계(teen·youth)에 맞는 앱 양식 전체를 후보로 준다
 - 정책 신청서(`policy_form`)는 `data/forms/` 에 항목 JSON(formguide 결과)이 있는 정책만 후보가 된다
 
+### 프로필 변경 확인 카드 (`profile_changes`, 상담·문서 AI 공통)
+
+`POST /chat`, `POST /documents/{id}/interview`, `POST /documents/{id}/assist` 응답에 `profile_changes` 가 추가됐다 (위기 응답은 빈 목록).
+메시지에 프로필과 다른 값이 바뀌었다는 말과 함께 나오면 후보를 준다 (`app/profile_signal.py`, 규칙만, LLM 에 보내지 않음).
+
+```json
+"profile_changes": [
+  {"field": "region", "label": "사는 지역", "current": "서울", "proposed": "부산", "proposed_label": "부산"}
+]
+```
+
+| field | 찾는 말 (예) | proposed |
+|---|---|---|
+| `region` | "부산으로 이사했어요", "대구광역시에 살게 됐어요" | 지역 코드 |
+| `phone` | "번호 010-9876-5432로 바꿨어요" | `01098765432` |
+| `status` | "퇴소했어요" → `left_care`, "곧 퇴소 예정이에요" → `leaving_soon` | 상태 코드 |
+| `d_date` | 퇴소 예정 + 날짜 ("2027년 2월 28일 퇴소 예정") | `2027-02-28` |
+
+- 앱은 확인 카드("내 정보를 바꿀까요? 사는 지역: 서울 → 부산")를 띄우고, 사용자가 승인할 때만 `PATCH /users/{id}` 에 `{field: proposed}` 를 보낸다. 서버는 자동으로 바꾸지 않는다
+- "부산 정책 알려줘"처럼 바뀌었다는 말(이사·바꿨·퇴소했 등)이 없으면 후보가 아니다
+
 <br/>
 
 ## 1. 엔드포인트
