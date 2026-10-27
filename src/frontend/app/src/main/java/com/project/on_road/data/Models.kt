@@ -160,7 +160,13 @@ data class ChecklistDoc(
     val notApplicable: Boolean = false,
     /** 서버 짧은 이름 (조건 포함). 있으면 이름 대신 보여주고, 원래 이름은 자세히 보기로 */
     val shortLabel: String? = null,
-)
+    /** 문서 AI 로 쓰는 서류면 그 문서 id 와 상태 (writing / exported) */
+    val documentId: Long? = null,
+    val documentStatus: String? = null,
+) {
+    /** 문서 AI 로 써서 내보낸 서류: 체크가 문서를 따르고 체크리스트에서 직접 바꾸지 않는다 */
+    val written: Boolean get() = documentStatus == "exported"
+}
 
 data class Checklist(
     val id: Long,

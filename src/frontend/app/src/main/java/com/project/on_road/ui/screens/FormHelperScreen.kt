@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,6 +33,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.*
+import com.project.on_road.data.remote.DocumentSummaryDto
 import com.project.on_road.data.remote.userMessage
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
@@ -50,6 +52,13 @@ class FormHelperViewModel : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
     val values = mutableStateMapOf<String, String>()
+    /** 문서 AI 로 쓰던 서류 (서버) */
+    var documents by mutableStateOf<List<DocumentSummaryDto>>(emptyList())
+        private set
+
+    fun loadDocuments() {
+        viewModelScope.launch { documents = runCatching { AppContainer.documents.list() }.getOrDefault(emptyList()) }
+    }
 
     init {
         viewModelScope.launch {
@@ -104,8 +113,17 @@ class FormHelperViewModel : ViewModel() {
 
 /** 서류 작성 도우미 */
 @Composable
-fun FormHelperScreen(onBack: () -> Unit, vm: FormHelperViewModel = viewModel()) {
+fun FormHelperScreen(
+    onBack: () -> Unit,
+    /** 쓰던 서류 이어 쓰기 (문서 AI) */
+    onOpenDocument: (Long) -> Unit = {},
+    /** 자주 쓰는 양식을 문서 AI 로 쓰기. null 이면 예전처럼 앱 안에서 항목만 채운다 */
+    onStartTemplate: ((String) -> Unit)? = null,
+    vm: FormHelperViewModel = viewModel(),
+) {
     val context = LocalContext.current
+    // 작성 화면에서 돌아올 때마다 진행률을 새로 받는다
+    LaunchedEffect(Unit) { vm.loadDocuments() }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
@@ -134,7 +152,14 @@ fun FormHelperScreen(onBack: () -> Unit, vm: FormHelperViewModel = viewModel()) 
                 }
                 context.startActivity(Intent.createChooser(send, "작성한 내용 보내기"))
             }
-            else -> TemplateList(vm.templates, vm.error, onPick = vm::openTemplate, onUpload = { picker.launch("*/*") })
+            else -> TemplateList(
+                vm.templates,
+                vm.error,
+                documents = vm.documents,
+                onOpenDocument = onOpenDocument,
+                onPick = onStartTemplate ?: vm::openTemplate,
+                onUpload = { picker.launch("*/*") },
+            )
         }
     }
 }
@@ -143,6 +168,8 @@ fun FormHelperScreen(onBack: () -> Unit, vm: FormHelperViewModel = viewModel()) 
 private fun TemplateList(
     templates: List<FormTemplate>?,
     error: String?,
+    documents: List<DocumentSummaryDto>,
+    onOpenDocument: (Long) -> Unit,
     onPick: (String) -> Unit,
     onUpload: () -> Unit,
 ) {
@@ -177,8 +204,20 @@ private fun TemplateList(
             NoticeBox(it, title = "읽지 못했어요", tone = NoticeTone.Warning)
         }
 
+        if (documents.isNotEmpty()) {
+            Spacer(Modifier.height(OnRoadDimens.SectionGap))
+            SectionHeader("쓰던 서류", trailingText = "이어서 쓸 수 있어요")
+            Spacer(Modifier.height(16.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                documents.forEach { d ->
+                    val state = if (d.status == "exported") "PDF로 내보냄" else "${d.progress.completed}/${d.progress.total}칸 작성"
+                    ListRow(d.title, state, icon = Icons.Outlined.EditNote) { onOpenDocument(d.documentId) }
+                }
+            }
+        }
+
         Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("자주 쓰는 양식", trailingText = "원래 양식 그대로 채워요")
+        SectionHeader("자주 쓰는 양식", trailingText = "AI와 대화하며 채워요")
         Spacer(Modifier.height(16.dp))
         if (templates == null) {
             LoadingState("양식을 불러오고 있어요")

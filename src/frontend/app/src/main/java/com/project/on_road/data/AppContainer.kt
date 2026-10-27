@@ -22,6 +22,9 @@ object AppContainer {
     }
     val chatApi: ChatApi by lazy { if (USE_REMOTE) RemoteChatApi(service) else FakeChatApi() }
 
+    /** 문서 AI (서버 전용): 서류 작성 화면·체크리스트 신청서 쓰기·상담 핸드오프 */
+    val documents: DocumentRepository by lazy { DocumentRepository(service) { session.userId.orEmpty() } }
+
     /** 코치: 롤플레잉·서류 양식·초안은 서버, 흥미 탐색·직업 추천·로드맵·양식 올리기는 앱에서 처리 */
     val coachApi: CoachApi by lazy { if (USE_REMOTE) RemoteCoachApi(service) else FakeCoachApi() }
 
