@@ -73,6 +73,32 @@ _PROXY_NO = ("아니", "아뇨", "없", "직접", "혼자", "본인", "제가", 
 _PROXY_YES = ("있", "대신", "대리", "보호자", "후견인", "부모", "선생님")
 
 
+# 신청(작성) 날짜 칸: 오늘 날짜를 미리 넣고 "이 날짜로 할까요?"로 확인만 받는다
+_APPLY_DATE_LABELS = ("년월일", "신청일", "신청일자", "신청날짜", "작성일", "작성일자", "작성날짜", "제출일", "제출일자")
+
+
+def _is_apply_date(field_id: str, spec: dict) -> bool:
+    if spec.get("input_type") != "date":
+        return False
+    label = _flat(spec["label"]).rstrip(":*")
+    return label in _APPLY_DATE_LABELS or field_id in ("application_date", "apply_date", "write_date", "submit_date")
+
+
+def fill_today(db: Session, rows: list[DocumentField], specs: dict, today: date) -> None:
+    """아직 확인 안 한 신청 날짜 칸을 오늘 날짜로 (며칠 지나 다시 열어도 그날 날짜로 바뀐다)"""
+    value = today.strftime("%Y.%m.%d")
+    changed = False
+    for r in rows:
+        if r.is_completed or not _is_apply_date(r.field_id, specs[r.field_id]):
+            continue
+        if w._value(r.segments).strip() != value:
+            r.segments = [{"text": value, "source": "profile"}]
+            r.updated_at = func.now()
+            changed = True
+    if changed:
+        db.commit()
+
+
 def _is_proxy(field_id: str, spec: dict) -> bool:
     return field_id.startswith("proxy_") or _flat(spec["label"]).startswith("대리인")
 
@@ -98,7 +124,7 @@ def _todo(rows: list[DocumentField], specs: dict, skipped: list[str]) -> list[st
 
 
 def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str | None = None) -> Question:
-    name = spec.get("easy_label") or spec["label"]
+    name = "신청 날짜" if _is_apply_date(row.field_id, spec) else (spec.get("easy_label") or spec["label"])
     value = w._value(row.segments).strip()
     can_skip = spec.get("required") is not True
     options = spec.get("options")
@@ -340,6 +366,7 @@ def _interview(
     db: Session, user: User, doc: Document, body: InterviewRequest, today: date, doc_llm: DocLlm, rag: SearchPolicies,
 ) -> InterviewResponse:
     state = _state(doc)
+    fill_today(db, w._rows(db, doc), w._specs(doc), today)
     if body.message is None:
         return _response(db, user, doc, state)
 

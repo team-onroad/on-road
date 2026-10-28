@@ -351,3 +351,24 @@ def test_no_proxy_skips_all_proxy_fields(api, db_session, doc_llm, forms_dir, cl
     assert tip["message"].startswith("대리 신청은") and tip["question"]["label"] == "대리 신청"
     r = _say(api, user, doc_id, "아니요 제가 직접 해요")
     assert r["message"] == "대리인 칸은 비워 둘게요." and r["question"]["field_id"] == "end"
+
+
+def test_application_date_is_today(api, db_session, doc_llm, forms_dir, clock):
+    user = make_user(db_session, name="김민지")
+    policy = make_policy(db_session, policy_key="P001", name="자립수당")
+    spec = {
+        "form_id": "P001-apply", "policy_key": "P001", "title": "자립수당 지급 신청서", "source": "t.pdf",
+        "fields": [{"id": "application_date", "label": "년 월 일", "input_type": "date", "required": True,
+                    "guide": "신청 날짜를 적어주세요."}],
+    }
+    (forms_dir / "P001-apply.json").write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+    doc_id = api.post("/api/documents", json={
+        "user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id,
+    }).json()["document_id"]
+
+    today = clock.today.strftime("%Y.%m.%d")
+    q = _say(api, user, doc_id)["question"]
+    assert q["awaiting_confirm"] is True and q["current_value"] == today
+    assert q["text"].startswith(f"'신청 날짜'는 '{today}'(으)로 할까요?")
+    r = _say(api, user, doc_id, "네")
+    assert (r["field"]["value"], r["field"]["is_completed"]) == (today, True)
