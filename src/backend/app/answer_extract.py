@@ -113,6 +113,37 @@ def is_no(message: str) -> bool:
     return re.sub(r"[\s.,!?~^]", "", message.strip().lower()) in NO_WORDS
 
 
+# 칸과 상관없는 잡담 ("나 배고파", "졸려", "심심해"): 칸에 적지 않고, LLM 도 부르지 않는다
+_SMALL_TALK = ("배고", "배불", "졸려", "졸리", "졸립", "피곤", "심심", "귀찮", "놀고싶", "놀래", "자고싶", "잘래", "밥먹",
+               "밥뭐", "뭐먹", "뭐해", "안녕", "하이", "ㅎㅇ", "잘자", "고마워", "고맙", "감사해", "사랑해", "짜증", "지루")
+
+
+def is_small_talk(message: str) -> bool:
+    flat = re.sub(r"[\s.,!?~^]", "", message.strip().lower())
+    return len(flat) <= 12 and any(w in flat for w in _SMALL_TALK)
+
+
+# 문장(말하는 투)인지: 칸 답(명사)이 아니라 "나 배고파", "이모가 내 줄 거예요" 같은 말
+_PRONOUN_HEADS = ("나", "저", "난", "전", "내가", "제가", "나는", "저는", "우리", "저희", "그냥", "아마")
+# 띄어쓰기가 있는 말의 끝
+_SENTENCE_ENDS = ("어", "아", "야", "지", "래", "까", "니", "냐", "네", "요", "해", "줘", "다", "음", "파", "워", "와",
+                  "봐", "돼", "져", "려", "자", "라", "게", "죠", "거든", "는데", "잖아", "ㅋ", "ㅎ", "ㅠ", "ㅜ")
+# 한 낱말이어도 문장인 끝 ("배고파", "몰라요", "했어요"). 명사가 거의 안 끝나는 것만
+_WORD_SENTENCE_ENDS = ("파", "워", "봐", "돼", "져", "줘", "싶어", "없어", "있어", "몰라", "했어", "했다", "거든", "잖아",
+                       "는데", "어요", "아요", "해요", "네요", "지요", "죠", "겠어", "할래", "갈래", "ㅋ", "ㅎ", "ㅠ", "ㅜ")
+_TALK_PARTS = ("했는데", "인데", "는데 ", "해서 ", "했어", "해 줘", "해줘", "해 주세요", "해주세요", "거예요", "거에요")
+
+
+def looks_sentence(message: str) -> bool:
+    t = message.strip().rstrip(".!~?^ ")
+    if not t:
+        return False
+    words = t.split()
+    if len(words) == 1:
+        return t.endswith(_WORD_SENTENCE_ENDS)
+    return (words[0] in _PRONOUN_HEADS or t.endswith(_SENTENCE_ENDS) or any(p in t for p in _TALK_PARTS))
+
+
 RETRY = {
     "name": "이름만 알려 주세요. (예: 홍길동)",
     "address": "주소를 다시 알려 주세요. 시·구·도로명과 번호까지요. (예: 서울시 OO구 OO로 12)",

@@ -34,7 +34,6 @@ QUESTION_WORDS = (
     "할까", "될까", "일까", "인가요", "알려줘", "알려주", "가르쳐", "궁금",
 )
 # 짧은 칸 답이 이 말로 끝나고 띄어쓰기가 있으면 대화 문장일 수 있다 → 바로 적지 않고 "이렇게 적을까요?"로 확인
-_TALK_ENDINGS = ("어", "야", "지", "래", "까", "니", "네", "요", "해", "줘", "다", "음", "ㅋ", "ㅎ")
 
 DONE_MESSAGE = "모든 칸을 채웠어요."
 EXPORTED_MESSAGE = "모든 칸을 채우고 서류를 만들었어요. PDF로 받아 볼 수 있어요."
@@ -197,18 +196,13 @@ def _is_question(text: str) -> bool:
     return "?" in text or "？" in text or any(q in flat for q in QUESTION_WORDS)
 
 
-_TALK_PARTS = ("했는데", "인데", "는데 ", "해서 ", "했어", "했어요", "해 줘", "해줘", "해 주세요", "해주세요")
-
-
 def _check_extract(v: object) -> bool:
     return isinstance(v, dict) and "answer" in v and (v["answer"] is None or isinstance(v["answer"], str))
 
 
 def _talk_like(text: str) -> bool:
-    """짧은 칸 답인데 대화 문장처럼 보이는지 (띄어쓰기가 있고 말끝이 대화체이거나 '~했는데' 같은 말이 섞임).
-    이름·주소·기관명은 보통 아니다"""
-    t = text.strip().rstrip(".!~ ")
-    return " " in t and (t.endswith(_TALK_ENDINGS) or any(p in t for p in _TALK_PARTS))
+    """짧은 칸 답인데 말하는 문장처럼 보이는지 ("나 배고파", "이모가 내 줄 거예요"). 이름·주소·기관명은 보통 아니다"""
+    return answer_extract.looks_sentence(text)
 
 
 def _save(db: Session, doc: Document, state: dict) -> None:
@@ -232,8 +226,9 @@ def _complete(row: DocumentField, segments: list[dict] | None = None) -> None:
 def _essay_draft(
     db: Session, user: User, doc: Document, row: DocumentField, spec: dict, answer: str, revise: bool,
     today: date, doc_llm: DocLlm,
-) -> None:
-    """서술형 칸: 사용자가 말한 내용만으로 AI 가 문장을 쓴다 (revise 면 지금 초안을 그 말대로 고친다)"""
+) -> str | None:
+    """서술형 칸: 사용자가 말한 내용만으로 AI 가 문장을 쓴다 (revise 면 지금 초안을 그 말대로 고친다).
+    쓸 내용이 아니면 초안 없이 안내 문구를 돌려준다"""
     stage, status = w._ctx(user, today)
     current = w._value(row.segments)
     prompt = answer if revise else f"이 칸에 들어갈 문장을 써 줘. 내가 넣고 싶은 내용: {answer}"
@@ -251,13 +246,13 @@ def _essay_draft(
     }
     out = call_llm("assist_field", doc_llm.assist_field, w._check_assist, req)
     text = out["text"].strip()[: w.ASSIST_MAX_CHARS]
-    if out["action"] == "tip":  # 고치지 못하고 안내만 온 경우 (예: 빈칸을 먼저 채워 달라) 초안은 그대로
-        row.tip = text
-        return
+    if out["action"] == "tip":  # 쓸 내용이 아닌 말이라 안내만 온 경우 (잡담 등). 초안은 그대로
+        return text
     row.previous_segments = row.segments
     row.segments = [{"text": text, "source": "ai"}]
     row.reused_from = None
     row.updated_at = func.now()
+    return None
 
 
 def _response(
@@ -384,6 +379,13 @@ def _interview(
         _save(db, doc, state)
         return _response(db, user, doc, state, message=text)
 
+    # 칸과 상관없는 잡담 ("나 배고파", "졸려"): 적지 않고, LLM 도 부르지 않고 같은 칸을 다시 묻는다
+    if not spec.get("options") and answer_extract.is_small_talk(msg):
+        name = spec.get("easy_label") or spec["label"]
+        _save(db, doc, state)
+        return _response(db, user, doc, state,
+                         message=f"쓰던 내용은 저장돼 있어요. 이어서 '{name}'에 쓸 내용을 알려 주세요.")
+
     # 해당 없음 (필수가 아닌 칸) / 나중에 (필수 칸)
     if flat in NOT_APPLICABLE_WORDS or any(flat.startswith(x) for x in LATER_WORDS):
         if spec.get("required") is not True and flat in NOT_APPLICABLE_WORDS:
@@ -399,7 +401,10 @@ def _interview(
 
     # 서술형: AI 가 문장으로 쓰고 확인을 기다린다
     if spec.get("essay"):
-        _essay_draft(db, user, doc, row, spec, msg, pending, today, doc_llm)
+        tip = _essay_draft(db, user, doc, row, spec, msg, pending, today, doc_llm)
+        if tip:
+            _save(db, doc, state)
+            return _response(db, user, doc, state, message=tip)
         state["pending"] = current
         _save(db, doc, state)
         return _response(db, user, doc, state, field_row=row)

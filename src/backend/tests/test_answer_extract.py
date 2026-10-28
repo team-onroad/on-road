@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.answer_extract import extract
+from app.answer_extract import extract, is_small_talk, looks_sentence
 
 NAME = {"label": "성 명"}
 ADDRESS = {"label": "주 소", "input_type": "address"}
@@ -33,3 +33,18 @@ TEXT = {"label": "보호기관명*"}
 ])
 def test_extract(spec, message, expected):
     assert extract(spec, message)[0] == expected
+
+
+@pytest.mark.parametrize("message, expected", [
+    ("나 배고파", True), ("배고파", True), ("졸려요", True), ("OO아동복지원", False), ("이모", False),
+])
+def test_small_talk(message, expected):
+    assert is_small_talk(message) is expected
+
+
+@pytest.mark.parametrize("message, expected", [
+    ("나 배고파", True), ("배고파", True), ("이모가 내 줄 거예요", True), ("다녔었어요", True),
+    ("OO아동복지원", False), ("이모", False), ("어머니", False), ("새마을금고", False), ("OO대학교", False),
+])
+def test_looks_sentence(message, expected):
+    assert looks_sentence(message) is expected
