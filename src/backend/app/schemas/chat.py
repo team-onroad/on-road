@@ -57,7 +57,7 @@ class ProfileChange(BaseModel):
     """대화에서 찾은 프로필 변경 후보 (app/profile_signal.py). 앱은 확인 카드를 띄우고,
     사용자가 승인하면 PATCH /users/{id} 에 {field: proposed} 를 보낸다. 자동으로 바꾸지 않는다"""
 
-    field: Literal["region", "phone", "status", "d_date"]
+    field: Literal["name", "region", "phone", "status", "d_date"]
     label: str  # 화면에 보일 항목 이름 (예: "사는 지역")
     current: str | None  # 지금 값 (보여 주기용)
     proposed: str  # PATCH 에 그대로 보낼 값 (region 코드, 01012345678, left_care, 2027-02-28)

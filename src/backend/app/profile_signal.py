@@ -35,6 +35,13 @@ _PHONE_WORDS = ("번호", "바꿨", "바뀌", "바꿔", "새폰", "새로")
 _LEFT_WORDS = ("퇴소했", "퇴소를했", "보호종료됐", "보호종료되었", "보호가끝났", "시설에서나왔", "시설나왔")
 _LEAVING_WORDS = ("곧퇴소", "퇴소예정", "퇴소할예정", "퇴소를앞두", "퇴소앞두", "퇴소하게됐", "퇴소하게되")
 _DATE_RE = re.compile(r"(\d{4})\s*(?:년|[.\-/])\s*(\d{1,2})\s*(?:월|[.\-/])\s*(\d{1,2})")
+_NAME_WORDS = ("개명", "이름바꿨", "이름을바꿨", "이름이바뀌", "이름바뀌", "이름변경", "새이름")
+# 새 이름 후보: 한글 2~4자 + (조사·말끝) + 끝 (예: "정서현으로", "정서현이야", "정서현이에요", "정서현")
+_NAME_RE = re.compile(
+    r"(?<![가-힣])([가-힣]{2,4}?)(?:으로|로|이라고|라고|이에요|예요|이야|야|입니다|이요|요)?(?=$|[\s.,!?~])"
+)
+_NOT_NAMES = {"이름", "개명", "새이름", "제이름", "내이름", "저는", "나는", "이번에", "최근에", "법원", "그래서"}
+_VERB_PARTS = ("했", "었", "았", "바꿨", "바뀌", "는데", "해서", "하고", "주세", "해줘", "줘", "할게", "됐", "개명", "이름")
 
 
 def _flat(text: str) -> str:
@@ -96,8 +103,23 @@ def _phone_label(p: str | None) -> str | None:
     return f"{p[:3]}-{p[3:-4]}-{p[-4:]}"
 
 
+def name_in(message: str) -> str | None:
+    """개명·이름을 바꿨다는 말 속 새 이름 (예: "나 개명했는데 정서현으로 해 줘" → "정서현"). 말이 없으면 None"""
+    if not any(w in _flat(message) for w in _NAME_WORDS):
+        return None
+    for m in _NAME_RE.finditer(message):
+        name = m.group(1)
+        if name in _NOT_NAMES or any(v in name for v in _VERB_PARTS) or name.endswith(("어", "다", "지", "요", "함")):
+            continue
+        return name
+    return None
+
+
 def detect(message: str, user: User, today: date) -> list[ProfileChange]:
     out: list[ProfileChange] = []
+    name = name_in(message)
+    if name and name != user.name:
+        out.append(ProfileChange(field="name", label="이름", current=user.name, proposed=name, proposed_label=name))
     region = _region(message)
     if region and region != user.region:
         out.append(ProfileChange(field="region", label="사는 지역", current=user.region, proposed=region,
