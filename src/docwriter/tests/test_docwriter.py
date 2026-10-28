@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from docwriter.llm import DocwriterFormatError, assist_field, route_message
+from docwriter.llm import DocwriterFormatError, assist_field, extract_answer, route_message
 
 
 class FakeLLM:
@@ -100,3 +100,12 @@ def test_force_action_for_interview():
     assert '"draft"로 정해져 있다' in fake.calls[0][0]["content"]
     tip = assist_field(req(force_action="draft"), generate=FakeLLM({"action": "tip", "text": "안내"}))
     assert tip["action"] == "tip"  # 안내만 온 경우는 그대로 (백엔드가 칸을 바꾸지 않음)
+
+
+def test_extract_answer():
+    fake = FakeLLM({"answer": "이모"})
+    out = extract_answer("우리 이모가 대신 내 줄 거예요", {"label": "대상아동과의 관계", "guide": "관계"}, generate=fake)
+    assert out == {"answer": "이모"}
+    assert "대상아동과의 관계" in fake.calls[0][0]["content"]
+    assert extract_answer("날씨 좋다", {"label": "관계"}, generate=FakeLLM({"answer": None})) == {"answer": None}
+    assert extract_answer("x", {"label": "관계"}, generate=FakeLLM([])) == {"answer": None}

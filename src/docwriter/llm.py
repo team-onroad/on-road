@@ -10,7 +10,7 @@ import json
 import re
 from collections.abc import Callable
 
-from docwriter.prompts import ASSIST_SYSTEM, ROUTE_CHAT_SYSTEM, ROUTE_DOCUMENT_SYSTEM
+from docwriter.prompts import ASSIST_SYSTEM, EXTRACT_ANSWER_SYSTEM, ROUTE_CHAT_SYSTEM, ROUTE_DOCUMENT_SYSTEM
 
 Generate = Callable[[list[dict]], dict]
 
@@ -169,3 +169,18 @@ def assist_field(req: dict, generate: Generate | None = None) -> dict:
         if lost:
             return {"action": "tip", "text": f"{', '.join(lost)} 빈칸을 먼저 채워 주시면 그 내용을 살려서 고쳐 드릴게요."}
     return {"action": action, "text": text[:max_chars]}
+
+
+# ---------------- 대화로 채우기: 답 뽑기 ----------------
+
+
+def extract_answer(message: str, field: dict, generate: Generate | None = None) -> dict:
+    """일반 칸(기관명·관계·은행 등)만. 이름·주소·전화·계좌 같은 개인정보 칸은 백엔드가 규칙으로 뽑고 여기 보내지 않는다.
+    → {"answer": str | None}"""
+    system = EXTRACT_ANSWER_SYSTEM.format(label=field.get("label") or "", guide=field.get("guide") or "")
+    out = (generate or _openai_generate)([
+        {"role": "system", "content": system},
+        {"role": "user", "content": message},
+    ])
+    answer = _text(out.get("answer")) if isinstance(out, dict) else ""
+    return {"answer": answer[:200] or None}
