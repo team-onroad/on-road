@@ -73,7 +73,7 @@ def test_full_interview_fills_and_exports(api, db_session, doc_llm, clock):
 def test_profile_values_never_sent_to_llm(api, db_session, doc_llm):
     user = make_user(db_session, name="김민지", phone="01012345678")
     doc_id = _start(api, user)
-    for message in (None, "네", "네", "네", "서울시 OO구", "OO대학교", "등록금이 부담돼요"):
+    for message in (None, "네", "네", "네", "서울시 OO구 OO로 12", "OO대학교", "등록금이 부담돼요"):
         _say(api, user, doc_id, message)
     sent = json.dumps([args for _, args in doc_llm.calls], ensure_ascii=False)
     assert "김민지" not in sent and "01012345678" not in sent and "010-1234-5678" not in sent
@@ -150,7 +150,7 @@ def test_question_goes_to_router(api, db_session, doc_llm, rag):
 def test_done_with_problems_returns_check(api, db_session, doc_llm):
     user = make_user(db_session, phone="01012345678")
     doc_id = _start(api, user)
-    for message in ("네", "네", "네", "서울시", "OO대학교", "[학교 이름]에서 공부해요", "좋아", "계획", "좋아"):
+    for message in ("네", "네", "네", "서울시 OO구 OO로 12", "OO대학교", "[학교 이름]에서 공부해요", "좋아", "계획", "좋아"):
         r = _say(api, user, doc_id, message)
     assert r["done"] is True and r["export"] is None
     assert r["check"]["problems"][0]["reason"] == "placeholder_left"
@@ -223,15 +223,61 @@ def test_small_talk_is_not_written(api, db_session, doc_llm):
     talk = _say(api, user, doc_id, "오늘 날씨 어때")
     assert talk["route"] == "counsel" and talk["field"] is None and talk["question"]["field_id"] == "address"
 
-    # 대화 문장 같은 답 → 바로 적지 않고 확인, "네"면 그대로 적는다
-    asked = _say(api, user, doc_id, "서울 OO구에 살고 있어")
-    assert asked["field"] is None and asked["question"]["awaiting_confirm"] is True
-    assert "'서울 OO구에 살고 있어'(이)라고 적을까요?" in asked["question"]["text"]
-    yes = _say(api, user, doc_id, "네")
-    assert (yes["field"]["field_id"], yes["field"]["value"]) == ("address", "서울 OO구에 살고 있어")
+    # 주소 칸: 주소가 없는 말은 적지 않고 다시 묻는다, 주소가 있으면 주소만 뽑는다
+    nope = _say(api, user, doc_id, "배고파서 아무것도 못 하겠다")
+    assert nope["field"] is None and nope["message"].startswith("주소를 다시 알려 주세요")
+    got = _say(api, user, doc_id, "저는 서울시 OO구 OO로 12에 살고 있어요")
+    assert (got["field"]["field_id"], got["field"]["value"]) == ("address", "서울시 OO구 OO로 12")
 
-    # 확인 대신 새 답이 오면 그 답을 적는다 (말끝 '요'는 뗀다)
-    asked = _say(api, user, doc_id, "배고파서 아무것도 못 하겠다")
-    assert asked["field"] is None and asked["question"]["field_id"] == "school"
-    fixed = _say(api, user, doc_id, "OO대학교요")
-    assert (fixed["field"]["field_id"], fixed["field"]["value"]) == ("school", "OO대학교")
+    # 일반 칸(학교): 짧은 답은 말끝만 떼고 적는다
+    school = _say(api, user, doc_id, "OO대학교요")
+    assert (school["field"]["field_id"], school["field"]["value"]) == ("school", "OO대학교")
+
+
+def test_text_field_sentence_is_extracted_and_confirmed(api, db_session, doc_llm):
+    user = make_user(db_session, phone="01012345678")
+    doc_id = _start(api, user)
+    for message in ("네", "네", "네", "서울시 OO구 OO로 12"):
+        _say(api, user, doc_id, message)
+
+    # 대화 문장 → AI 가 답만 뽑고 확인, "네"면 적는다
+    doc_llm.extract = {"answer": "OO대학교"}
+    asked = _say(api, user, doc_id, "저 요즘 OO대학교 다니고 있어요")
+    assert asked["field"] is None and asked["question"]["awaiting_confirm"] is True
+    assert "'OO대학교'(이)라고 적을까요?" in asked["question"]["text"]
+    assert doc_llm.calls[-1][0] == "extract_answer"
+    yes = _say(api, user, doc_id, "네")
+    assert (yes["field"]["field_id"], yes["field"]["value"]) == ("school", "OO대학교")
+
+
+def test_text_field_without_answer_asks_again(api, db_session, doc_llm):
+    user = make_user(db_session, phone="01012345678")
+    doc_id = _start(api, user)
+    for message in ("네", "네", "네", "서울시 OO구 OO로 12"):
+        _say(api, user, doc_id, message)
+    doc_llm.extract = {"answer": None}
+    r = _say(api, user, doc_id, "배고파서 아무것도 못 하겠다")
+    assert r["field"] is None and r["message"].endswith("쓸 내용만 짧게 알려 주세요.")
+    assert r["question"]["field_id"] == "school"
+
+
+def test_name_field_takes_only_the_name(api, db_session, doc_llm):
+    user = make_user(db_session, name="김민지", phone="01012345678")
+    doc_id = _start(api, user)
+    _say(api, user, doc_id)
+    assert _say(api, user, doc_id, "오늘 날씨 좋다")["message"] == "이름만 알려 주세요. (예: 홍길동)"
+    r = _say(api, user, doc_id, "제 이름은 정서현입니다")
+    assert (r["field"]["field_id"], r["field"]["value"]) == ("name", "정서현")
+    sent = str(doc_llm.calls)
+    assert "정서현" not in sent  # 이름 칸 답은 LLM 에 보내지 않는다
+
+
+def test_renamed_name_field_and_card(api, db_session, doc_llm):
+    user = make_user(db_session, name="김민지", phone="01012345678")
+    doc_id = _start(api, user)
+    assert "'김민지'" in _say(api, user, doc_id)["question"]["text"]
+
+    r = _say(api, user, doc_id, "나 개명했는데 정서현으로 해줘")
+    assert (r["field"]["field_id"], r["field"]["value"]) == ("name", "정서현")  # 문장 대신 새 이름만
+    assert r["message"] == "'정서현'(으)로 적었어요."
+    assert [(c["field"], c["current"], c["proposed"]) for c in r["profile_changes"]] == [("name", "김민지", "정서현")]

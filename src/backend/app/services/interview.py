@@ -15,7 +15,7 @@ from datetime import date
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app import profile_signal
+from app import answer_extract, profile_signal
 from app.crisis import CRISIS_CONTACTS, CRISIS_MESSAGE, is_crisis
 from app.doc_llm import DocLlm
 from app.llm_client import call_llm
@@ -35,8 +35,6 @@ QUESTION_WORDS = (
 )
 # 짧은 칸 답이 이 말로 끝나고 띄어쓰기가 있으면 대화 문장일 수 있다 → 바로 적지 않고 "이렇게 적을까요?"로 확인
 _TALK_ENDINGS = ("어", "야", "지", "래", "까", "니", "네", "요", "해", "줘", "다", "음", "ㅋ", "ㅎ")
-# 짧은 칸 답 끝의 말버릇은 떼고 적는다 (예: "OO아동복지원이요" → "OO아동복지원")
-_TRAILING_RE = re.compile(r"\s*(이에요|예요|이요|입니다|이에용|요)[.!~]*$")
 
 DONE_MESSAGE = "모든 칸을 채웠어요."
 EXPORTED_MESSAGE = "모든 칸을 채우고 서류를 만들었어요. PDF로 받아 볼 수 있어요."
@@ -161,7 +159,11 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
 
             return format_phone(digits) if len(digits) >= 10 else f"{digits[:2]}-{digits[2:5]}-{digits[5:]}", None
         return None, "전화번호를 다시 알려 주세요. (예: 010-1234-5678)"
-    return answer.strip(), None
+    # 이름·주소·이메일·등록번호는 형식을 보고 답만 뽑는다. 못 찾으면 다시 묻는다 (아무 말이나 적지 않음)
+    value, kind = answer_extract.extract(spec, answer)
+    if value is None:
+        return None, answer_extract.RETRY.get(kind, "칸에 쓸 내용만 알려 주세요.")
+    return value, None
 
 
 def _brief(text: str, limit: int = BRIEF_CHARS) -> str:
@@ -195,14 +197,18 @@ def _is_question(text: str) -> bool:
     return "?" in text or "？" in text or any(q in flat for q in QUESTION_WORDS)
 
 
+_TALK_PARTS = ("했는데", "인데", "는데 ", "해서 ", "했어", "했어요", "해 줘", "해줘", "해 주세요", "해주세요")
+
+
+def _check_extract(v: object) -> bool:
+    return isinstance(v, dict) and "answer" in v and (v["answer"] is None or isinstance(v["answer"], str))
+
+
 def _talk_like(text: str) -> bool:
-    """짧은 칸 답인데 대화 문장처럼 보이는지 (띄어쓰기가 있고 말끝이 대화체). 이름·주소·기관명은 보통 아니다"""
+    """짧은 칸 답인데 대화 문장처럼 보이는지 (띄어쓰기가 있고 말끝이 대화체이거나 '~했는데' 같은 말이 섞임).
+    이름·주소·기관명은 보통 아니다"""
     t = text.strip().rstrip(".!~ ")
-    return " " in t and t.endswith(_TALK_ENDINGS)
-
-
-def _short_value(text: str) -> str:
-    return _TRAILING_RE.sub("", text.strip()) or text.strip()
+    return " " in t and (t.endswith(_TALK_ENDINGS) or any(p in t for p in _TALK_PARTS))
 
 
 def _save(db: Session, doc: Document, state: dict) -> None:
@@ -389,14 +395,27 @@ def _interview(
     if normalized is None:
         _save(db, doc, state)
         return _response(db, user, doc, state, message=retry)
+    kind = answer_extract.kind_of(spec)
     free_text = not spec.get("options") and spec.get("input_type") not in ("date", "phone", "account")
-    if free_text:
-        normalized = _short_value(normalized)
-        if _talk_like(msg):
-            # 대화 문장 같은 답 (예: "오늘 날씨 좋다"): 바로 적지 않고 확인 (LLM 에 보내지 않음)
-            state["confirm_text"] = {"field": current, "text": normalized}
+    if free_text and kind == "name" and profile_signal.name_in(msg):
+        # 이름 칸에 "개명했는데 정서현으로 해 줘" → 새 이름만 적는다 (프로필 변경 카드는 따로 뜬다)
+        if current in state["skipped"]:
+            state["skipped"].remove(current)
+        _complete(row, [{"text": normalized, "source": "user"}])
+        state["pending"] = None
+        _save(db, doc, state)
+        return _response(db, user, doc, state, message=f"'{normalized}'(으)로 적었어요.", field_row=row)
+    if free_text and kind == "text" and _talk_like(msg):
+        # 일반 칸(기관명·관계 등)에 대화 문장: AI 가 답만 뽑고 "이렇게 적을까요?"로 확인. 못 뽑으면 다시 묻는다
+        field = {"label": spec["label"], "guide": spec.get("guide") or ""}
+        out = call_llm("extract_answer", doc_llm.extract_answer, _check_extract, msg, field)
+        if not out["answer"]:
+            name = spec.get("easy_label") or spec["label"]
             _save(db, doc, state)
-            return _response(db, user, doc, state)
+            return _response(db, user, doc, state, message=f"'{name}'에 쓸 내용만 짧게 알려 주세요.")
+        state["confirm_text"] = {"field": current, "text": answer_extract.strip_tail(out["answer"])}
+        _save(db, doc, state)
+        return _response(db, user, doc, state)
     if current in state["skipped"]:
         state["skipped"].remove(current)
     _complete(row, [{"text": normalized, "source": "user"}])

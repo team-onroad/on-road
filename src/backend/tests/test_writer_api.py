@@ -23,6 +23,7 @@ class FakeDocLlm:
         self._mock = llm_mock
         self.route: object = None
         self.assist: object = None
+        self.extract: object = None
         self.error: Exception | None = None
         self.calls: list[tuple[str, tuple]] = []
 
@@ -38,8 +39,14 @@ class FakeDocLlm:
             raise self.error
         return self.assist if self.assist is not None else self._mock.assist_field(req)
 
+    def extract_answer(self, message, field):
+        self.calls.append(("extract_answer", (message, field)))
+        if self.error is not None:
+            raise self.error
+        return self.extract if self.extract is not None else self._mock.extract_answer(message, field)
+
     def as_llm(self) -> DocLlm:
-        return DocLlm(self.route_message, self.assist_field)
+        return DocLlm(self.route_message, self.assist_field, self.extract_answer)
 
 
 @pytest.fixture
