@@ -120,7 +120,11 @@ def test_form_checkbox_date_phone_and_not_applicable(api, db_session, doc_llm, f
     assert q["options"] == ["서면", "문자 메시지", "기타"] and "골라 주세요" in q["text"]
     assert _say(api, user, doc_id, "전화로 해 주세요")["message"].startswith("선택지 중에서 골라 주세요")
     assert _say(api, user, doc_id, "문자메시지로요")["field"]["value"] == "문자 메시지"
-    assert _say(api, user, doc_id, "2026년 2월 28일")["field"]["value"] == "2026.02.28"
+    gate = _say(api, user, doc_id, "2026년 2월 28일")
+    assert gate["field"]["value"] == "2026.02.28"
+    assert gate["question"]["label"] == "대리 신청" and gate["question"]["options"] == ["아니요", "예"]
+    assert _say(api, user, doc_id, "글쎄")["message"].startswith("대신 신청해 주는 사람이")
+    assert _say(api, user, doc_id, "예")["question"]["field_id"] == "g_phone"
     assert _say(api, user, doc_id, "공일공 1234")["message"].startswith("전화번호를 다시")
     assert _say(api, user, doc_id, "01098765432")["field"]["value"] == "010-9876-5432"
     skipped = _say(api, user, doc_id, "해당 없음")  # 필수가 아닌 대리인 칸은 비워 두고 완료
@@ -194,10 +198,10 @@ def test_notice_confirm_and_handwrite_note(api, db_session, doc_llm, forms_dir, 
     assert filled["field"]["value"] == "123-456-789012"
     q = _say(api, user, doc_id, "네")["question"]
     assert q["field_id"] == "notice_confirm"
-    assert q["text"].startswith("유의사항 2가지를 읽고 확인해야 해요.")
-    assert "- 1. 자립수당 지원을 위해 필요한 정보를 열람할 수 있습니다." in q["text"] and "5년간" not in q["text"]  # 첫 문장만
+    assert q["text"] == "유의사항 2가지를 끝까지 읽고 하나씩 체크해 주세요.\n다 체크하면 '모두 확인했어요'를 눌러 주세요."
+    assert q["items"] == items  # 줄이지 않은 전문 (앱이 항목마다 체크박스)
     assert _say(api, user, doc_id, "음")["message"].startswith("유의사항을 읽고 '확인'")
-    done = _say(api, user, doc_id, "다 읽었어")
+    done = _say(api, user, doc_id, "모두 확인했어요")
     assert done["field"]["value"] == "확인" and done["done"] is True
     assert "출력한 뒤 주민등록번호 칸은 직접 써 주세요." in done["message"] and "계좌번호" not in done["message"]
     assert all(name != "assist_field" or "123-456" not in str(args) for name, args in doc_llm.calls)
@@ -224,7 +228,7 @@ def test_small_talk_is_not_written(api, db_session, doc_llm):
     assert talk["route"] == "counsel" and talk["field"] is None and talk["question"]["field_id"] == "address"
 
     # 주소 칸: 주소가 없는 말은 적지 않고 다시 묻는다, 주소가 있으면 주소만 뽑는다
-    nope = _say(api, user, doc_id, "배고파서 아무것도 못 하겠다")
+    nope = _say(api, user, doc_id, "선생님한테 물어봐야 할 것 같아요")
     assert nope["field"] is None and nope["message"].startswith("주소를 다시 알려 주세요")
     got = _say(api, user, doc_id, "저는 서울시 OO구 OO로 12에 살고 있어요")
     assert (got["field"]["field_id"], got["field"]["value"]) == ("address", "서울시 OO구 OO로 12")
@@ -256,7 +260,7 @@ def test_text_field_without_answer_asks_again(api, db_session, doc_llm):
     for message in ("네", "네", "네", "서울시 OO구 OO로 12"):
         _say(api, user, doc_id, message)
     doc_llm.extract = {"answer": None}
-    r = _say(api, user, doc_id, "배고파서 아무것도 못 하겠다")
+    r = _say(api, user, doc_id, "선생님한테 물어봐야 할 것 같아요")
     assert r["field"] is None and r["message"].endswith("쓸 내용만 짧게 알려 주세요.")
     assert r["question"]["field_id"] == "school"
 
@@ -281,3 +285,90 @@ def test_renamed_name_field_and_card(api, db_session, doc_llm):
     assert (r["field"]["field_id"], r["field"]["value"]) == ("name", "정서현")  # 문장 대신 새 이름만
     assert r["message"] == "'정서현'(으)로 적었어요."
     assert [(c["field"], c["current"], c["proposed"]) for c in r["profile_changes"]] == [("name", "김민지", "정서현")]
+
+
+def test_noise_is_never_written(api, db_session, doc_llm):
+    user = make_user(db_session, name="김민지", phone="01012345678")
+    doc_id = _start(api, user)
+    _say(api, user, doc_id)
+    no = _say(api, user, doc_id, "아니")  # 미리 채운 이름에 "아니" → 바른 값을 묻는다
+    assert no["field"] is None and no["message"] == "그럼 '이름'에 쓸 내용을 바르게 알려 주세요."
+    for junk in ("ㅋㅋ", "음", "막 아니", "글쎄", "아무거나"):
+        r = _say(api, user, doc_id, junk)
+        assert r["field"] is None and r["question"]["field_id"] == "name", junk
+    assert _say(api, user, doc_id, "정서현")["field"]["value"] == "정서현"
+
+
+def test_small_talk_is_never_written(api, db_session, doc_llm):
+    user = make_user(db_session, phone="01012345678")
+    doc_id = _start(api, user)
+    for message in ("네", "네", "네", "서울시 OO구 OO로 12"):
+        _say(api, user, doc_id, message)
+    calls = len(doc_llm.calls)
+    for talk in ("나 배고파", "배고파", "졸려요", "심심해 ㅋㅋ"):
+        r = _say(api, user, doc_id, talk)
+        assert r["field"] is None and r["question"]["field_id"] == "school", talk
+        assert r["message"].startswith("쓰던 내용은 저장돼 있어요."), talk
+    assert len(doc_llm.calls) == calls  # 잡담은 LLM 도 부르지 않는다
+
+
+def test_one_word_sentence_goes_to_extract(api, db_session, doc_llm):
+    user = make_user(db_session, phone="01012345678")
+    doc_id = _start(api, user)
+    for message in ("네", "네", "네", "서울시 OO구 OO로 12"):
+        _say(api, user, doc_id, message)
+    doc_llm.extract = {"answer": None}
+    r = _say(api, user, doc_id, "다녔었어요")
+    assert r["field"] is None and doc_llm.calls[-1][0] == "extract_answer"
+
+
+def test_name_with_particle_is_cleaned(api, db_session, doc_llm):
+    user = make_user(db_session, name="김민지", phone="01012345678")
+    doc_id = _start(api, user)
+    _say(api, user, doc_id)
+    r = _say(api, user, doc_id, "정서현으로 해줘")
+    assert (r["field"]["field_id"], r["field"]["value"]) == ("name", "정서현")
+
+
+def test_no_proxy_skips_all_proxy_fields(api, db_session, doc_llm, forms_dir, clock):
+    user = make_user(db_session, name="김민지")
+    policy = make_policy(db_session, policy_key="P001", name="자립수당")
+    spec = {
+        "form_id": "P001-apply", "policy_key": "P001", "title": "자립수당 지급 신청서", "source": "t.pdf",
+        "fields": [
+            {"id": "proxy_name", "label": "대리인 성명", "guide": "대리 신청할 때만"},
+            {"id": "proxy_relationship", "label": "대리인 대상아동과의 관계", "guide": "관계"},
+            {"id": "end", "label": "보호종료일", "input_type": "date", "required": True, "guide": "날짜"},
+        ],
+    }
+    (forms_dir / "P001-apply.json").write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+    doc_id = api.post("/api/documents", json={
+        "user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id,
+    }).json()["document_id"]
+
+    assert _say(api, user, doc_id)["question"]["label"] == "대리 신청"
+    tip = _say(api, user, doc_id, "대리 신청이 뭐야?")
+    assert tip["message"].startswith("대리 신청은") and tip["question"]["label"] == "대리 신청"
+    r = _say(api, user, doc_id, "아니요 제가 직접 해요")
+    assert r["message"] == "대리인 칸은 비워 둘게요." and r["question"]["field_id"] == "end"
+
+
+def test_application_date_is_today(api, db_session, doc_llm, forms_dir, clock):
+    user = make_user(db_session, name="김민지")
+    policy = make_policy(db_session, policy_key="P001", name="자립수당")
+    spec = {
+        "form_id": "P001-apply", "policy_key": "P001", "title": "자립수당 지급 신청서", "source": "t.pdf",
+        "fields": [{"id": "application_date", "label": "년 월 일", "input_type": "date", "required": True,
+                    "guide": "신청 날짜를 적어주세요."}],
+    }
+    (forms_dir / "P001-apply.json").write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+    doc_id = api.post("/api/documents", json={
+        "user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id,
+    }).json()["document_id"]
+
+    today = clock.today.strftime("%Y.%m.%d")
+    q = _say(api, user, doc_id)["question"]
+    assert q["awaiting_confirm"] is True and q["current_value"] == today
+    assert q["text"].startswith(f"'신청 날짜'는 '{today}'(으)로 할까요?")
+    r = _say(api, user, doc_id, "네")
+    assert (r["field"]["value"], r["field"]["is_completed"]) == (today, True)

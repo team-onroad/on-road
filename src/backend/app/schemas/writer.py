@@ -142,6 +142,7 @@ class DocField(BaseModel):
     required: bool | None
     input_type: str
     options: list[str] | None  # 체크박스 칸 선택지. 앱은 고르게 하고 고른 것을 value 로 보낸다 (여러 개는 ", ")
+    items: list[str] | None = None  # 유의사항 확인 칸: 읽고 하나씩 체크할 항목 전문 (다 체크하면 value "확인")
     value_source: ValueSource
     writable: bool  # false: handwrite·office (앱에서 입력·AI 도우미 없음, 진행률에서 제외)
     value: str
@@ -217,6 +218,7 @@ class Question(BaseModel):
     text: str  # 앱이 말풍선으로 보여 줄 질문
     input_type: str
     options: list[str] | None  # 체크박스면 선택지 버튼
+    items: list[str] | None = None  # 유의사항 확인: 항목 전문. 앱은 항목마다 체크박스, 다 체크하면 "확인"을 보낸다
     current_value: str | None  # 미리 채운 값·AI 초안 (확인 질문일 때)
     awaiting_confirm: bool  # "네"면 이 값으로 완료
     can_skip: bool  # 필수가 아니면 "해당 없음"으로 넘길 수 있다

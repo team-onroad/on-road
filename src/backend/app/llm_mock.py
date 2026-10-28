@@ -110,7 +110,13 @@ def extract_answer(message: str, field: dict) -> dict:
     """규칙 기반: 말끝만 정리하고, 대화 문장(동사로 끝나는 긴 말)이면 답을 못 찾은 것으로 본다"""
     import re
 
+    from app.answer_extract import is_noise
+
+    from app.answer_extract import is_small_talk, looks_sentence
+
+    if is_noise(message) or is_small_talk(message):
+        return {"answer": None}
     text = re.sub(r"\s*(이에요|예요|이요|입니다|이야|요)[.!~]*$", "", message.strip()).strip()
-    if not text or (len(text.split()) >= 3) or text.endswith(("어", "다", "지", "해", "줘", "네")):
+    if not text or (len(text.split()) >= 3) or looks_sentence(text):
         return {"answer": None}
     return {"answer": text}

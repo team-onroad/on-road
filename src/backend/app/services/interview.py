@@ -34,14 +34,12 @@ QUESTION_WORDS = (
     "할까", "될까", "일까", "인가요", "알려줘", "알려주", "가르쳐", "궁금",
 )
 # 짧은 칸 답이 이 말로 끝나고 띄어쓰기가 있으면 대화 문장일 수 있다 → 바로 적지 않고 "이렇게 적을까요?"로 확인
-_TALK_ENDINGS = ("어", "야", "지", "래", "까", "니", "네", "요", "해", "줘", "다", "음", "ㅋ", "ㅎ")
 
 DONE_MESSAGE = "모든 칸을 채웠어요."
 EXPORTED_MESSAGE = "모든 칸을 채우고 서류를 만들었어요. PDF로 받아 볼 수 있어요."
 NOT_READY_MESSAGE = "다 채웠는데 고칠 칸이 있어요. 아래 내용을 확인해 주세요."
 
 _DIGITS_RE = re.compile(r"\d+")
-BRIEF_CHARS = 70
 
 
 def _flat(text: str) -> str:
@@ -62,7 +60,60 @@ def _state(doc: Document) -> dict:
     s.setdefault("skipped", [])
     s.setdefault("pending", None)
     s.setdefault("confirm_text", None)  # {"field": 칸, "text": 적을까 물어본 답} (대화 문장 같은 짧은 칸 답)
+    s.setdefault("proxy", None)  # 대리 신청인지 (None 이면 아직 안 물어봄)
     return s
+
+
+# 대리인 칸: 대리 신청인지 한 번 묻고, 아니면 대리인 칸을 모두 비운 채 넘어간다
+PROXY_QUESTION = "다른 사람(보호자·후견인 등)이 대신 신청하나요? 직접 신청하면 '아니요'라고 해 주세요."
+PROXY_RETRY = "대신 신청해 주는 사람이 있으면 '예', 직접 신청하면 '아니요'라고 해 주세요."
+PROXY_TIP = "대리 신청은 본인 대신 보호자나 후견인 같은 다른 사람이 신청하는 거예요. 직접 신청하면 '아니요'라고 해 주세요."
+_PROXY_NO = ("아니", "아뇨", "없", "직접", "혼자", "본인", "제가", "내가", "ㄴㄴ", "노")
+_PROXY_YES = ("있", "대신", "대리", "보호자", "후견인", "부모", "선생님")
+
+
+# 신청(작성) 날짜 칸: 오늘 날짜를 미리 넣고 "이 날짜로 할까요?"로 확인만 받는다
+_APPLY_DATE_LABELS = ("년월일", "신청일", "신청일자", "신청날짜", "작성일", "작성일자", "작성날짜", "제출일", "제출일자")
+
+
+def _is_apply_date(field_id: str, spec: dict) -> bool:
+    if spec.get("input_type") != "date":
+        return False
+    label = _flat(spec["label"]).rstrip(":*")
+    return label in _APPLY_DATE_LABELS or field_id in ("application_date", "apply_date", "write_date", "submit_date")
+
+
+def fill_today(db: Session, rows: list[DocumentField], specs: dict, today: date) -> None:
+    """아직 확인 안 한 신청 날짜 칸을 오늘 날짜로 (며칠 지나 다시 열어도 그날 날짜로 바뀐다)"""
+    value = today.strftime("%Y.%m.%d")
+    changed = False
+    for r in rows:
+        if r.is_completed or not _is_apply_date(r.field_id, specs[r.field_id]):
+            continue
+        if w._value(r.segments).strip() != value:
+            r.segments = [{"text": value, "source": "profile"}]
+            r.updated_at = func.now()
+            changed = True
+    if changed:
+        db.commit()
+
+
+def _is_proxy(field_id: str, spec: dict) -> bool:
+    return field_id.startswith("proxy_") or _flat(spec["label"]).startswith("대리인")
+
+
+def _proxy_gate(state: dict, field_id: str, spec: dict) -> bool:
+    """지금 칸이 대리인 칸인데 대리 신청인지 아직 안 물어봤는지"""
+    return state.get("proxy") is None and _is_proxy(field_id, spec)
+
+
+def _proxy_answer(message: str) -> bool | None:
+    flat = _flat(message)
+    if any(w in flat for w in _PROXY_NO) or flat in NOT_APPLICABLE_WORDS:
+        return False
+    if flat in CONFIRM_WORDS or any(w in flat for w in _PROXY_YES):
+        return True
+    return None
 
 
 def _todo(rows: list[DocumentField], specs: dict, skipped: list[str]) -> list[str]:
@@ -72,7 +123,7 @@ def _todo(rows: list[DocumentField], specs: dict, skipped: list[str]) -> list[st
 
 
 def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str | None = None) -> Question:
-    name = spec.get("easy_label") or spec["label"]
+    name = "신청 날짜" if _is_apply_date(row.field_id, spec) else (spec.get("easy_label") or spec["label"])
     value = w._value(row.segments).strip()
     can_skip = spec.get("required") is not True
     options = spec.get("options")
@@ -93,8 +144,9 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
         confirm = False
         box = spec.get("box") or {}
         if box.get("how") == "confirm":
-            items = "\n".join(f"- {_brief(item)}" for item in box.get("items") or [])
-            text = f"유의사항 {len(box.get('items') or [])}가지를 읽고 확인해야 해요.\n{items}\n다 읽었으면 '확인'이라고 해 주세요."
+            # 항목 전문은 items 로 (앱이 항목마다 체크박스로 보여 준다)
+            text = (f"유의사항 {len(box.get('items') or [])}가지를 끝까지 읽고 하나씩 체크해 주세요.\n"
+                    "다 체크하면 '모두 확인했어요'를 눌러 주세요.")
         elif options:
             text = f"'{name}'에서 골라 주세요: {', '.join(options)}"
         elif spec.get("essay"):
@@ -113,7 +165,8 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
         text += " 해당 없으면 '해당 없음'이라고 해 주세요."
     return Question(
         field_id=row.field_id, label=spec["label"], text=text, input_type=spec.get("input_type", "text"),
-        options=options, current_value=value or None, awaiting_confirm=confirm, can_skip=can_skip,
+        options=options, items=w.confirm_items(spec), current_value=value or None, awaiting_confirm=confirm,
+        can_skip=can_skip,
     )
 
 
@@ -166,13 +219,6 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
     return value, None
 
 
-def _brief(text: str, limit: int = BRIEF_CHARS) -> str:
-    """유의사항 항목 앞부분 (첫 문장, 길면 줄임)"""
-    text = " ".join(text.split())
-    first = re.split(r"(?<=[다요]\.)\s", text, maxsplit=1)[0]
-    return first if len(first) <= limit else first[:limit].rstrip() + "…"
-
-
 def _handwrite_note(specs: dict) -> str:
     """내보낸 뒤 손으로 써야 할 것 (주민등록번호 등 앱에 받지 않는 칸, 서명)"""
     labels = []
@@ -197,18 +243,13 @@ def _is_question(text: str) -> bool:
     return "?" in text or "？" in text or any(q in flat for q in QUESTION_WORDS)
 
 
-_TALK_PARTS = ("했는데", "인데", "는데 ", "해서 ", "했어", "했어요", "해 줘", "해줘", "해 주세요", "해주세요")
-
-
 def _check_extract(v: object) -> bool:
     return isinstance(v, dict) and "answer" in v and (v["answer"] is None or isinstance(v["answer"], str))
 
 
 def _talk_like(text: str) -> bool:
-    """짧은 칸 답인데 대화 문장처럼 보이는지 (띄어쓰기가 있고 말끝이 대화체이거나 '~했는데' 같은 말이 섞임).
-    이름·주소·기관명은 보통 아니다"""
-    t = text.strip().rstrip(".!~ ")
-    return " " in t and (t.endswith(_TALK_ENDINGS) or any(p in t for p in _TALK_PARTS))
+    """짧은 칸 답인데 말하는 문장처럼 보이는지 ("나 배고파", "이모가 내 줄 거예요"). 이름·주소·기관명은 보통 아니다"""
+    return answer_extract.looks_sentence(text)
 
 
 def _save(db: Session, doc: Document, state: dict) -> None:
@@ -232,8 +273,9 @@ def _complete(row: DocumentField, segments: list[dict] | None = None) -> None:
 def _essay_draft(
     db: Session, user: User, doc: Document, row: DocumentField, spec: dict, answer: str, revise: bool,
     today: date, doc_llm: DocLlm,
-) -> None:
-    """서술형 칸: 사용자가 말한 내용만으로 AI 가 문장을 쓴다 (revise 면 지금 초안을 그 말대로 고친다)"""
+) -> str | None:
+    """서술형 칸: 사용자가 말한 내용만으로 AI 가 문장을 쓴다 (revise 면 지금 초안을 그 말대로 고친다).
+    쓸 내용이 아니면 초안 없이 안내 문구를 돌려준다"""
     stage, status = w._ctx(user, today)
     current = w._value(row.segments)
     prompt = answer if revise else f"이 칸에 들어갈 문장을 써 줘. 내가 넣고 싶은 내용: {answer}"
@@ -251,13 +293,13 @@ def _essay_draft(
     }
     out = call_llm("assist_field", doc_llm.assist_field, w._check_assist, req)
     text = out["text"].strip()[: w.ASSIST_MAX_CHARS]
-    if out["action"] == "tip":  # 고치지 못하고 안내만 온 경우 (예: 빈칸을 먼저 채워 달라) 초안은 그대로
-        row.tip = text
-        return
+    if out["action"] == "tip":  # 쓸 내용이 아닌 말이라 안내만 온 경우 (잡담 등). 초안은 그대로
+        return text
     row.previous_segments = row.segments
     row.segments = [{"text": text, "source": "ai"}]
     row.reused_from = None
     row.updated_at = func.now()
+    return None
 
 
 def _response(
@@ -282,7 +324,13 @@ def _response(
             _save(db, doc, state)
         row = next(r for r in rows if r.field_id == current)
         confirm = state["confirm_text"] if (state["confirm_text"] or {}).get("field") == current else None
-        question = _question(row, specs[current], state["pending"] == current, confirm and confirm["text"])
+        if _proxy_gate(state, current, specs[current]):
+            question = Question(
+                field_id=current, label="대리 신청", text=PROXY_QUESTION, input_type="text", options=["아니요", "예"],
+                current_value=None, awaiting_confirm=False, can_skip=False,
+            )
+        else:
+            question = _question(row, specs[current], state["pending"] == current, confirm and confirm["text"])
     elif route == "field":
         result = w.check(db, user, doc)
         if result.ready:
@@ -312,6 +360,7 @@ def _interview(
     db: Session, user: User, doc: Document, body: InterviewRequest, today: date, doc_llm: DocLlm, rag: SearchPolicies,
 ) -> InterviewResponse:
     state = _state(doc)
+    fill_today(db, w._rows(db, doc), w._specs(doc), today)
     if body.message is None:
         return _response(db, user, doc, state)
 
@@ -329,6 +378,24 @@ def _interview(
     row = next(r for r in rows if r.field_id == current)
     spec = specs[current]
     state["current"] = current
+
+    if _proxy_gate(state, current, spec):
+        answer = None if _is_question(msg) else _proxy_answer(msg)
+        if answer is None:
+            _save(db, doc, state)
+            return _response(db, user, doc, state, message=PROXY_TIP if _is_question(msg) else PROXY_RETRY)
+        state["proxy"] = answer
+        if answer:
+            _save(db, doc, state)
+            return _response(db, user, doc, state)
+        for r in rows:  # 직접 신청: 대리인 칸은 모두 비워 둔다
+            if not r.is_completed and _is_proxy(r.field_id, specs[r.field_id]):
+                _complete(r, [])
+                if r.field_id in state["skipped"]:
+                    state["skipped"].remove(r.field_id)
+        state["current"], state["pending"] = None, None
+        _save(db, doc, state)
+        return _response(db, user, doc, state, message="대리인 칸은 비워 둘게요.")
 
     if _is_question(msg) and spec.get("input_type") != "account":  # 계좌번호 답은 LLM 에 보내지 않는다
         context = {"screen": "document", "document_title": doc.title, "field_label": spec["label"]}
@@ -370,6 +437,27 @@ def _interview(
         name = spec.get("easy_label") or spec["label"]
         return _response(db, user, doc, state, message=f"'{name}'에 쓸 내용을 알려 주세요.")
 
+    # 답이 아닌 말 ("아니", "음", "ㅋㅋ", "막 아니"): 칸에 적지 않고 다시 묻는다
+    # (선택지 칸은 선택지를 다시 보여 주는 안내가 따로 있다)
+    if (not spec.get("options") and flat not in NOT_APPLICABLE_WORDS
+            and not any(flat.startswith(x) for x in LATER_WORDS) and answer_extract.is_noise(msg)):
+        name = spec.get("easy_label") or spec["label"]
+        if answer_extract.is_no(msg) and pending:
+            text = "어떻게 고칠지 말해 주세요. (예: 더 짧게, 등록금 이야기 넣어 줘)"
+        elif answer_extract.is_no(msg) and value:
+            text = f"그럼 '{name}'에 쓸 내용을 바르게 알려 주세요."
+        else:
+            text = f"'{name}'에 쓸 내용을 알려 주세요. 넘어가려면 '나중에'라고 해 주세요."
+        _save(db, doc, state)
+        return _response(db, user, doc, state, message=text)
+
+    # 칸과 상관없는 잡담 ("나 배고파", "졸려"): 적지 않고, LLM 도 부르지 않고 같은 칸을 다시 묻는다
+    if not spec.get("options") and answer_extract.is_small_talk(msg):
+        name = spec.get("easy_label") or spec["label"]
+        _save(db, doc, state)
+        return _response(db, user, doc, state,
+                         message=f"쓰던 내용은 저장돼 있어요. 이어서 '{name}'에 쓸 내용을 알려 주세요.")
+
     # 해당 없음 (필수가 아닌 칸) / 나중에 (필수 칸)
     if flat in NOT_APPLICABLE_WORDS or any(flat.startswith(x) for x in LATER_WORDS):
         if spec.get("required") is not True and flat in NOT_APPLICABLE_WORDS:
@@ -385,7 +473,10 @@ def _interview(
 
     # 서술형: AI 가 문장으로 쓰고 확인을 기다린다
     if spec.get("essay"):
-        _essay_draft(db, user, doc, row, spec, msg, pending, today, doc_llm)
+        tip = _essay_draft(db, user, doc, row, spec, msg, pending, today, doc_llm)
+        if tip:
+            _save(db, doc, state)
+            return _response(db, user, doc, state, message=tip)
         state["pending"] = current
         _save(db, doc, state)
         return _response(db, user, doc, state, field_row=row)
@@ -405,7 +496,7 @@ def _interview(
         state["pending"] = None
         _save(db, doc, state)
         return _response(db, user, doc, state, message=f"'{normalized}'(으)로 적었어요.", field_row=row)
-    if free_text and kind == "text" and _talk_like(msg):
+    if free_text and kind == "text" and _talk_like(normalized):  # 말끝·부탁("~로 해 줘")을 떼고도 문장이면
         # 일반 칸(기관명·관계 등)에 대화 문장: AI 가 답만 뽑고 "이렇게 적을까요?"로 확인. 못 뽑으면 다시 묻는다
         field = {"label": spec["label"], "guide": spec.get("guide") or ""}
         out = call_llm("extract_answer", doc_llm.extract_answer, _check_extract, msg, field)
