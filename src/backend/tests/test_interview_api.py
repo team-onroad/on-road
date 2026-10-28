@@ -269,7 +269,7 @@ def test_name_field_takes_only_the_name(api, db_session, doc_llm):
     user = make_user(db_session, name="김민지", phone="01012345678")
     doc_id = _start(api, user)
     _say(api, user, doc_id)
-    assert _say(api, user, doc_id, "오늘 날씨 좋다")["message"] == "이름만 알려 주세요.\n(예: 홍길동)"
+    assert _say(api, user, doc_id, "오늘 날씨 좋다")["message"] == "이름만 알려 주세요. (예: 홍길동)"
     r = _say(api, user, doc_id, "제 이름은 정서현입니다")
     assert (r["field"]["field_id"], r["field"]["value"]) == ("name", "정서현")
     sent = str(doc_llm.calls)
