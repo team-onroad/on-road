@@ -198,10 +198,10 @@ def test_notice_confirm_and_handwrite_note(api, db_session, doc_llm, forms_dir, 
     assert filled["field"]["value"] == "123-456-789012"
     q = _say(api, user, doc_id, "네")["question"]
     assert q["field_id"] == "notice_confirm"
-    assert q["text"].startswith("유의사항 2가지를 읽고 확인해야 해요.")
-    assert "- 1. 자립수당 지원을 위해 필요한 정보를 열람할 수 있습니다." in q["text"] and "5년간" not in q["text"]  # 첫 문장만
+    assert q["text"] == "유의사항 2가지를 끝까지 읽고 하나씩 체크해 주세요.\n다 체크하면 '모두 확인했어요'를 눌러 주세요."
+    assert q["items"] == items  # 줄이지 않은 전문 (앱이 항목마다 체크박스)
     assert _say(api, user, doc_id, "음")["message"].startswith("유의사항을 읽고 '확인'")
-    done = _say(api, user, doc_id, "다 읽었어")
+    done = _say(api, user, doc_id, "모두 확인했어요")
     assert done["field"]["value"] == "확인" and done["done"] is True
     assert "출력한 뒤 주민등록번호 칸은 직접 써 주세요." in done["message"] and "계좌번호" not in done["message"]
     assert all(name != "assist_field" or "123-456" not in str(args) for name, args in doc_llm.calls)
@@ -269,7 +269,7 @@ def test_name_field_takes_only_the_name(api, db_session, doc_llm):
     user = make_user(db_session, name="김민지", phone="01012345678")
     doc_id = _start(api, user)
     _say(api, user, doc_id)
-    assert _say(api, user, doc_id, "오늘 날씨 좋다")["message"] == "이름만 알려 주세요. (예: 홍길동)"
+    assert _say(api, user, doc_id, "오늘 날씨 좋다")["message"] == "이름만 알려 주세요.\n(예: 홍길동)"
     r = _say(api, user, doc_id, "제 이름은 정서현입니다")
     assert (r["field"]["field_id"], r["field"]["value"]) == ("name", "정서현")
     sent = str(doc_llm.calls)

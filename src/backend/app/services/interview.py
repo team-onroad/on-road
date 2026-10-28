@@ -40,7 +40,6 @@ EXPORTED_MESSAGE = "모든 칸을 채우고 서류를 만들었어요. PDF로 �
 NOT_READY_MESSAGE = "다 채웠는데 고칠 칸이 있어요. 아래 내용을 확인해 주세요."
 
 _DIGITS_RE = re.compile(r"\d+")
-BRIEF_CHARS = 70
 
 
 def _flat(text: str) -> str:
@@ -145,8 +144,9 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
         confirm = False
         box = spec.get("box") or {}
         if box.get("how") == "confirm":
-            items = "\n".join(f"- {_brief(item)}" for item in box.get("items") or [])
-            text = f"유의사항 {len(box.get('items') or [])}가지를 읽고 확인해야 해요.\n{items}\n다 읽었으면 '확인'이라고 해 주세요."
+            # 항목 전문은 items 로 (앱이 항목마다 체크박스로 보여 준다)
+            text = (f"유의사항 {len(box.get('items') or [])}가지를 끝까지 읽고 하나씩 체크해 주세요.\n"
+                    "다 체크하면 '모두 확인했어요'를 눌러 주세요.")
         elif options:
             text = f"'{name}'에서 골라 주세요: {', '.join(options)}"
         elif spec.get("essay"):
@@ -165,7 +165,8 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
         text += " 해당 없으면 '해당 없음'이라고 해 주세요."
     return Question(
         field_id=row.field_id, label=spec["label"], text=text, input_type=spec.get("input_type", "text"),
-        options=options, current_value=value or None, awaiting_confirm=confirm, can_skip=can_skip,
+        options=options, items=w.confirm_items(spec), current_value=value or None, awaiting_confirm=confirm,
+        can_skip=can_skip,
     )
 
 
@@ -216,13 +217,6 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
     if value is None:
         return None, answer_extract.RETRY.get(kind, "칸에 쓸 내용만 알려 주세요.")
     return value, None
-
-
-def _brief(text: str, limit: int = BRIEF_CHARS) -> str:
-    """유의사항 항목 앞부분 (첫 문장, 길면 줄임)"""
-    text = " ".join(text.split())
-    first = re.split(r"(?<=[다요]\.)\s", text, maxsplit=1)[0]
-    return first if len(first) <= limit else first[:limit].rstrip() + "…"
 
 
 def _handwrite_note(specs: dict) -> str:
@@ -346,8 +340,12 @@ def _response(
         else:
             check = result
             message = f"{message} {NOT_READY_MESSAGE}".strip() if message else NOT_READY_MESSAGE
+    if question is not None:  # 문장마다 줄바꿈 (AI 초안·미리 채운 값은 건드리지 않는다)
+        keep = question.current_value
+        parts = question.text.split(keep) if keep else [question.text]
+        question.text = keep.join(w.lines(p) for p in parts) if keep else w.lines(question.text)
     return InterviewResponse(
-        route=route, message=message, field=field, question=question, progress=progress, done=not todo,
+        route=route, message=w.lines(message), field=field, question=question, progress=progress, done=not todo,
         export=export, check=check, search=search_result, contacts=contacts or [],
     )
 

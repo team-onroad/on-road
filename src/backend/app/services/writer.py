@@ -138,6 +138,24 @@ def _field_warnings(spec: dict, value: str) -> list[str]:
     return warnings
 
 
+def confirm_items(spec: dict) -> list[str] | None:
+    """유의사항 확인 칸의 항목 전문 (줄임 없이)"""
+    box = spec.get("box") or {}
+    if box.get("how") != "confirm" or not box.get("items"):
+        return None
+    return [" ".join(item.split()) for item in box["items"]]
+
+
+_SENTENCE_BREAK_RE = re.compile(r"(?<=[가-힣)'\"][.!?])\s+(?=\S)|(?<=[.!?][)'\"])\s+(?=\S)")
+
+
+def lines(text: str | None) -> str | None:
+    """여러 문장을 한 줄씩 (말풍선에서 읽기 쉽게). 이미 있는 줄바꿈은 그대로"""
+    if not text:
+        return text
+    return "\n".join(_SENTENCE_BREAK_RE.sub("\n", part) for part in text.split("\n"))
+
+
 def _to_field(row: DocumentField, spec: dict) -> DocField:
     value = _value(row.segments)
     return DocField(
@@ -146,6 +164,7 @@ def _to_field(row: DocumentField, spec: dict) -> DocField:
             "multiline", "essay", "required", "input_type", "value_source",
         )},
         options=spec.get("options"),
+        items=confirm_items(spec),
         writable=_writable(spec),
         value=value,
         segments=[Segment(**s) for s in row.segments],
@@ -437,6 +456,7 @@ def assist(
     res = _assist(db, user, doc, body, today, doc_llm, rag)
     if res.route != "crisis":
         res.profile_changes = profile_signal.detect(body.prompt, user, today)
+    res.message = lines(res.message)  # 안내 문구는 문장마다 줄바꿈 (칸에 들어가는 글은 그대로)
     return res
 
 
