@@ -120,7 +120,11 @@ def test_form_checkbox_date_phone_and_not_applicable(api, db_session, doc_llm, f
     assert q["options"] == ["서면", "문자 메시지", "기타"] and "골라 주세요" in q["text"]
     assert _say(api, user, doc_id, "전화로 해 주세요")["message"].startswith("선택지 중에서 골라 주세요")
     assert _say(api, user, doc_id, "문자메시지로요")["field"]["value"] == "문자 메시지"
-    assert _say(api, user, doc_id, "2026년 2월 28일")["field"]["value"] == "2026.02.28"
+    gate = _say(api, user, doc_id, "2026년 2월 28일")
+    assert gate["field"]["value"] == "2026.02.28"
+    assert gate["question"]["label"] == "대리 신청" and gate["question"]["options"] == ["아니요", "예"]
+    assert _say(api, user, doc_id, "글쎄")["message"].startswith("대신 신청해 주는 사람이")
+    assert _say(api, user, doc_id, "예")["question"]["field_id"] == "g_phone"
     assert _say(api, user, doc_id, "공일공 1234")["message"].startswith("전화번호를 다시")
     assert _say(api, user, doc_id, "01098765432")["field"]["value"] == "010-9876-5432"
     skipped = _say(api, user, doc_id, "해당 없음")  # 필수가 아닌 대리인 칸은 비워 두고 완료
@@ -324,3 +328,26 @@ def test_name_with_particle_is_cleaned(api, db_session, doc_llm):
     _say(api, user, doc_id)
     r = _say(api, user, doc_id, "정서현으로 해줘")
     assert (r["field"]["field_id"], r["field"]["value"]) == ("name", "정서현")
+
+
+def test_no_proxy_skips_all_proxy_fields(api, db_session, doc_llm, forms_dir, clock):
+    user = make_user(db_session, name="김민지")
+    policy = make_policy(db_session, policy_key="P001", name="자립수당")
+    spec = {
+        "form_id": "P001-apply", "policy_key": "P001", "title": "자립수당 지급 신청서", "source": "t.pdf",
+        "fields": [
+            {"id": "proxy_name", "label": "대리인 성명", "guide": "대리 신청할 때만"},
+            {"id": "proxy_relationship", "label": "대리인 대상아동과의 관계", "guide": "관계"},
+            {"id": "end", "label": "보호종료일", "input_type": "date", "required": True, "guide": "날짜"},
+        ],
+    }
+    (forms_dir / "P001-apply.json").write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+    doc_id = api.post("/api/documents", json={
+        "user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id,
+    }).json()["document_id"]
+
+    assert _say(api, user, doc_id)["question"]["label"] == "대리 신청"
+    tip = _say(api, user, doc_id, "대리 신청이 뭐야?")
+    assert tip["message"].startswith("대리 신청은") and tip["question"]["label"] == "대리 신청"
+    r = _say(api, user, doc_id, "아니요 제가 직접 해요")
+    assert r["message"] == "대리인 칸은 비워 둘게요." and r["question"]["field_id"] == "end"

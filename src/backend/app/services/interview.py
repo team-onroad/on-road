@@ -61,7 +61,34 @@ def _state(doc: Document) -> dict:
     s.setdefault("skipped", [])
     s.setdefault("pending", None)
     s.setdefault("confirm_text", None)  # {"field": 칸, "text": 적을까 물어본 답} (대화 문장 같은 짧은 칸 답)
+    s.setdefault("proxy", None)  # 대리 신청인지 (None 이면 아직 안 물어봄)
     return s
+
+
+# 대리인 칸: 대리 신청인지 한 번 묻고, 아니면 대리인 칸을 모두 비운 채 넘어간다
+PROXY_QUESTION = "다른 사람(보호자·후견인 등)이 대신 신청하나요? 직접 신청하면 '아니요'라고 해 주세요."
+PROXY_RETRY = "대신 신청해 주는 사람이 있으면 '예', 직접 신청하면 '아니요'라고 해 주세요."
+PROXY_TIP = "대리 신청은 본인 대신 보호자나 후견인 같은 다른 사람이 신청하는 거예요. 직접 신청하면 '아니요'라고 해 주세요."
+_PROXY_NO = ("아니", "아뇨", "없", "직접", "혼자", "본인", "제가", "내가", "ㄴㄴ", "노")
+_PROXY_YES = ("있", "대신", "대리", "보호자", "후견인", "부모", "선생님")
+
+
+def _is_proxy(field_id: str, spec: dict) -> bool:
+    return field_id.startswith("proxy_") or _flat(spec["label"]).startswith("대리인")
+
+
+def _proxy_gate(state: dict, field_id: str, spec: dict) -> bool:
+    """지금 칸이 대리인 칸인데 대리 신청인지 아직 안 물어봤는지"""
+    return state.get("proxy") is None and _is_proxy(field_id, spec)
+
+
+def _proxy_answer(message: str) -> bool | None:
+    flat = _flat(message)
+    if any(w in flat for w in _PROXY_NO) or flat in NOT_APPLICABLE_WORDS:
+        return False
+    if flat in CONFIRM_WORDS or any(w in flat for w in _PROXY_YES):
+        return True
+    return None
 
 
 def _todo(rows: list[DocumentField], specs: dict, skipped: list[str]) -> list[str]:
@@ -277,7 +304,13 @@ def _response(
             _save(db, doc, state)
         row = next(r for r in rows if r.field_id == current)
         confirm = state["confirm_text"] if (state["confirm_text"] or {}).get("field") == current else None
-        question = _question(row, specs[current], state["pending"] == current, confirm and confirm["text"])
+        if _proxy_gate(state, current, specs[current]):
+            question = Question(
+                field_id=current, label="대리 신청", text=PROXY_QUESTION, input_type="text", options=["아니요", "예"],
+                current_value=None, awaiting_confirm=False, can_skip=False,
+            )
+        else:
+            question = _question(row, specs[current], state["pending"] == current, confirm and confirm["text"])
     elif route == "field":
         result = w.check(db, user, doc)
         if result.ready:
@@ -324,6 +357,24 @@ def _interview(
     row = next(r for r in rows if r.field_id == current)
     spec = specs[current]
     state["current"] = current
+
+    if _proxy_gate(state, current, spec):
+        answer = None if _is_question(msg) else _proxy_answer(msg)
+        if answer is None:
+            _save(db, doc, state)
+            return _response(db, user, doc, state, message=PROXY_TIP if _is_question(msg) else PROXY_RETRY)
+        state["proxy"] = answer
+        if answer:
+            _save(db, doc, state)
+            return _response(db, user, doc, state)
+        for r in rows:  # 직접 신청: 대리인 칸은 모두 비워 둔다
+            if not r.is_completed and _is_proxy(r.field_id, specs[r.field_id]):
+                _complete(r, [])
+                if r.field_id in state["skipped"]:
+                    state["skipped"].remove(r.field_id)
+        state["current"], state["pending"] = None, None
+        _save(db, doc, state)
+        return _response(db, user, doc, state, message="대리인 칸은 비워 둘게요.")
 
     if _is_question(msg) and spec.get("input_type") != "account":  # 계좌번호 답은 LLM 에 보내지 않는다
         context = {"screen": "document", "document_title": doc.title, "field_label": spec["label"]}
