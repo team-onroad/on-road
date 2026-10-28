@@ -17,6 +17,8 @@ from app.config import PROJECT_ROOT, get_settings
 class DocLlm:
     route_message: Callable[..., dict]
     assist_field: Callable[..., dict]
+    # 대화 문장에서 일반 칸(기관명·관계·은행 등)의 답만 뽑기. {"answer": str | None}
+    extract_answer: Callable[..., dict] = llm_mock.extract_answer
 
 
 @lru_cache
@@ -26,11 +28,11 @@ def _real_doc_llm() -> DocLlm:
         sys.path.insert(0, src)
     from docwriter import llm
 
-    return DocLlm(llm.route_message, llm.assist_field)
+    return DocLlm(llm.route_message, llm.assist_field, llm.extract_answer)
 
 
 def get_doc_llm() -> DocLlm:
     """FastAPI 의존성. 테스트에서는 dependency_overrides 로 교체"""
     if get_settings().llm_mode == "real":
         return _real_doc_llm()
-    return DocLlm(llm_mock.route_message, llm_mock.assist_field)
+    return DocLlm(llm_mock.route_message, llm_mock.assist_field, llm_mock.extract_answer)
