@@ -316,3 +316,11 @@ def test_one_word_sentence_goes_to_extract(api, db_session, doc_llm):
     doc_llm.extract = {"answer": None}
     r = _say(api, user, doc_id, "다녔었어요")
     assert r["field"] is None and doc_llm.calls[-1][0] == "extract_answer"
+
+
+def test_name_with_particle_is_cleaned(api, db_session, doc_llm):
+    user = make_user(db_session, name="김민지", phone="01012345678")
+    doc_id = _start(api, user)
+    _say(api, user, doc_id)
+    r = _say(api, user, doc_id, "정서현으로 해줘")
+    assert (r["field"]["field_id"], r["field"]["value"]) == ("name", "정서현")

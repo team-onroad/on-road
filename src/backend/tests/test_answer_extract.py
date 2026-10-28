@@ -30,6 +30,21 @@ TEXT = {"label": "보호기관명*"}
     (BIZNO, "1238212345", "123-82-12345"),
     (BIZNO, "몰라요", None),
     (TEXT, "OO아동복지원이에요", "OO아동복지원"),
+    # 조사·부탁 말끝 떼기
+    (NAME, "정서현으로", "정서현"),
+    (NAME, "정서현으로 해줘", "정서현"),
+    (NAME, "정서현이라고 써 주세요", "정서현"),
+    (NAME, "이름 정서현으로 바꿔줘", "정서현"),
+    (NAME, "김민지로", "김민지"),
+    (NAME, "김민지라고 해요", "김민지"),
+    (NAME, "정 서현", "정서현"),
+    (NAME, "남궁민수로 해줘", "남궁민수"),
+    (NAME, "알아서 해줘", None),
+    (TEXT, "OO복지원으로 해줘", "OO복지원"),
+    (TEXT, "카카오뱅크로", "카카오뱅크"),
+    (TEXT, "이모라고 써줘", "이모"),
+    (TEXT, "OO대학교로 할게요", "OO대학교"),
+    (TEXT, "알아서 해줘", None),
 ])
 def test_extract(spec, message, expected):
     assert extract(spec, message)[0] == expected

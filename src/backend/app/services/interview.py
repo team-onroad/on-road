@@ -424,7 +424,7 @@ def _interview(
         state["pending"] = None
         _save(db, doc, state)
         return _response(db, user, doc, state, message=f"'{normalized}'(으)로 적었어요.", field_row=row)
-    if free_text and kind == "text" and _talk_like(msg):
+    if free_text and kind == "text" and _talk_like(normalized):  # 말끝·부탁("~로 해 줘")을 떼고도 문장이면
         # 일반 칸(기관명·관계 등)에 대화 문장: AI 가 답만 뽑고 "이렇게 적을까요?"로 확인. 못 뽑으면 다시 묻는다
         field = {"label": spec["label"], "guide": spec.get("guide") or ""}
         out = call_llm("extract_answer", doc_llm.extract_answer, _check_extract, msg, field)
