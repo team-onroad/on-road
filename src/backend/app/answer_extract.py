@@ -17,14 +17,14 @@ _TAIL_RE = re.compile(
     r"\s*(이라고\s*해요|라고\s*해요|이라고\s*합니다|라고\s*합니다|이에요|예요|이요|입니다|이야|이고요|이구요|요|야|임)[.!~]*$"
 )
 _LEAD_RE = re.compile(r"^(제|저는|전|나는|난|내|우리|저희)\s*")
-_HANGUL_NAME_RE = re.compile(r"^[가-힣]{2,5}$")
+_HANGUL_NAME_RE = re.compile(r"^[가-힣]{2,4}$")
 _LATIN_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z .'-]{1,40}$")
 # "이름은 정서현", "성명: 정서현", "정서현이에요", "저는 정서현"
 _NAME_PATTERNS = (
     re.compile(r"(?:이름|성함|성명)\s*(?:은|는|이|:)?\s*([가-힣]{2,5}?)(?:이에요|예요|입니다|이야|야|이요|요)?(?=$|[\s.,!?~])"),
     re.compile(r"(?:저는|전|나는|난)\s*([가-힣]{2,5}?)(?:이에요|예요|입니다|이야|야|이요|요)(?=$|[\s.,!?~])"),
 )
-_NOT_NAME = {"이름", "성명", "모르", "몰라", "없어", "없음", "비밀", "그거", "뭐야", "누구"}
+_NOT_NAME = {"이름", "성명", "모르", "몰라", "없어", "없음", "비밀", "그거", "뭐야", "누구", "아무거나", "그냥", "글쎄", "싫어"}
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 _DIGITS_RE = re.compile(r"\d+")
 # 주소에 들어가는 말: 시·도·구·군·읍·면·동·리·로·길·번지·호 또는 숫자
@@ -46,9 +46,48 @@ def kind_of(spec: dict) -> str:
     return "text"
 
 
+# "~(으)로 해 줘", "~(이)라고 써 주세요", "~로 바꿔줘", "~로 할게요" 같은 부탁 말끝
+_REQUEST_RE = re.compile(
+    r"\s*(?:해|써|적어|바꿔|넣어|고쳐|변경해|수정해|입력해|할게|할께|하자|하면\s*돼|하면\s*되)"
+    r"\s*(?:줘|주세요|줄래|주라|줘요|주실래요|요|봐)?[.!~]*$"
+)
+_PARTICLE_RE = re.compile(r"\s*(으로|로|이라고|라고|이랑|랑|이고|이요|으로요|로요)$")
+
+
+def _has_batchim(ch: str) -> bool:
+    code = ord(ch) - 0xAC00
+    return 0 <= code < 11172 and code % 28 != 0
+
+
+def _strip_particle(text: str) -> str:
+    """끝의 조사만 뗀다. 받침에 맞을 때만 ("정서현으로"→정서현, "김민지로"→김민지, "OO로"는 그대로)"""
+    m = _PARTICLE_RE.search(text)
+    if m is None:
+        return text
+    head, p = text[: m.start()].rstrip(), m.group(1)
+    if len(head) < 2 or not ("가" <= head[-1] <= "힣"):
+        return text
+    batchim = _has_batchim(head[-1])
+    if p.startswith(("으로", "이라고", "이랑", "이고", "이요")) and not batchim:
+        return text
+    if p in ("로", "로요", "라고", "랑") and batchim and not head.endswith("ㄹ"):
+        # 받침 뒤 '로'는 ㄹ 받침일 때만 ("서울로"), 나머지는 칸 값의 일부일 수 있어 그대로
+        if (ord(head[-1]) - 0xAC00) % 28 != 8:
+            return text
+    return head
+
+
 def strip_tail(text: str) -> str:
-    t = _TAIL_RE.sub("", text.strip())
-    return t.strip() or text.strip()
+    """말끝·부탁·조사를 떼고 칸 값만 ("정서현으로 해 줘"→정서현, "OO복지원이에요"→OO복지원)"""
+    t = text.strip()
+    for _ in range(3):
+        before = t
+        t = _REQUEST_RE.sub("", t).strip()
+        t = _TAIL_RE.sub("", t).strip()
+        t = _strip_particle(t).strip()
+        if t == before:
+            break
+    return t or text.strip()
 
 
 def _name(message: str) -> str | None:
@@ -56,6 +95,9 @@ def _name(message: str) -> str | None:
     if renamed:
         return renamed
     plain = _LEAD_RE.sub("", strip_tail(message)).strip()
+    plain = re.sub(r"^(?:이름|성함|성명)\s*(?:은|는|이|:)?\s*", "", plain).strip()
+    if re.fullmatch(r"[가-힣]{1,2} [가-힣]{1,3}", plain) and len(plain) <= 5:
+        plain = plain.replace(" ", "")  # "정 서현" → 정서현
     if _HANGUL_NAME_RE.match(plain) and plain not in _NOT_NAME:
         return plain
     if _LATIN_NAME_RE.match(plain) and len(plain.split()) <= 3:
@@ -90,6 +132,61 @@ def _bizno(message: str) -> str | None:
     return None
 
 
+# 답이 아닌 짧은 말: 감탄·맞장구·거절·모름 (칸에 적지 않는다)
+NO_WORDS = {"아니", "아니요", "아뇨", "아니야", "아니에요", "ㄴㄴ", "노", "no", "싫어", "싫어요", "안돼", "아니다"}
+NOISE_WORDS = NO_WORDS | {
+    "음", "음음", "어", "엥", "에", "응", "웅", "ㅇㅇ", "ㅇ", "네", "넵", "예", "글쎄", "글쎄요", "그냥", "몰라", "몰라요",
+    "모름", "아무거나", "아무거나요", "뭐", "왜", "헐", "와", "오", "아", "흠", "ok", "오케이", "막", "진짜", "그래", "그래요",
+    "됐어", "됐어요", "알았어", "알겠어", "알겠어요", "ㅋ", "ㅎ", "ㅠ", "ㅜ", "test", "테스트", "asdf",
+    "알아서", "대충", "적당히", "아무렇게나", "아무렇게", "니가", "네가", "너가", "니맘대로", "맘대로", "마음대로",
+}
+_JAMO_RE = re.compile(r"^[ㄱ-ㅎㅏ-ㅣ.,!?~^\s]+$")
+
+
+def is_noise(message: str) -> bool:
+    """답이 아닌 말인지: 자음·모음만("ㅋㅋ", "ㅠㅠ"), 감탄·맞장구·거절("음", "아니", "막 아니"), 기호만"""
+    text = message.strip().lower()
+    if not text or _JAMO_RE.match(text) or not re.search(r"[가-힣A-Za-z0-9]", text):
+        return True
+    words = [re.sub(r"[.,!?~^]+$", "", w) for w in text.split()]
+    return all(w in NOISE_WORDS or _JAMO_RE.match(w or "ㅋ") for w in words)
+
+
+def is_no(message: str) -> bool:
+    return re.sub(r"[\s.,!?~^]", "", message.strip().lower()) in NO_WORDS
+
+
+# 칸과 상관없는 잡담 ("나 배고파", "졸려", "심심해"): 칸에 적지 않고, LLM 도 부르지 않는다
+_SMALL_TALK = ("배고", "배불", "졸려", "졸리", "졸립", "피곤", "심심", "귀찮", "놀고싶", "놀래", "자고싶", "잘래", "밥먹",
+               "밥뭐", "뭐먹", "뭐해", "안녕", "하이", "ㅎㅇ", "잘자", "고마워", "고맙", "감사해", "사랑해", "짜증", "지루")
+
+
+def is_small_talk(message: str) -> bool:
+    flat = re.sub(r"[\s.,!?~^]", "", message.strip().lower())
+    return len(flat) <= 12 and any(w in flat for w in _SMALL_TALK)
+
+
+# 문장(말하는 투)인지: 칸 답(명사)이 아니라 "나 배고파", "이모가 내 줄 거예요" 같은 말
+_PRONOUN_HEADS = ("나", "저", "난", "전", "내가", "제가", "나는", "저는", "우리", "저희", "그냥", "아마")
+# 띄어쓰기가 있는 말의 끝
+_SENTENCE_ENDS = ("어", "아", "야", "지", "래", "까", "니", "냐", "네", "요", "해", "줘", "다", "음", "파", "워", "와",
+                  "봐", "돼", "져", "려", "자", "라", "게", "죠", "거든", "는데", "잖아", "ㅋ", "ㅎ", "ㅠ", "ㅜ")
+# 한 낱말이어도 문장인 끝 ("배고파", "몰라요", "했어요"). 명사가 거의 안 끝나는 것만
+_WORD_SENTENCE_ENDS = ("파", "워", "봐", "돼", "져", "줘", "싶어", "없어", "있어", "몰라", "했어", "했다", "거든", "잖아",
+                       "는데", "어요", "아요", "해요", "네요", "지요", "죠", "겠어", "었어", "았어", "였어", "했지", "할래", "갈래", "는다", "었다", "았다", "ㅋ", "ㅎ", "ㅠ", "ㅜ")
+_TALK_PARTS = ("했는데", "인데", "는데 ", "해서 ", "했어", "해 줘", "해줘", "해 주세요", "해주세요", "거예요", "거에요")
+
+
+def looks_sentence(message: str) -> bool:
+    t = message.strip().rstrip(".!~?^ ")
+    if not t:
+        return False
+    words = t.split()
+    if len(words) == 1:
+        return t.endswith(_WORD_SENTENCE_ENDS)
+    return (words[0] in _PRONOUN_HEADS or t.endswith(_SENTENCE_ENDS) or any(p in t for p in _TALK_PARTS))
+
+
 RETRY = {
     "name": "이름만 알려 주세요. (예: 홍길동)",
     "address": "주소를 다시 알려 주세요. 시·구·도로명과 번호까지요. (예: 서울시 OO구 OO로 12)",
@@ -101,6 +198,8 @@ RETRY = {
 def extract(spec: dict, message: str) -> tuple[str | None, str]:
     """(뽑은 답 또는 None, kind). text 칸은 말끝만 정리해서 돌려준다 (대화 문장인지는 부르는 쪽이 본다)"""
     kind = kind_of(spec)
+    if is_noise(message) or is_noise(strip_tail(message)):  # "알아서 해 줘" 처럼 부탁만 뗀 나머지도 본다
+        return None, kind
     if kind == "name":
         return _name(message), kind
     if kind == "address":

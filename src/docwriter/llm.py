@@ -150,6 +150,8 @@ def assist_field(req: dict, generate: Generate | None = None) -> dict:
     if force in ("draft", "revise"):
         # 대화형 작성: 사용자가 말한 내용으로 바로 칸을 채우거나 고친다 (넣을 내용 안내·문장 구조가 아님)
         system += f'\n이번 요청 종류는 "{force}"로 정해져 있다. 사용자가 말한 사실만 써서 칸에 들어갈 글을 쓴다.'
+        system += ('\n단, 사용자 말이 이 칸과 상관없는 잡담이면(예: "나 배고파", "졸려") 글을 쓰지 말고 '
+                   'action 을 "tip"으로 하고, text 에 이 칸에 어떤 내용을 말해 주면 되는지 한 문장으로 묻는다 (해요체).')
     out = (generate or _openai_generate)([
         {"role": "system", "content": system},
         {"role": "user", "content": _user_message(req)},

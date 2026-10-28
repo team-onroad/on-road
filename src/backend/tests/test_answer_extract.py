@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.answer_extract import extract
+from app.answer_extract import extract, is_small_talk, looks_sentence
 
 NAME = {"label": "성 명"}
 ADDRESS = {"label": "주 소", "input_type": "address"}
@@ -30,6 +30,36 @@ TEXT = {"label": "보호기관명*"}
     (BIZNO, "1238212345", "123-82-12345"),
     (BIZNO, "몰라요", None),
     (TEXT, "OO아동복지원이에요", "OO아동복지원"),
+    # 조사·부탁 말끝 떼기
+    (NAME, "정서현으로", "정서현"),
+    (NAME, "정서현으로 해줘", "정서현"),
+    (NAME, "정서현이라고 써 주세요", "정서현"),
+    (NAME, "이름 정서현으로 바꿔줘", "정서현"),
+    (NAME, "김민지로", "김민지"),
+    (NAME, "김민지라고 해요", "김민지"),
+    (NAME, "정 서현", "정서현"),
+    (NAME, "남궁민수로 해줘", "남궁민수"),
+    (NAME, "알아서 해줘", None),
+    (TEXT, "OO복지원으로 해줘", "OO복지원"),
+    (TEXT, "카카오뱅크로", "카카오뱅크"),
+    (TEXT, "이모라고 써줘", "이모"),
+    (TEXT, "OO대학교로 할게요", "OO대학교"),
+    (TEXT, "알아서 해줘", None),
 ])
 def test_extract(spec, message, expected):
     assert extract(spec, message)[0] == expected
+
+
+@pytest.mark.parametrize("message, expected", [
+    ("나 배고파", True), ("배고파", True), ("졸려요", True), ("OO아동복지원", False), ("이모", False),
+])
+def test_small_talk(message, expected):
+    assert is_small_talk(message) is expected
+
+
+@pytest.mark.parametrize("message, expected", [
+    ("나 배고파", True), ("배고파", True), ("이모가 내 줄 거예요", True), ("다녔었어요", True),
+    ("OO아동복지원", False), ("이모", False), ("어머니", False), ("새마을금고", False), ("OO대학교", False),
+])
+def test_looks_sentence(message, expected):
+    assert looks_sentence(message) is expected

@@ -94,8 +94,11 @@ def list_documents(user_id: str, db: DB) -> DocumentList:
     summary="작성 중인 서류",
     responses={404: {"description": NOT_FOUND}},
 )
-def get_document(target: QueryTarget, db: DB) -> DocumentResponse:
-    return service.to_response(db, target[1])
+def get_document(target: QueryTarget, db: DB, today: Today) -> DocumentResponse:
+    doc = target[1]
+    # 칸별로 쓰기에서도 신청 날짜 칸은 오늘 날짜로 미리 채운다 (확인은 사용자가)
+    interview_service.fill_today(db, service._rows(db, doc), service._specs(doc), today)
+    return service.to_response(db, doc)
 
 
 @router.patch(

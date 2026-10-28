@@ -138,6 +138,14 @@ def _field_warnings(spec: dict, value: str) -> list[str]:
     return warnings
 
 
+def confirm_items(spec: dict) -> list[str] | None:
+    """유의사항 확인 칸의 항목 전문 (줄임 없이)"""
+    box = spec.get("box") or {}
+    if box.get("how") != "confirm" or not box.get("items"):
+        return None
+    return [" ".join(item.split()) for item in box["items"]]
+
+
 def _to_field(row: DocumentField, spec: dict) -> DocField:
     value = _value(row.segments)
     return DocField(
@@ -146,6 +154,7 @@ def _to_field(row: DocumentField, spec: dict) -> DocField:
             "multiline", "essay", "required", "input_type", "value_source",
         )},
         options=spec.get("options"),
+        items=confirm_items(spec),
         writable=_writable(spec),
         value=value,
         segments=[Segment(**s) for s in row.segments],
@@ -286,7 +295,7 @@ def _initial(spec: dict, user: User, reusable: dict) -> tuple[list[dict], str | 
         v = doc_spec.profile_value(spec["profile_key"], user.name, user.birth_date, user.region, user.phone)
         if v:
             return [{"text": v, "source": "profile"}], None
-    hit = reusable.get(doc_spec.label_key(spec["label"]))
+    hit = None if spec.get("input_type") == "date" else reusable.get(doc_spec.label_key(spec["label"]))  # 날짜는 서류마다 다르다
     if hit:
         title, segments = hit
         return [{"text": _value(segments), "source": "reused"}], title
