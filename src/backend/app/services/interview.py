@@ -370,6 +370,20 @@ def _interview(
         name = spec.get("easy_label") or spec["label"]
         return _response(db, user, doc, state, message=f"'{name}'에 쓸 내용을 알려 주세요.")
 
+    # 답이 아닌 말 ("아니", "음", "ㅋㅋ", "막 아니"): 칸에 적지 않고 다시 묻는다
+    # (선택지 칸은 선택지를 다시 보여 주는 안내가 따로 있다)
+    if (not spec.get("options") and flat not in NOT_APPLICABLE_WORDS
+            and not any(flat.startswith(x) for x in LATER_WORDS) and answer_extract.is_noise(msg)):
+        name = spec.get("easy_label") or spec["label"]
+        if answer_extract.is_no(msg) and pending:
+            text = "어떻게 고칠지 말해 주세요. (예: 더 짧게, 등록금 이야기 넣어 줘)"
+        elif answer_extract.is_no(msg) and value:
+            text = f"그럼 '{name}'에 쓸 내용을 바르게 알려 주세요."
+        else:
+            text = f"'{name}'에 쓸 내용을 알려 주세요. 넘어가려면 '나중에'라고 해 주세요."
+        _save(db, doc, state)
+        return _response(db, user, doc, state, message=text)
+
     # 해당 없음 (필수가 아닌 칸) / 나중에 (필수 칸)
     if flat in NOT_APPLICABLE_WORDS or any(flat.startswith(x) for x in LATER_WORDS):
         if spec.get("required") is not True and flat in NOT_APPLICABLE_WORDS:

@@ -281,3 +281,15 @@ def test_renamed_name_field_and_card(api, db_session, doc_llm):
     assert (r["field"]["field_id"], r["field"]["value"]) == ("name", "정서현")  # 문장 대신 새 이름만
     assert r["message"] == "'정서현'(으)로 적었어요."
     assert [(c["field"], c["current"], c["proposed"]) for c in r["profile_changes"]] == [("name", "김민지", "정서현")]
+
+
+def test_noise_is_never_written(api, db_session, doc_llm):
+    user = make_user(db_session, name="김민지", phone="01012345678")
+    doc_id = _start(api, user)
+    _say(api, user, doc_id)
+    no = _say(api, user, doc_id, "아니")  # 미리 채운 이름에 "아니" → 바른 값을 묻는다
+    assert no["field"] is None and no["message"] == "그럼 '이름'에 쓸 내용을 바르게 알려 주세요."
+    for junk in ("ㅋㅋ", "음", "막 아니", "글쎄", "아무거나"):
+        r = _say(api, user, doc_id, junk)
+        assert r["field"] is None and r["question"]["field_id"] == "name", junk
+    assert _say(api, user, doc_id, "정서현")["field"]["value"] == "정서현"
