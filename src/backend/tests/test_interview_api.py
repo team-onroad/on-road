@@ -224,7 +224,7 @@ def test_small_talk_is_not_written(api, db_session, doc_llm):
     assert talk["route"] == "counsel" and talk["field"] is None and talk["question"]["field_id"] == "address"
 
     # 주소 칸: 주소가 없는 말은 적지 않고 다시 묻는다, 주소가 있으면 주소만 뽑는다
-    nope = _say(api, user, doc_id, "배고파서 아무것도 못 하겠다")
+    nope = _say(api, user, doc_id, "선생님한테 물어봐야 할 것 같아요")
     assert nope["field"] is None and nope["message"].startswith("주소를 다시 알려 주세요")
     got = _say(api, user, doc_id, "저는 서울시 OO구 OO로 12에 살고 있어요")
     assert (got["field"]["field_id"], got["field"]["value"]) == ("address", "서울시 OO구 OO로 12")
@@ -256,7 +256,7 @@ def test_text_field_without_answer_asks_again(api, db_session, doc_llm):
     for message in ("네", "네", "네", "서울시 OO구 OO로 12"):
         _say(api, user, doc_id, message)
     doc_llm.extract = {"answer": None}
-    r = _say(api, user, doc_id, "배고파서 아무것도 못 하겠다")
+    r = _say(api, user, doc_id, "선생님한테 물어봐야 할 것 같아요")
     assert r["field"] is None and r["message"].endswith("쓸 내용만 짧게 알려 주세요.")
     assert r["question"]["field_id"] == "school"
 
@@ -293,3 +293,26 @@ def test_noise_is_never_written(api, db_session, doc_llm):
         r = _say(api, user, doc_id, junk)
         assert r["field"] is None and r["question"]["field_id"] == "name", junk
     assert _say(api, user, doc_id, "정서현")["field"]["value"] == "정서현"
+
+
+def test_small_talk_is_never_written(api, db_session, doc_llm):
+    user = make_user(db_session, phone="01012345678")
+    doc_id = _start(api, user)
+    for message in ("네", "네", "네", "서울시 OO구 OO로 12"):
+        _say(api, user, doc_id, message)
+    calls = len(doc_llm.calls)
+    for talk in ("나 배고파", "배고파", "졸려요", "심심해 ㅋㅋ"):
+        r = _say(api, user, doc_id, talk)
+        assert r["field"] is None and r["question"]["field_id"] == "school", talk
+        assert r["message"].startswith("쓰던 내용은 저장돼 있어요."), talk
+    assert len(doc_llm.calls) == calls  # 잡담은 LLM 도 부르지 않는다
+
+
+def test_one_word_sentence_goes_to_extract(api, db_session, doc_llm):
+    user = make_user(db_session, phone="01012345678")
+    doc_id = _start(api, user)
+    for message in ("네", "네", "네", "서울시 OO구 OO로 12"):
+        _say(api, user, doc_id, message)
+    doc_llm.extract = {"answer": None}
+    r = _say(api, user, doc_id, "다녔었어요")
+    assert r["field"] is None and doc_llm.calls[-1][0] == "extract_answer"

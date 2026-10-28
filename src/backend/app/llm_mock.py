@@ -112,9 +112,11 @@ def extract_answer(message: str, field: dict) -> dict:
 
     from app.answer_extract import is_noise
 
-    if is_noise(message):
+    from app.answer_extract import is_small_talk, looks_sentence
+
+    if is_noise(message) or is_small_talk(message):
         return {"answer": None}
     text = re.sub(r"\s*(이에요|예요|이요|입니다|이야|요)[.!~]*$", "", message.strip()).strip()
-    if not text or (len(text.split()) >= 3) or text.endswith(("어", "다", "지", "해", "줘", "네")):
+    if not text or (len(text.split()) >= 3) or looks_sentence(text):
         return {"answer": None}
     return {"answer": text}
