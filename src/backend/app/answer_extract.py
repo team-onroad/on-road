@@ -24,7 +24,7 @@ _NAME_PATTERNS = (
     re.compile(r"(?:이름|성함|성명)\s*(?:은|는|이|:)?\s*([가-힣]{2,5}?)(?:이에요|예요|입니다|이야|야|이요|요)?(?=$|[\s.,!?~])"),
     re.compile(r"(?:저는|전|나는|난)\s*([가-힣]{2,5}?)(?:이에요|예요|입니다|이야|야|이요|요)(?=$|[\s.,!?~])"),
 )
-_NOT_NAME = {"이름", "성명", "모르", "몰라", "없어", "없음", "비밀", "그거", "뭐야", "누구"}
+_NOT_NAME = {"이름", "성명", "모르", "몰라", "없어", "없음", "비밀", "그거", "뭐야", "누구", "아무거나", "그냥", "글쎄", "싫어"}
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 _DIGITS_RE = re.compile(r"\d+")
 # 주소에 들어가는 말: 시·도·구·군·읍·면·동·리·로·길·번지·호 또는 숫자
@@ -90,6 +90,29 @@ def _bizno(message: str) -> str | None:
     return None
 
 
+# 답이 아닌 짧은 말: 감탄·맞장구·거절·모름 (칸에 적지 않는다)
+NO_WORDS = {"아니", "아니요", "아뇨", "아니야", "아니에요", "ㄴㄴ", "노", "no", "싫어", "싫어요", "안돼", "아니다"}
+NOISE_WORDS = NO_WORDS | {
+    "음", "음음", "어", "엥", "에", "응", "웅", "ㅇㅇ", "ㅇ", "네", "넵", "예", "글쎄", "글쎄요", "그냥", "몰라", "몰라요",
+    "모름", "아무거나", "아무거나요", "뭐", "왜", "헐", "와", "오", "아", "흠", "ok", "오케이", "막", "진짜", "그래", "그래요",
+    "됐어", "됐어요", "알았어", "알겠어", "알겠어요", "ㅋ", "ㅎ", "ㅠ", "ㅜ", "test", "테스트", "asdf",
+}
+_JAMO_RE = re.compile(r"^[ㄱ-ㅎㅏ-ㅣ.,!?~^\s]+$")
+
+
+def is_noise(message: str) -> bool:
+    """답이 아닌 말인지: 자음·모음만("ㅋㅋ", "ㅠㅠ"), 감탄·맞장구·거절("음", "아니", "막 아니"), 기호만"""
+    text = message.strip().lower()
+    if not text or _JAMO_RE.match(text) or not re.search(r"[가-힣A-Za-z0-9]", text):
+        return True
+    words = [re.sub(r"[.,!?~^]+$", "", w) for w in text.split()]
+    return all(w in NOISE_WORDS or _JAMO_RE.match(w or "ㅋ") for w in words)
+
+
+def is_no(message: str) -> bool:
+    return re.sub(r"[\s.,!?~^]", "", message.strip().lower()) in NO_WORDS
+
+
 RETRY = {
     "name": "이름만 알려 주세요. (예: 홍길동)",
     "address": "주소를 다시 알려 주세요. 시·구·도로명과 번호까지요. (예: 서울시 OO구 OO로 12)",
@@ -101,6 +124,8 @@ RETRY = {
 def extract(spec: dict, message: str) -> tuple[str | None, str]:
     """(뽑은 답 또는 None, kind). text 칸은 말끝만 정리해서 돌려준다 (대화 문장인지는 부르는 쪽이 본다)"""
     kind = kind_of(spec)
+    if is_noise(message):
+        return None, kind
     if kind == "name":
         return _name(message), kind
     if kind == "address":
