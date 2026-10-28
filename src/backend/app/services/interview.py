@@ -340,12 +340,8 @@ def _response(
         else:
             check = result
             message = f"{message} {NOT_READY_MESSAGE}".strip() if message else NOT_READY_MESSAGE
-    if question is not None:  # 문장마다 줄바꿈 (AI 초안·미리 채운 값은 건드리지 않는다)
-        keep = question.current_value
-        parts = question.text.split(keep) if keep else [question.text]
-        question.text = keep.join(w.lines(p) for p in parts) if keep else w.lines(question.text)
     return InterviewResponse(
-        route=route, message=w.lines(message), field=field, question=question, progress=progress, done=not todo,
+        route=route, message=message, field=field, question=question, progress=progress, done=not todo,
         export=export, check=check, search=search_result, contacts=contacts or [],
     )
 
