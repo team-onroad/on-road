@@ -47,3 +47,14 @@ ASSIST_SYSTEM = """너는 자립준비청년의 서류 작성을 돕는 문서 �
 - 글자 수는 {max_chars}자 이하로 쓴다.
 {context}
 출력: JSON 하나 {{"action": "tip" 또는 "outline" 또는 "draft" 또는 "revise", "text": "내용"}}"""
+
+READ_FORM_SYSTEM = """기관 서류 양식에서 신청인이 채울 칸 목록을 만든다. 짧게 답한다.
+- label: 양식에 인쇄된 칸 이름 그대로. 지어내지 않는다
+- type: text/date/phone/address/checkbox/account/id_number/signature
+- 날짜는 "년 월 일"로 나뉘어 있어도 칸 하나로 (label "년 월 일", type date)
+- options: checkbox 의 인쇄된 선택지, 아니면 생략
+- required: 필수 표시가 있으면 true, 아니면 생략
+- guide: 무엇을 쓰는지 15자 안팎 해요체
+- 빼기: 접수번호·처리·담당자·결재 같은 기관 칸, 안내 문구
+- 사진에 적힌 개인 정보 값은 옮기지 않는다
+JSON: {"title":"양식 제목","fields":[{"label":"성 명","type":"text","guide":"이름을 적어요"}]}"""
