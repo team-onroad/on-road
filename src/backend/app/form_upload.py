@@ -103,9 +103,30 @@ def _in_source(label: str, source: str) -> bool:
     return len(words) >= 2 and all(_flat(w) in source for w in words)
 
 
+_DATE_PARTS = ("년", "월", "일")
+# 날짜 칸으로 볼 칸 이름 (붙여 쓴 이름). 신청·작성 날짜는 대화로 채우기에서 오늘 날짜로 미리 채운다
+_DATE_LABELS = ("년월일", "신청일", "신청일자", "신청날짜", "작성일", "작성일자", "제출일", "생년월일", "보호종료일", "입주희망일")
+
+
+def _merge_date_parts(raw: list[dict]) -> list[dict]:
+    """"년" "월" "일"로 나눠 온 칸을 날짜 칸 하나("년 월 일", date)로 합친다. 사용자는 2026.10.29 처럼 한 번에 쓴다"""
+    out: list[dict] = []
+    i = 0
+    while i < len(raw):
+        labels = [_flat(str(f.get("label") or "")) for f in raw[i:i + 3]]
+        if labels == list(_DATE_PARTS):
+            out.append({"label": "년 월 일", "type": "date", "guide": "신청하는 날짜예요"})
+            i += 3
+            continue
+        out.append(raw[i])
+        i += 1
+    return out
+
+
 def to_fields(raw: list[dict], form_text: str | None) -> list[dict]:
     """LLM 칸 목록 → documents.spec 칸. 기관 기재란은 버리고, PDF 글자가 있으면 거기 없는 칸 이름도 버린다"""
     source = _flat(form_text) if form_text else None
+    raw = _merge_date_parts(raw)
     fields: list[dict] = []
     seen: set[str] = set()
     taken: set[str] = set()
@@ -119,6 +140,8 @@ def to_fields(raw: list[dict], form_text: str | None) -> list[dict]:
         seen.add(flat)
         kind = f.get("type") or f.get("input_type")
         input_type = kind if kind in _INPUT_TYPES else "text"
+        if flat.rstrip(":*") in _DATE_LABELS or (flat.endswith("일") and "년" in flat and "월" in flat):
+            input_type = "date"  # "년 월 일"을 따로 받지 않고 날짜 하나로 (2026.10.29)
         if "계좌" in flat:
             input_type = "account"
         options = [str(o).strip() for o in f.get("options") or [] if str(o).strip()] if input_type == "checkbox" else None

@@ -51,6 +51,7 @@ ASSIST_SYSTEM = """너는 자립준비청년의 서류 작성을 돕는 문서 �
 READ_FORM_SYSTEM = """기관 서류 양식에서 신청인이 채울 칸 목록을 만든다. 짧게 답한다.
 - label: 양식에 인쇄된 칸 이름 그대로. 지어내지 않는다
 - type: text/date/phone/address/checkbox/account/id_number/signature
+- 날짜는 "년 월 일"로 나뉘어 있어도 칸 하나로 (label "년 월 일", type date)
 - options: checkbox 의 인쇄된 선택지, 아니면 생략
 - required: 필수 표시가 있으면 true, 아니면 생략
 - guide: 무엇을 쓰는지 15자 안팎 해요체
