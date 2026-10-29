@@ -10,7 +10,13 @@ import json
 import re
 from collections.abc import Callable
 
-from docwriter.prompts import ASSIST_SYSTEM, EXTRACT_ANSWER_SYSTEM, ROUTE_CHAT_SYSTEM, ROUTE_DOCUMENT_SYSTEM
+from docwriter.prompts import (
+    ASSIST_SYSTEM,
+    EXTRACT_ANSWER_SYSTEM,
+    READ_FORM_SYSTEM,
+    ROUTE_CHAT_SYSTEM,
+    ROUTE_DOCUMENT_SYSTEM,
+)
 
 Generate = Callable[[list[dict]], dict]
 
@@ -186,3 +192,31 @@ def extract_answer(message: str, field: dict, generate: Generate | None = None) 
     ])
     answer = _text(out.get("answer")) if isinstance(out, dict) else ""
     return {"answer": answer[:200] or None}
+
+
+# ---------------- 올린 양식 읽기 ----------------
+
+READ_FORM_MAX_TOKENS = 4000
+READ_FORM_TEXT_CHARS = 12000
+READ_FORM_FIELDS = 60
+
+
+def read_form(form_text: str | None, images: list[str], generate: Generate | None = None) -> dict:
+    """기관에서 받은 양식 → 칸 목록. form_text(PDF 글자) 또는 images(data URL, 사진·스캔 쪽)를 받는다.
+    → {"title": str, "form_text": str, "fields": [dict]}. 칸 이름이 원문에 있는지는 백엔드가 다시 확인한다"""
+    if form_text:
+        content: object = f"양식 글자:\n{form_text[:READ_FORM_TEXT_CHARS]}"
+    else:
+        content = [{"type": "text", "text": "이 양식 사진의 칸 목록을 만들어 줘."}] + [
+            {"type": "image_url", "image_url": {"url": url, "detail": "high"}} for url in images
+        ]
+    messages = [{"role": "system", "content": READ_FORM_SYSTEM}, {"role": "user", "content": content}]
+    out = generate(messages) if generate else _openai_generate(messages, max_tokens=READ_FORM_MAX_TOKENS)
+    if not isinstance(out, dict):
+        raise DocwriterFormatError("양식 읽기 출력 형식이 다릅니다.")
+    fields = [f for f in out.get("fields") or [] if isinstance(f, dict) and _text(f.get("label"))]
+    return {
+        "title": _text(out.get("title"))[:100],
+        "form_text": form_text or _text(out.get("form_text")),
+        "fields": fields[:READ_FORM_FIELDS],
+    }
