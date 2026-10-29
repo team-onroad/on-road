@@ -72,11 +72,43 @@ class FormHelperViewModel : ViewModel() {
         AppContainer.coachApi.analyzeTemplate(id)
     }
 
-    /** hwpx · pdf 올리기. 양식 제목을 못 찾으면 파일 이름을 제목으로 쓴다 */
-    fun upload(bytes: ByteArray, mime: String, fileName: String?) = load("양식을 읽지 못했어요. PDF나 한글(hwpx) 파일인지 확인해 주세요.") {
-        val d = AppContainer.coachApi.analyzeUpload(userId, bytes, mime)
-        val name = fileName?.substringBeforeLast('.')?.takeIf { it.isNotBlank() }
-        if (d.title == "올린 양식" && name != null) d.copy(title = name) else d
+    /** 사진·PDF 를 올려 만든 문서 (작성 화면으로 연다) */
+    var opened by mutableStateOf<Long?>(null)
+        private set
+
+    fun consumeOpened() {
+        opened = null
+    }
+
+    /**
+     * 받은 양식 올리기. 사진·PDF → 서버 AI 가 칸을 읽어 문서 AI 로 (대화로 채우기·칸별로 쓰기).
+     * 한글(hwp·hwpx)은 예전처럼 앱 안에서 항목만 나눈다
+     */
+    fun upload(context: android.content.Context, uri: android.net.Uri) {
+        if (analyzing) return
+        analyzing = true
+        error = null
+        viewModelScope.launch {
+            runCatching {
+                val file = FormUpload.prepare(context, uri)
+                if (file.isHwp) {
+                    val d = AppContainer.coachApi.analyzeUpload(userId, file.bytes, file.mime)
+                    val name = file.name?.substringBeforeLast('.')?.takeIf { it.isNotBlank() }
+                    values.clear()
+                    draft = if (d.title == "올린 양식" && name != null) d.copy(title = name) else d
+                } else {
+                    opened = AppContainer.documents.upload(file).documentId
+                    loadDocuments()
+                }
+            }.onFailure {
+                error = when (it) {
+                    is FormUpload.TooBig, is FormUpload.NotSupported -> it.message
+                    is FormParser.ReadError -> it.message
+                    else -> it.userMessage("양식을 읽지 못했어요. 양식 전체가 밝게 나오게 다시 찍어 주세요.")
+                }
+            }
+            analyzing = false
+        }
     }
 
     private fun load(failMessage: String, block: suspend () -> FormDraft) {
@@ -124,16 +156,11 @@ fun FormHelperScreen(
     val context = LocalContext.current
     // 작성 화면에서 돌아올 때마다 진행률을 새로 받는다
     LaunchedEffect(Unit) { vm.loadDocuments() }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) {
-            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
-            val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
-            val name = runCatching {
-                context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
-                    if (c.moveToFirst()) c.getString(0) else null
-                }
-            }.getOrNull()
-            if (bytes != null) vm.upload(bytes, mime, name)
+    val uploader = rememberFormUploader { uri -> vm.upload(context, uri) }
+    LaunchedEffect(vm.opened) {
+        vm.opened?.let { id ->
+            vm.consumeOpened()
+            onOpenDocument(id)
         }
     }
     val back = { if (vm.draft != null) vm.close() else onBack() }
@@ -143,7 +170,7 @@ fun FormHelperScreen(
         OnRoadTopBar(vm.draft?.title ?: "서류 작성 도우미", back)
         val d = vm.draft
         when {
-            vm.analyzing -> LoadingState("양식에서 작성할 항목을 찾고 있어요")
+            vm.analyzing -> LoadingState("양식에서 쓸 칸을 읽고 있어요")
             d != null -> DraftEditor(d, vm) {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
@@ -158,7 +185,8 @@ fun FormHelperScreen(
                 documents = vm.documents,
                 onOpenDocument = onOpenDocument,
                 onPick = onStartTemplate ?: vm::openTemplate,
-                onUpload = { picker.launch("*/*") },
+                onTakePhoto = uploader.takePhoto,
+                onPickFile = uploader.pickFile,
             )
         }
     }
@@ -171,7 +199,8 @@ private fun TemplateList(
     documents: List<DocumentSummaryDto>,
     onOpenDocument: (Long) -> Unit,
     onPick: (String) -> Unit,
-    onUpload: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onPickFile: () -> Unit,
 ) {
     Column(
         Modifier
@@ -183,22 +212,7 @@ private fun TemplateList(
         ScreenHeadline("양식을 고르거나 올리면", "항목을 쉽게 풀어 드려요.")
 
         Spacer(Modifier.height(OnRoadDimens.BlockGap))
-        OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary, onClick = onUpload) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconTile(Icons.Outlined.UploadFile, tint = OnRoadColors.Primary)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("내 양식 올리기", style = OnRoadType.Title3, color = OnRoadColors.Primary)
-                    Text("PDF·한글(hwpx) 양식을 항목별로 나눠요", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            OnRoadButton(
-                "파일 선택하기", onUpload, Modifier.fillMaxWidth(),
-                height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
-            )
-        }
+        UploadFormCard(onTakePhoto, onPickFile)
         error?.let {
             Spacer(Modifier.height(12.dp))
             NoticeBox(it, title = "읽지 못했어요", tone = NoticeTone.Warning)

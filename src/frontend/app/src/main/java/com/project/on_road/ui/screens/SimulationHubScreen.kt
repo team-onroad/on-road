@@ -42,7 +42,8 @@ fun SimulationHubScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
 
         Spacer(Modifier.height(OnRoadDimens.BlockGap))
         // 퇴소 D-day: 모든 연습의 기준점이라 가장 크게
-        OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary, onClick = { onNavigate(Routes.SIM_TIMELINE) }) {
+        OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary, onClick = { onNavigate(
+            Routes.SIM_TIMELINE) }) {
             Row(verticalAlignment = Alignment.Top) {
                 Text(DDate.screenTitle(AppContainer.session.status), style = OnRoadType.Title2, color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
                 if (leaveDate != null) {

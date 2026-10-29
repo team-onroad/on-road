@@ -42,6 +42,12 @@ data class UserUpdate(
     val dDate: LocalDate? = null,
     /** true 면 퇴소일·목표일을 지운다 (dDate 보다 우선) */
     val clearDDate: Boolean = false,
+    /** 이름 (개명) */
+    val name: String? = null,
+    /** 사는 지역 코드 (예: "부산") */
+    val region: String? = null,
+    /** 휴대폰 번호 (하이픈 없이) */
+    val phone: String? = null,
 )
 
 data class Evidence(val source: String, val snippet: String)

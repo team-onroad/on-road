@@ -17,6 +17,7 @@ import com.project.on_road.data.AppContainer
 import com.project.on_road.data.AppState
 import com.project.on_road.data.Checklist
 import com.project.on_road.data.ChecklistDoc
+import com.project.on_road.data.FormUpload
 import com.project.on_road.data.remote.userMessage
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
@@ -38,6 +39,38 @@ class DocPickerViewModel : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
     private var loadedFor: String? = null
+    /** 양식 사진·PDF 를 읽는 중인 서류 항목 */
+    var uploadingItem by mutableStateOf<Long?>(null)
+        private set
+    var uploadError by mutableStateOf<Pair<Long, String>?>(null)
+        private set
+    /** 올려서 만든 문서 (작성 화면으로 연다) */
+    var opened by mutableStateOf<Long?>(null)
+        private set
+
+    fun consumeOpened() {
+        opened = null
+    }
+
+    /** 발급·기관 서류의 받은 양식을 올리면 AI 가 칸을 읽어 그 서류 항목에 연결한 문서를 만든다 */
+    fun upload(context: android.content.Context, uri: android.net.Uri, itemId: Long) {
+        if (uploadingItem != null) return
+        uploadingItem = itemId
+        uploadError = null
+        viewModelScope.launch {
+            runCatching {
+                val file = FormUpload.prepare(context, uri)
+                if (file.isHwp) throw FormUpload.NotSupported()
+                AppContainer.documents.upload(file, checklistItemId = itemId, policyId = loadedFor?.toLongOrNull())
+            }.onSuccess { opened = it.documentId }
+                .onFailure {
+                    val msg = if (it is FormUpload.TooBig || it is FormUpload.NotSupported) it.message.orEmpty()
+                    else it.userMessage("양식을 읽지 못했어요. 양식 전체가 밝게 나오게 다시 찍어 주세요.")
+                    uploadError = itemId to msg
+                }
+            uploadingItem = null
+        }
+    }
 
     /** 화면에 돌아올 때마다 다시 받는다 (방금 쓴 서류가 체크됐는지) */
     fun load(policyId: String) {
@@ -84,6 +117,15 @@ fun DocPickerScreen(
 ) {
     LaunchedEffect(Unit) { vm.load(policyId) }
     val c = vm.checklist
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var uploadFor by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<Long?>(null) }
+    val uploader = rememberFormUploader { uri -> uploadFor?.let { vm.upload(context, uri, it) } }
+    LaunchedEffect(vm.opened) {
+        vm.opened?.let { id ->
+            vm.consumeOpened()
+            onOpenDocument(id)
+        }
+    }
 
     OnRoadScreen("서류 작성", onBack) {
         when {
@@ -91,12 +133,6 @@ fun DocPickerScreen(
             c == null -> NoticeBox(vm.error ?: "잠시 후 다시 시도해 주세요.", title = "불러오지 못했어요", tone = NoticeTone.Warning)
             else -> {
                 ScreenHeadline(c.policyName, "어떤 서류를 준비할까요?")
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "신청서처럼 직접 쓰는 서류는 AI와 함께 쓰고, 증명서는 기관에서 발급받아요.",
-                    style = OnRoadType.Caption2,
-                    color = OnRoadColors.TextMuted,
-                )
 
                 val writable = vm.choices.filter { it.writable }
                 // 체크리스트에서 꺼 둔 상황(대리 신청 등)의 서류는 빼고 보여 준다
@@ -122,10 +158,17 @@ fun DocPickerScreen(
                     SectionHeader("발급받아 준비하는 서류", titleStyle = OnRoadType.Title3)
                     Spacer(Modifier.height(12.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        issued.forEach { IssuedDocCard(it) }
+                        issued.forEach { ch ->
+                            IssuedDocCard(
+                                ch,
+                                uploading = vm.uploadingItem == ch.doc.itemId,
+                                busy = vm.uploadingItem != null,
+                                error = vm.uploadError?.takeIf { it.first == ch.doc.itemId }?.second,
+                                onTakePhoto = { uploadFor = ch.doc.itemId; uploader.takePhoto() },
+                                onPickFile = { uploadFor = ch.doc.itemId; uploader.pickFile() },
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Footnote("발급받은 서류는 체크리스트의 준비 서류에서 체크해 주세요.")
                 }
             }
         }
@@ -148,15 +191,6 @@ private fun WritableDocCard(ch: DocChoice, onWrite: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(ch.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-                Text(
-                    when {
-                        done -> "작성해서 PDF로 내보냈어요"
-                        writing -> "쓰던 서류가 있어요. 이어서 써요"
-                        else -> "묻는 말에 답하면 원래 양식에 채워 드려요"
-                    },
-                    style = OnRoadType.Micro,
-                    color = OnRoadColors.TextTertiary,
-                )
             }
             if (done) OnRoadTag("완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
             else if (writing) OnRoadTag("작성 중", style = TagStyle.PrimaryOutline, textStyle = OnRoadType.Tiny)
@@ -175,19 +209,36 @@ private fun WritableDocCard(ch: DocChoice, onWrite: () -> Unit) {
     }
 }
 
+/** 발급받는 서류. 기관에서 받은 양식이 있으면 찍어 올려 AI와 쓸 수 있다 */
 @Composable
-private fun IssuedDocCard(ch: DocChoice) {
+private fun IssuedDocCard(
+    ch: DocChoice,
+    uploading: Boolean,
+    busy: Boolean,
+    error: String?,
+    onTakePhoto: () -> Unit,
+    onPickFile: () -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
     SubtleCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(ch.name, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateDark, modifier = Modifier.weight(1f))
             when {
                 ch.doc.notApplicable -> OnRoadTag("해당 없음", style = TagStyle.Gray, textStyle = OnRoadType.Tiny)
                 ch.doc.checked -> OnRoadTag("준비 완료", style = TagStyle.PrimarySoft, textStyle = OnRoadType.Tiny)
+                else -> SmallBoxButton(if (open) "닫기" else "양식 올리기", { open = !open }, leadingIcon = Icons.Outlined.Description)
             }
         }
-        ch.doc.condition?.let {
-            Spacer(Modifier.height(4.dp))
-            Text("필요한 경우: $it", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+        if (uploading) {
+            Spacer(Modifier.height(10.dp))
+            Text("양식에서 쓸 칸을 읽고 있어요…", style = OnRoadType.Micro, color = OnRoadColors.Primary)
+        } else if (open) {
+            Spacer(Modifier.height(10.dp))
+            UploadButtons(onTakePhoto, onPickFile, enabled = !busy)
+        }
+        error?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(it, style = OnRoadType.Micro, color = OnRoadColors.Danger)
         }
     }
 }

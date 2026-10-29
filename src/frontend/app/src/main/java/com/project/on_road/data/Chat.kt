@@ -28,6 +28,8 @@ data class ChatMessage(
     /** kind = DOCUMENT: 서류 작성 후보와 상담 맥락 (문서 AI 가 처음부터 묻지 않게 넘긴다) */
     val candidates: List<DocCandidate> = emptyList(),
     val handoffContext: String? = null,
+    /** 대화에서 찾은 내 정보 변경 후보 (확인 카드) */
+    val profileChanges: List<ProfileChange> = emptyList(),
 )
 
 /** AI 상담 API 계약 (3.15). history: 지금까지 대화 (방금 보낸 message 포함 가능, 구현체가 정리해서 보냄) */

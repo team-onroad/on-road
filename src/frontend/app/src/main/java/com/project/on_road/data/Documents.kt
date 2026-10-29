@@ -24,6 +24,12 @@ class DocumentRepository(private val service: OnRoadService, private val userId:
             )
         }
 
+    /** 받은 양식(사진·PDF) 올리기 → AI 가 칸을 읽은 문서. 같은 파일이면 쓰던 문서 */
+    suspend fun upload(file: UploadFile, checklistItemId: Long? = null, policyId: Long? = null): WriterDocumentDto {
+        val b64 = android.util.Base64.encodeToString(file.bytes, android.util.Base64.NO_WRAP)
+        return Network.call { service.uploadDocument(DocumentUploadDto(userId(), b64, file.name, checklistItemId, policyId)) }
+    }
+
     suspend fun list(): List<DocumentSummaryDto> = Network.call { service.listDocuments(userId()) }.documents
 
     suspend fun get(documentId: Long): WriterDocumentDto = Network.call { service.getDocument(documentId, userId()) }
