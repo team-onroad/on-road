@@ -4,9 +4,10 @@ from sqlalchemy.orm import Session
 
 from app.crisis import CRISIS_MESSAGE, is_crisis
 from app.llm_client import Llm, call_llm
-from app.roleplay import Scenario, feedback, get_scenarios, level_for, lines_for
+from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, lines_for, pick_plan, plan_of
 from app.schemas.roleplay import (
     BetterOut,
+    FeedbackItemOut,
     FeedbackRequest,
     FeedbackResponse,
     Opening,
@@ -37,11 +38,21 @@ def scenario_list(stage: str | None) -> ScenarioList:
     )
 
 
-def opening(s: Scenario, stage: str | None) -> Opening:
-    return Opening(scenario_id=s.scenario_id, level=level_for(s, stage), message=s.opening)
+def opening(s: Scenario, stage: str | None, variant_id: str | None = None) -> Opening:
+    """할 때마다 전개를 고르고, 난이도만큼 돌발 상황을 정한다 (같은 상황 다른 전개)"""
+    level = level_for(s, stage)
+    plan = pick_plan(s, level, variant_id)
+    v = plan.variant
+    return Opening(
+        scenario_id=s.scenario_id, level=level, message=s.opening,
+        variant_id=v.variant_id if v else None,
+        situation=v.title if v and v.situation else None,
+        surprise_ids=[x.surprise_id for x in plan.surprises],
+        surprise_count=len(plan.surprises),
+    )
 
 
-def _llm_scenario(s: Scenario, stage: str | None) -> dict:
+def _llm_scenario(s: Scenario, stage: str | None, plan: Plan) -> dict:
     # 체크 항목·준비 서류·고친 말 예시는 넘기지 않음
     level = level_for(s, stage)
     return {
@@ -51,7 +62,9 @@ def _llm_scenario(s: Scenario, stage: str | None) -> dict:
         "setting": s.setting,
         "goal": s.goal,
         "level": level,
-        "lines": lines_for(s, level),
+        "situation": plan.variant.situation if plan.variant else "",
+        "surprises": [x.line for x in plan.surprises],
+        "lines": lines_for(s, level, plan),
     }
 
 
@@ -71,7 +84,7 @@ def reply(s: Scenario, body: ReplyRequest, llm: Llm) -> ReplyResponse:
         "roleplay_reply",
         llm.roleplay_reply,
         _is_reply,
-        _llm_scenario(s, body.stage),
+        _llm_scenario(s, body.stage, plan_of(s, body.variant_id, body.surprise_ids)),
         [h.model_dump() for h in body.history],
         body.message,
     )
@@ -79,17 +92,29 @@ def reply(s: Scenario, body: ReplyRequest, llm: Llm) -> ReplyResponse:
 
 
 def give_feedback(db: Session, user: User, s: Scenario, body: FeedbackRequest) -> FeedbackResponse:
-    good, missed = feedback(s, [h.content for h in body.history if h.role == "user"])
+    plan = plan_of(s, body.variant_id, body.surprise_ids)
+    turns = [h.content for h in body.history if h.role == "user"]
+    items, score = feedback_items(s, turns, plan)
+    good = [i.label for i in items if i.ok]
+    missed = [i.label for i in items if not i.ok]
+    if len(turns) >= FINISHED_MIN_TURNS:
+        good.append(FINISHED_GOOD)
     roleplay_id = None
     if body.save:
         row = RoleplayResult(user_id=user.id, scenario_id=s.scenario_id, good=good, missed=missed)
         db.add(row)
         db.commit()
         roleplay_id = row.id
+    better = list(s.better) + (list(plan.variant.better) if plan.variant else [])
     return FeedbackResponse(
         roleplay_id=roleplay_id,
         good=good,
         missed=missed,
         documents=s.documents,
-        better=[BetterOut(before=b.before, after=b.after) for b in s.better],
+        better=[BetterOut(before=b.before, after=b.after) for b in better],
+        score=score,
+        grade=grade(score),
+        items=[FeedbackItemOut(label=i.label, ok=i.ok, kind=i.kind, example=i.example) for i in items],
+        situation=plan.variant.title if plan.variant and plan.variant.situation else None,
+        retry_lines=[i.example for i in items if not i.ok and i.example],
     )

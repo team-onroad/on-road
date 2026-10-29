@@ -49,8 +49,9 @@ def list_scenarios(stage: Stage | None = None) -> ScenarioList:
     summary="첫 대사",
     responses={**NOT_FOUND, 422: {"description": "VALIDATION_ERROR"}},
 )
-def get_opening(scenario: PathScenario, stage: Stage | None = None) -> Opening:
-    return service.opening(scenario, stage)
+def get_opening(scenario: PathScenario, stage: Stage | None = None, variant_id: str | None = None) -> Opening:
+    """variant_id 를 주면 그 전개로 (다시 해 보기), 없으면 무작위"""
+    return service.opening(scenario, stage, variant_id)
 
 
 @router.post(

@@ -117,6 +117,24 @@ def counsel_reply(message: str, history: list[dict], profile: dict, generate: Ge
     return safe_counsel(reply)
 
 
+def _situation(scenario: dict) -> str:
+    text = _text(scenario.get("situation"))
+    return f"[이번 전개] {text} 이 전개대로 반응한다.\n" if text else ""
+
+
+def _surprises(scenario: dict) -> str:
+    """돌발 상황: 대사 흐름에 이미 끼워 두었다. 꼭 한 번씩 꺼내고, 사용자의 대처에 따라 반응하게 한다"""
+    items = [_text(x) for x in scenario.get("surprises") or [] if _text(x)]
+    if not items:
+        return ""
+    listed = "\n".join(f"- {x}" for x in items)
+    return (
+        "[돌발 상황] 대화 중간에 아래 말을 한 번씩 꺼낸다 (상황에 맞게 바꿔 말해도 된다). "
+        "사용자가 분명하게 대처하면 받아들이고, 얼버무리면 한 번 더 확인한다.\n"
+        f"{listed}\n"
+    )
+
+
 def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: Generate | None = None) -> dict:
     """history 첫 대사(상대 역할의 첫마디)는 백엔드가 넣어 둔다."""
     lines = [str(x) for x in scenario.get("lines") or []]
@@ -128,6 +146,8 @@ def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: 
         setting=scenario.get("setting") or "",
         goal=scenario.get("goal") or "",
         level_guide=LEVEL_GUIDE.get(str(scenario.get("level")), LEVEL_GUIDE["NORMAL"]),
+        situation=_situation(scenario),
+        surprises=_surprises(scenario),
         lines="\n".join(f"{i}. {x}" for i, x in enumerate(lines, 1)) or "(없음)",
     )
     out = (generate or _openai_generate)([

@@ -156,10 +156,14 @@ def test_list_invalid_stage_is_422(client, stage):
 
 
 def test_opening(client):
-    res = client.get("/api/coach/roleplay/community-center/opening")
+    res = client.get("/api/coach/roleplay/community-center/opening", params={"variant_id": "basic"})
     assert res.status_code == 200
-    assert res.json() == {"scenario_id": "community-center", "level": "NORMAL",
-                          "message": "다음 분 오세요. 무슨 일로 오셨어요?"}
+    data = res.json()
+    assert {k: data[k] for k in ("scenario_id", "level", "message", "variant_id", "situation")} == {
+        "scenario_id": "community-center", "level": "NORMAL", "message": "다음 분 오세요. 무슨 일로 오셨어요?",
+        "variant_id": "basic", "situation": None,
+    }
+    assert data["surprise_count"] == 1 and len(data["surprise_ids"]) == 1  # 보통: 돌발 1개
 
 
 @pytest.mark.parametrize(
@@ -178,7 +182,8 @@ def test_opening_child_not_target(client, scenario_id):
     # 아동은 대상 단계가 아닌 상황도 EASY (3.16 아동 규칙)
     res = client.get(f"/api/coach/roleplay/{scenario_id}/opening", params={"stage": "child"})
     assert res.status_code == 200
-    assert res.json() == {"scenario_id": scenario_id, "level": "EASY", "message": RAW[scenario_id]["opening"]}
+    data = res.json()
+    assert (data["level"], data["message"], data["surprise_ids"]) == ("EASY", RAW[scenario_id]["opening"], [])
 
 
 def test_opening_unknown_scenario(client):
@@ -243,7 +248,7 @@ def test_llm_receives_scenario_without_answers(api, db_session, llm):
     assert scenario == {
         "scenario_id": "parttime", "title": "아르바이트 면접", "partner": "카페 점장",
         "setting": "동네 카페 아르바이트 면접을 봐요.", "goal": "나를 소개하고 근무 조건 확인하기",
-        "level": "HARD", "lines": lines_for(get_scenarios()["parttime"], "HARD"),
+        "level": "HARD", "situation": "", "surprises": [], "lines": lines_for(get_scenarios()["parttime"], "HARD"),
     }
     assert sent_history == [{"role": "assistant", "content": "반가워요"}]
     assert message == "안녕하세요"
@@ -355,13 +360,16 @@ def test_feedback_good_and_missed(api, db_session):
     res = _feedback(api, user, history=_user_turns("신분증 여기요", "확정 일자도요"))  # 띄어쓰기 다르면 못 찾음
 
     assert res.status_code == 200
-    assert res.json() == {
+    data = res.json()
+    assert {k: data[k] for k in ("roleplay_id", "good", "missed", "documents", "better")} == {
         "roleplay_id": None,
         "good": ["신분증 준비"],
         "missed": ["확정일자 함께 받기", "임대차 계약서 챙기기"],
         "documents": ["신분증", "임대차 계약서 (확정일자용)"],
         "better": [{"before": "이사 왔어요", "after": "이사해서 전입신고하고, 확정일자도 같이 받고 싶어요"}],
     }
+    assert data["score"] == 30 and data["grade"] == "한 번 더 해 봐요"
+    assert data["retry_lines"] == ["확정일자도 같이 받고 싶어요.", "임대차 계약서 원본 가져왔어요."]
 
 
 def test_feedback_keywords_across_turns(api, db_session):
@@ -581,3 +589,42 @@ def test_growth_roleplay_fields_not_null(api, db_session):
     item = api.get(f"/api/users/{user.id}/growth").json()["roleplays"][0]
     assert set(item) == {"roleplay_id", "scenario_id", "title", "good_count", "missed_count", "created_at"}
     assert all(v is not None for v in item.values())
+
+
+# ------------------------------------------------------------------ 같은 상황 다른 전개 · 돌발 상황 · 피드백
+
+
+def test_opening_picks_variant_and_surprises_by_level(client):
+    seen = {client.get("/api/coach/roleplay/landlord/opening", params={"stage": "youth"}).json()["variant_id"]
+            for _ in range(30)}
+    assert seen <= {"basic", "refuse", "text-record"} and len(seen) >= 2  # 할 때마다 다른 전개
+    hard = client.get("/api/coach/roleplay/job/opening", params={"stage": "youth", "variant_id": "gap"}).json()
+    assert hard["level"] == "HARD" and hard["situation"] == "공백기를 집요하게 묻는 면접관"
+    assert hard["surprise_count"] == 2 and hard["surprise_ids"][0] == "job-family"  # 어려움: HARD 돌발 먼저
+
+
+def test_reply_sends_variant_and_surprise_to_llm(api, db_session, llm):
+    user = make_user(db_session)
+    history = [{"role": "assistant", "content": "여보세요?"}]
+    res = _reply(api, user, scenario_id="landlord", history=history, stage="youth",
+                 variant_id="refuse", surprise_ids=["ll-cost-split", "nope"])
+    assert res.status_code == 200
+    scenario = llm.calls[0][0]
+    assert "세입자가 고쳐 써야" in scenario["situation"]
+    assert scenario["surprises"] == ["수리비는 반반 내요. 세입자도 쓰는 거니까."]  # 모르는 id 는 무시
+    assert scenario["lines"][1] == "수리비는 반반 내요. 세입자도 쓰는 거니까."  # 두 번째 대사 자리에 끼워 넣음
+
+
+def test_feedback_with_variant_and_surprise(api, db_session):
+    user = make_user(db_session)
+    turns = _user_turns("어제부터 안 돼요", "보일러는 집주인이 책임지는 걸로 알아요", "금요일까지 날짜 정해 주세요")
+    data = _feedback(api, user, scenario_id="landlord", history=turns,
+                     variant_id="refuse", surprise_ids=["ll-cost-split"]).json()
+    kinds = {i["label"]: (i["ok"], i["kind"]) for i in data["items"]}
+    assert kinds["집주인 수리 책임 근거 말하기"] == (True, "situation")
+    assert kinds["수리비 반반 요구에 대응하기"] == (True, "surprise")  # "집주인" 키워드
+    assert kinds["수리가 급한 이유"] == (False, "basic")
+    assert data["situation"] == "집주인이 수리를 미룸"
+    assert 0 < data["score"] <= 100 and data["grade"]
+    assert "날이 추워서 이번 주 안에는 꼭 고쳐야 해요." in data["retry_lines"]
+    assert any(b["before"] == "아 네… 그럼 다음 달에요" for b in data["better"])  # 전개별 고친 말도
