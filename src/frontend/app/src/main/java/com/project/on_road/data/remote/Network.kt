@@ -20,11 +20,20 @@ class ApiException(
 object Network {
     private val gson = Gson()
 
+    /** 이 헤더가 있는 요청은 읽기 타임아웃을 그 초만큼 (사진 양식 읽기 등). 서버로는 보내지 않는다 */
+    const val TIMEOUT_HEADER = "X-OnRoad-Timeout"
+
     fun create(baseUrl: String): OnRoadService {
         val client = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(35, TimeUnit.SECONDS) // 검색(RAG) 권장 타임아웃 30초 + 여유
-            .writeTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val seconds = chain.request().header(TIMEOUT_HEADER)?.toIntOrNull()
+                if (seconds == null) chain.proceed(chain.request())
+                else chain.withReadTimeout(seconds, TimeUnit.SECONDS)
+                    .proceed(chain.request().newBuilder().removeHeader(TIMEOUT_HEADER).build())
+            }
             .apply {
                 if (BuildConfig.DEBUG) {
                     addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
@@ -67,5 +76,7 @@ fun Throwable.userMessage(fallback: String = "잠시 후 다시 시도해 주세
         "POLICY_NOT_FOUND" -> "더 이상 제공되지 않는 정책이에요."
         "SIMULATION_NOT_FOUND" -> "지난 계산 결과를 찾지 못했어요."
         "USER_NOT_FOUND" -> "사용자 정보를 찾지 못했어요. 앱을 다시 시작해 주세요."
+        // 올린 양식: 서버 문구가 무엇을 다시 하면 되는지 알려 준다
+        "UPLOAD_INVALID", "FORM_UNREADABLE" -> message ?: fallback
         else -> fallback
     }
