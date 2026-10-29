@@ -112,14 +112,13 @@ def test_extract_answer():
 
 
 def test_read_form_photo_and_text():
-    fake = FakeLLM({"title": "신청서", "form_text": "성명 연락처", "fields": [{"label": "성명"}, {"label": ""}, "x"]})
-    out = read_form(None, ["data:image/png;base64,AAA"], generate=fake)
-    assert out == {"title": "신청서", "form_text": "성명 연락처", "fields": [{"label": "성명"}]}
-    parts = fake.calls[0][1]["content"]
-    assert parts[1]["image_url"]["url"] == "data:image/png;base64,AAA"
+    fake = FakeLLM({"title": "신청서", "fields": [{"label": "성명"}, {"label": ""}, "x"]})
+    out = read_form(None, ["data:image/jpeg;base64,AAA"], generate=fake)
+    assert out == {"title": "신청서", "fields": [{"label": "성명"}]}
+    assert fake.calls[0][1]["content"][0]["image_url"]["url"] == "data:image/jpeg;base64,AAA"
 
     fake = FakeLLM({"title": "", "fields": [{"label": "주소"}]})
-    out = read_form("주소 칸이 있는 양식", [], generate=fake)
-    assert out["form_text"] == "주소 칸이 있는 양식" and "주소 칸이 있는 양식" in fake.calls[0][1]["content"]
+    read_form("주소 칸이 있는 양식", [], generate=fake)
+    assert fake.calls[0][1]["content"] == "주소 칸이 있는 양식"
     with pytest.raises(DocwriterFormatError):
         read_form("x", [], generate=FakeLLM([]))

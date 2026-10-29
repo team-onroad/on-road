@@ -2,8 +2,9 @@
 
 기관에서 받은 종이 양식을 찍어 올리면 칸을 읽어 대화로 채우기·칸별로 쓰기를 할 수 있게 한다.
 - PDF 에 글자가 있으면 글자만 LLM 에 보낸다. 사진·스캔 PDF 는 쪽 이미지를 보낸다 (최대 MAX_PAGES 쪽)
-- 사진은 다시 그려 보내 위치 정보(EXIF)를 지운다. 올린 파일은 저장하지 않는다
-- LLM 이 준 칸 이름이 양식 글자에 없으면 버린다 (지어낸 칸 방지)
+- 토큰·속도: 사진은 흑백 JPG, 긴 변 IMAGE_MAX_SIDE 로 다시 그린다 (위치 정보 EXIF 도 지워짐).
+  LLM 에는 칸 이름·종류·짧은 안내만 받는다 (양식 전체 글자를 옮겨 적게 하지 않음). 올린 파일은 저장하지 않는다
+- PDF 글자가 있으면 LLM 이 준 칸 이름이 그 글자에 없을 때 버린다 (지어낸 칸 방지)
 - 주민등록번호·서명은 손으로 쓰는 칸, 계좌번호는 user 칸(LLM 에 보내지 않음)으로 정한다 (doc_spec 와 같은 원칙)
 - 원본 위에 채울 자리(box)는 없다 → 내보내면 칸 이름·내용 표 PDF (원본 양식에 옮겨 적는다)
 """
@@ -21,9 +22,10 @@ from app.errors import AppError
 from app.llm_client import call_llm
 
 MAX_BYTES = 10 * 1024 * 1024
-MAX_PAGES = 3
+MAX_PAGES = 2
 MIN_PDF_TEXT = 40  # 이보다 글자가 적으면 스캔 PDF 로 보고 쪽 이미지를 보낸다
-IMAGE_MAX_SIDE = 1600  # 사진 긴 변 (픽셀). 칸 이름을 읽기에 충분하고 토큰을 아낀다
+IMAGE_MAX_SIDE = 1280  # 사진 긴 변 (픽셀). 칸 이름을 읽기에 충분하고 이미지 토큰이 적다
+JPG_QUALITY = 70
 MAX_FIELDS = 40
 
 _INPUT_TYPES = {"text", "date", "phone", "address", "checkbox", "account", "id_number", "signature"}
@@ -59,14 +61,12 @@ def _kind(data: bytes) -> str:
     raise bad_file("사진(JPG·PNG)이나 PDF 파일만 올릴 수 있어요.")
 
 
-def _png_url(pix: pymupdf.Pixmap) -> str:
-    return "data:image/png;base64," + base64.b64encode(pix.tobytes("png")).decode()
-
-
 def _page_image(page: pymupdf.Page) -> str:
+    """흑백 JPG data URL (PNG 보다 몇 배 작아 보내기가 빠르다)"""
     longest = max(page.rect.width, page.rect.height) or 1
     zoom = min(IMAGE_MAX_SIDE / longest, 3.0)
-    return _png_url(page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False))
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), colorspace=pymupdf.csGRAY, alpha=False)
+    return "data:image/jpeg;base64," + base64.b64encode(pix.tobytes("jpg", jpg_quality=JPG_QUALITY)).decode()
 
 
 def read_source(data: bytes) -> tuple[str | None, list[str]]:
@@ -92,7 +92,7 @@ def read_source(data: bytes) -> tuple[str | None, list[str]]:
 
 
 def _check_read(v: object) -> bool:
-    return isinstance(v, dict) and isinstance(v.get("fields"), list) and isinstance(v.get("form_text"), str)
+    return isinstance(v, dict) and isinstance(v.get("fields"), list)
 
 
 def _in_source(label: str, source: str) -> bool:
@@ -103,21 +103,22 @@ def _in_source(label: str, source: str) -> bool:
     return len(words) >= 2 and all(_flat(w) in source for w in words)
 
 
-def to_fields(raw: list[dict], form_text: str) -> list[dict]:
-    """LLM 칸 목록 → documents.spec 칸. 양식 글자에 없는 칸 이름·기관 기재란은 버린다"""
-    source = _flat(form_text)
+def to_fields(raw: list[dict], form_text: str | None) -> list[dict]:
+    """LLM 칸 목록 → documents.spec 칸. 기관 기재란은 버리고, PDF 글자가 있으면 거기 없는 칸 이름도 버린다"""
+    source = _flat(form_text) if form_text else None
     fields: list[dict] = []
     seen: set[str] = set()
     taken: set[str] = set()
     for f in raw:
         label = " ".join(str(f.get("label") or "").split())[:60]
         flat = _flat(label)
-        if not label or flat in seen or not _in_source(label, source):
+        if not label or flat in seen or (source is not None and not _in_source(label, source)):
             continue
         if any(w in flat for w in _OFFICE_WORDS):
             continue
         seen.add(flat)
-        input_type = f.get("input_type") if f.get("input_type") in _INPUT_TYPES else "text"
+        kind = f.get("type") or f.get("input_type")
+        input_type = kind if kind in _INPUT_TYPES else "text"
         if "계좌" in flat:
             input_type = "account"
         options = [str(o).strip() for o in f.get("options") or [] if str(o).strip()] if input_type == "checkbox" else None
@@ -159,12 +160,11 @@ def read_form(data: bytes, file_name: str | None, doc_llm: DocLlm) -> tuple[str,
     """(제목, 칸 목록)"""
     text, images = read_source(data)
     out = call_llm("read_form", doc_llm.read_form, _check_read, text, images)
-    form_text = text or out["form_text"]
-    fields = to_fields(out["fields"], form_text)
+    fields = to_fields(out["fields"], text)
     if not fields:
         raise unreadable()
-    title = out.get("title") or ""
-    if not title or not _in_source(title, _flat(form_text)):
+    title = " ".join(str(out.get("title") or "").split())
+    if not title or (text and not _in_source(title, _flat(text))):
         stem = PurePath(file_name).stem if file_name else ""
         title = stem if stem and not re.fullmatch(r"(IMG|PXL|KakaoTalk|Screenshot|image|photo)[\w\- ]*", stem, re.I) else "올린 양식"
     return title[:100], fields

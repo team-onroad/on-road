@@ -32,6 +32,9 @@ class RagSettings(BaseSettings):
     easytext_judge_model: str = "gpt-4o"
     # AI 상담·롤플레잉·문장 다듬기 (src/coach/)
     coach_model: str = "gpt-4o-mini"
+    # 올린 양식(사진) 칸 읽기 (src/docwriter/llm.py read_form). gpt-4o-mini 는 사진 한 장에 이미지 토큰이
+    # 2만 5천 개쯤이라 느리고 많이 쓴다. gpt-4.1-mini 는 같은 사진이 2천 개 안팎
+    form_read_model: str = "gpt-4.1-mini"
 
 
 @lru_cache
