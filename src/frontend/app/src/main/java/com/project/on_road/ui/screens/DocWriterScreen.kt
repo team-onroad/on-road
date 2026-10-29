@@ -24,6 +24,8 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -48,6 +50,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.project.on_road.data.AppContainer
 import kotlinx.coroutines.launch
+import com.project.on_road.data.toChange
+import com.project.on_road.data.ProfileChange
 
 /** 대화 말풍선 */
 sealed interface DocBubble {
@@ -60,6 +64,11 @@ sealed interface DocBubble {
         val policies: List<String> = emptyList(),
         val problems: List<ProblemDto> = emptyList(),
         val exported: Boolean = false,
+        /** 답 속에서 찾은 내 정보 변경 후보 (확인 카드) */
+        val changes: List<ProfileChange> = emptyList(),
+        /** 유의사항 확인 질문: 항목마다 체크박스 */
+        val items: List<String> = emptyList(),
+        val fieldId: String? = null,
     ) : DocBubble
 
     data class Me(override val id: Long, val text: String) : DocBubble
@@ -173,10 +182,13 @@ class DocWriterViewModel : ViewModel() {
                         }
                         !r.message.isNullOrBlank() -> bubbles += DocBubble.Ai(nextId++, r.message)
                     }
+                    r.profileChanges.orEmpty().takeIf { it.isNotEmpty() }?.let { c ->
+                        bubbles += DocBubble.Ai(nextId++, "", changes = c.map { it.toChange() })
+                    }
                     // 다음 질문. 같은 질문을 다시 묻는 경우(검색·안내·다시 입력)는 말풍선을 또 만들지 않는다
                     val q = r.question
                     if (q != null && (q.fieldId != question?.fieldId || q.text != question?.text)) {
-                        bubbles += DocBubble.Ai(nextId++, q.text)
+                        bubbles += DocBubble.Ai(nextId++, q.text, items = q.items.orEmpty(), fieldId = q.fieldId)
                         selectedId = q.fieldId
                     }
                     question = q
@@ -189,6 +201,7 @@ class DocWriterViewModel : ViewModel() {
     /** 지금 질문에 맞는 빠른 답 버튼 */
     fun quickReplies(): List<String> {
         val q = question ?: return emptyList()
+        if (!q.items.isNullOrEmpty()) return listOf("나중에") // 유의사항은 항목마다 체크해야 확인
         return buildList {
             if (q.awaitingConfirm) add(if (q.currentValue != null && q.inputType != "checkbox") "네" else "좋아")
             q.options?.let { addAll(it) }
@@ -265,10 +278,11 @@ class DocWriterViewModel : ViewModel() {
                 drafts.remove(f.fieldId)
                 r.field?.let(::applyField)
                 r.progress?.let(::applyProgress)
+                val changes = r.profileChanges.orEmpty().map { it.toChange() }
                 notice = when (r.route) {
-                    "policy" -> r.search?.let { DocBubble.Ai(0, searchText(it), policies = it.results.map { p -> p.name }) }
-                    "counsel", "crisis" -> DocBubble.Ai(0, r.message.orEmpty(), contacts = r.contacts)
-                    else -> null
+                    "policy" -> r.search?.let { DocBubble.Ai(0, searchText(it), policies = it.results.map { p -> p.name }, changes = changes) }
+                    "counsel", "crisis" -> DocBubble.Ai(0, r.message.orEmpty(), contacts = r.contacts, changes = changes)
+                    else -> if (changes.isNotEmpty()) DocBubble.Ai(0, "", changes = changes) else null
                 }
             }.onFailure { notice = DocBubble.Ai(0, message(it, "AI 도우미가 답하지 못했어요. 잠시 후 다시 시도해 주세요.")) }
             busy = false
@@ -434,6 +448,9 @@ private fun TalkPane(vm: DocWriterViewModel, modifier: Modifier) {
                         pdfReady = vm.pdf != null,
                         onOpenPdf = { openPdf(context, vm.pdf) ?: vm.redownload() },
                         onFix = { id -> vm.select(id); vm.switchMode(WriteMode.FIELDS) },
+                        // 지금 묻는 유의사항만 체크할 수 있다
+                        checksEnabled = !vm.busy && b.fieldId != null && vm.question?.fieldId == b.fieldId,
+                        onConfirmAll = { vm.send("모두 확인했어요") },
                     )
                 }
             }
@@ -464,7 +481,18 @@ private fun TalkPane(vm: DocWriterViewModel, modifier: Modifier) {
 }
 
 @Composable
-private fun AiBubble(b: DocBubble.Ai, pdfReady: Boolean, onOpenPdf: () -> Unit, onFix: (String) -> Unit) {
+private fun AiBubble(
+    b: DocBubble.Ai,
+    pdfReady: Boolean,
+    onOpenPdf: () -> Unit,
+    onFix: (String) -> Unit,
+    checksEnabled: Boolean = false,
+    onConfirmAll: () -> Unit = {},
+) {
+    if (b.text.isBlank() && b.changes.isNotEmpty()) {
+        ProfileChangeCard(b.changes, key = "doc-${b.id}", modifier = Modifier.padding(start = 38.dp))
+        return
+    }
     val uri = LocalUriHandler.current
     Row(Modifier.fillMaxWidth()) {
         Box(
@@ -472,16 +500,21 @@ private fun AiBubble(b: DocBubble.Ai, pdfReady: Boolean, onOpenPdf: () -> Unit, 
             contentAlignment = Alignment.Center,
         ) { LogoSlot(size = 20.dp) }
         Spacer(Modifier.width(10.dp))
+        // 폭은 글 길이만큼 (체크 목록·버튼이 있으면 최대 폭까지)
         Column(
             Modifier
-                .weight(1f)
+                .weight(1f, fill = false)
                 .clip(OnRoadShapes.Inner)
                 .background(Color.White)
                 .border(1.dp, BubbleLine, OnRoadShapes.Inner)
                 .padding(14.dp),
         ) {
             if (b.text.isNotBlank()) {
-                Text(b.text, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextPrimary)
+                BubbleText(b.text, color = OnRoadColors.TextPrimary)
+            }
+            if (b.items.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                NoticeChecks(b.items, key = "talk-${b.id}", enabled = checksEnabled, confirmLabel = "모두 확인했어요", onConfirm = onConfirmAll)
             }
             if (b.policies.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
@@ -526,7 +559,7 @@ private fun MyBubble(text: String) {
                 .background(Color.White)
                 .border(1.dp, OnRoadColors.Primary, OnRoadShapes.Inner)
                 .padding(horizontal = 14.dp, vertical = 11.dp),
-        ) { Text(text, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.Primary) }
+        ) { BubbleText(text, color = OnRoadColors.Primary) }
     }
 }
 
@@ -610,16 +643,10 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier) {
                     leadingIcon = Icons.Outlined.Description,
                 )
                 Spacer(Modifier.height(6.dp))
-                Text(
-                    vm.exported?.checklist?.let { "체크리스트의 '${it.label}'도 체크했어요. " }.orEmpty() +
-                        "고칠 칸을 눌러 '다시 고치기'하면 체크리스트 체크가 풀려요.",
-                    style = OnRoadType.Tiny,
-                    color = OnRoadColors.TextTertiary,
-                )
+                Text("칸을 다시 고치면 체크리스트 체크가 풀려요.", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
             } else {
                 OnRoadButton("검사하고 내보내기", vm::export, Modifier.fillMaxWidth(), loading = vm.busy)
-                Spacer(Modifier.height(6.dp))
-                Text("모든 칸을 완료하면 원래 양식에 채운 PDF로 내보내요.", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
+
             }
         }
     }
@@ -696,6 +723,11 @@ private fun FieldCard(
                 color = if (text.isBlank()) OnRoadColors.TextQuaternary else OnRoadColors.TextSlateDark,
                 maxLines = 3,
             )
+            !f.items.isNullOrEmpty() -> NoticeChecks(
+                f.items, key = "field-${f.fieldId}", enabled = !done && !locked, initiallyChecked = done || text.isNotBlank(),
+                // 다 체크하면 "확인"을 고른 것으로, 하나라도 풀면 다시 비운다 (완료 버튼은 다 체크해야 켜진다)
+                onAllChecked = { all -> if (all != text.isNotBlank()) onChoose(f.options?.firstOrNull() ?: "확인") },
+            )
             !f.options.isNullOrEmpty() -> FlowChips(f.options, text.split(", "), enabled = !done && !locked, onChoose = onChoose)
             else -> OnRoadTextField(
                 value = text,
@@ -744,8 +776,65 @@ private fun HandwriteCard(f: DocFieldDto) {
         }
         Spacer(Modifier.height(6.dp))
         Text(f.guide, style = OnRoadType.Caption2, color = OnRoadColors.TextSlateDark)
-        Spacer(Modifier.height(4.dp))
-        Text("개인정보라 앱에 입력하지 않아요. 내보낸 PDF를 출력해서 직접 써 주세요.", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+    }
+}
+
+/**
+ * 유의사항 확인: 항목 전문을 하나씩 읽고 체크한다.
+ * 대화로 채우기는 다 체크하면 [onConfirm] 버튼이 켜지고, 칸별로 쓰기는 [onAllChecked] 로 값을 바꾼다
+ */
+@Composable
+private fun NoticeChecks(
+    items: List<String>,
+    key: String,
+    enabled: Boolean,
+    initiallyChecked: Boolean = false,
+    confirmLabel: String? = null,
+    onConfirm: () -> Unit = {},
+    onAllChecked: (Boolean) -> Unit = {},
+) {
+    val checked = remember(key, items.size) { mutableStateListOf(*Array(items.size) { initiallyChecked }) }
+    val all = checked.all { it }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.forEachIndexed { i, item ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(OnRoadShapes.Field)
+                    .background(if (checked[i]) OnRoadColors.PrimarySoft else OnRoadColors.SurfaceMuted)
+                    .clickable(enabled = enabled) {
+                        checked[i] = !checked[i]
+                        onAllChecked(checked.all { it })
+                    }
+                    .padding(start = 4.dp, end = 12.dp, top = 6.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Checkbox(
+                    checked = checked[i],
+                    onCheckedChange = { v -> checked[i] = v; onAllChecked(checked.all { it }) },
+                    enabled = enabled,
+                    colors = CheckboxDefaults.colors(checkedColor = OnRoadColors.Primary),
+                )
+                BubbleText(
+                    item,
+                    color = OnRoadColors.TextSlateDark,
+                    modifier = Modifier.weight(1f).padding(top = 12.dp),
+                    style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight),
+                )
+            }
+        }
+        if (confirmLabel != null) {
+            Text(
+                "${checked.count { it }} / ${items.size} 확인",
+                style = OnRoadType.Micro,
+                color = if (all) OnRoadColors.Primary else OnRoadColors.TextTertiary,
+            )
+            OnRoadButton(
+                confirmLabel, onConfirm, Modifier.fillMaxWidth(),
+                height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                leadingIcon = Icons.Filled.Check, enabled = enabled && all,
+            )
+        }
     }
 }
 
@@ -763,6 +852,10 @@ private fun FlowChips(options: List<String>, chosen: List<String>, enabled: Bool
 
 @Composable
 private fun NoticeCard(n: DocBubble.Ai, onClose: () -> Unit, onFix: (String) -> Unit) {
+    if (n.changes.isNotEmpty()) {
+        ProfileChangeCard(n.changes, key = "doc-notice-${n.changes.hashCode()}")
+        if (n.text.isBlank()) return
+    }
     val uri = LocalUriHandler.current
     val warn = n.problems.isNotEmpty() || n.contacts.isNotEmpty()
     Column(
@@ -774,7 +867,7 @@ private fun NoticeCard(n: DocBubble.Ai, onClose: () -> Unit, onFix: (String) -> 
             .padding(14.dp),
     ) {
         Row {
-            Text(n.text, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextSlateDark, modifier = Modifier.weight(1f))
+            BubbleText(n.text, color = OnRoadColors.TextSlateDark, modifier = Modifier.weight(1f))
             Icon(Icons.Outlined.Close, "닫기", tint = OnRoadColors.TextMuted, modifier = Modifier.size(18.dp).clickable(onClick = onClose))
         }
         n.policies.take(3).forEach { BulletText(it, OnRoadColors.Primary, style = OnRoadType.Caption2) }

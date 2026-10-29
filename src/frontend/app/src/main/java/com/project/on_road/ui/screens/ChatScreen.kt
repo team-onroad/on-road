@@ -64,7 +64,9 @@ import com.project.on_road.data.DocCandidate
 import com.project.on_road.data.HelpLine
 import com.project.on_road.data.SignalSource
 import com.project.on_road.data.UserStage
+import com.project.on_road.ui.components.BubbleText
 import com.project.on_road.ui.components.ButtonVariant
+import com.project.on_road.ui.components.ProfileChangeCard
 import com.project.on_road.ui.components.LogoSlot
 import com.project.on_road.ui.components.NumberedPoint
 import com.project.on_road.ui.components.OnRoadButton
@@ -449,9 +451,9 @@ private fun BotAvatar() {
 
 @Composable
 private fun Bubble(content: @Composable () -> Unit) {
+    // 폭은 글 길이만큼 (버튼·카드가 있으면 그것들이 최대 폭까지 넓힌다)
     Column(
         Modifier
-            .fillMaxWidth()
             .clip(OnRoadShapes.Inner)
             .background(Color.White)
             .border(1.dp, BubbleBorder, OnRoadShapes.Inner)
@@ -487,7 +489,7 @@ private fun BotMessage(
             }
             Spacer(Modifier.height(8.dp))
             Bubble {
-                Text(msg.text, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextPrimary)
+                BubbleText(msg.text, color = OnRoadColors.TextPrimary)
 
                 // 문서 AI 로 넘기기: 쓸 서류 고르기
                 if (msg.kind == ChatKind.DOCUMENT && msg.candidates.isNotEmpty()) {
@@ -549,6 +551,12 @@ private fun BotMessage(
                         trailingIcon = Icons.Filled.NorthEast,
                     )
                 }
+            }
+
+            // 대화에서 바뀐 것 같은 내 정보 → 확인 카드 (승인할 때만 반영)
+            if (msg.profileChanges.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                ProfileChangeCard(msg.profileChanges, key = "chat-${msg.id}")
             }
 
             // 상담 답변 아래 안내 (1.6)
@@ -648,7 +656,7 @@ private fun UserMessage(text: String, time: String) {
                 .border(1.dp, OnRoadColors.Primary, OnRoadShapes.Inner)
                 .padding(horizontal = 15.dp, vertical = 12.dp),
         ) {
-            Text(text, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.Primary)
+            BubbleText(text, color = OnRoadColors.Primary)
         }
     }
 }

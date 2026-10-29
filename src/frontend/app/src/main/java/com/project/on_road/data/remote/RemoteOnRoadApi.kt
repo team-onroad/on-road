@@ -11,6 +11,7 @@ import com.project.on_road.data.ChatKind
 import com.project.on_road.data.ChatMessage
 import com.project.on_road.data.ChatRole
 import com.project.on_road.data.DocCandidate
+import com.project.on_road.data.toChange
 import com.project.on_road.data.Checklist
 import com.project.on_road.data.ConditionCheck
 import com.project.on_road.data.ChecklistDoc
@@ -91,6 +92,9 @@ class RemoteOnRoadApi(
     override suspend fun updateUser(userId: String, update: UserUpdate): UserProfile = Network.call {
         val body = JsonObject().apply {
             update.status?.let { addProperty("status", it.toCode()) }
+            update.name?.let { addProperty("name", it) }
+            update.region?.let { addProperty("region", it) }
+            update.phone?.let { addProperty("phone", it) }
             when {
                 update.clearDDate -> add("d_date", JsonNull.INSTANCE) // null 을 보내야 지워진다
                 update.dDate != null -> addProperty("d_date", update.dDate.toString())
@@ -300,7 +304,7 @@ class RemoteChatApi(private val service: OnRoadService) : ChatApi {
             )
         }
 
-        return when (res.type) {
+        val reply = when (res.type) {
             "crisis" -> ChatMessage(
                 id = 0,
                 role = ChatRole.ASSISTANT,
@@ -345,6 +349,8 @@ class RemoteChatApi(private val service: OnRoadService) : ChatApi {
                 )
             }
         }
+        // 대화에서 찾은 프로필 변경 후보 → 확인 카드 (승인할 때만 반영)
+        return reply.copy(profileChanges = res.profileChanges.orEmpty().map { it.toChange() })
     }
 }
 

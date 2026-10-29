@@ -8,11 +8,20 @@ import com.google.gson.annotations.SerializedName
 
 data class DocumentCreateDto(
     @SerializedName("user_id") val userId: String,
-    @SerializedName("source_type") val sourceType: String, // "template" | "policy_form"
+    @SerializedName("source_type") val sourceType: String, // "template" | "policy_form" (upload 는 uploadDocument)
     @SerializedName("source_id") val sourceId: String? = null,
     @SerializedName("policy_id") val policyId: Long? = null,
     @SerializedName("checklist_item_id") val checklistItemId: Long? = null,
     val context: String? = null,
+)
+
+/** POST /documents/upload: 양식 사진(JPG)·PDF 를 base64 로 (서버는 저장하지 않음) */
+data class DocumentUploadDto(
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("file_base64") val fileBase64: String,
+    @SerializedName("file_name") val fileName: String? = null,
+    @SerializedName("checklist_item_id") val checklistItemId: Long? = null,
+    @SerializedName("policy_id") val policyId: Long? = null,
 )
 
 /** value 또는 segments 중 하나, 그리고/또는 isCompleted. null 은 보내지 않는다(Gson 기본) */
@@ -54,6 +63,8 @@ data class DocFieldDto(
     val required: Boolean?,
     @SerializedName("input_type") val inputType: String,
     val options: List<String>?,
+    /** 유의사항 확인 칸: 읽고 하나씩 체크할 항목 전문 */
+    val items: List<String>? = null,
     @SerializedName("value_source") val valueSource: String,
     val writable: Boolean,
     val value: String,
@@ -114,6 +125,7 @@ data class AssistResponseDto(
     val message: String?,
     val search: SearchResponseDto?,
     val contacts: List<ContactDto>,
+    @SerializedName("profile_changes") val profileChanges: List<ProfileChangeDto>? = null,
 )
 
 data class QuestionDto(
@@ -122,6 +134,8 @@ data class QuestionDto(
     val text: String,
     @SerializedName("input_type") val inputType: String,
     val options: List<String>?,
+    /** 유의사항 확인: 항목 전문 (항목마다 체크박스, 다 체크하면 "모두 확인했어요") */
+    val items: List<String>? = null,
     @SerializedName("current_value") val currentValue: String?,
     @SerializedName("awaiting_confirm") val awaitingConfirm: Boolean,
     @SerializedName("can_skip") val canSkip: Boolean,
@@ -161,4 +175,5 @@ data class InterviewResponseDto(
     val check: CheckDto?,
     val search: SearchResponseDto?,
     val contacts: List<ContactDto>,
+    @SerializedName("profile_changes") val profileChanges: List<ProfileChangeDto>? = null,
 )

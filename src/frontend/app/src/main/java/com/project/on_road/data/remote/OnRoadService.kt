@@ -3,6 +3,7 @@ package com.project.on_road.data.remote
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
+import retrofit2.http.Headers
 import retrofit2.http.Body
 import okhttp3.RequestBody
 import retrofit2.http.GET
@@ -146,6 +147,11 @@ interface OnRoadService {
     // 이미 있으면 그 문서(200), 없으면 새로 만듦(201)
     @POST("documents")
     suspend fun createWriterDocument(@Body body: DocumentCreateDto): WriterDocumentDto
+
+    /** 양식 사진·PDF → AI 가 칸을 읽어 문서 생성 (사진 읽기는 오래 걸려 타임아웃을 늘린다) */
+    @Headers("${Network.TIMEOUT_HEADER}: 120")
+    @POST("documents/upload")
+    suspend fun uploadDocument(@Body body: DocumentUploadDto): WriterDocumentDto
 
     @GET("users/{userId}/documents")
     suspend fun listDocuments(@Path("userId") userId: String): DocumentListDto
@@ -563,6 +569,18 @@ data class ChatResponseDto(
     val contacts: List<ContactDto>,
     /** type = document 일 때만: 문서 AI 로 넘길 후보 */
     val handoff: HandoffDto? = null,
+    /** 대화에서 찾은 프로필 변경 후보 (확인 카드). 승인할 때만 회원정보 수정 */
+    @SerializedName("profile_changes") val profileChanges: List<ProfileChangeDto>? = null,
+)
+
+data class ProfileChangeDto(
+    /** region / phone / status / d_date */
+    val field: String,
+    val label: String,
+    val current: String?,
+    /** PATCH /users 에 그대로 보낼 값 */
+    val proposed: String,
+    @SerializedName("proposed_label") val proposedLabel: String,
 )
 
 data class HandoffCandidateDto(
