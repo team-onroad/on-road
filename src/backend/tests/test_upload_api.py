@@ -118,3 +118,18 @@ def test_create_rejects_upload_type(api, db_session):
     user = make_user(db_session)
     res = api.post("/api/documents", json={"user_id": str(user.id), "source_type": "upload", "source_id": "x"})
     assert res.status_code == 422
+
+
+def test_date_parts_become_one_date_field(api, db_session, doc_llm, clock):
+    user = make_user(db_session)
+    doc_llm.form = {"title": "", "fields": [
+        {"label": "신청 사유", "type": "text"}, {"label": "년", "type": "text"}, {"label": "월", "type": "text"},
+        {"label": "일", "type": "text"}, {"label": "생년월일", "type": "text"},
+    ]}
+    d = _up(api, user, _png()).json()
+    fields = [(f["label"], f["input_type"]) for f in d["fields"]]
+    assert fields == [("신청 사유", "text"), ("년 월 일", "date"), ("생년월일", "date")]
+    # 신청 날짜는 오늘 날짜로 미리 채운다 (확인만 받는다)
+    got = api.get(f"/api/documents/{d['document_id']}", params={"user_id": str(user.id)}).json()
+    date_field = next(f for f in got["fields"] if f["label"] == "년 월 일")
+    assert date_field["value"] == clock.today.strftime("%Y.%m.%d") and date_field["is_completed"] is False
