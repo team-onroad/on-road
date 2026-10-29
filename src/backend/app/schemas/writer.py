@@ -14,7 +14,8 @@ VALUE_MAX = 3000
 SEGMENTS_MAX = 50
 INT_MAX = 2**63 - 1
 
-SourceType = Literal["template", "policy_form"]
+SourceType = Literal["template", "policy_form", "upload"]  # upload: 사진·PDF 로 올린 양식 (POST /documents/upload)
+CreateSourceType = Literal["template", "policy_form"]
 SegmentSource = Literal["user", "ai", "profile", "reused"]
 ValueSource = Literal["profile", "user", "handwrite", "office"]
 Action = Literal["tip", "outline", "draft", "revise"]
@@ -30,7 +31,7 @@ class DocumentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     user_id: str
-    source_type: SourceType
+    source_type: CreateSourceType
     source_id: Annotated[StrictStr, Field(min_length=1, max_length=100)] | None = None
     policy_id: Annotated[StrictInt, Field(ge=1, le=INT_MAX)] | None = None
     checklist_item_id: Annotated[StrictInt, Field(ge=1, le=INT_MAX)] | None = None
@@ -53,6 +54,21 @@ class DocumentCreate(BaseModel):
         if self.source_type == "policy_form" and self.policy_id is None:
             raise ValueError("policy_form 은 policy_id 가 필요합니다.")
         return self
+
+
+UPLOAD_B64_MAX = 14 * 1024 * 1024  # 10MB 파일의 base64
+
+
+class DocumentUpload(BaseModel):
+    """기관에서 받은 양식 사진(JPG·PNG) 또는 PDF. 파일은 base64 로 보낸다 (서버에 저장하지 않음)"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str
+    file_base64: Annotated[StrictStr, Field(min_length=1, max_length=UPLOAD_B64_MAX)]
+    file_name: Annotated[StrictStr, Field(max_length=200)] | None = None
+    checklist_item_id: Annotated[StrictInt, Field(ge=1, le=INT_MAX)] | None = None
+    policy_id: Annotated[StrictInt, Field(ge=1, le=INT_MAX)] | None = None
 
 
 class Segment(BaseModel):

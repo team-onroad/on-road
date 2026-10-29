@@ -151,7 +151,7 @@ class Document(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    source_type: Mapped[str] = mapped_column(String(20), nullable=False)  # template | policy_form
+    source_type: Mapped[str] = mapped_column(String(20), nullable=False)  # template | policy_form | upload
     source_id: Mapped[str] = mapped_column(String(100), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     policy_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("policies.id", ondelete="SET NULL"))

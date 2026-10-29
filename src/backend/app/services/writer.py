@@ -6,6 +6,8 @@
 - 프로필 값·민감 칸 값은 LLM 에 보내지 않는다 (api.md 1.6).
 """
 
+import base64
+import binascii
 import re
 from datetime import date
 from pathlib import Path
@@ -37,6 +39,7 @@ from app.schemas.writer import (
     DocumentList,
     DocumentResponse,
     DocumentSummary,
+    DocumentUpload,
     ExportResponse,
     FieldResponse,
     FieldUpdate,
@@ -49,6 +52,7 @@ from app.services.policies import VISIBLE, get_visible_policy, search
 ASSIST_MAX_CHARS = 1000
 OTHER_FIELDS_FOR_AI = 3
 NOT_CHECKED_NOTICE = "아직 사람이 원본 양식과 대조하지 않은 칸 목록이에요. 공식 양식과 함께 확인해 주세요."
+UPLOAD_NOTICE = "사진에서 AI가 읽은 칸이에요. 받은 양식과 칸이 맞는지 확인하고, 다 쓰면 표로 내보내 양식에 옮겨 적어 주세요."
 AI_NOTICE = "AI가 쓴 문장은 색으로 표시돼요. 내 상황에 맞게 고친 뒤 완료를 눌러 주세요."
 HANDWRITE_NOTICE = "주민등록번호·서명 칸은 앱에 입력하지 않아요. 출력한 양식에 직접 써 주세요."
 ACCOUNT_TIP = "통장에 적힌 계좌번호를 숫자와 -로 적어 주세요. 본인 명의 통장만 돼요. (계좌번호는 AI 에 보내지 않아요)"
@@ -178,6 +182,8 @@ def _notices(doc: Document) -> list[str]:
     notices = [AI_NOTICE]
     if doc.source_type == "policy_form" and not doc_spec_checked(doc):
         notices.insert(0, NOT_CHECKED_NOTICE)
+    if doc.source_type == "upload":
+        notices.insert(0, UPLOAD_NOTICE)
     if any(f["value_source"] == "handwrite" for f in doc.spec):
         notices.append(HANDWRITE_NOTICE)
     return notices
@@ -306,16 +312,43 @@ def create(db: Session, user: User, body: DocumentCreate) -> tuple[Document, boo
     """같은 양식은 사용자마다 하나 (get-or-create). 기존 문서면 체크리스트 항목·context 만 새 값으로 바꾼다"""
     source_id, title, fields, policy_id = _resolve_source(db, body)
     item = _checklist_item(db, user, body.checklist_item_id)
+    return _get_or_create(db, user, body.source_type, source_id, title, fields, policy_id, item, body.context)
+
+
+def upload(db: Session, user: User, body: DocumentUpload, doc_llm) -> tuple[Document, bool]:
+    """올린 양식(사진·PDF) → 문서. 같은 파일을 다시 올리면 쓰던 문서를 연다 (LLM 을 다시 부르지 않음)"""
+    from app import form_upload
+
+    item = _checklist_item(db, user, body.checklist_item_id)
+    policy_id = get_visible_policy(db, str(body.policy_id)).id if body.policy_id is not None else None
+    try:
+        data = base64.b64decode(body.file_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise form_upload.bad_file("파일을 읽지 못했어요. 다시 올려 주세요.") from None
+    source_id = form_upload.source_id(data)
     existing = db.scalars(select(Document).where(
-        Document.user_id == user.id, Document.source_type == body.source_type, Document.source_id == source_id,
+        Document.user_id == user.id, Document.source_type == "upload", Document.source_id == source_id,
+    )).one_or_none()
+    if existing is not None:
+        return _get_or_create(db, user, "upload", source_id, existing.title, existing.spec, policy_id, item, None)
+    title, fields = form_upload.read_form(data, body.file_name, doc_llm)
+    return _get_or_create(db, user, "upload", source_id, title, fields, policy_id, item, None)
+
+
+def _get_or_create(
+    db: Session, user: User, source_type: str, source_id: str, title: str, fields: list[dict],
+    policy_id: int | None, item: ChecklistItem | None, context: str | None,
+) -> tuple[Document, bool]:
+    existing = db.scalars(select(Document).where(
+        Document.user_id == user.id, Document.source_type == source_type, Document.source_id == source_id,
     )).one_or_none()
     if existing is not None:
         changed = False
         if item is not None and existing.checklist_item_id != item.id:
             existing.checklist_item_id = item.id
             changed = True
-        if body.context and existing.context != body.context:
-            existing.context = body.context
+        if context and existing.context != context:
+            existing.context = context
             changed = True
         if changed:
             db.commit()
@@ -323,8 +356,8 @@ def create(db: Session, user: User, body: DocumentCreate) -> tuple[Document, boo
         return existing, False
 
     doc = Document(
-        user_id=user.id, source_type=body.source_type, source_id=source_id, title=title, policy_id=policy_id,
-        checklist_item_id=item.id if item else None, context=body.context, spec=fields,
+        user_id=user.id, source_type=source_type, source_id=source_id, title=title, policy_id=policy_id,
+        checklist_item_id=item.id if item else None, context=context, spec=fields,
     )
     db.add(doc)
     db.flush()

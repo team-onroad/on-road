@@ -120,3 +120,19 @@ def extract_answer(message: str, field: dict) -> dict:
     if not text or (len(text.split()) >= 3) or looks_sentence(text):
         return {"answer": None}
     return {"answer": text}
+
+
+def read_form(form_text: str | None, images: list[str]) -> dict:
+    """규칙 기반 (LLM_MODE=mock): PDF 글자에서 아는 칸 이름만 찾는다. 사진은 기본 칸 몇 개를 돌려준다"""
+    known = [
+        ("성명", "text", "이름을 적어요"), ("생년월일", "date", "태어난 날을 적어요"),
+        ("연락처", "phone", "휴대폰 번호를 적어요"), ("주소", "address", "사는 곳 주소를 적어요"),
+        ("주민등록번호", "id_number", "출력 후 직접 적어요"), ("신청 사유", "text", "신청하는 까닭을 적어요"),
+        ("서명", "signature", "출력 후 직접 서명해요"), ("년 월 일", "date", "신청하는 날짜예요"),
+    ]
+    if form_text:
+        flat = form_text.replace(" ", "")
+        hits = [k for k in known if k[0].replace(" ", "") in flat]
+    else:
+        hits = [known[0], known[2], known[3], known[5]]
+    return {"title": "", "fields": [{"label": k[0], "type": k[1], "guide": k[2]} for k in hits]}
