@@ -196,27 +196,40 @@ def extract_answer(message: str, field: dict, generate: Generate | None = None) 
 
 # ---------------- 올린 양식 읽기 ----------------
 
-READ_FORM_MAX_TOKENS = 4000
-READ_FORM_TEXT_CHARS = 12000
+READ_FORM_MAX_TOKENS = 1500
+READ_FORM_TEXT_CHARS = 8000
 READ_FORM_FIELDS = 60
+
+
+def _form_generate(messages: list[dict]) -> dict:
+    from rag.openai_client import _client
+    from rag.settings import get_rag_settings
+
+    model = get_rag_settings().form_read_model  # .env 의 FORM_READ_MODEL (기본 gpt-4.1-mini)
+    for _ in range(1 + JSON_RETRIES):
+        resp = _client().with_options(timeout=60.0).chat.completions.create(
+            model=model, temperature=0, max_tokens=READ_FORM_MAX_TOKENS,
+            response_format={"type": "json_object"}, messages=messages,
+        )
+        try:
+            out = json.loads(resp.choices[0].message.content or "")
+        except json.JSONDecodeError:
+            continue
+        if isinstance(out, dict):
+            return out
+    raise DocwriterFormatError("양식 읽기 출력이 JSON 이 아닙니다.")
 
 
 def read_form(form_text: str | None, images: list[str], generate: Generate | None = None) -> dict:
     """기관에서 받은 양식 → 칸 목록. form_text(PDF 글자) 또는 images(data URL, 사진·스캔 쪽)를 받는다.
-    → {"title": str, "form_text": str, "fields": [dict]}. 칸 이름이 원문에 있는지는 백엔드가 다시 확인한다"""
+    → {"title": str, "fields": [dict]}. 양식 전체 글자를 옮겨 적게 하지 않는다 (출력 토큰·시간 절약)"""
     if form_text:
-        content: object = f"양식 글자:\n{form_text[:READ_FORM_TEXT_CHARS]}"
+        content: object = form_text[:READ_FORM_TEXT_CHARS]
     else:
-        content = [{"type": "text", "text": "이 양식 사진의 칸 목록을 만들어 줘."}] + [
-            {"type": "image_url", "image_url": {"url": url, "detail": "high"}} for url in images
-        ]
+        content = [{"type": "image_url", "image_url": {"url": url, "detail": "high"}} for url in images]
     messages = [{"role": "system", "content": READ_FORM_SYSTEM}, {"role": "user", "content": content}]
-    out = generate(messages) if generate else _openai_generate(messages, max_tokens=READ_FORM_MAX_TOKENS)
+    out = (generate or _form_generate)(messages)
     if not isinstance(out, dict):
         raise DocwriterFormatError("양식 읽기 출력 형식이 다릅니다.")
     fields = [f for f in out.get("fields") or [] if isinstance(f, dict) and _text(f.get("label"))]
-    return {
-        "title": _text(out.get("title"))[:100],
-        "form_text": form_text or _text(out.get("form_text")),
-        "fields": fields[:READ_FORM_FIELDS],
-    }
+    return {"title": _text(out.get("title"))[:100], "fields": fields[:READ_FORM_FIELDS]}
