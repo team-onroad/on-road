@@ -76,6 +76,7 @@
 | 3.31 | POST | `/documents/{document_id}/export` | 내보내기 (체크리스트 서류 항목 체크) |
 | 3.31-1 | GET | `/documents/{document_id}/file?user_id&format=pdf\|docx` | 내보낸 파일 받기 |
 | 3.32 | POST | `/documents/{document_id}/interview` | 대화로 채우기: AI 가 빈 칸을 하나씩 묻고 답을 채움, 다 채우면 바로 내보내기 |
+| 3.34 | POST | `/documents/upload` | 양식 사진·PDF 올려서 작성 시작 (AI 가 칸을 읽음) |
 
 확인 순서는 체크리스트 API 와 같다: 사용자(404 USER_NOT_FOUND) → 문서(404 DOCUMENT_NOT_FOUND, 다른 사람 문서 포함) → 칸(404 FIELD_NOT_FOUND) → 본문(422).
 
@@ -312,6 +313,31 @@ AI 가 아직 완료하지 않은 칸을 양식 순서대로 하나씩 묻고, �
 - HWP 에서 바꾼 PDF 의 `\x00`(띄어쓰기 자리)은 공백으로 본다
 
 <br/>
+
+### 3.34 `POST /documents/upload` — 올린 양식 (사진·PDF)
+
+기관에서 받은 종이 양식을 찍거나 PDF 로 올리면 AI 가 칸을 읽어 문서를 만든다. 이후는 다른 서류와 같다 (대화로 채우기·칸별로 쓰기·내보내기).
+
+요청 (JSON)
+
+| 필드 | 필수 | 설명 |
+|---|---|---|
+| user_id | O | |
+| file_base64 | O | JPG·PNG·WEBP 사진 또는 PDF (10MB 이하). HEIC 는 422 UPLOAD_INVALID |
+| file_name | X | 제목을 못 읽었을 때 제목으로 씀 (IMG_1234 같은 이름은 "올린 양식") |
+| checklist_item_id | X | 체크리스트 서류 항목. 내보내면 그 항목을 체크한다 |
+| policy_id | X | |
+
+동작
+
+- PDF 에 글자가 있으면 글자만 LLM 에 보낸다. 사진·스캔 PDF 는 쪽 이미지(최대 3쪽, 긴 변 1600px로 다시 그림 → 위치 정보 없음)를 보낸다
+- LLM 은 인쇄된 칸 이름만 읽고, 사진에 적힌 개인 정보 값은 옮기지 않는다 (프롬프트). 올린 파일은 저장하지 않는다
+- 칸 이름이 양식 글자에 없으면 버린다(지어낸 칸 방지). 접수번호·담당자 같은 기관 칸도 버린다
+- 주민등록번호·서명 → 손으로 쓰는 칸, 계좌번호 → account 칸, 성명·연락처 → 프로필로 미리 채움, 사유·계획 → 서술형
+- 같은 파일을 다시 올리면 쓰던 문서를 연다 (200, LLM 다시 안 부름). 새로 만들면 201
+- 원본 위에 채울 자리가 없어 내보내면 칸 이름·내용 표 PDF(`pdf_layout: "table"`). 받은 양식에 옮겨 적는다
+- 칸을 못 찾으면 422 FORM_UNREADABLE, LLM 오류는 503 AI_UNAVAILABLE
+- DB: `documents.source_type` 에 `upload` 추가 (alembic 0006)
 
 ## 4. 다음 단계
 

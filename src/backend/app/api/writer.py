@@ -15,6 +15,7 @@ from app.schemas.writer import (
     DocumentCreate,
     DocumentList,
     DocumentResponse,
+    DocumentUpload,
     ExportResponse,
     FieldResponse,
     FieldUpdate,
@@ -86,6 +87,33 @@ def create_document(
 )
 def list_documents(user_id: str, db: DB) -> DocumentList:
     return service.list_documents(db, get_user(db, user_id))
+
+
+@router.post(
+    "/documents/upload",
+    response_model=DocumentResponse,
+    summary="양식 사진·PDF 올려서 작성 시작",
+    description="기관에서 받은 양식을 찍어 올리면 AI 가 칸을 읽어 문서를 만든다. 같은 파일을 다시 올리면 쓰던 문서를 연다. "
+    "파일은 저장하지 않는다. 내보내면 칸 이름·내용 표(pdf_layout=table)로 나온다.",
+    responses={
+        201: {"description": "새로 생성", "model": DocumentResponse},
+        404: {"description": "USER_NOT_FOUND / POLICY_NOT_FOUND / ITEM_NOT_FOUND"},
+        422: {"description": "VALIDATION_ERROR / UPLOAD_INVALID / FORM_UNREADABLE"},
+        503: {"description": "AI_UNAVAILABLE"},
+    },
+    openapi_extra=openapi_body(DocumentUpload),
+)
+def upload_document(
+    body: Annotated[DocumentUpload, Depends(validated_body(DocumentUpload))],
+    user: BodyUser,
+    response: Response,
+    db: DB,
+    doc_llm: Annotated[DocLlm, Depends(get_doc_llm)],
+) -> DocumentResponse:
+    user = user or get_user(db, body.user_id)
+    doc, created = service.upload(db, user, body, doc_llm)
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    return service.to_response(db, doc)
 
 
 @router.get(
