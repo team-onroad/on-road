@@ -159,7 +159,6 @@ fun GrowthScreen(
                             RecordRow(
                                 "자립 기초 미션",
                                 "${BasicMissions.all.size}개 중 ${basicsDone}개 완료",
-                                tag = if (basicsDone == BasicMissions.all.size) "모두 완료" else null,
                             ) { onNavigate(Routes.BASICS) }
                         }
                         if (kidLiked.isNotEmpty()) {
@@ -219,7 +218,6 @@ private fun ApplySection(
                 RecordRow(
                     c.policyName,
                     "${c.totalSteps}단계 모두 완료" + if (c.policy.isActive) "" else " · 운영이 끝난 정책",
-                    tag = "완료",
                 ) { onOpenChecklist(c.policyId) }
             }
         }
@@ -262,7 +260,6 @@ private fun MoneySection(
                 RecordRow(
                     "한 달 ${s.income}만원 계획",
                     "${s.createdAt} · 남는 돈 ${s.remaining}만원",
-                    tag = if (s.shortageCount == 0) "균형" else "부족 ${s.shortageCount}개",
                 ) { onOpenSimulation(s.id) }
             }
         }
@@ -337,7 +334,7 @@ private fun <T> Expandable(items: List<T>, row: @Composable (T) -> Unit) {
 
 /** 기록 한 줄: 흰 카드, 아이콘 없이 제목 · 설명 · (태그) */
 @Composable
-private fun RecordRow(title: String, sub: String, tag: String? = null, onClick: () -> Unit) {
+private fun RecordRow(title: String, sub: String, onClick: () -> Unit) {
     OnRoadCard(
         Modifier.fillMaxWidth(),
         background = OnRoadColors.SurfaceSubtle,
@@ -353,10 +350,6 @@ private fun RecordRow(title: String, sub: String, tag: String? = null, onClick: 
                     Spacer(Modifier.height(2.dp))
                     Text(sub, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-            }
-            tag?.let {
-                Spacer(Modifier.width(10.dp))
-                OnRoadTag(it, style = TagStyle.Neutral)
             }
         }
     }
@@ -442,18 +435,7 @@ private fun MonthLifeRow(list: List<MonthLifeRecord>, onOpen: () -> Unit) {
 
 @Composable
 private fun PracticeGroupRow(g: PracticeGroup, onClick: () -> Unit) {
-    val diff = g.previous?.let { it.missed - g.latest.missed }
-    RecordRow(
-        g.title,
-        "빠뜨린 것 ${g.latest.missed}개",
-        tag = when {
-            diff == null -> "첫 연습"
-            diff > 0 -> "빠뜨린 것 −$diff"
-            diff < 0 -> "빠뜨린 것 +${-diff}"
-            else -> "지난번과 같음"
-        },
-        onClick = onClick,
-    )
+    RecordRow(g.title, "빠뜨린 것 ${g.latest.missed}개", onClick = onClick)
 }
 
 /** 흥미 탐색 결과와 변화 */
@@ -472,7 +454,6 @@ private fun CareerInterestCard(list: List<InterestSnapshot>, onExplore: () -> Un
             before.top.firstOrNull() == now.top.firstOrNull() -> "${dayText(now.at)} · 지난번에도 ${now.top.first().label}"
             else -> "${dayText(now.at)} · 지난번엔 ${before.top.joinToString("·") { it.label }}"
         },
-        tag = "흥미 유형",
         onClick = onExplore,
     )
 }
