@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -35,12 +36,6 @@ import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
 import kotlinx.coroutines.launch
 
-private fun RoleplayLevel.tag(): TagStyle = when (this) {
-    RoleplayLevel.EASY -> TagStyle.PrimarySoft
-    RoleplayLevel.NORMAL -> TagStyle.Slate
-    RoleplayLevel.HARD -> TagStyle.Danger
-}
-
 /* ======================= 목록 ======================= */
 
 @Composable
@@ -48,6 +43,8 @@ fun RoleplayListScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     val stage = AppState.stage
     var list by remember { mutableStateOf<List<RoleplayScenario>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    // 분야 고르기 (전체 · 생활 · 금융 · 주거 · 일 · 면접 …). 상황이 많아져서 나눠 본다
+    var category by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("전체") }
     LaunchedEffect(stage) {
         list = runCatching { AppContainer.coachApi.roleplayScenarios(stage) }
             .onFailure { error = it.userMessage("연습할 상황을 불러오지 못했어요.") }
@@ -60,52 +57,92 @@ fun RoleplayListScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
             LoadingState("연습할 상황을 불러오고 있어요")
             return@OnRoadScreen
         }
-        ScreenHeadline("AI가 상대역을 맡아요.", "실제처럼 대답해 보세요.")
+        ScreenHeadline("AI가 상대역을 맡아요.", "실제처럼 말해 보세요.")
         Spacer(Modifier.height(6.dp))
-        Text("대화가 끝나면 잘한 점과 빠뜨린 점을 정리해 드려요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+        Text("전화하듯 말로 연습하고, 끝나면 잘한 점과 빠뜨린 점을 알려 드려요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
         error?.let {
             Spacer(Modifier.height(16.dp))
             NoticeBox(it, title = "불러오지 못했어요", tone = NoticeTone.Warning)
         }
 
-        Spacer(Modifier.height(OnRoadDimens.BlockGap))
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items.forEachIndexed { i, s ->
-                OnRoadCard(
-                    Modifier.fillMaxWidth(),
-                    borderColor = if (i == 0) OnRoadColors.Primary else OnRoadColors.Border,
-                    onClick = { onOpen(s.id) },
-                    contentPadding = PaddingValues(20.dp),
-                ) {
-                    // 제목 한 줄 → 상황 한 줄 → AI 상대역 (목표는 연습 화면에서 보여 준다)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            s.title,
-                            style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold),
-                            color = if (i == 0) OnRoadColors.Primary else OnRoadColors.TextPrimary,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        OnRoadTag(s.level.label, style = s.level.tag())
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(s.setting, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.height(10.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ColorDot(OnRoadColors.Primary, 6.dp)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            "AI ${s.partner}",
-                            style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold),
-                            color = OnRoadColors.Primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
+        val categories = listOf("전체") + items.map { it.category }.distinct()
+        if (categories.size > 2) {
+            Spacer(Modifier.height(OnRoadDimens.BlockGap))
+            CategoryToggle(categories, category) { category = it }
+        }
+        Spacer(Modifier.height(if (categories.size > 2) 16.dp else OnRoadDimens.BlockGap))
+        val shown = if (category == "전체") items else items.filter { it.category == category }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            shown.forEach { s -> ScenarioRow(s) { onOpen(s.id) } }
+        }
+    }
+}
+
+/** 분야 전환: 고른 것만 메인 색 바탕 · 흰 글씨 (서류 작성 '대화로 보기'와 같은 모양) */
+@Composable
+private fun CategoryToggle(items: List<String>, selected: String, onSelect: (String) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        items.forEach { c ->
+            val on = c == selected
+            Text(
+                c,
+                style = OnRoadType.Caption.copy(fontWeight = if (on) FontWeight.Bold else FontWeight.Medium),
+                color = if (on) Color.White else OnRoadColors.TextSecondary,
+                modifier = Modifier
+                    .clip(OnRoadShapes.Chip)
+                    .background(if (on) OnRoadColors.Primary else Color.Transparent)
+                    .clickable { onSelect(c) }
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            )
+        }
+    }
+}
+
+/** 상황 한 줄: 연회색 카드, 제목 · 난이도 / 상황 / 상대 */
+@Composable
+private fun ScenarioRow(s: RoleplayScenario, onClick: () -> Unit) {
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        onClick = onClick,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                s.title,
+                style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                color = OnRoadColors.TextPrimary,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(8.dp))
+            // 연회색 카드 위라 태그는 흰 바탕. 실전(어려움)만 메인 색 바탕 · 흰 글씨로 강조
+            val hard = s.level == RoleplayLevel.HARD
+            Text(
+                s.level.label,
+                style = OnRoadType.Micro.copy(fontWeight = if (hard) FontWeight.Bold else FontWeight.Medium),
+                color = if (hard) Color.White else OnRoadColors.TextSecondary,
+                modifier = Modifier
+                    .clip(OnRoadShapes.Tag)
+                    .background(if (hard) OnRoadColors.Primary else Color.White)
+                    .border(1.dp, if (hard) OnRoadColors.Primary else OnRoadColors.BorderChip, OnRoadShapes.Tag)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(s.setting, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(8.dp))
+        // 상대: 앞에 얇은 세로 막대
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(2.dp).height(12.dp).clip(OnRoadShapes.Chip).background(OnRoadColors.Primary))
+            Spacer(Modifier.width(8.dp))
+            Text("상대 · ${s.partner}", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
