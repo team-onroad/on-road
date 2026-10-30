@@ -3,12 +3,14 @@ package com.project.on_road.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,8 +51,8 @@ private data class PracticeGroup(val scenarioId: String, val title: String, val 
 private const val PREVIEW = 3
 
 /**
- * 성장 기록 (흰 바탕, 탭 없이 한 줄로 내려 보기).
- * 자립 준비도 → 한눈에 보는 숫자 → 관심사 → 신청 · 생활비 · 연습 · 상담 · 진로 묶음.
+ * 성장 기록 (흰 바탕).
+ * 자립 준비도 → 한눈에 보는 숫자 → 관심사 → 신청 · 생활비 · 연습 · 상담 · 진로 (전환 버튼으로 하나씩).
  * 서버 기록(저장 정책·체크리스트·생활비·자립 준비도) + 휴대폰 안 기록(상담·연습·한 달 살아보기·진로)을 함께 본다.
  */
 @Composable
@@ -90,6 +92,8 @@ fun GrowthScreen(
         }
         val practiceCount = if (practiceGroups.isNotEmpty()) practiceGroups.sumOf { it.attempts.size } else record.roleplays.size
         val teen = AppState.stage == UserStage.TEEN
+        // 청소년은 '진로'부터
+        var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(if (teen) 4 else 0) }
 
         Column(
             Modifier
@@ -176,7 +180,10 @@ fun GrowthScreen(
                     }
                 },
             )
-            (if (teen) listOf(sections[4]) + sections.dropLast(1) else sections).forEach { it() }
+            // ── 묶음 전환: 서류 작성의 '대화로 보기' 버튼처럼 (고른 것만 메인 색 · 흰 글씨) ──
+            Spacer(Modifier.height(OnRoadDimens.SectionGap))
+            ToggleTabs(GROWTH_TABS, tab) { tab = it }
+            sections[tab]()
 
             Spacer(Modifier.height(40.dp))
         }
@@ -275,16 +282,39 @@ private fun MoneySection(
 
 /* ---------------------------- 조각 ---------------------------- */
 
-/** 묶음 제목 + 내용 (탭 대신 위에서 아래로) */
+private val GROWTH_TABS = listOf("신청", "생활비", "연습", "상담", "진로")
+
+/** 고른 탭 내용 (제목은 위 전환 버튼이 대신한다) */
 @Composable
-private fun Section(title: String, trailing: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    Spacer(Modifier.height(OnRoadDimens.SectionGap))
-    Row(verticalAlignment = Alignment.Bottom) {
-        Text(title, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
-        trailing?.let { Text(it, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary) }
+private fun Section(@Suppress("UNUSED_PARAMETER") title: String, trailing: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Spacer(Modifier.height(16.dp))
+    trailing?.let {
+        Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(bottom = 8.dp))
     }
-    Spacer(Modifier.height(12.dp))
     Column(content = content)
+}
+
+/** 전환 버튼 줄: 고른 것은 메인 색 바탕 · 흰 글씨, 나머지는 글씨만 (서류 작성 '대화로 보기'와 같은 모양) */
+@Composable
+private fun ToggleTabs(tabs: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        tabs.forEachIndexed { i, t ->
+            val on = i == selected
+            Text(
+                t,
+                style = OnRoadType.Caption.copy(fontWeight = if (on) FontWeight.Bold else FontWeight.Medium),
+                color = if (on) androidx.compose.ui.graphics.Color.White else OnRoadColors.TextSecondary,
+                modifier = Modifier
+                    .clip(OnRoadShapes.Chip)
+                    .background(if (on) OnRoadColors.Primary else androidx.compose.ui.graphics.Color.Transparent)
+                    .clickable { onSelect(i) }
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            )
+        }
+    }
 }
 
 @Composable
