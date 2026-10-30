@@ -116,7 +116,7 @@ private fun AreaCard(a: ReadinessArea, weakest: Boolean, onStep: (com.project.on
     }
 }
 
-/** 성장 기록 맨 위 카드 (흰 바탕): 점수 · 단계 · 영역 6개 · 가장 약한 곳 하러 가기 (메인 색 버튼) */
+/** 성장 기록 맨 위 카드 (흰 바탕): 왼쪽 원형 차트(전체 점수) · 오른쪽 영역 6개 · 아래 가장 약한 곳 버튼 */
 @Composable
 fun ReadinessSummaryCard(r: Readiness, onOpen: () -> Unit, onStep: (com.project.on_road.data.NextStep) -> Unit) {
     OnRoadCard(
@@ -130,38 +130,76 @@ fun ReadinessSummaryCard(r: Readiness, onOpen: () -> Unit, onStep: (com.project.
             Text("자립 준비도", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
             Text("자세히", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
         }
-        Spacer(Modifier.height(6.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("${r.score}", style = OnRoadType.Display.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-            Spacer(Modifier.width(3.dp))
-            Text("점", style = OnRoadType.Body2, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
-            Spacer(Modifier.width(8.dp))
-            OnRoadTag(r.level, style = TagStyle.Neutral, modifier = Modifier.padding(bottom = 5.dp))
-        }
-        Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth()) {
-            r.areas.forEach { a ->
-                val weak = a.key == r.weakest
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        "${a.score}",
-                        style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
-                        color = if (weak) OnRoadColors.TextPrimary else OnRoadColors.TextSecondary,
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(a.label, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary, textAlign = TextAlign.Center)
-                    if (weak) {
-                        Spacer(Modifier.height(4.dp))
-                        Box(Modifier.width(16.dp).height(2.dp).background(OnRoadColors.Primary))
+        Spacer(Modifier.height(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ScoreDonut(r.score, r.level, Modifier.size(124.dp))
+            Spacer(Modifier.width(20.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                r.areas.forEach { a ->
+                    val weak = a.key == r.weakest
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // 영역 점수를 작은 원 조각으로
+                        AreaPie(a.score, Modifier.size(14.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            a.label,
+                            style = OnRoadType.Caption.copy(fontWeight = if (weak) FontWeight.Bold else FontWeight.Normal),
+                            color = if (weak) OnRoadColors.TextPrimary else OnRoadColors.TextSecondary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            "${a.score}",
+                            style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                            color = if (weak) OnRoadColors.TextPrimary else OnRoadColors.TextSecondary,
+                        )
                     }
                 }
             }
         }
         r.areas.firstOrNull { it.key == r.weakest }?.nextStep?.let { s ->
-            Spacer(Modifier.height(16.dp))
-            Text("가장 약한 곳부터", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(18.dp))
             OnRoadButton(s.label, { onStep(s) }, Modifier.fillMaxWidth(), height = 44.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold))
         }
+    }
+}
+
+/** 전체 점수 원형 차트: 연회색 바퀴 위에 메인 색으로 점수만큼 */
+@Composable
+private fun ScoreDonut(score: Int, level: String, modifier: Modifier) {
+    val track = OnRoadColors.SurfaceMuted
+    val fill = OnRoadColors.Primary
+    val sweep by androidx.compose.animation.core.animateFloatAsState(
+        score.coerceIn(0, 100) * 3.6f,
+        androidx.compose.animation.core.tween(700),
+        label = "readiness-donut",
+    )
+    Box(modifier, contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val stroke = size.minDimension * 0.11f
+            val style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            val inset = stroke / 2
+            val arcSize = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke)
+            val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
+            drawArc(track, 0f, 360f, false, topLeft, arcSize, style = style)
+            if (sweep > 0f) drawArc(fill, -90f, sweep, false, topLeft, arcSize, style = style)
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text("$score", style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
+                Text("점", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 4.dp, start = 1.dp))
+            }
+            Text(level, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
+        }
+    }
+}
+
+/** 영역 점수 작은 파이: 연회색 원 위에 메인 색 조각 */
+@Composable
+private fun AreaPie(score: Int, modifier: Modifier) {
+    val track = OnRoadColors.SurfaceMuted
+    val fill = OnRoadColors.Primary
+    androidx.compose.foundation.Canvas(modifier) {
+        drawCircle(track)
+        if (score > 0) drawArc(fill, -90f, score.coerceIn(0, 100) * 3.6f, true)
     }
 }
