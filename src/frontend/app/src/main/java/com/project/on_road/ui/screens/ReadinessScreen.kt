@@ -6,6 +6,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -78,8 +79,6 @@ private fun ScoreHeader(r: Readiness) {
         Text("${r.score}", style = OnRoadType.Display.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
         Spacer(Modifier.width(4.dp))
         Text("점", style = OnRoadType.Headline, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 3.dp))
-        Spacer(Modifier.width(10.dp))
-        OnRoadTag(r.level, style = TagStyle.Neutral, modifier = Modifier.padding(bottom = 4.dp))
     }
 }
 
@@ -116,7 +115,7 @@ private fun AreaCard(a: ReadinessArea, weakest: Boolean, onStep: (com.project.on
     }
 }
 
-/** 성장 기록 맨 위 카드 (흰 바탕): 왼쪽 원형 차트(전체 점수) · 오른쪽 영역 6개 · 아래 가장 약한 곳 버튼 */
+/** 성장 기록 맨 위 카드 (흰 바탕): 점수 · 영역 6개 육각형 차트 · 가장 약한 곳 버튼 */
 @Composable
 fun ReadinessSummaryCard(r: Readiness, onOpen: () -> Unit, onStep: (com.project.on_road.data.NextStep) -> Unit) {
     OnRoadCard(
@@ -130,76 +129,105 @@ fun ReadinessSummaryCard(r: Readiness, onOpen: () -> Unit, onStep: (com.project.
             Text("자립 준비도", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
             Text("자세히", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
         }
-        Spacer(Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ScoreDonut(r.score, r.level, Modifier.size(124.dp))
-            Spacer(Modifier.width(20.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                r.areas.forEach { a ->
-                    val weak = a.key == r.weakest
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // 영역 점수를 작은 원 조각으로
-                        AreaPie(a.score, Modifier.size(14.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            a.label,
-                            style = OnRoadType.Caption.copy(fontWeight = if (weak) FontWeight.Bold else FontWeight.Normal),
-                            color = if (weak) OnRoadColors.TextPrimary else OnRoadColors.TextSecondary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            "${a.score}",
-                            style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                            color = if (weak) OnRoadColors.TextPrimary else OnRoadColors.TextSecondary,
-                        )
-                    }
-                }
-            }
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("${r.score}", style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
+            Text("점", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(start = 2.dp, bottom = 4.dp))
         }
+        Spacer(Modifier.height(8.dp))
+        ReadinessRadar(r, Modifier.fillMaxWidth().height(250.dp))
         r.areas.firstOrNull { it.key == r.weakest }?.nextStep?.let { s ->
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(12.dp))
             OnRoadButton(s.label, { onStep(s) }, Modifier.fillMaxWidth(), height = 44.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold))
         }
     }
 }
 
-/** 전체 점수 원형 차트: 연회색 바퀴 위에 메인 색으로 점수만큼 */
+/**
+ * 영역 6개 육각형(레이더) 차트.
+ * 눈금: 안쪽 촘촘한 점선 → 바깥으로 갈수록 긴 점선 → 맨 바깥 실선 (색도 바깥 80% → 안쪽 연하게).
+ * 내 점수: 포인트 색 (옅게 채움 + 선 + 꼭짓점 점).
+ */
 @Composable
-private fun ScoreDonut(score: Int, level: String, modifier: Modifier) {
-    val track = OnRoadColors.SurfaceMuted
-    val fill = OnRoadColors.Primary
-    val sweep by androidx.compose.animation.core.animateFloatAsState(
-        score.coerceIn(0, 100) * 3.6f,
-        androidx.compose.animation.core.tween(700),
-        label = "readiness-donut",
-    )
-    Box(modifier, contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-            val stroke = size.minDimension * 0.11f
-            val style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            val inset = stroke / 2
-            val arcSize = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke)
-            val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
-            drawArc(track, 0f, 360f, false, topLeft, arcSize, style = style)
-            if (sweep > 0f) drawArc(fill, -90f, sweep, false, topLeft, arcSize, style = style)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("$score", style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
-                Text("점", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 4.dp, start = 1.dp))
-            }
-            Text(level, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
-        }
-    }
-}
+private fun ReadinessRadar(r: Readiness, modifier: Modifier) {
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val ink = OnRoadColors.Primary
+    val point = OnRoadColors.Point
+    val labelStyle = OnRoadType.Caption2.copy(color = OnRoadColors.TextTertiary)
+    val weakLabelStyle = OnRoadType.Caption2.copy(color = OnRoadColors.TextPrimary, fontWeight = FontWeight.Bold)
+    val scoreStyle = OnRoadType.Caption2.copy(color = OnRoadColors.TextPrimary, fontWeight = FontWeight.Bold)
+    // 처음 열 때 가운데서 바깥으로 퍼진다
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val t by androidx.compose.animation.core.animateFloatAsState(if (shown) 1f else 0f, androidx.compose.animation.core.tween(700), label = "radar")
 
-/** 영역 점수 작은 파이: 연회색 원 위에 메인 색 조각 */
-@Composable
-private fun AreaPie(score: Int, modifier: Modifier) {
-    val track = OnRoadColors.SurfaceMuted
-    val fill = OnRoadColors.Primary
     androidx.compose.foundation.Canvas(modifier) {
-        drawCircle(track)
-        if (score > 0) drawArc(fill, -90f, score.coerceIn(0, 100) * 3.6f, true)
+        val n = r.areas.size.coerceAtLeast(3)
+        val cx = size.width / 2
+        val cy = size.height / 2
+        val radius = minOf(size.width / 2 - 56.dp.toPx(), size.height / 2 - 26.dp.toPx())  // 이름 자리만 남기고 크게
+        fun at(i: Int, ratio: Float): androidx.compose.ui.geometry.Offset {
+            val a = Math.toRadians(-90.0 + 360.0 * i / n)
+            return androidx.compose.ui.geometry.Offset(cx + (radius * ratio * Math.cos(a)).toFloat(), cy + (radius * ratio * Math.sin(a)).toFloat())
+        }
+        fun polygon(ratio: (Int) -> Float) = androidx.compose.ui.graphics.Path().apply {
+            for (i in 0 until n) {
+                val p = at(i, ratio(i))
+                if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y)
+            }
+            close()
+        }
+        val line = 1.dp.toPx()
+        // 축 (가장 연하게)
+        for (i in 0 until n) drawLine(ink.copy(alpha = 0.12f), at(i, 0f), at(i, 1f), line)
+        // 눈금 4겹
+        listOf(
+            Triple(0.25f, 0.25f, floatArrayOf(1.dp.toPx(), 2.5.dp.toPx())),
+            Triple(0.5f, 0.4f, floatArrayOf(3.dp.toPx(), 3.dp.toPx())),
+            Triple(0.75f, 0.55f, floatArrayOf(7.dp.toPx(), 3.dp.toPx())),
+            Triple(1f, 0.8f, null),
+        ).forEach { (ratio, alpha, dash) ->
+            drawPath(
+                polygon { ratio }, ink.copy(alpha = alpha),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(
+                    line,
+                    join = androidx.compose.ui.graphics.StrokeJoin.Round,
+                    pathEffect = dash?.let { androidx.compose.ui.graphics.PathEffect.dashPathEffect(it) },
+                ),
+            )
+        }
+        // 내 점수 (점수 그대로)
+        fun ratioOf(i: Int) = (r.areas.getOrNull(i)?.score ?: 0) / 100f * t
+        val shape = polygon(::ratioOf)
+        drawPath(shape, point.copy(alpha = 0.22f))
+        drawPath(shape, point, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx(), join = androidx.compose.ui.graphics.StrokeJoin.Round))
+        for (i in 0 until n) {
+            val p = at(i, ratioOf(i))
+            drawCircle(point, 3.5.dp.toPx(), p)
+        }
+        // 이름 · 점수: 한 줄 ("주거 75"), 꼭짓점 바로 바깥
+        r.areas.forEachIndexed { i, a ->
+            val weak = a.key == r.weakest
+            val name = measurer.measure(a.label, if (weak) weakLabelStyle else labelStyle)
+            val score = measurer.measure(" ${a.score}", scoreStyle)
+            val w = (name.size.width + score.size.width).toFloat()
+            val h = maxOf(name.size.height, score.size.height).toFloat()
+            val p = at(i, 1f)
+            val dx = p.x - cx
+            val dy = p.y - cy
+            val gap = 8.dp.toPx()
+            val x = when {
+                dx > 1f -> p.x + gap
+                dx < -1f -> p.x - gap - w
+                else -> p.x - w / 2
+            }
+            val y = when {
+                kotlin.math.abs(dx) < 1f && dy < 0 -> p.y - gap - h
+                kotlin.math.abs(dx) < 1f && dy > 0 -> p.y + gap
+                else -> p.y - h / 2
+            }
+            drawText(name, topLeft = androidx.compose.ui.geometry.Offset(x, y + (h - name.size.height) / 2))
+            drawText(score, topLeft = androidx.compose.ui.geometry.Offset(x + name.size.width, y + (h - score.size.height) / 2))
+        }
     }
 }
