@@ -11,7 +11,8 @@ from app.codes import NATIONWIDE
 from app import ai_content
 from app.errors import AppError
 from app.ids import parse_id
-from app.rag_client import SearchPolicies
+from app.cache import TtlCache
+from app.rag_client import SearchPolicies, get_search_policies
 from app.rules import calc_age, is_outdated, judge_eligibility
 from app.schemas.policies import (
     EasyLevelOption,
@@ -104,7 +105,22 @@ def candidate_policies(db: Session, age: int, region: str) -> list[Policy]:
     return list(db.scalars(stmt))
 
 
+# 같은 질문 · 같은 후보 정책이면 RAG 결과를 10분 동안 다시 쓴다 (RAG 는 몇 초 걸림)
+RAG_CACHE: TtlCache[RagOutput] = TtlCache("rag_search", ttl_seconds=600, max_size=256)
+
+
+def _normalize(question: str) -> str:
+    return " ".join(question.split()).lower()
+
+
 def _call_rag(rag: SearchPolicies, question: str, keys: list[str]) -> RagOutput:
+    # 실제 서버의 RAG 함수만 캐시한다 (테스트에서 바꿔 끼운 함수는 매번 부른다)
+    if rag is not get_search_policies():
+        return _call_rag_now(rag, question, keys)
+    return RAG_CACHE.get_or_set((_normalize(question), tuple(sorted(keys))), lambda: _call_rag_now(rag, question, keys))
+
+
+def _call_rag_now(rag: SearchPolicies, question: str, keys: list[str]) -> RagOutput:
     # 질문 내용은 로그에 남기지 않는다. 예외 메시지에 질문이 들어 있을 수 있어 예외 종류만 남긴다.
     try:
         raw = rag(question, keys)
