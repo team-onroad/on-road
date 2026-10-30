@@ -64,11 +64,14 @@ import com.project.on_road.data.DocCandidate
 import com.project.on_road.data.HelpLine
 import com.project.on_road.data.SignalSource
 import com.project.on_road.data.UserStage
+import com.project.on_road.data.Topic
+import com.project.on_road.data.Links
 import com.project.on_road.ui.components.BubbleText
 import com.project.on_road.ui.components.ButtonVariant
 import com.project.on_road.ui.components.ProfileChangeCard
 import com.project.on_road.ui.components.LogoSlot
 import com.project.on_road.ui.components.NumberedPoint
+import com.project.on_road.ui.components.NextStepList
 import com.project.on_road.ui.components.OnRoadButton
 import com.project.on_road.ui.components.OnRoadTag
 import com.project.on_road.ui.components.OnRoadTopBar
@@ -224,6 +227,7 @@ fun ChatScreen(
     onWriteDocument: (DocCandidate, String?) -> Unit = { _, _ -> },
     /** 성장 기록에서 고른 지난 상담 id. 있으면 그 대화를 불러와 이어서 한다 */
     chatId: Long? = null,
+    onNavigate: (String) -> Unit = {},
     vm: ChatViewModel = viewModel(),
 ) {
     LaunchedEffect(chatId) { vm.resumeOnce(chatId) }
@@ -297,6 +301,19 @@ fun ChatScreen(
                 }
             }
             if (vm.sending) item(key = "typing") { TypingBubble() }
+            // 마지막 답 아래: 이야기한 분야로 이어서 해 볼 것 (위기 상담 중에는 띄우지 않는다)
+            val lastBot = vm.messages.lastOrNull()?.takeIf { it.role != ChatRole.USER && it.kind != ChatKind.CRISIS }
+            val lastQuestion = vm.messages.lastOrNull { it.role == ChatRole.USER }?.text
+            val topic = lastQuestion?.let { Topic.classify(it).firstOrNull { t -> t != Topic.MIND } }
+            if (!vm.sending && lastBot != null && topic != null) {
+                item(key = "next-steps-${lastBot.id}") {
+                    NextStepList(
+                        Links.forTopic(topic),
+                        { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) },
+                        title = "이 이야기와 이어서 해 보기",
+                    )
+                }
+            }
             item(key = "footer") {
                 Text(
                     "AI 답변은 참고용이에요. 금액과 자격은 기관에서 확인해 주세요.",

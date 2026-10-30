@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
@@ -106,6 +107,8 @@ fun OnRoadTopBar(
     onBack: (() -> Unit)? = null,
     onClose: (() -> Unit)? = LocalGoHome.current,
     trailing: (@Composable () -> Unit)? = null,
+    /** 아래 구분선 (바로 밑에 다른 줄이 붙는 화면은 끈다) */
+    divider: Boolean = true,
 ) {
     Column(Modifier.fillMaxWidth().background(OnRoadColors.Surface)) {
         Box(
@@ -129,22 +132,35 @@ fun OnRoadTopBar(
                 color = OnRoadColors.TextPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.align(Alignment.Center).padding(horizontal = 56.dp),
+                // 오른쪽에 버튼이 두 개(끝내기 + 홈)면 제목이 겹치지 않게 더 비운다
+                modifier = Modifier.align(Alignment.Center).padding(horizontal = if (trailing != null) 104.dp else 56.dp),
             )
-            Box(Modifier.align(Alignment.CenterEnd).padding(end = 4.dp)) {
-                when {
-                    trailing != null -> trailing()
-                    onClose != null -> IconButton(onClick = onClose) {
-                        Icon(Icons.Filled.Close, contentDescription = "홈으로", tint = OnRoadColors.TextMuted)
-                    }
-                }
+            // 오른쪽: 화면 버튼(끝내기 등) + 어디서든 한 번에 홈으로
+            Row(Modifier.align(Alignment.CenterEnd).padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                trailing?.invoke()
+                if (onClose != null) HomeButton(onClose)
             }
         }
-        HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
+        if (divider) HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
     }
 }
 
 /** 상단바 + 세로 스크롤 본문 (+ 하단 고정 버튼). 대부분의 하위 화면이 이 뼈대를 쓴다. */
+/** 상단 바의 홈 버튼: 집 아이콘 + "홈" 글자 (X 아이콘은 닫기로 오해하기 쉬워 바꿈) */
+@Composable
+private fun HomeButton(onClick: () -> Unit) {
+    Column(
+        Modifier
+            .clip(OnRoadShapes.Field)
+            .clickable(onClickLabel = "홈 화면으로 가기", onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(Icons.Outlined.Home, contentDescription = null, tint = OnRoadColors.TextSecondary, modifier = Modifier.size(20.dp))
+        Text("홈", style = OnRoadType.Tiny, color = OnRoadColors.TextSecondary)
+    }
+}
+
 @Composable
 fun OnRoadScreen(
     title: String,
@@ -348,8 +364,9 @@ fun OnRoadButton(
     shape: Shape = OnRoadShapes.Field,
     enabled: Boolean = true,
     loading: Boolean = false,
+    borderColor: Color? = null,
 ) {
-    val (bg, border, fg) = when (variant) {
+    val (bg, variantBorder, fg) = when (variant) {
         ButtonVariant.Primary -> Triple(OnRoadColors.Primary, null, Color.White)
         ButtonVariant.Outline -> Triple(Color.White, OnRoadColors.BorderSlate, OnRoadColors.TextSlateDark)
         ButtonVariant.Gray -> Triple(OnRoadColors.SurfaceMuted, OnRoadColors.BorderSage.copy(alpha = 0.6f), OnRoadColors.TextSlate)
@@ -360,7 +377,7 @@ fun OnRoadButton(
             .height(height)
             .clip(shape)
             .background(if (enabled) bg else bg.copy(alpha = 0.35f))
-            .then(if (border != null) Modifier.border(1.dp, border, shape) else Modifier)
+            .then((borderColor ?: variantBorder)?.let { Modifier.border(1.dp, it, shape) } ?: Modifier)
             .clickable(enabled = active, onClick = onClick)
             .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.Center,
@@ -598,14 +615,16 @@ fun OnRoadTextField(
     minLines: Int = 1,
     suffix: String? = null,
     enabled: Boolean = true,
+    background: Color = Color.White,
+    borderColor: Color = OnRoadColors.BorderInput,
 ) {
     val shape = OnRoadShapes.Field
     Row(
         modifier
             .heightIn(min = OnRoadDimens.FieldHeight)
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, OnRoadColors.BorderInput, shape)
+            .background(background)
+            .border(1.dp, borderColor, shape)
             .padding(
                 start = 15.dp,
                 end = 12.dp,

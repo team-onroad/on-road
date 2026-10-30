@@ -23,11 +23,13 @@ object Network {
     /** 이 헤더가 있는 요청은 읽기 타임아웃을 그 초만큼 (사진 양식 읽기 등). 서버로는 보내지 않는다 */
     const val TIMEOUT_HEADER = "X-OnRoad-Timeout"
 
-    fun create(baseUrl: String): OnRoadService {
+    /** cacheDir 를 주면 서버가 Cache-Control 로 허락한 조회(상황 목록 · 기준표 · 양식 목록)를 휴대폰에 잠깐 저장해 다시 쓴다 */
+    fun create(baseUrl: String, cacheDir: java.io.File? = null): OnRoadService {
         val client = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(35, TimeUnit.SECONDS) // 검색(RAG) 권장 타임아웃 30초 + 여유
             .writeTimeout(30, TimeUnit.SECONDS)
+            .apply { cacheDir?.let { cache(okhttp3.Cache(java.io.File(it, "http"), 10L * 1024 * 1024)) } }
             .addInterceptor { chain ->
                 val seconds = chain.request().header(TIMEOUT_HEADER)?.toIntOrNull()
                 if (seconds == null) chain.proceed(chain.request())

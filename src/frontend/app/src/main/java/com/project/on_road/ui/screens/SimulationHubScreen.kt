@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.QuestionAnswer
 import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material3.Text
@@ -25,6 +26,7 @@ import java.time.temporal.ChronoUnit
 private data class SimEntry(val route: String, val icon: ImageVector, val title: String, val description: String)
 
 private val simEntries = listOf(
+    SimEntry(Routes.SIM_MONTH, Icons.Outlined.CalendarMonth, "한 달 살아보기", "4주 동안 생기는 일에 직접 대처하며 한 달을 보내 봐요"),
     SimEntry(Routes.SIM_BUDGET, Icons.Outlined.Calculate, "생활비 배분", "한 달 수입을 나눠 보고 부족한 곳을 찾아요"),
     SimEntry(Routes.SIM_HOUSING, Icons.Outlined.Apartment, "주거비 비교", "월세, 전세, 공공임대에 드는 돈을 비교해요"),
     SimEntry(Routes.SIM_SAVINGS, Icons.Outlined.Savings, "저축 목표", "매달 모으면 언제 목표에 닿는지 계산해요"),

@@ -10,7 +10,8 @@ class DdayReceiver : BroadcastReceiver() {
             context,
             intent.getIntExtra(DdayNotifier.EXTRA_ID, 0),
             intent.getStringExtra(DdayNotifier.EXTRA_TITLE) ?: "퇴소 준비 알림",
-            intent.getStringExtra(DdayNotifier.EXTRA_BODY) ?: "오늘 챙길 일이 있어요."
+            intent.getStringExtra(DdayNotifier.EXTRA_BODY) ?: "오늘 챙길 일이 있어요.",
+            "sim/timeline",
         )
     }
 }

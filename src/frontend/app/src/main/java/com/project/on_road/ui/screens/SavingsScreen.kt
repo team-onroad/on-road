@@ -42,6 +42,7 @@ class SavingsViewModel : ViewModel() {
 fun SavingsScreen(
     onBack: () -> Unit,
     onOpenPolicy: (String) -> Unit,
+    onNavigate: (String) -> Unit = {},
     vm: SavingsViewModel = viewModel(),
 ) {
     val plan = vm.plan
@@ -145,6 +146,9 @@ fun SavingsScreen(
         }
 
         Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(OnRoadDimens.SectionGap))
+        NextStepList(Links.afterSavings(), { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) })
+        Spacer(Modifier.height(24.dp))
         Footnote("이자는 계산에 넣지 않았어요.\n매칭 조건과 한도는 실제 제도에서 확인해 주세요.")
     }
 }

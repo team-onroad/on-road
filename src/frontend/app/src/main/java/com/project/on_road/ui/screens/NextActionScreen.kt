@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Explore
@@ -58,6 +59,7 @@ internal fun ActionKind.icon(): ImageVector = when (this) {
     ActionKind.PRACTICE -> Icons.Outlined.RecordVoiceOver
     ActionKind.EXPLORE_CAREER, ActionKind.ROADMAP -> Icons.Outlined.Explore
     ActionKind.BASIC_MISSION -> Icons.Outlined.School
+    ActionKind.MONTH_LIFE -> Icons.Outlined.CalendarMonth
 }
 
 internal fun ActionKind.button(): String = when (this) {
@@ -70,6 +72,7 @@ internal fun ActionKind.button(): String = when (this) {
     ActionKind.EXPLORE_CAREER -> "흥미 탐색하기"
     ActionKind.ROADMAP -> "로드맵 보기"
     ActionKind.BASIC_MISSION -> "미션 하러 가기"
+    ActionKind.MONTH_LIFE -> "한 달 살아보기"
 }
 
 /** 추천 이유 한 줄 ("왜 추천했나요?") */

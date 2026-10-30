@@ -14,7 +14,8 @@ object AppContainer {
     lateinit var session: SessionStore
         private set
 
-    private val service by lazy { Network.create(BuildConfig.BASE_URL) }
+    private var cacheDir: java.io.File? = null
+    private val service by lazy { Network.create(BuildConfig.BASE_URL, cacheDir) }
 
     val api: OnRoadApi by lazy {
         if (USE_REMOTE) RemoteOnRoadApi(service) { if (::session.isInitialized) session else null }
@@ -29,6 +30,7 @@ object AppContainer {
     val coachApi: CoachApi by lazy { if (USE_REMOTE) RemoteCoachApi(service) else FakeCoachApi() }
 
     fun init(context: Context) {
+        if (cacheDir == null) cacheDir = context.applicationContext.cacheDir
         if (!::session.isInitialized) {
             session = SessionStore(context.applicationContext)
         }

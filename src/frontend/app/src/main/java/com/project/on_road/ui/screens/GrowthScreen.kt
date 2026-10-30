@@ -84,6 +84,7 @@ fun GrowthScreen(
     val roadmap = remember(version) { ActivityStore.roadmap() }
     val basicsDone = remember(version) { ActivityStore.basicsDone().size }
     val kidLiked = remember(version) { ActivityStore.likedCounts() }
+    val months = remember(version) { ActivityStore.monthLives() }
 
     Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
         OnRoadTopBar("성장 기록", onBack)
@@ -166,7 +167,14 @@ fun GrowthScreen(
                 }
 
                 // ───── 생활비 ─────
-                1 -> if (record.simulations.isEmpty()) {
+                1 -> {
+                if (months.isNotEmpty()) {
+                    item {
+                        MonthLifeCard(months) { onNavigate(Routes.SIM_MONTH) }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+                if (record.simulations.isEmpty()) {
                     item {
                         EmptyState(
                             Icons.Outlined.Calculate, "시뮬레이션 기록이 없어요", "생활비 배분 결과를 보면 여기에 쌓여요.",
@@ -193,6 +201,8 @@ fun GrowthScreen(
                         }
                     }
                     items(record.simulations, key = { it.id }) { s -> SimulationHistoryCard(s) { onOpenSimulation(s.id) } }
+                }
+
                 }
 
                 // ───── 연습 ─────
@@ -319,6 +329,48 @@ private fun InterestCard(topics: List<TopicStat>) {
 }
 
 /** 같은 상황 연습 묶음: 최근 결과 + 지난번 대비 */
+/** 한 달 살아보기 기록: 최근 결과와 지난번 비교 */
+@Composable
+private fun MonthLifeCard(list: List<MonthLifeRecord>, onOpen: () -> Unit) {
+    val now = list.first()
+    val before = list.getOrNull(1)
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        borderColor = OnRoadColors.BorderChip,
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 16.dp),
+        onClick = onOpen,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("한 달 살아보기", style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+            OnRoadTag("${list.size}번", style = TagStyle.Neutral)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            when {
+                now.shortage > 0 -> "지난 한 달: ${now.shortage}만원 모자람"
+                now.usedEmergency > 0 -> "지난 한 달: 비상금 ${now.usedEmergency}만원 사용"
+                else -> "지난 한 달: ${now.left}만원 남김"
+            } + " · 아쉬운 선택 ${now.bad}개",
+            style = OnRoadType.Caption,
+            color = OnRoadColors.TextSecondary,
+        )
+        before?.let { b ->
+            val diff = (now.left - now.shortage) - (b.left - b.shortage)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                when {
+                    diff > 0 -> "지난번보다 ${diff}만원 더 남겼어요"
+                    diff < 0 -> "지난번보다 ${-diff}만원 덜 남았어요"
+                    else -> "지난번과 남은 돈이 같아요"
+                },
+                style = OnRoadType.Caption2,
+                color = OnRoadColors.TextTertiary,
+            )
+        }
+    }
+}
+
 @Composable
 private fun PracticeGroupRow(g: PracticeGroup, onClick: () -> Unit) {
     val prev = g.previous

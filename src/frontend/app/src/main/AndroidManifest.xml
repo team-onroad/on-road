@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 휴대폰을 다시 켜면 알림 예약을 되살린다 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- 통화형 상황 연습: 앱 안에서 음성 인식 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- 음성 인식·읽어 주기 서비스 조회 (Android 11+) -->
     <queries>
 
@@ -9,6 +13,9 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE"/>
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
     <application
@@ -27,6 +34,13 @@
             </intent-filter>
         </activity>
         <receiver android:name=".notification.DdayReceiver" android:exported="false"/>
+        <receiver android:name=".notification.DailyReminderReceiver" android:exported="false"/>
+        <receiver android:name=".notification.BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+        </receiver>
         <!-- 문서 AI 로 내보낸 PDF 를 PDF 보기 앱·공유로 넘길 때 -->
         <provider
             android:name="androidx.core.content.FileProvider"

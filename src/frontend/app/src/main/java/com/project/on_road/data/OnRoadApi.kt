@@ -89,6 +89,12 @@ interface OnRoadApi {
     // ───── 성장 기록 (3.13) ─────
 
     suspend fun getGrowth(userId: String): GrowthRecord
+
+    /** 활동 기록 (practice · month_life) → 서버 자립 준비도. 서버가 없으면 아무것도 안 함 */
+    suspend fun logActivity(userId: String, kind: String, ref: String?, data: Map<String, Any?>) {}
+
+    /** 자립 준비도. 서버가 없으면 null */
+    suspend fun getReadiness(userId: String): Readiness? = null
 }
 
 /**
@@ -213,6 +219,57 @@ internal object NextActionRules {
                 reason = "지난번에 ${last.missed}개를 빠뜨렸어요",
                 scenarioId = last.scenarioId,
             )
+        }
+
+        // 6-1) 한 달 살아보기: 안 해 봤으면 권하고, 해 봤으면 아쉬웠던 것과 이어지는 일
+        val month = ActivityStore.monthLives().firstOrNull()
+        if (month == null) {
+            actions += NextAction(
+                ActionKind.MONTH_LIFE,
+                "혼자 사는 한 달 미리 살아보기",
+                "매주 생기는 일에 대처하며 생활비를 버텨 봐요.",
+                priority = 4,
+                reason = "아직 한 달 살아보기를 하지 않았어요",
+            )
+        } else {
+            if ("smishing" in month.badEvents && practices.none { it.scenarioId == "scam-call" && it.at > month.at }) {
+                actions += NextAction(
+                    ActionKind.PRACTICE,
+                    "수상한 전화 대처 연습하기",
+                    "사기 전화·문자에 속지 않는 법을 연습해요.",
+                    priority = 3,
+                    reason = "한 달 살아보기에서 사기 문자 링크를 눌렀어요",
+                    scenarioId = "scam-call",
+                )
+            }
+            if (month.shortage > 0 || month.usedEmergency > 0) {
+                actions += NextAction(
+                    ActionKind.SEARCH_TOPIC,
+                    "긴급 생활비 지원 알아보기",
+                    "돈이 모자랄 때 받을 수 있는 지원을 찾아요.",
+                    priority = 3,
+                    reason = if (month.shortage > 0) "한 달 살아보기에서 ${month.shortage}만원이 모자랐어요"
+                    else "한 달 살아보기에서 비상금 ${month.usedEmergency}만원을 썼어요",
+                    query = "긴급복지지원 생활비 자립준비청년",
+                )
+            }
+        }
+
+        // 6-2) 내보낸 서류: 내러 가기 전에 그 기관 상황을 연습 (2주 안, 아직 연습 안 했으면)
+        val twoWeeks = System.currentTimeMillis() - 14L * 24 * 60 * 60 * 1000
+        ActivityStore.exportedDocs().firstOrNull { it.at > twoWeeks }?.let { doc ->
+            Links.practiceForDoc(doc.title)?.let { (id, name) ->
+                if (practices.none { it.scenarioId == id && it.at > doc.at }) {
+                    actions += NextAction(
+                        ActionKind.PRACTICE,
+                        "내러 가기 전에 ‘$name’ 연습하기",
+                        "서류를 낼 때 할 말을 미리 연습해요.",
+                        priority = 2,
+                        reason = "‘${doc.title}’를 만들었어요",
+                        scenarioId = id,
+                    )
+                }
+            }
         }
 
         // 7) 진로

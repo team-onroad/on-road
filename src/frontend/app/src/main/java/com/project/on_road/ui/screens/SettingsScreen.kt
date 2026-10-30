@@ -51,6 +51,29 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
     var deleting by remember { mutableStateOf<SavedAccount?>(null) }
     var accountList by remember { mutableStateOf(AppContainer.session.accounts) }
     var switchingId by remember { mutableStateOf<String?>(null) }
+    // 알림: 하나로 켜고 끈다 (D-day + 매일 저녁 '오늘 챙길 것')
+    var notifyOn by remember { mutableStateOf(AppContainer.session.ddayAlarm) }
+    val notifyPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            com.project.on_road.notification.Notifications.setEnabled(context, true)
+            notifyOn = true
+        } else {
+            Toast.makeText(context, "알림을 받으려면 휴대폰 설정에서 알림을 허용해 주세요.", Toast.LENGTH_LONG).show()
+        }
+    }
+    fun setNotify(on: Boolean) {
+        val needs = on && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (needs) {
+            notifyPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        com.project.on_road.notification.Notifications.setEnabled(context, on)
+        notifyOn = on
+    }
     val clipboard = LocalClipboardManager.current
 
     /** 다른 계정으로 바꾸기 (온보딩 없이) */
@@ -77,9 +100,8 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
                 .onSuccess {
                     AppContainer.applyProfile(it)
                     status = it.status
-                    // 퇴소일 기준 알림은 더 이상 맞지 않으니 끈다 (퇴소 후엔 목표 D-day 를 따로 쓴다)
-                    com.project.on_road.notification.DdayNotifier.cancel(context)
-                    AppContainer.session.ddayAlarm = false
+                    // 퇴소일 기준 알림은 더 이상 맞지 않으니 끈다 (매일 저녁 알림은 그대로)
+                    com.project.on_road.notification.Notifications.applyAll(context)
                     Toast.makeText(context, "퇴소 후 상태로 바꿨어요. 이제 '목표 D-day'에서 목표일을 정할 수 있어요.", Toast.LENGTH_LONG).show()
                 }
                 .onFailure {
@@ -129,6 +151,29 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
                 Toast.makeText(context, "아이디를 복사했어요. 다른 휴대폰의 '이미 사용 중이에요'에 붙여 넣으세요.", Toast.LENGTH_LONG).show()
             }
         }
+
+        Spacer(Modifier.height(OnRoadDimens.SectionGap))
+        SectionHeader("알림")
+        Spacer(Modifier.height(16.dp))
+        SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 15.dp, end = 6.dp, top = 12.dp, bottom = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("알림 받기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                    Text(
+                        "퇴소 D-day 할 일, 쓰다 만 서류, 다시 해 볼 연습을 알려 드려요",
+                        style = OnRoadType.Tiny,
+                        color = OnRoadColors.TextTertiary,
+                    )
+                }
+                OnRoadSwitch(checked = notifyOn, onCheckedChange = { setNotify(it) })
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "D-day 알림은 할 일 날짜 아침 9시, 오늘 챙길 것은 저녁 7시 반에 하루 한 번만 와요. 알림을 누르면 그 화면으로 바로 가요.",
+            style = OnRoadType.Tiny,
+            color = OnRoadColors.TextQuaternary,
+        )
 
         Spacer(Modifier.height(OnRoadDimens.SectionGap))
         SectionHeader("음성")

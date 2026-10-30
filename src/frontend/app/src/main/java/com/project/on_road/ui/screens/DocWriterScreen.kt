@@ -18,6 +18,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Close
@@ -38,10 +40,15 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.AppState
+import com.project.on_road.data.ActivityStore
+import com.project.on_road.data.Links
+import com.project.on_road.data.NextStep
 import com.project.on_road.data.remote.*
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
@@ -323,7 +330,11 @@ class DocWriterViewModel : ViewModel() {
         appContext = context.applicationContext
     }
 
+    /** 내보낸 뒤 이어서 해 볼 것 (제출할 곳 연습 · 챙길 것 묻기) */
+    fun nextSteps(): List<NextStep> = doc?.title?.let(Links::afterDocExport).orEmpty()
+
     private fun onExported(r: ExportDto) {
+        if (exported == null) ActivityStore.logDocExported(r.document.title)
         exported = r
         doc = r.document
         val ctx = appContext ?: return
@@ -370,17 +381,24 @@ fun DocWriterScreen(
     checklistItemId: Long? = null,
     context: String? = null,
     onBack: () -> Unit,
+    onNavigate: (String) -> Unit = {},
     vm: DocWriterViewModel = viewModel(),
 ) {
+    val onStep: (NextStep) -> Unit = { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) }
     val ctx = LocalContext.current
     LaunchedEffect(Unit) {
         vm.attach(ctx)
         vm.start(documentId, policyId, templateId, checklistItemId, context)
     }
     val d = vm.doc
+    // 남은 칸·마지막으로 연 때를 휴대폰에 남긴다 → 이틀 넘게 안 열면 '쓰다 만 서류' 알림
+    LaunchedEffect(d?.documentId, d?.progress?.completed, d?.status) {
+        d?.let { ActivityStore.logDocProgress(it.documentId, it.title, it.progress.total - it.progress.completed, it.status == "exported") }
+    }
 
     Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
-        OnRoadTopBar(d?.title ?: "서류 작성", onBack)
+        // 제목 바 아래 구분선은 없애고, 바로 밑 줄(칸 수 · 전환 버튼)과 이어지게
+        OnRoadTopBar(d?.title ?: "서류 작성", onBack, divider = d == null)
         when {
             vm.loading -> LoadingState("서류를 준비하고 있어요")
             d == null -> Column(Modifier.padding(OnRoadDimens.ScreenPadding)) {
@@ -388,9 +406,12 @@ fun DocWriterScreen(
             }
             else -> {
                 Header(d, vm)
-                when (vm.mode) {
-                    WriteMode.TALK -> TalkPane(vm, Modifier.weight(1f))
-                    WriteMode.FIELDS -> FieldsPane(vm, Modifier.weight(1f))
+                // 대화로 보기 ↔ 칸별로 보기: 부드럽게 겹쳐 바꾼다
+                androidx.compose.animation.Crossfade(vm.mode, Modifier.weight(1f), animationSpec = androidx.compose.animation.core.tween(220), label = "doc-mode") { m ->
+                    when (m) {
+                        WriteMode.TALK -> TalkPane(vm, Modifier.fillMaxSize(), onStep)
+                        WriteMode.FIELDS -> FieldsPane(vm, Modifier.fillMaxSize(), onStep)
+                    }
                 }
             }
         }
@@ -401,33 +422,47 @@ fun DocWriterScreen(
 
 @Composable
 private fun Header(d: WriterDocumentDto, vm: DocWriterViewModel) {
-    Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding).padding(top = 16.dp, bottom = 12.dp)) {
-        Row(verticalAlignment = Alignment.Bottom) {
+    // 왼쪽: 작성한 칸 수 / 오른쪽: 대화로 보기 ↔ 칸별로 보기
+    Column {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = OnRoadDimens.ScreenPadding).padding(bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                if (d.status == "exported") "내보낸 서류" else "작성한 칸",
-                style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
-                color = OnRoadColors.TextSlateMid,
+                if (d.status == "exported") "내보낸 서류 · ${d.progress.completed}/${d.progress.total}칸"
+                else "${d.progress.completed}/${d.progress.total}칸 작성",
+                style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                color = OnRoadColors.TextSecondary,
                 modifier = Modifier.weight(1f),
             )
-            Text("${d.progress.completed}", style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-            Text("/${d.progress.total}칸", style = OnRoadType.Tiny, color = OnRoadColors.TextSlateMid, modifier = Modifier.padding(bottom = 3.dp))
+            val toFields = vm.mode == WriteMode.TALK
+            Text(
+                if (toFields) "칸별로 보기" else "대화로 보기",
+                style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold),
+                color = Color.White,
+                modifier = Modifier
+                    .clip(OnRoadShapes.Chip)
+                    .background(OnRoadColors.Primary)
+                    .clickable { vm.switchMode(if (toFields) WriteMode.FIELDS else WriteMode.TALK) }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
         }
-        Spacer(Modifier.height(8.dp))
-        ProgressBar(d.progress.ratio)
-        Spacer(Modifier.height(14.dp))
-        SegmentedTabs(
-            options = listOf("대화로 채우기", "칸별로 쓰기"),
-            selected = vm.mode.ordinal,
-            onSelect = { vm.switchMode(WriteMode.entries[it]) },
-        )
+        // 검사·내보내기·저장 안내(고칠 칸 등)는 칸 수 바로 아래에
+        if (vm.mode == WriteMode.FIELDS) {
+            vm.notice?.let { n ->
+                Box(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding).padding(bottom = 10.dp)) {
+                    NoticeCard(n, onClose = vm::dismissNotice, onFix = vm::select)
+                }
+            }
+        }
+        HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
     }
-    HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
 }
 
 /* ---------------------------- 대화로 채우기 ---------------------------- */
 
 @Composable
-private fun TalkPane(vm: DocWriterViewModel, modifier: Modifier) {
+private fun TalkPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (NextStep) -> Unit = {}) {
     val list = rememberLazyListState()
     val context = LocalContext.current
     LaunchedEffect(vm.bubbles.size, vm.busy) {
@@ -454,6 +489,10 @@ private fun TalkPane(vm: DocWriterViewModel, modifier: Modifier) {
                     )
                 }
             }
+            // 서류를 다 만들면: 내러 가기 전에 해 볼 것
+            if (vm.doc?.status == "exported" && vm.bubbles.any { it is DocBubble.Ai && it.exported }) {
+                item(key = "next-steps") { NextStepList(vm.nextSteps(), onStep) }
+            }
             if (vm.busy) item(key = "typing") { TypingLine() }
         }
         val replies = vm.quickReplies()
@@ -468,7 +507,6 @@ private fun TalkPane(vm: DocWriterViewModel, modifier: Modifier) {
                 replies.forEach { r -> ChoiceChip(r, selected = false) { vm.send(r) } }
             }
         }
-        HorizontalDivider(thickness = 1.dp, color = OnRoadColors.BorderInput)
         PromptBar(
             value = vm.input,
             onValueChange = { vm.input = it },
@@ -490,23 +528,19 @@ private fun AiBubble(
     onConfirmAll: () -> Unit = {},
 ) {
     if (b.text.isBlank() && b.changes.isNotEmpty()) {
-        ProfileChangeCard(b.changes, key = "doc-${b.id}", modifier = Modifier.padding(start = 38.dp))
+        ProfileChangeCard(b.changes, key = "doc-${b.id}")
         return
     }
     val uri = LocalUriHandler.current
-    Row(Modifier.fillMaxWidth()) {
-        Box(
-            Modifier.size(28.dp).clip(OnRoadShapes.Field).background(OnRoadColors.SurfaceMuted).border(1.dp, BubbleLine, OnRoadShapes.Field),
-            contentAlignment = Alignment.Center,
-        ) { LogoSlot(size = 20.dp) }
-        Spacer(Modifier.width(10.dp))
-        // 폭은 글 길이만큼 (체크 목록·버튼이 있으면 최대 폭까지)
+    // 서류 완성 안내는 말풍선이 아니라 양쪽 여백이 같은 전체 폭 카드로
+    Row(Modifier.fillMaxWidth().padding(end = if (b.exported) 0.dp else 32.dp)) {
+        // 폭은 글 길이만큼 (체크 목록·버튼이 있으면 최대 폭까지). 연회색 말풍선, 아이콘 없음
         Column(
             Modifier
-                .weight(1f, fill = false)
+                .weight(1f, fill = b.exported)
                 .clip(OnRoadShapes.Inner)
-                .background(Color.White)
-                .border(1.dp, BubbleLine, OnRoadShapes.Inner)
+                .background(OnRoadColors.SurfaceSubtle)
+                .border(1.dp, OnRoadColors.Border.copy(alpha = 0.7f), OnRoadShapes.Inner)
                 .padding(14.dp),
         ) {
             if (b.text.isNotBlank()) {
@@ -522,7 +556,7 @@ private fun AiBubble(
             }
             b.contacts.forEach { c ->
                 Spacer(Modifier.height(8.dp))
-                SmallBoxButton("${c.name} ${c.phone}", { runCatching { uri.openUri("tel:${c.phone}") } }, leadingIcon = Icons.Outlined.Call)
+                SmallBoxButton("${c.name} ${c.phone}", { runCatching { uri.openUri("tel:${c.phone}") } })
             }
             b.problems.forEach { p ->
                 Spacer(Modifier.height(8.dp))
@@ -534,7 +568,7 @@ private fun AiBubble(
                         Text(p.label, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Danger)
                         Text(p.message, style = OnRoadType.Micro, color = OnRoadColors.TextSlateDark)
                     }
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, "고치기", tint = OnRoadColors.Danger, modifier = Modifier.size(16.dp))
+                    Text("고치기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Danger)
                 }
             }
             if (b.exported) {
@@ -542,7 +576,7 @@ private fun AiBubble(
                 OnRoadButton(
                     if (pdfReady) "PDF 열기" else "PDF 받는 중…", onOpenPdf, Modifier.fillMaxWidth(),
                     height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                    leadingIcon = Icons.Outlined.Description, enabled = pdfReady,
+                    enabled = pdfReady,
                 )
             }
         }
@@ -565,46 +599,29 @@ private fun MyBubble(text: String) {
 
 @Composable
 private fun TypingLine() {
-    Text("적고 있어요…", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(start = 38.dp))
+    Text("적고 있어요…", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
 }
 
 /* ---------------------------- 칸별로 쓰기 ---------------------------- */
 
 @Composable
-private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier) {
+private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (NextStep) -> Unit = {}) {
     val d = vm.doc ?: return
     val context = LocalContext.current
-    val list = rememberLazyListState()
-    val selected = vm.field(vm.selectedId)
     // 양식 순서대로: 앱에서 쓰는 칸 + 출력 후 손으로 쓰는 칸 (공무원 기재란은 뺀다)
     val shown = d.fields.filter { it.writable || it.valueSource == "handwrite" }
+    // 칸별로 보기로 넘어오면 처음부터 굴러 내려가지 않고, 고른 칸에서 바로 시작한다 (0번은 안내 묶음)
+    val start = shown.indexOfFirst { it.fieldId == vm.selectedId }.takeIf { it >= 0 }?.plus(1) ?: 0
+    val list = rememberLazyListState(initialFirstVisibleItemIndex = start)
+    var first by remember { mutableStateOf(true) }
 
+    // 그 뒤에 다른 칸을 고르면(완료 → 다음 칸 등) 그때만 부드럽게 옮긴다
     LaunchedEffect(vm.selectedId) {
+        if (first) { first = false; return@LaunchedEffect }
         val i = shown.indexOfFirst { it.fieldId == vm.selectedId }
-        if (i >= 0) list.animateScrollToItem(i + 1) // 0번은 안내 묶음
+        if (i >= 0) list.animateScrollToItem(i + 1)
     }
     Column(modifier) {
-        // 상단 AI 프롬프트: 고른 칸에 바로 채운다
-        if (selected != null && d.status != "exported") {
-            Column(Modifier.background(OnRoadColors.SurfaceCool).padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.AutoAwesome, null, tint = OnRoadColors.Primary, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("AI가 「${selected.name}」 칸에 써 드려요", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.Primary)
-                }
-                Spacer(Modifier.height(6.dp))
-                PromptBar(
-                    value = vm.prompt,
-                    onValueChange = { vm.prompt = it },
-                    placeholder = if (selected.essay) "예) 등록금이 부담된다는 내용으로 써 줘" else "예) 여기엔 뭘 써야 돼?",
-                    enabled = !vm.busy && selected.writable && !selected.isCompleted,
-                    onSend = vm::ask,
-                    onVoice = { vm.prompt = (vm.prompt + " " + it).trim() },
-                    padded = false,
-                )
-            }
-            HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
-        }
         LazyColumn(
             state = list,
             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -613,8 +630,6 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier) {
         ) {
             item(key = "notices") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    vm.notice?.let { n -> NoticeCard(n, onClose = vm::dismissNotice, onFix = vm::select) }
-                    d.notices.forEach { NoticeBox(it) }
                 }
             }
             items(shown, key = { it.fieldId }) { f ->
@@ -630,7 +645,19 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier) {
                     onComplete = { vm.complete(f) },
                     onReopen = { vm.reopen(f) },
                     onUndo = { vm.undo(f) },
+                    // 고른 칸 안에서 AI 에게 부탁 (위쪽 띠 대신)
+                    prompt = vm.prompt,
+                    onPromptChange = { vm.prompt = it },
+                    onAsk = vm::ask,
                 )
+            }
+            if (d.status == "exported") {
+                item(key = "next-steps") {
+                    Column {
+                        Spacer(Modifier.height(16.dp))
+                        NextStepList(vm.nextSteps(), onStep)
+                    }
+                }
             }
         }
         HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
@@ -640,19 +667,23 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier) {
                     if (vm.pdf != null) "PDF 열기" else "PDF 받기",
                     { openPdf(context, vm.pdf) ?: vm.redownload() },
                     Modifier.fillMaxWidth(),
-                    leadingIcon = Icons.Outlined.Description,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text("칸을 다시 고치면 체크리스트 체크가 풀려요.", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
             } else {
-                OnRoadButton("검사하고 내보내기", vm::export, Modifier.fillMaxWidth(), loading = vm.busy)
+                // 다 채우기 전엔 테두리 버튼 (고른 칸의 "완료"와 시선이 갈리지 않게), 다 채우면 진한 버튼
+                val ready = d.progress.total > 0 && d.progress.completed >= d.progress.total
+                OnRoadButton(
+                    "검사하고 내보내기", vm::export, Modifier.fillMaxWidth(), loading = vm.busy,
+                    variant = if (ready) ButtonVariant.Primary else ButtonVariant.Outline,
+                )
 
             }
         }
     }
 }
 
-/** 칸 카드: 고른 칸은 진한 테두리, 완료한 칸은 회색 바탕 */
+/** 칸 카드: 기본은 연회색, 고른 칸은 흰 바탕 + 메인 색 테두리. 태그는 모두 같은 모양(Neutral) */
 @Composable
 private fun FieldCard(
     f: DocFieldDto,
@@ -666,44 +697,90 @@ private fun FieldCard(
     onComplete: () -> Unit,
     onReopen: () -> Unit,
     onUndo: () -> Unit,
+    prompt: String = "",
+    onPromptChange: (String) -> Unit = {},
+    onAsk: () -> Unit = {},
 ) {
     val done = f.isCompleted
+    // 3. 완료한 칸 (고르지 않았을 때): 한 줄 카드. 항목명은 왼쪽, 값은 오른쪽 끝.
+    //    신청 사유처럼 긴 값은 "펼치기"로 아래에 전부 보여 준다. 카드를 누르면 고치기
+    if (done && !selected) {
+        var expanded by remember(f.fieldId) { mutableStateOf(false) }
+        val long = text.length > 18 || '\n' in text
+        SubtleCard(Modifier.fillMaxWidth(), onClick = onSelect, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
+            // 항목명은 왼쪽, 항목값은 카드 오른쪽 끝에 붙인다
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    f.name,
+                    style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                    color = OnRoadColors.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.width(16.dp))
+                Text(
+                    if (expanded) "" else text.ifBlank { "비워 둠" },
+                    style = OnRoadType.Caption,
+                    color = if (text.isBlank()) OnRoadColors.TextQuaternary else OnRoadColors.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1f),
+                )
+                if (long) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (expanded) "접기" else "펼치기",
+                        style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                        color = OnRoadColors.TextTertiary,
+                        modifier = Modifier.clip(OnRoadShapes.Field).clickable { expanded = !expanded }.padding(horizontal = 4.dp),
+                    )
+                }
+            }
+            // 펼치면 긴 값을 아래에 전부
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+                Text(text, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextSecondary)
+            }
+        }
+        return
+    }
     OnRoadCard(
         Modifier.fillMaxWidth(),
-        background = if (done) OnRoadColors.SurfaceFile else OnRoadColors.Surface,
-        borderColor = if (selected) OnRoadColors.Primary else OnRoadColors.BorderSage.copy(alpha = 0.7f),
-        borderWidth = if (selected) 2.dp else 1.dp,
-        shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        background = if (selected) OnRoadColors.Surface else OnRoadColors.SurfaceSubtle,
+        borderColor = if (selected) OnRoadColors.Primary else OnRoadColors.Border.copy(alpha = 0.7f),
+        borderWidth = if (selected) 1.5.dp else 1.dp,
+        shape = OnRoadShapes.Inner,
+        contentPadding = PaddingValues(16.dp),
         onClick = onSelect,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(f.name, style = OnRoadType.Body1.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                    Text(f.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                     if (f.required == true && !done) {
                         Spacer(Modifier.width(6.dp))
-                        Text("필수", style = OnRoadType.Tiny, color = OnRoadColors.Required)
+                        OnRoadTag("필수", style = TagStyle.Neutral, textStyle = OnRoadType.Tiny)
                     }
                 }
                 if (f.easyLabel != null && f.easyLabel != f.label) {
-                    Text("양식: ${f.label}", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+                    Text("양식: ${f.label}", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
                 }
             }
-            if (done) OnRoadTag("완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
-            else SpeakButton("${f.name}. ${f.guide}", modifier = Modifier.size(28.dp))
+            if (done) OnRoadTag("완료", style = TagStyle.Neutral)
+            else if (selected) SpeakButton("${f.name}. ${f.guide}", modifier = Modifier.size(28.dp))
         }
         // 칸별 안내: 쓰는 법 · 예시 · 주의 (완료한 칸은 고를 때만)
         if (!done || selected) {
             Spacer(Modifier.height(6.dp))
-            Text(f.guide, style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight), color = OnRoadColors.TextSlateDark)
+            Text(f.guide, style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight), color = OnRoadColors.TextSecondary)
             f.example?.let {
                 Spacer(Modifier.height(2.dp))
-                Text("예) $it", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+                Text("예) $it", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
             }
             f.outline?.takeIf { it.isNotEmpty() && f.essay }?.let {
                 Spacer(Modifier.height(2.dp))
-                Text("순서: ${it.joinToString(" → ")}", style = OnRoadType.Micro, color = OnRoadColors.Primary)
+                Text("순서: ${it.joinToString(" → ")}", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
             }
             f.caution?.let {
                 Spacer(Modifier.height(8.dp))
@@ -712,7 +789,7 @@ private fun FieldCard(
         }
         f.reusedFrom?.let {
             Spacer(Modifier.height(4.dp))
-            Text("'$it'에서 가져왔어요", style = OnRoadType.Micro, color = OnRoadColors.Primary)
+            Text("'$it'에서 가져왔어요", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
         }
 
         Spacer(Modifier.height(10.dp))
@@ -732,14 +809,34 @@ private fun FieldCard(
             else -> OnRoadTextField(
                 value = text,
                 onValueChange = onEdit,
-                placeholder = if (f.essay) "직접 쓰거나 위 AI 칸에 내용을 말해 주세요" else "",
+                placeholder = when {
+                    f.essay -> "직접 쓰거나 위 AI 칸에 내용을 말해 주세요"
+                    f.inputType == "date" -> "예) 2026.10.29"
+                    f.inputType == "phone" -> "예) 010-1234-5678"
+                    else -> f.example?.let { "예) $it" } ?: ""
+                },
                 singleLine = !(f.multiline || f.essay),
                 minLines = if (f.multiline || f.essay) 4 else 1,
                 enabled = !done && !locked,
+                background = OnRoadColors.SurfaceSubtle,
+                borderColor = OnRoadColors.BorderChip,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
 
+        // 2. 고른 칸 안의 AI 부탁 입력줄
+        if (selected && !done && !locked) {
+            Spacer(Modifier.height(10.dp))
+            PromptBar(
+                value = prompt,
+                onValueChange = onPromptChange,
+                placeholder = if (f.essay) "AI에게 부탁하기 (예: 등록금 이야기로 써 줘)" else "AI에게 물어보기 (예: 여기엔 뭘 써?)",
+                enabled = !busy,
+                onSend = onAsk,
+                onVoice = { onPromptChange((prompt + " " + it).trim()) },
+                padded = false,
+            )
+        }
         f.tip?.takeIf { selected && !done }?.let {
             Spacer(Modifier.height(10.dp))
             NoticeBox(it, title = "AI 안내")
@@ -752,14 +849,16 @@ private fun FieldCard(
         if (selected && (!locked || done)) {
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (f.canUndo && !done) SmallBoxButton("되돌리기", onUndo, leadingIcon = Icons.AutoMirrored.Outlined.Undo)
+                if (f.canUndo && !done) {
+                    OnRoadButton("되돌리기", onUndo, height = 36.dp, variant = ButtonVariant.Outline, textStyle = OnRoadType.Caption, enabled = !busy, borderColor = OnRoadColors.BorderChip)
+                }
                 Spacer(Modifier.weight(1f))
                 if (done) {
                     OnRoadButton("다시 고치기", onReopen, height = 36.dp, variant = ButtonVariant.Outline,
-                        textStyle = OnRoadType.Caption, leadingIcon = Icons.Outlined.EditNote, enabled = !busy)
+                        textStyle = OnRoadType.Caption, enabled = !busy, borderColor = OnRoadColors.Border)
                 } else {
                     OnRoadButton("완료", onComplete, height = 36.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                        leadingIcon = Icons.Filled.Check, enabled = !busy && (text.isNotBlank() || f.required != true))
+                        enabled = !busy && (text.isNotBlank() || f.required != true))
                 }
             }
         }
@@ -771,11 +870,11 @@ private fun FieldCard(
 private fun HandwriteCard(f: DocFieldDto) {
     SubtleCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(f.name, style = OnRoadType.Body1.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSlateDark, modifier = Modifier.weight(1f))
-            OnRoadTag("출력 후 직접", style = TagStyle.Warning, textStyle = OnRoadType.Tiny)
+            Text(f.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+            OnRoadTag("출력 후 직접", style = TagStyle.PrimaryFilled)
         }
         Spacer(Modifier.height(6.dp))
-        Text(f.guide, style = OnRoadType.Caption2, color = OnRoadColors.TextSlateDark)
+        Text(f.guide, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
     }
 }
 
@@ -795,44 +894,49 @@ private fun NoticeChecks(
 ) {
     val checked = remember(key, items.size) { mutableStateListOf(*Array(items.size) { initiallyChecked }) }
     val all = checked.all { it }
+    fun toggle(i: Int) {
+        checked[i] = !checked[i]
+        onAllChecked(checked.all { it })
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items.forEachIndexed { i, item ->
+            // "1. 내용" → 번호와 내용을 나눠 번호는 굵게, 내용은 읽기 쉬운 크기로
+            val m = Regex("""^\s*(\d+)[.)]\s*""").find(item)
+            val no = m?.groupValues?.get(1) ?: "${i + 1}"
+            val body = if (m != null) item.substring(m.range.last + 1) else item
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clip(OnRoadShapes.Field)
-                    .background(if (checked[i]) OnRoadColors.PrimarySoft else OnRoadColors.SurfaceMuted)
-                    .clickable(enabled = enabled) {
-                        checked[i] = !checked[i]
-                        onAllChecked(checked.all { it })
-                    }
-                    .padding(start = 4.dp, end = 12.dp, top = 6.dp, bottom = 10.dp),
+                    .clip(OnRoadShapes.Inner)
+                    .background(Color.White)
+                    .border(1.dp, if (checked[i]) OnRoadColors.Primary else OnRoadColors.BorderSlate, OnRoadShapes.Inner)
+                    .clickable(enabled = enabled, onClickLabel = if (checked[i]) "확인 풀기" else "확인") { toggle(i) }
+                    .padding(14.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                Checkbox(
-                    checked = checked[i],
-                    onCheckedChange = { v -> checked[i] = v; onAllChecked(checked.all { it }) },
-                    enabled = enabled,
-                    colors = CheckboxDefaults.colors(checkedColor = OnRoadColors.Primary),
-                )
-                BubbleText(
-                    item,
-                    color = OnRoadColors.TextSlateDark,
-                    modifier = Modifier.weight(1f).padding(top = 12.dp),
-                    style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight),
-                )
+                CheckBoxMark(checked[i], size = 22.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("${no}번", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                    Spacer(Modifier.height(4.dp))
+                    BubbleText(
+                        body,
+                        color = OnRoadColors.TextPrimary,
+                        style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight),
+                    )
+                }
             }
         }
         if (confirmLabel != null) {
-            Text(
-                "${checked.count { it }} / ${items.size} 확인",
-                style = OnRoadType.Micro,
-                color = if (all) OnRoadColors.Primary else OnRoadColors.TextTertiary,
-            )
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("확인한 항목", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
+                Text("${checked.count { it }} / ${items.size}", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            }
             OnRoadButton(
                 confirmLabel, onConfirm, Modifier.fillMaxWidth(),
-                height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                leadingIcon = Icons.Filled.Check, enabled = enabled && all,
+                height = 44.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                enabled = enabled && all,
             )
         }
     }
@@ -862,7 +966,7 @@ private fun NoticeCard(n: DocBubble.Ai, onClose: () -> Unit, onFix: (String) -> 
         Modifier
             .fillMaxWidth()
             .clip(OnRoadShapes.Field)
-            .background(if (warn) OnRoadColors.DangerTint else OnRoadColors.SurfaceCool)
+            .background(if (warn) OnRoadColors.DangerTint else OnRoadColors.SurfaceSubtle)
             .border(1.dp, if (warn) OnRoadColors.Danger.copy(alpha = 0.35f) else OnRoadColors.BorderSlate, OnRoadShapes.Field)
             .padding(14.dp),
     ) {
@@ -873,7 +977,7 @@ private fun NoticeCard(n: DocBubble.Ai, onClose: () -> Unit, onFix: (String) -> 
         n.policies.take(3).forEach { BulletText(it, OnRoadColors.Primary, style = OnRoadType.Caption2) }
         n.contacts.forEach { c ->
             Spacer(Modifier.height(6.dp))
-            SmallBoxButton("${c.name} ${c.phone}", { runCatching { uri.openUri("tel:${c.phone}") } }, leadingIcon = Icons.Outlined.Call)
+            SmallBoxButton("${c.name} ${c.phone}", { runCatching { uri.openUri("tel:${c.phone}") } })
         }
         n.problems.forEach { p ->
             Spacer(Modifier.height(6.dp))
@@ -889,7 +993,7 @@ private fun NoticeCard(n: DocBubble.Ai, onClose: () -> Unit, onFix: (String) -> 
 
 /* ---------------------------- 공통 ---------------------------- */
 
-/** 입력창 + 마이크 + 보내기 (상담 화면 입력창과 같은 모양) */
+/** 입력창 하나: 둥근 상자 안에 글 · 마이크 · 보내기 화살표 (상담 화면 입력창과 같은 모양) */
 @Composable
 private fun PromptBar(
     value: String,
@@ -902,21 +1006,19 @@ private fun PromptBar(
 ) {
     val listen = rememberSpeechInput(onVoice)
     val active = enabled && value.isNotBlank()
-    Row(
+    Box(
         Modifier
             .fillMaxWidth()
-            .background(if (padded) Color.White else Color.Transparent)
-            .then(if (padded) Modifier.padding(horizontal = 20.dp, vertical = 14.dp) else Modifier),
-        verticalAlignment = Alignment.CenterVertically,
+            .then(if (padded) Modifier.background(Color.White).padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 12.dp) else Modifier),
     ) {
         Row(
             Modifier
-                .weight(1f)
-                .heightIn(min = 44.dp)
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
                 .clip(OnRoadShapes.Inner)
-                .background(if (padded) OnRoadColors.SurfaceMuted else Color.White)
-                .border(1.dp, OnRoadColors.BorderInput, OnRoadShapes.Inner)
-                .padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                .background(OnRoadColors.SurfaceSubtle)
+                .border(1.dp, if (padded) OnRoadColors.BorderSlate else OnRoadColors.BorderChip, OnRoadShapes.Inner)
+                .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BasicTextField(
@@ -926,27 +1028,28 @@ private fun PromptBar(
                 enabled = enabled,
                 textStyle = OnRoadType.Caption.copy(color = OnRoadColors.TextPrimary),
                 cursorBrush = SolidColor(OnRoadColors.Primary),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).padding(vertical = 6.dp),
                 decorationBox = { inner ->
-                    if (value.isEmpty()) Text(placeholder, style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
+                    if (value.isEmpty()) Text(placeholder, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     inner()
                 },
             )
             if (AppState.voiceOn && enabled) {
-                Spacer(Modifier.width(6.dp))
-                Icon(Icons.Outlined.Mic, "말로 입력", tint = OnRoadColors.TextSlate, modifier = Modifier.size(20.dp).clickable(onClick = listen))
+                Icon(
+                    Icons.Outlined.Mic, "말로 입력", tint = OnRoadColors.TextTertiary,
+                    modifier = Modifier.padding(horizontal = 6.dp).size(20.dp).clickable(onClick = listen),
+                )
             }
-        }
-        Spacer(Modifier.width(8.dp))
-        Box(
-            Modifier
-                .size(40.dp)
-                .clip(OnRoadShapes.Field)
-                .background(if (active) OnRoadColors.PrimaryDeep else OnRoadColors.SurfaceMuted)
-                .clickable(enabled = active, onClick = onSend),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Filled.ArrowUpward, "보내기", tint = if (active) Color.White else OnRoadColors.TextQuaternary, modifier = Modifier.size(20.dp))
+            Box(
+                Modifier
+                    .size(36.dp)
+                    .clip(OnRoadShapes.Field)
+                    .background(if (active) OnRoadColors.Primary else Color.Transparent)
+                    .clickable(enabled = active, onClick = onSend),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.ArrowUpward, "보내기", tint = if (active) Color.White else OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }

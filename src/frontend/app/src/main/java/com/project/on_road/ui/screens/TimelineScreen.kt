@@ -175,27 +175,14 @@ fun TimelineScreen(
         Spacer(Modifier.height(8.dp))
         ProgressBar(doneCount / tasks.size.toFloat())
 
-        // 알림
-        Spacer(Modifier.height(24.dp))
-        SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 15.dp, end = 6.dp, top = 12.dp, bottom = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("D-day 알림 받기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-                    Text("할 일 날짜 아침 9시에 알려 드려요", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
-                }
-                OnRoadSwitch(vm.alarmOn, { on ->
-                    if (on) withNotificationPermission { vm.setAlarm(true) } else vm.setAlarm(false)
-                })
-            }
-            Text(
-                "알림 미리 받아보기",
-                style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold),
-                color = OnRoadColors.Primary,
-                modifier = Modifier
-                    .clickable { withNotificationPermission { vm.preview() } }
-                    .padding(vertical = 4.dp),
-            )
-        }
+        // 알림은 설정에서 한 번에 켜고 끈다
+        Spacer(Modifier.height(16.dp))
+        Text(
+            if (vm.alarmOn) "할 일 날짜 아침 9시에 알림이 와요. 알림은 설정에서 끌 수 있어요."
+            else "알림을 켜면 할 일 날짜 아침 9시에 알려 드려요. 설정 > 알림 받기에서 켤 수 있어요.",
+            style = OnRoadType.Tiny,
+            color = OnRoadColors.TextTertiary,
+        )
 
         // 할 일 목록
         Spacer(Modifier.height(OnRoadDimens.SectionGap))

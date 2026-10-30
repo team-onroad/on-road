@@ -65,13 +65,12 @@ fun UploadFormCard(
     title: String = "받은 양식 올리기",
     subtitle: String = "빈 양식을 찍으면 AI가 칸을 읽어요",
 ) {
-    OnRoadCard(modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
+    // 연회색 카드 (홈 바로가기·다음 일정과 같은 모양)
+    SubtleCard(modifier.fillMaxWidth(), contentPadding = PaddingValues(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconTile(Icons.Outlined.UploadFile, tint = OnRoadColors.Primary)
-            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, style = OnRoadType.Title3, color = OnRoadColors.Primary)
-                Text(subtitle, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+                Text(title, style = OnRoadType.Title3, color = OnRoadColors.TextPrimary)
+                Text(subtitle, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -86,12 +85,12 @@ fun UploadButtons(onTakePhoto: () -> Unit, onPickFile: () -> Unit, enabled: Bool
         OnRoadButton(
             "사진 찍기", onTakePhoto, Modifier.weight(1f),
             height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-            leadingIcon = Icons.Outlined.PhotoCamera, enabled = enabled,
+            enabled = enabled,
         )
         OnRoadButton(
             "파일 고르기", onPickFile, Modifier.weight(1f),
             height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-            variant = ButtonVariant.Outline, leadingIcon = Icons.Outlined.FolderOpen, enabled = enabled,
+            variant = ButtonVariant.Outline, enabled = enabled,
         )
     }
 }

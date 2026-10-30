@@ -63,7 +63,66 @@ data class RoleplayFeedback(
     val better: List<Pair<String, String>>,
     /** 성장 기록에 남겼으면 기록 id, 아니면 null */
     val roleplayId: Long? = null,
+    /** 0~100 (돌발 상황 대처는 2배). 서버가 안 주면 null */
+    val score: Int? = null,
+    val grade: String? = null,
+    /** 항목별 결과: 기본 · 이번 전개 · 돌발 상황 */
+    val items: List<RoleplayCheck> = emptyList(),
+    /** 이번 전개 이름 (기본 상황이면 null) */
+    val situation: String? = null,
+    /** 놓친 항목을 이렇게 말해 보세요 */
+    val retryLines: List<String> = emptyList(),
+    /** 이어서 해 볼 것 (정책 찾기 · 다른 연습 · 생활비 · 서류 · 상담) */
+    val nextSteps: List<NextStep> = emptyList(),
 )
+
+/**
+ * 한 기능이 끝난 뒤 이어서 해 볼 것 (기능끼리 연결).
+ * kind: search(정책 찾기) · practice(실전 연습) · budget(생활비 배분) · month(한 달 살아보기) · forms(서류 작성) · chat(AI 상담)
+ */
+data class NextStep(val kind: String, val label: String, val query: String? = null, val scenarioId: String? = null)
+
+/** 대화 중 힌트: 이번에 챙길 것과 예시 문장. done 이면 다 챙김 (마무리 인사) */
+data class RoleplayHint(val done: Boolean, val label: String, val example: String, val kind: String, val remaining: Int)
+
+/** 자립 준비도 (6개 영역) */
+data class Readiness(
+    val score: Int,
+    val level: String,
+    val areas: List<ReadinessArea>,
+    val weakest: String?,
+    val nextSteps: List<NextStep>,
+)
+
+data class ReadinessArea(
+    val key: String,
+    val label: String,
+    val score: Int,
+    val doneCount: Int,
+    val total: Int,
+    val items: List<Pair<String, Boolean>>,
+    val nextStep: NextStep?,
+)
+
+/** 피드백 항목 하나. kind: basic | situation | surprise */
+data class RoleplayCheck(val label: String, val ok: Boolean, val kind: String, val example: String?)
+
+/**
+ * 이번 연습의 전개 (같은 상황 다른 전개 + 난이도별 돌발 상황). 서버가 첫 대사와 함께 정해 주고,
+ * 앱은 대화·피드백 요청에 그대로 보낸다. 다시 연습하기는 같은 전개(variantId)로 돌발 상황만 새로 받는다
+ */
+data class RoleplayPlan(
+    val variantId: String? = null,
+    val situation: String? = null,
+    val surpriseIds: List<String> = emptyList(),
+    val surpriseCount: Int = 0,
+) {
+    companion object {
+        val NONE = RoleplayPlan()
+    }
+}
+
+data class RoleplayStart(val opening: RoleplayTurn, val plan: RoleplayPlan)
 
 // ───────────── 서류 양식 도우미 ─────────────
 
@@ -146,6 +205,21 @@ interface CoachApi {
     suspend fun roleplayReply(userId: String, scenarioId: String, stage: UserStage, history: List<RoleplayTurn>): RoleplayReply
     /** save = true 면 피드백 결과를 성장 기록에 남긴다 (대화 내용은 저장하지 않음) */
     suspend fun roleplayFeedback(userId: String, scenarioId: String, history: List<RoleplayTurn>, save: Boolean = false): RoleplayFeedback
+
+    /** 첫 대사 + 이번 전개. variantId 를 주면 그 전개로 (다시 연습하기) */
+    suspend fun roleplayStart(scenarioId: String, stage: UserStage, variantId: String? = null): RoleplayStart =
+        RoleplayStart(roleplayOpening(scenarioId, stage), RoleplayPlan.NONE)
+
+    suspend fun roleplayReplyWith(
+        userId: String, scenarioId: String, stage: UserStage, history: List<RoleplayTurn>, plan: RoleplayPlan,
+    ): RoleplayReply = roleplayReply(userId, scenarioId, stage, history)
+
+    suspend fun roleplayFeedbackWith(
+        userId: String, scenarioId: String, history: List<RoleplayTurn>, save: Boolean, plan: RoleplayPlan,
+    ): RoleplayFeedback = roleplayFeedback(userId, scenarioId, history, save)
+
+    /** 대화 중 힌트. 서버가 없으면 null */
+    suspend fun roleplayHint(scenarioId: String, history: List<RoleplayTurn>, plan: RoleplayPlan): RoleplayHint? = null
 
     suspend fun formTemplates(stage: UserStage): List<FormTemplate>
     suspend fun analyzeTemplate(templateId: String): FormDraft

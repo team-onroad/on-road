@@ -63,11 +63,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.ActivityStore
 import com.project.on_road.data.AppContainer
 import com.project.on_road.ui.components.EasyTextPanel
+import com.project.on_road.ui.components.NextStepList
 import com.project.on_road.data.AppState
 import com.project.on_road.data.UserStage
 import com.project.on_road.data.SignalSource
 import com.project.on_road.data.Policy
 import com.project.on_road.data.SearchResult
+import com.project.on_road.data.Topic
+import com.project.on_road.data.Links
 import com.project.on_road.data.remote.ApiException
 import com.project.on_road.ui.components.CheckBoxMark
 import com.project.on_road.ui.components.InfoRow
@@ -203,6 +206,7 @@ fun PolicySearchScreen(
     onBack: () -> Unit,
     onPrepare: (String) -> Unit,
     onCompare: (List<String>) -> Unit,
+    onNavigate: (String) -> Unit = {},
     vm: PolicySearchViewModel = viewModel(),
 ) {
     LaunchedEffect(initialPolicyId, initialQuery) { vm.init(initialPolicyId, initialQuery) }
@@ -324,6 +328,18 @@ fun PolicySearchScreen(
                             onToggleSave = { vm.toggleSave(p.id) },
                             onPrepare = { onPrepare(p.id) },
                         )
+                    }
+                    // 찾은 분야로 이어서 해 볼 것 (연습 · 생활비 · 상담)
+                    val topic = Topic.classify(result.question).firstOrNull()
+                        ?: result.policies.firstOrNull()?.let { Topic.ofPolicyCategory(it.category) }
+                    if (topic != null) {
+                        item(key = "next-steps") {
+                            Column {
+                                Spacer(Modifier.height(16.dp))
+                                NextStepList(Links.forTopic(topic), { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) })
+                                Spacer(Modifier.height(if (vm.compareIds.isNotEmpty()) 88.dp else 24.dp))
+                            }
+                        }
                     }
                 }
             }

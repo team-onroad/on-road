@@ -143,6 +143,7 @@ fun BudgetSimulationScreen(
     onOpenPolicy: (String) -> Unit,
     /** 지난 결과를 다시 볼 때 시뮬레이션 id (홈·성장 기록에서) */
     simulationId: String? = null,
+    onNavigate: (String) -> Unit = {},
     vm: SimulationViewModel = viewModel(),
 ) {
     LaunchedEffect(simulationId) { simulationId?.let(vm::loadResult) }
@@ -156,7 +157,7 @@ fun BudgetSimulationScreen(
         )
         AnimatedContent(targetState = result, label = "simulation", modifier = Modifier.weight(1f)) { r ->
             if (r == null) SimulationInput(vm)
-            else SimulationResultView(r, onApply = vm::applyScenario, onOpenPolicy = onOpenPolicy, onRetry = vm::backToInput)
+            else SimulationResultView(r, onApply = vm::applyScenario, onOpenPolicy = onOpenPolicy, onRetry = vm::backToInput, onStep = { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) })
         }
     }
 }
@@ -338,6 +339,7 @@ private fun SimulationResultView(
     onApply: (Scenario) -> Unit,
     onOpenPolicy: (String) -> Unit,
     onRetry: () -> Unit,
+    onStep: (NextStep) -> Unit = {},
 ) {
     val shortageMap = result.shortages.associateBy { it.category }
 
@@ -393,6 +395,14 @@ private fun SimulationResultView(
                     result.relatedPolicies.forEach { p -> PolicyRow(p) { onOpenPolicy(p.id) } }
                 }
             }
+            Spacer(Modifier.height(OnRoadDimens.SectionGap))
+            NextStepList(
+                Links.afterBudget(result.shortages.map { it.category }).map { s ->
+                    // 한 달 살아보기는 이 수입으로 시작
+                    if (s.kind == "month") s.copy(query = result.income.toString()) else s
+                },
+                onStep,
+            )
             Spacer(Modifier.height(32.dp))
             OnRoadButton("처음부터 다시 계산하기", onRetry, Modifier.fillMaxWidth(), variant = ButtonVariant.Outline)
             Spacer(Modifier.height(20.dp))

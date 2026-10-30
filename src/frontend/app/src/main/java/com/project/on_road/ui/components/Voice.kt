@@ -6,6 +6,9 @@ import android.content.Context
 import android.content.Intent
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,33 +39,65 @@ import java.util.Locale
 /** 기기 기본 TTS로 읽어 주기. 음성은 기기 안에서만 처리하고 서버로 보내지 않는다. */
 class Speaker(context: Context) : TextToSpeech.OnInitListener {
     private val tts = TextToSpeech(context.applicationContext, this)
+    private val main = Handler(Looper.getMainLooper())
     private var ready = false
-    private var pending: String? = null
+    /** TTS 엔진이 없거나 초기화 실패: 읽기 끝 콜백을 바로 불러 통화 흐름이 멈추지 않게 */
+    private var failed = false
+    private var pending: Pair<String, (() -> Unit)?>? = null
+    private var seq = 0
+    /** 읽기가 끝나면 부를 콜백 (중간에 끊긴 건 부르지 않는다) */
+    private val onDone = java.util.concurrent.ConcurrentHashMap<String, () -> Unit>()
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             tts.setLanguage(Locale.KOREAN)
             tts.setSpeechRate(0.95f)
+            tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onDone(utteranceId: String?) {
+                    utteranceId?.let { id -> onDone.remove(id)?.let { cb -> main.post(cb) } }
+                }
+                @Deprecated("Deprecated in Java")
+                override fun onError(utteranceId: String?) {
+                    utteranceId?.let { id -> onDone.remove(id)?.let { cb -> main.post(cb) } }
+                }
+                override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                    utteranceId?.let { onDone.remove(it) }
+                }
+            })
             ready = true
-            pending?.let { speak(it) }
-            pending = null
+        } else {
+            failed = true
         }
+        pending?.let { (text, cb) -> speak(text, cb) }
+        pending = null
     }
 
-    fun speak(text: String) {
-        if (!ready) {
-            pending = text
+    fun speak(text: String, onFinished: (() -> Unit)? = null) {
+        if (failed) {
+            onFinished?.let { main.post(it) }
             return
         }
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "onroad")
+        if (!ready) {
+            pending = text to onFinished
+            return
+        }
+        onDone.clear()
+        val id = "onroad-${++seq}"
+        if (onFinished != null) onDone[id] = onFinished
+        if (tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id) != TextToSpeech.SUCCESS) {
+            onDone.remove(id)?.let { main.post(it) }
+        }
     }
 
     fun stop() {
         pending = null
+        onDone.clear()
         if (ready) tts.stop()
     }
 
     fun shutdown() {
+        onDone.clear()
         tts.stop()
         tts.shutdown()
     }
