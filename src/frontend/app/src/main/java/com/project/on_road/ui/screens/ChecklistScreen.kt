@@ -62,6 +62,7 @@ import com.project.on_road.data.StepType
 import com.project.on_road.data.remote.userMessage
 import com.project.on_road.ui.components.CheckBoxMark
 import com.project.on_road.ui.components.EmptyState
+import com.project.on_road.ui.components.NextStepList
 import com.project.on_road.ui.components.GuideBlock
 import com.project.on_road.ui.components.LoadingState
 import com.project.on_road.ui.components.NoticeBox
