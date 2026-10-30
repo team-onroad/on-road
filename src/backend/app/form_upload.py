@@ -27,6 +27,8 @@ MIN_PDF_TEXT = 40  # 이보다 글자가 적으면 스캔 PDF 로 보고 쪽 이
 IMAGE_MAX_SIDE = 1280  # 사진 긴 변 (픽셀). 칸 이름을 읽기에 충분하고 이미지 토큰이 적다
 JPG_QUALITY = 70
 MAX_FIELDS = 40
+# 칸 읽는 규칙 버전. 올리면 같은 파일이어도 이 값이 바뀌었으면 새 문서로 다시 읽는다
+READ_VERSION = "v2"
 
 _INPUT_TYPES = {"text", "date", "phone", "address", "checkbox", "account", "id_number", "signature"}
 _ID_SENSITIVE = ("주민등록번호", "외국인등록번호")
@@ -109,17 +111,16 @@ _DATE_LABELS = ("년월일", "신청일", "신청일자", "신청날짜", "작�
 
 
 def _merge_date_parts(raw: list[dict]) -> list[dict]:
-    """"년" "월" "일"로 나눠 온 칸을 날짜 칸 하나("년 월 일", date)로 합친다. 사용자는 2026.10.29 처럼 한 번에 쓴다"""
-    out: list[dict] = []
-    i = 0
-    while i < len(raw):
-        labels = [_flat(str(f.get("label") or "")) for f in raw[i:i + 3]]
-        if labels == list(_DATE_PARTS):
-            out.append({"label": "년 월 일", "type": "date", "guide": "신청하는 날짜예요"})
-            i += 3
-            continue
-        out.append(raw[i])
-        i += 1
+    """"년" "월" "일"로 나눠 온 칸을 날짜 칸 하나("년 월 일", date)로 합친다. 사용자는 2026.10.29 처럼 한 번에 쓴다.
+    LLM 이 셋을 떨어뜨려 주거나 둘만 줘도 (예: 년·월·일 사이에 다른 칸) 첫 자리에 하나로 모은다"""
+    def part(f: dict) -> bool:
+        return _flat(str(f.get("label") or "")).strip(":*()[]") in _DATE_PARTS
+
+    idx = [i for i, f in enumerate(raw) if part(f)]
+    if len(idx) < 2:
+        return raw
+    out = [f for i, f in enumerate(raw) if i not in idx]
+    out.insert(idx[0], {"label": "년 월 일", "type": "date", "guide": "신청하는 날짜예요"})
     return out
 
 
@@ -176,7 +177,7 @@ def to_fields(raw: list[dict], form_text: str | None) -> list[dict]:
 
 def source_id(data: bytes) -> str:
     """같은 파일을 다시 올리면 같은 값 (쓰던 문서를 연다)"""
-    return "upload-" + hashlib.sha256(data).hexdigest()[:24]
+    return f"upload-{READ_VERSION}-" + hashlib.sha256(data).hexdigest()[:20]
 
 
 def read_form(data: bytes, file_name: str | None, doc_llm: DocLlm) -> tuple[str, list[dict]]:
