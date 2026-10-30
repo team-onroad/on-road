@@ -17,7 +17,10 @@ from tests.conftest import TABLES
 from tests.factories import make_user
 
 KST = timezone(timedelta(hours=9))
-APP_ORDER = ["store", "bank", "community-center", "landlord", "parttime", "school", "job"]
+APP_ORDER = [
+    "store", "bank", "community-center", "landlord", "parttime", "school", "job",
+    "realestate", "phone-store", "hospital", "wage", "scam-call", "neighbor", "jobcenter",
+]
 OPENING = {"role": "assistant", "content": "다음 분 오세요. 무슨 일로 오셨어요?"}
 RAW = {s["scenario_id"]: s for s in json.loads(SCENARIOS_PATH.read_text(encoding="utf-8"))}
 
@@ -130,8 +133,12 @@ def test_list_all(client):
     ("stage", "ids"),
     [
         ("child", ["store"]),
-        ("teen", ["bank", "parttime", "school"]),
-        ("youth", ["bank", "community-center", "landlord", "parttime", "job"]),
+        ("teen", ["bank", "parttime", "school", "phone-store", "hospital", "wage", "scam-call"]),
+        (
+            "youth",
+            ["bank", "community-center", "landlord", "parttime", "job",
+             "realestate", "phone-store", "hospital", "wage", "scam-call", "neighbor", "jobcenter"],
+        ),
     ],
 )
 def test_list_by_stage(client, stage, ids):
@@ -600,7 +607,7 @@ def test_opening_picks_variant_and_surprises_by_level(client):
     assert seen <= {"basic", "refuse", "text-record"} and len(seen) >= 2  # 할 때마다 다른 전개
     hard = client.get("/api/coach/roleplay/job/opening", params={"stage": "youth", "variant_id": "gap"}).json()
     assert hard["level"] == "HARD" and hard["situation"] == "공백기를 집요하게 묻는 면접관"
-    assert hard["surprise_count"] == 2 and hard["surprise_ids"][0] == "job-family"  # 어려움: HARD 돌발 먼저
+    assert hard["surprise_count"] == 2 and hard["surprise_ids"][0] in {"job-family", "jb-overtime"}  # 어려움: HARD 돌발 먼저
 
 
 def test_reply_sends_variant_and_surprise_to_llm(api, db_session, llm):
@@ -628,3 +635,27 @@ def test_feedback_with_variant_and_surprise(api, db_session):
     assert 0 < data["score"] <= 100 and data["grade"]
     assert "날이 추워서 이번 주 안에는 꼭 고쳐야 해요." in data["retry_lines"]
     assert any(b["before"] == "아 네… 그럼 다음 달에요" for b in data["better"])  # 전개별 고친 말도
+
+
+# ------------------------------------------------------------------ 이어서 해 볼 것 (다른 기능으로 연결)
+
+
+def test_feedback_next_steps_missed_first(api, db_session):
+    user = make_user(db_session)
+    steps = _feedback(api, user, scenario_id="scam-call", history=_user_turns("네")).json()["next_steps"]
+    assert [s["kind"] for s in steps] == ["chat", "practice", "month"]  # 놓친 게 있으면 상담 먼저
+    assert steps[1]["scenario_id"] == "bank"
+
+
+def test_feedback_next_steps_without_missed(api, db_session):
+    user = make_user(db_session)
+    said = "전화로는 개인정보 못 알려 드려요. 끊고 직접 확인할게요. 112에 신고할게요."
+    body = _feedback(api, user, scenario_id="scam-call", history=_user_turns(said)).json()
+    assert body["missed"] == []
+    assert [s["kind"] for s in body["next_steps"]] == ["practice", "month"]
+
+
+def test_follow_ups_point_to_real_scenarios():
+    ids = set(get_scenarios())
+    for s in get_scenarios().values():
+        assert all(f.scenario_id in ids for f in s.follow_ups if f.kind == "practice")
