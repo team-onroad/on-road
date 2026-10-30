@@ -28,6 +28,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -225,7 +227,7 @@ private fun TemplateList(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 documents.forEach { d ->
                     val state = if (d.status == "exported") "PDF로 내보냄" else "${d.progress.completed}/${d.progress.total}칸 작성"
-                    ListRow(d.title, state, icon = Icons.Outlined.EditNote) { onOpenDocument(d.documentId) }
+                    GrayRow(d.title, state) { onOpenDocument(d.documentId) }
                 }
             }
         }
@@ -237,7 +239,7 @@ private fun TemplateList(
             LoadingState("양식을 불러오고 있어요")
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                templates.forEach { t -> ListRow(t.name, t.description, icon = Icons.Outlined.Description) { onPick(t.id) } }
+                templates.forEach { t -> GrayRow(t.name, t.description) { onPick(t.id) } }
             }
         }
         Spacer(Modifier.height(32.dp))
@@ -338,8 +340,6 @@ private fun FieldCard(field: FormField, value: String, onChange: (String) -> Uni
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.AutoAwesome, null, tint = OnRoadColors.Primary, modifier = Modifier.size(13.dp))
-                Spacer(Modifier.width(4.dp))
                 Text("AI가 만든 글의 틀 넣기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.Primary)
             }
         }
@@ -353,6 +353,24 @@ private fun FieldCard(field: FormField, value: String, onChange: (String) -> Uni
                 modifier = Modifier.weight(1f),
             )
             MicButton(onResult = { onChange((value + " " + it).trim()) }, modifier = Modifier.padding(start = 8.dp), dim = 48.dp)
+        }
+    }
+}
+
+
+/** 목록 한 줄: 연회색 카드 (홈 다음 일정과 같은 모양, 아이콘 없음) */
+@Composable
+private fun GrayRow(title: String, description: String?, onClick: () -> Unit) {
+    SubtleCard(Modifier.fillMaxWidth().heightIn(min = 60.dp), onClick = onClick, contentPadding = PaddingValues(15.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                description?.let {
+                    Spacer(Modifier.height(2.dp))
+                    Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
         }
     }
 }

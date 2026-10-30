@@ -201,13 +201,20 @@ class InterestViewModel : ViewModel() {
 
 /** 흥미 탐색 */
 @Composable
-fun InterestScreen(onBack: () -> Unit, onRoleplay: () -> Unit, vm: InterestViewModel = viewModel()) {
+fun InterestScreen(
+    onBack: () -> Unit,
+    onRoleplay: () -> Unit,
+    onNavigate: (String) -> Unit = {},
+    vm: InterestViewModel = viewModel(),
+) {
     val back = { if (!vm.stepBack()) onBack() }
     BackHandler(onBack = back)
 
     Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
         OnRoadTopBar("흥미 탐색", back)
-        when (vm.step) {
+        // 단계가 바뀔 때 부드럽게 겹쳐 바꾼다
+        androidx.compose.animation.Crossfade(vm.step, animationSpec = androidx.compose.animation.core.tween(220), label = "interest-step") { step ->
+        when (step) {
             InterestStep.LOADING -> LoadingState("질문을 준비하고 있어요")
             InterestStep.INTRO -> IntroPage(vm.questions.size, onStart = vm::start, onRoadmap = vm::openSavedRoadmap)
             InterestStep.QUESTIONS -> vm.questions.getOrNull(vm.index)?.let { q ->
@@ -217,7 +224,8 @@ fun InterestScreen(onBack: () -> Unit, onRoleplay: () -> Unit, vm: InterestViewM
             InterestStep.ANALYZING -> LoadingState("대답을 보고 흥미 유형을 살펴보고 있어요")
             InterestStep.RESULT -> vm.profile?.let { ResultPage(it, vm.notes, vm.loading, vm::loadJobs, vm::start) }
             InterestStep.JOBS -> JobsPage(vm.jobs, vm.profile, vm.loading, vm::pickJob)
-            InterestStep.ROADMAP -> vm.roadmap?.let { RoadmapPage(it, onRoleplay) }
+            InterestStep.ROADMAP -> vm.roadmap?.let { RoadmapPage(it, onRoleplay) { s -> onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(s)) } }
+        }
         }
     }
 }
@@ -679,7 +687,7 @@ private fun JobsPage(jobs: List<JobRecommendation>, profile: InterestProfile?, l
 /* ---------------------------- 로드맵 ---------------------------- */
 
 @Composable
-private fun RoadmapPage(r: Roadmap, onRoleplay: () -> Unit) {
+private fun RoadmapPage(r: Roadmap, onRoleplay: () -> Unit, onStep: (com.project.on_road.data.NextStep) -> Unit = {}) {
     // 저장된 로드맵의 체크 상태 (체크하면 바로 다시 그린다)
     val done = remember(ActivityStore.version, r.job.name) {
         ActivityStore.roadmap()?.takeIf { it.jobName == r.job.name }?.done.orEmpty()
@@ -736,7 +744,9 @@ private fun RoadmapPage(r: Roadmap, onRoleplay: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Footnote(r.note)
         }
-        Spacer(Modifier.height(24.dp))
-        OnRoadButton("면접 연습하러 가기", onRoleplay, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(OnRoadDimens.SectionGap))
+        NextStepList(com.project.on_road.data.Links.afterCareer(r.job.name), onStep)
+        Spacer(Modifier.height(16.dp))
+        OnRoadButton("다른 면접 상황도 보기", onRoleplay, Modifier.fillMaxWidth(), variant = ButtonVariant.Outline, borderColor = OnRoadColors.BorderChip)
     }
 }

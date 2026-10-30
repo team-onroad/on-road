@@ -91,6 +91,14 @@ interface OnRoadService {
     @GET("users/{userId}/growth")
     suspend fun getGrowth(@Path("userId") userId: String): GrowthDto
 
+    // 활동 기록 (실전 연습 · 한 달 살아보기) → 자립 준비도
+    @POST("users/{userId}/activities")
+    suspend fun postActivity(@Path("userId") userId: String, @Body body: ActivityDto): ActivityCreatedDto
+
+    // 자립 준비도 (6개 영역 점수와 다음 할 일)
+    @GET("users/{userId}/readiness")
+    suspend fun getReadiness(@Path("userId") userId: String): ReadinessDto
+
     // 3.14 시뮬레이션 결과 조회
     @GET("simulations/{simulationId}")
     suspend fun getSimulation(
@@ -111,6 +119,7 @@ interface OnRoadService {
     suspend fun roleplayOpening(
         @Path("scenarioId") scenarioId: String,
         @Query("stage") stage: String?,
+        @Query("variant_id") variantId: String? = null,
     ): RoleplayOpeningDto
 
     // 3.18 대화 한 턴
@@ -119,6 +128,13 @@ interface OnRoadService {
         @Path("scenarioId") scenarioId: String,
         @Body body: RoleplayReplyRequestDto,
     ): RoleplayReplyDto
+
+    // 대화 중 힌트 ("뭐라고 하지?", LLM 안 씀)
+    @POST("coach/roleplay/{scenarioId}/hint")
+    suspend fun roleplayHint(
+        @Path("scenarioId") scenarioId: String,
+        @Body body: RoleplayHintRequestDto,
+    ): RoleplayHintDto
 
     // 3.19 피드백 (save = true 면 성장 기록에 남김)
     @POST("coach/roleplay/{scenarioId}/feedback")
@@ -615,6 +631,10 @@ data class RoleplayOpeningDto(
     @SerializedName("scenario_id") val scenarioId: String,
     val level: String,
     val message: String,
+    @SerializedName("variant_id") val variantId: String? = null,
+    val situation: String? = null,
+    @SerializedName("surprise_ids") val surpriseIds: List<String>? = null,
+    @SerializedName("surprise_count") val surpriseCount: Int? = null,
 )
 
 data class RoleplayReplyRequestDto(
@@ -623,6 +643,8 @@ data class RoleplayReplyRequestDto(
     val message: String,
     /** 1개 이상. 첫 턴은 첫 대사 하나 */
     val history: List<HistoryDto>,
+    @SerializedName("variant_id") val variantId: String? = null,
+    @SerializedName("surprise_ids") val surpriseIds: List<String> = emptyList(),
 )
 
 data class RoleplayReplyDto(
@@ -634,7 +656,45 @@ data class RoleplayFeedbackRequestDto(
     @SerializedName("user_id") val userId: String,
     val history: List<HistoryDto>,
     val save: Boolean,
+    @SerializedName("variant_id") val variantId: String? = null,
+    @SerializedName("surprise_ids") val surpriseIds: List<String> = emptyList(),
 )
+
+data class RoleplayHintRequestDto(
+    val history: List<HistoryDto>,
+    @SerializedName("variant_id") val variantId: String? = null,
+    @SerializedName("surprise_ids") val surpriseIds: List<String> = emptyList(),
+)
+
+data class RoleplayHintDto(val done: Boolean, val label: String, val example: String, val kind: String, val remaining: Int)
+
+// ---------------- 활동 기록 · 자립 준비도 ----------------
+
+data class ActivityDto(val kind: String, val ref: String? = null, val data: Map<String, Any?>)
+
+data class ActivityCreatedDto(@SerializedName("activity_id") val activityId: Long)
+
+data class ReadinessItemDto(val key: String, val label: String, val done: Boolean)
+
+data class ReadinessAreaDto(
+    val key: String,
+    val label: String,
+    val score: Int,
+    @SerializedName("done_count") val doneCount: Int,
+    val total: Int,
+    val items: List<ReadinessItemDto>,
+    @SerializedName("next_step") val nextStep: FollowUpDto?,
+)
+
+data class ReadinessDto(
+    val score: Int,
+    val level: String,
+    val areas: List<ReadinessAreaDto>,
+    val weakest: String?,
+    @SerializedName("next_steps") val nextSteps: List<FollowUpDto>,
+)
+
+data class RoleplayCheckDto(val label: String, val ok: Boolean, val kind: String, val example: String?)
 
 data class BetterDto(
     val before: String,
@@ -648,6 +708,19 @@ data class RoleplayFeedbackDto(
     val missed: List<String>,
     val documents: List<String>,
     val better: List<BetterDto>,
+    val score: Int? = null,
+    val grade: String? = null,
+    val items: List<RoleplayCheckDto>? = null,
+    val situation: String? = null,
+    @SerializedName("retry_lines") val retryLines: List<String>? = null,
+    @SerializedName("next_steps") val nextSteps: List<FollowUpDto>? = null,
+)
+
+data class FollowUpDto(
+    val kind: String,
+    val label: String,
+    val query: String? = null,
+    @SerializedName("scenario_id") val scenarioId: String? = null,
 )
 
 // ---------------- 3.20 · 3.21 서류 양식 ----------------

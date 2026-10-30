@@ -61,7 +61,9 @@ enum class Topic(val label: String, val searchQuery: String, private val words: 
 }
 
 /** 관심 신호가 나온 곳 */
-enum class SignalSource(val label: String) { CHAT("상담"), SEARCH("검색"), SAVE("정책 저장"), SIMULATION("생활비 계획") }
+enum class SignalSource(val label: String) {
+    CHAT("상담"), SEARCH("검색"), SAVE("정책 저장"), SIMULATION("생활비 계획"), PRACTICE("실전 연습"), MONTH("한 달 살아보기"), DOCUMENT("서류 작성")
+}
 
 data class TopicStat(val topic: Topic, val count: Int, val sources: Set<SignalSource>) {
     /** "상담·검색에서 4번" */
@@ -86,6 +88,24 @@ data class SavedChat(
 // ───────────── 실전 연습 · 흥미 · 로드맵 ─────────────
 
 data class PracticeAttempt(val at: Long, val scenarioId: String, val title: String, val good: Int, val missed: Int)
+
+/** 한 달 살아보기 한 번. badEvents: 아쉬운 선택을 한 일의 id (예: smishing) */
+data class MonthLifeRecord(
+    val at: Long,
+    val left: Int,
+    val shortage: Int,
+    val usedEmergency: Int,
+    val home: String,
+    val good: Int,
+    val bad: Int,
+    val badEvents: List<String>,
+)
+
+/** 내보낸 서류 (제출 전 연습 추천용) */
+data class ExportedDoc(val at: Long, val title: String)
+
+/** 쓰던 서류 (마지막으로 연 때 · 남은 칸). 알림 '쓰다 만 서류'용 */
+data class DocProgress(val id: Long, val title: String, val left: Int, val exported: Boolean, val at: Long)
 
 data class InterestSnapshot(val at: Long, val scores: Map<Riasec, Int>) {
     val top: List<Riasec> get() = scores.entries.sortedByDescending { it.value }.take(2).map { it.key }
@@ -302,8 +322,60 @@ object ActivityStore {
 
     // ───── 실전 연습 ─────
 
-    fun logPractice(scenarioId: String, title: String, good: Int, missed: Int) =
+    fun logPractice(scenarioId: String, title: String, good: Int, missed: Int) {
         append(KEY_PRACTICE, JSONObject().put("t", now()).put("id", scenarioId).put("title", title).put("good", good).put("missed", missed), MAX_PRACTICE)
+        // 연습한 분야도 관심 신호로 (놓친 게 있으면 그 분야를 더 챙기게)
+        if (missed > 0) Links.topicOfScenario(scenarioId)?.let { signal(it, SignalSource.PRACTICE, title) }
+    }
+
+    // ───── 한 달 살아보기 ─────
+
+    fun logMonthLife(r: MonthLifeRecord) {
+        append(
+            KEY_MONTH,
+            JSONObject().put("t", r.at).put("left", r.left).put("short", r.shortage).put("used", r.usedEmergency)
+                .put("home", r.home).put("good", r.good).put("bad", r.bad).put("ev", r.badEvents.toJson()),
+            MAX_MONTH,
+        )
+        if (r.shortage > 0 || r.usedEmergency > 0) signal(Topic.MONEY, SignalSource.MONTH, "생활비 부족")
+        if (r.home == "STUDIO") signal(Topic.HOUSING, SignalSource.MONTH, "월세 부담")
+    }
+
+    /** 최근 순 */
+    fun monthLives(): List<MonthLifeRecord> = list(KEY_MONTH) { o ->
+        MonthLifeRecord(
+            o.getLong("t"), o.optInt("left"), o.optInt("short"), o.optInt("used"), o.optString("home"),
+            o.optInt("good"), o.optInt("bad"), o.optJSONArray("ev")?.strings().orEmpty(),
+        )
+    }.sortedByDescending { it.at }
+
+    // ───── 내보낸 서류 ─────
+
+    fun logDocExported(title: String) {
+        append(KEY_DOCS, JSONObject().put("t", now()).put("title", title.take(60)), MAX_DOCS)
+        Topic.classify(title).forEach { signal(it, SignalSource.DOCUMENT, title) }
+    }
+
+    /** 서류를 열거나 칸을 채울 때마다: 남은 칸과 마지막으로 연 때 */
+    fun logDocProgress(id: Long, title: String, left: Int, exported: Boolean) {
+        val arr = readArray(KEY_DOC_PROGRESS)
+        val out = JSONArray()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optLong("id") != id) out.put(o)
+        }
+        out.put(JSONObject().put("id", id).put("title", title.take(60)).put("left", left).put("done", exported).put("t", now()))
+        writeArray(KEY_DOC_PROGRESS, out, MAX_DOCS)
+    }
+
+    /** 다 못 쓴 서류 (오래 안 연 순) */
+    fun unfinishedDocs(): List<DocProgress> = list(KEY_DOC_PROGRESS) { o ->
+        DocProgress(o.getLong("id"), o.optString("title"), o.optInt("left"), o.optBoolean("done"), o.optLong("t"))
+    }.filter { !it.exported && it.left > 0 }.sortedBy { it.at }
+
+    /** 최근 순 */
+    fun exportedDocs(): List<ExportedDoc> = list(KEY_DOCS) { o -> ExportedDoc(o.getLong("t"), o.optString("title")) }
+        .sortedByDescending { it.at }
 
     /** 최근 순 */
     fun practices(): List<PracticeAttempt> = list(KEY_PRACTICE) { o ->
@@ -444,6 +516,9 @@ object ActivityStore {
     private const val KEY_SIGNALS = "signals"
     private const val KEY_CHATS = "chats"
     private const val KEY_PRACTICE = "practice"
+    private const val KEY_MONTH = "month_life"
+    private const val KEY_DOCS = "docs_exported"
+    private const val KEY_DOC_PROGRESS = "docs_progress"
     private const val KEY_INTEREST = "interest"
     private const val KEY_ROADMAP = "roadmap"
     private const val KEY_BASICS = "basics"
@@ -455,6 +530,8 @@ object ActivityStore {
     private const val MAX_SIGNALS = 300
     private const val MAX_CHATS = 30
     private const val MAX_PRACTICE = 60
+    private const val MAX_MONTH = 30
+    private const val MAX_DOCS = 30
     private const val MAX_INTEREST = 10
     private const val MAX_KID = 200
 }

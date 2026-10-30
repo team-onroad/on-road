@@ -39,6 +39,7 @@ import com.project.on_road.data.ActionKind
 import com.project.on_road.data.AppContainer
 import com.project.on_road.data.AppState
 import com.project.on_road.data.NextAction
+import com.project.on_road.data.NextStep
 import com.project.on_road.data.TimelineLink
 import com.project.on_road.data.UserStage
 import com.project.on_road.ui.child.ChildHomeScreen
@@ -54,11 +55,13 @@ import com.project.on_road.ui.screens.DocumentScreen
 import com.project.on_road.ui.screens.DocPickerScreen
 import com.project.on_road.ui.screens.DocWriterScreen
 import com.project.on_road.ui.screens.FormGuideScreen
+import com.project.on_road.ui.screens.MonthLifeScreen
 import com.project.on_road.ui.screens.FormHelperScreen
 import com.project.on_road.ui.screens.GrowthScreen
 import com.project.on_road.ui.screens.HousingScreen
 import com.project.on_road.ui.screens.InterestScreen
 import com.project.on_road.ui.screens.NextActionScreen
+import com.project.on_road.ui.screens.NotificationScreen
 import com.project.on_road.ui.screens.OnboardingScreen
 import com.project.on_road.ui.screens.PolicySearchScreen
 import com.project.on_road.ui.screens.PracticeListScreen
@@ -83,7 +86,12 @@ object Routes {
     const val FORM_GUIDE = "form-guide/{policyId}"
     const val COMPARE = "compare?ids={ids}"
     const val NEXT_ACTIONS = "next-actions"
+    const val NOTIFICATIONS = "notifications"
+    const val READINESS = "readiness"
     const val SIM_BUDGET = "sim/budget"
+    const val SIM_MONTH = "sim/month"
+    const val SIM_MONTH_PATTERN = "sim/month?income={income}"
+    fun monthLife(income: Int? = null) = if (income == null) SIM_MONTH else "sim/month?income=$income"
     const val SIM_RESULT = "sim/budget/{simId}"
     const val SIM_HOUSING = "sim/housing"
     const val SIM_SAVINGS = "sim/savings"
@@ -170,6 +178,18 @@ fun actionRoute(action: NextAction): String = when (action.kind) {
     ActionKind.PRACTICE -> action.scenarioId?.let(Routes::roleplay) ?: Routes.ROLEPLAY
     ActionKind.EXPLORE_CAREER, ActionKind.ROADMAP -> Routes.INTEREST
     ActionKind.BASIC_MISSION -> action.query?.let(Routes::basic) ?: Routes.BASICS
+    ActionKind.MONTH_LIFE -> Routes.SIM_MONTH
+}
+
+/** 이어서 해 볼 것 → 화면 */
+fun stepRoute(step: NextStep): String = when (step.kind) {
+    "search" -> Routes.policy(query = step.query)
+    "practice" -> step.scenarioId?.let(Routes::roleplay) ?: Routes.ROLEPLAY
+    "budget" -> Routes.SIM_BUDGET
+    "month" -> Routes.monthLife(step.query?.toIntOrNull())
+    "forms" -> Routes.FORMS
+    "chat" -> Routes.chat(question = step.query)
+    else -> Routes.DASHBOARD
 }
 
 fun basicLinkRoute(link: BasicLink): String = when (link) {
@@ -203,6 +223,13 @@ fun OnRoadNavHost() {
         }
     }
     val go: (String) -> Unit = remember(nav) { { route -> nav.navigate(route) } }
+    // 알림을 눌러 열었으면 그 화면으로 (로그인한 상태일 때만)
+    val pending = com.project.on_road.notification.PendingRoute.route
+    LaunchedEffect(pending) {
+        if (pending != null && AppContainer.session.userId != null) {
+            com.project.on_road.notification.PendingRoute.take()?.let { r -> runCatching { nav.navigate(r) } }
+        }
+    }
     val back: () -> Unit = remember(nav) { { nav.popBackStack(); Unit } }
     val goHome: () -> Unit = remember(nav) { { nav.popBackStack(Routes.DASHBOARD, inclusive = false); Unit } }
 
@@ -317,11 +344,18 @@ private fun OnRoadGraph(
                 onBack = back,
                 onPrepare = { go(Routes.checklist(it)) },
                 onCompare = { go(Routes.compare(it)) },
+                onNavigate = go,
             )
         }
 
         composable(Routes.SIMULATION) { SimulationHubScreen(onBack = back, onNavigate = go) }
-        composable(Routes.SIM_BUDGET) { BudgetSimulationScreen(onBack = back, onOpenPolicy = { go(Routes.policy(it)) }) }
+        composable(
+            Routes.SIM_MONTH_PATTERN,
+            arguments = listOf(navArgument("income") { type = NavType.StringType; nullable = true; defaultValue = null }),
+        ) { entry ->
+            MonthLifeScreen(onBack = back, onNavigate = go, income = entry.arguments?.getString("income")?.toIntOrNull())
+        }
+        composable(Routes.SIM_BUDGET) { BudgetSimulationScreen(onBack = back, onOpenPolicy = { go(Routes.policy(it)) }, onNavigate = go) }
         composable(
             Routes.SIM_RESULT,
             arguments = listOf(navArgument("simId") { type = NavType.StringType }),
@@ -330,10 +364,11 @@ private fun OnRoadGraph(
                 onBack = back,
                 onOpenPolicy = { go(Routes.policy(it)) },
                 simulationId = entry.arguments?.getString("simId"),
+                onNavigate = go,
             )
         }
-        composable(Routes.SIM_HOUSING) { HousingScreen(onBack = back, onOpenPolicy = { go(Routes.policy(it)) }) }
-        composable(Routes.SIM_SAVINGS) { SavingsScreen(onBack = back, onOpenPolicy = { go(Routes.policy(it)) }) }
+        composable(Routes.SIM_HOUSING) { HousingScreen(onBack = back, onOpenPolicy = { go(Routes.policy(it)) }, onNavigate = go) }
+        composable(Routes.SIM_SAVINGS) { SavingsScreen(onBack = back, onOpenPolicy = { go(Routes.policy(it)) }, onNavigate = go) }
         composable(Routes.SIM_TIMELINE) {
             // 퇴소 전: 퇴소일 기준 타임라인 / 퇴소 후: 내가 정한 목표 D-day (같은 d_date 를 다른 뜻으로 쓰므로 화면을 나눈다)
             if (DDate.isGoal(AppContainer.session.status)) GoalTimelineScreen(onBack = back, onLink = { go(timelineRoute(it)) })
@@ -369,6 +404,7 @@ private fun OnRoadGraph(
                 onFormGuide = { go(Routes.formGuide(it)) },
                 onOpenDocs = { go(Routes.docPicker(it)) },
                 onOpenDocument = { go(Routes.docWriter(documentId = it)) },
+                onNavigate = go,
             )
         }
         composable(
@@ -392,6 +428,8 @@ private fun OnRoadGraph(
         }
 
         composable(Routes.NEXT_ACTIONS) { NextActionScreen(onBack = back, onAction = { go(actionRoute(it)) }) }
+        composable(Routes.NOTIFICATIONS) { NotificationScreen(onBack = back, onNavigate = go) }
+        composable(Routes.READINESS) { com.project.on_road.ui.screens.ReadinessScreen(onBack = back, onNavigate = go) }
 
         composable(
             Routes.CHAT,
@@ -407,6 +445,7 @@ private fun OnRoadGraph(
                 onPrepare = { go(Routes.checklist(it)) },
                 onWriteDocument = { c, ctx -> go(Routes.docWriter(policyId = c.policyId, templateId = c.templateId, context = ctx)) },
                 chatId = entry.arguments?.getString("cid")?.toLongOrNull(),
+                onNavigate = go,
             )
         }
 
@@ -422,13 +461,13 @@ private fun OnRoadGraph(
             )
         }
 
-        composable(Routes.INTEREST) { InterestScreen(onBack = back, onRoleplay = { go(Routes.ROLEPLAY) }) }
+        composable(Routes.INTEREST) { InterestScreen(onBack = back, onRoleplay = { go(Routes.ROLEPLAY) }, onNavigate = go) }
         composable(Routes.ROLEPLAY) { RoleplayListScreen(onBack = back, onOpen = { go(Routes.roleplay(it)) }) }
         composable(
             Routes.ROLEPLAY_PLAY,
             arguments = listOf(navArgument("id") { type = NavType.StringType }),
         ) { entry ->
-            RoleplayPlayScreen(scenarioId = entry.arguments?.getString("id").orEmpty(), onBack = back)
+            RoleplayPlayScreen(scenarioId = entry.arguments?.getString("id").orEmpty(), onBack = back, onNavigate = { go(it) })
         }
         composable(Routes.FORMS) {
             FormHelperScreen(
@@ -464,6 +503,7 @@ private fun OnRoadGraph(
                 checklistItemId = args?.getString("itemId")?.toLongOrNull(),
                 context = args?.getString("ctx"),
                 onBack = back,
+                onNavigate = { go(it) },
             )
         }
         composable(Routes.DOCUMENT) { DocumentScreen(onBack = back) }

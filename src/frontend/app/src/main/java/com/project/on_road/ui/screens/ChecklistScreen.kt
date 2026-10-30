@@ -56,6 +56,7 @@ import com.project.on_road.data.Checklist
 import com.project.on_road.data.ChecklistDoc
 import com.project.on_road.data.ChecklistStep
 import com.project.on_road.data.ChecklistSummary
+import com.project.on_road.data.Links
 import com.project.on_road.data.Policy
 import com.project.on_road.data.StepType
 import com.project.on_road.data.remote.userMessage
@@ -378,6 +379,7 @@ fun ChecklistScreen(
     onOpenDocs: (String) -> Unit = {},
     /** 문서 AI 로 쓴 서류 열기 */
     onOpenDocument: (Long) -> Unit = {},
+    onNavigate: (String) -> Unit = {},
     vm: ChecklistViewModel = viewModel(),
 ) {
     val ctx = LocalContext.current
@@ -543,6 +545,12 @@ fun ChecklistScreen(
                             Text(contact, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
                         }
                     }
+                    // 신청하러 가기 전에: 그 기관 상황 연습 · 궁금한 점 상담 · 한 달 살아보기
+                    Spacer(Modifier.height(OnRoadDimens.SectionGap))
+                    NextStepList(
+                        Links.forPolicy(c.policy.category, c.policyName).filter { it.kind != "forms" },
+                        { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) },
+                    )
                     Spacer(Modifier.height(32.dp))
                 }
             }

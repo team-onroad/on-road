@@ -25,6 +25,9 @@ object DdayNotifier {
     const val EXTRA_ID = "id"
     const val EXTRA_TITLE = "title"
     const val EXTRA_BODY = "body"
+    /** 알림을 누르면 열 화면 (앱 안 경로) */
+    const val EXTRA_ROUTE = "route"
+    private const val TIMELINE_ROUTE = "sim/timeline"
 
     fun ensureChannel(context: Context) {
         val channel = NotificationChannel(CHANNEL_ID, "퇴소 D-day 알림", NotificationManager.IMPORTANCE_DEFAULT).apply {
@@ -76,22 +79,25 @@ object DdayNotifier {
         val today = LocalDate.now()
         val task = TimelineRules.tasks.firstOrNull { !leaveDate.plusDays(it.offsetDays.toLong()).isBefore(today) }
             ?: TimelineRules.tasks.last()
-        show(context, PREVIEW_ID, titleFor(task), task.description)
+        show(context, PREVIEW_ID, titleFor(task), task.description, TIMELINE_ROUTE)
     }
 
     @SuppressLint("MissingPermission")
-    fun show(context: Context, id: Int, title: String, body: String) {
+    fun show(context: Context, id: Int, title: String, body: String, route: String? = null, channel: String = CHANNEL_ID) {
         ensureChannel(context)
         val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) return
 
+        // 알림마다 requestCode 를 달리해야 화면 경로(extra)가 서로 덮어쓰이지 않는다
         val open = PendingIntent.getActivity(
             context,
-            0,
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            id,
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .apply { route?.let { putExtra(EXTRA_ROUTE, it) } },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(0xFF2E8A7C.toInt())
             .setContentTitle(title)

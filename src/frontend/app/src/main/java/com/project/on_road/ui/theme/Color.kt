@@ -10,6 +10,7 @@ object OnRoadColors {
     val PrimarySoft = Color(0x0D5F82D6)          // 연한 태그·선택 배경
     val PrimaryTint = Color(0x1A0F172A)        // Primary 10%
     val PrimaryOutlineSoft = Color(0xFFE2E3F0) // AI 말풍선 테두리
+    val Point = Color(0xFF34D399)              // 포인트 (진행 막대·알림 배지·강조 점)
 
     // Text
     val TextPrimary = Color(0xFF0F172A)

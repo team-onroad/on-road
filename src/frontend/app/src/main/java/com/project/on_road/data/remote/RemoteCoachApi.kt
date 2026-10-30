@@ -31,21 +31,35 @@ class RemoteCoachApi(
     // ───────────── 롤플레잉 (3.16 ~ 3.19) ─────────────
 
     // GET /coach/roleplay/scenarios?stage=
-    override suspend fun roleplayScenarios(stage: UserStage): List<RoleplayScenario> =
-        Network.call { service.roleplayScenarios(stage.toCode()) }.scenarios.map { it.toModel() }
+    /** 상황 목록은 서버 파일 그대로라 10분 동안 다시 쓴다 (목록 · 연습 화면이 같은 목록을 여러 번 부름) */
+    private val scenarioCache = MemoCache<UserStage, List<RoleplayScenario>>(10 * 60 * 1000L)
 
-    // GET /coach/roleplay/{id}/opening?stage=
-    override suspend fun roleplayOpening(scenarioId: String, stage: UserStage): RoleplayTurn {
-        val res = Network.call { service.roleplayOpening(scenarioId, stage.toCode()) }
-        return RoleplayTurn(fromUser = false, text = res.message)
+    override suspend fun roleplayScenarios(stage: UserStage): List<RoleplayScenario> = scenarioCache.getOrLoad(stage) {
+        Network.call { service.roleplayScenarios(stage.toCode()) }.scenarios.map { it.toModel() }
     }
 
+    // GET /coach/roleplay/{id}/opening?stage=&variant_id=
+    override suspend fun roleplayOpening(scenarioId: String, stage: UserStage): RoleplayTurn =
+        roleplayStart(scenarioId, stage).opening
+
+    override suspend fun roleplayStart(scenarioId: String, stage: UserStage, variantId: String?): RoleplayStart {
+        val res = Network.call { service.roleplayOpening(scenarioId, stage.toCode(), variantId) }
+        return RoleplayStart(
+            RoleplayTurn(fromUser = false, text = res.message),
+            RoleplayPlan(res.variantId, res.situation, res.surpriseIds.orEmpty(), res.surpriseCount ?: 0),
+        )
+    }
+
+    override suspend fun roleplayReply(userId: String, scenarioId: String, stage: UserStage, history: List<RoleplayTurn>): RoleplayReply =
+        roleplayReplyWith(userId, scenarioId, stage, history, RoleplayPlan.NONE)
+
     // POST /coach/roleplay/{id}/reply : 마지막 내 말은 message, 그 앞은 history (1개 이상)
-    override suspend fun roleplayReply(
+    override suspend fun roleplayReplyWith(
         userId: String,
         scenarioId: String,
         stage: UserStage,
         history: List<RoleplayTurn>,
+        plan: RoleplayPlan,
     ): RoleplayReply {
         val last = history.lastOrNull()
         require(last != null && last.fromUser) { "마지막은 내 말이어야 해요" }
@@ -59,18 +73,39 @@ class RemoteCoachApi(
                     stage = stage.toCode(),
                     message = last.text.trim().take(MESSAGE_MAX),
                     history = prior,
+                    variantId = plan.variantId,
+                    surpriseIds = plan.surpriseIds,
                 ),
             )
         }
         return RoleplayReply(res.reply, res.isFinished)
     }
 
-    // POST /coach/roleplay/{id}/feedback
     override suspend fun roleplayFeedback(
         userId: String,
         scenarioId: String,
         history: List<RoleplayTurn>,
         save: Boolean,
+    ): RoleplayFeedback = roleplayFeedbackWith(userId, scenarioId, history, save, RoleplayPlan.NONE)
+
+    // POST /coach/roleplay/{id}/hint
+    override suspend fun roleplayHint(scenarioId: String, history: List<RoleplayTurn>, plan: RoleplayPlan): RoleplayHint {
+        val res = Network.call {
+            service.roleplayHint(
+                scenarioId,
+                RoleplayHintRequestDto(historyOf(history.map { it.fromUser to it.text }), plan.variantId, plan.surpriseIds),
+            )
+        }
+        return RoleplayHint(res.done, res.label, res.example, res.kind, res.remaining)
+    }
+
+    // POST /coach/roleplay/{id}/feedback
+    override suspend fun roleplayFeedbackWith(
+        userId: String,
+        scenarioId: String,
+        history: List<RoleplayTurn>,
+        save: Boolean,
+        plan: RoleplayPlan,
     ): RoleplayFeedback {
         val res = Network.call {
             service.roleplayFeedback(
@@ -79,6 +114,8 @@ class RemoteCoachApi(
                     userId = userId,
                     history = historyOf(history.map { it.fromUser to it.text }),
                     save = save,
+                    variantId = plan.variantId,
+                    surpriseIds = plan.surpriseIds,
                 ),
             )
         }
@@ -88,6 +125,12 @@ class RemoteCoachApi(
             documents = res.documents,
             better = res.better.map { it.before to it.after },
             roleplayId = res.roleplayId,
+            score = res.score,
+            grade = res.grade?.takeIf { it.isNotBlank() },
+            items = res.items.orEmpty().map { RoleplayCheck(it.label, it.ok, it.kind, it.example) },
+            situation = res.situation,
+            retryLines = res.retryLines.orEmpty(),
+            nextSteps = res.nextSteps.orEmpty().map { NextStep(it.kind, it.label, it.query, it.scenarioId) },
         )
     }
 

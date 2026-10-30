@@ -61,6 +61,7 @@ private fun HousingType.icon(): ImageVector = when (this) {
 fun HousingScreen(
     onBack: () -> Unit,
     onOpenPolicy: (String) -> Unit,
+    onNavigate: (String) -> Unit = {},
     vm: HousingViewModel = viewModel(),
 ) {
     val results = vm.results
@@ -155,6 +156,9 @@ fun HousingScreen(
         }
 
         Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(OnRoadDimens.SectionGap))
+        NextStepList(Links.afterHousing(), { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) })
+        Spacer(Modifier.height(24.dp))
         Footnote("보증금은 계약이 끝나면 돌려받는 돈이라 ‘쓰는 돈’에서 뺐어요.\n금액은 예시이며 실제 조건은 공고에서 확인해 주세요.")
     }
 }

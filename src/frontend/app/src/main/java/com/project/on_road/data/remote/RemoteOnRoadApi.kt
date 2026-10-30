@@ -1,6 +1,8 @@
 package com.project.on_road.data.remote
 
 import com.google.gson.GsonBuilder
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import com.google.gson.JsonElement
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
@@ -50,6 +52,9 @@ import com.project.on_road.data.StepType
 import com.project.on_road.data.UserProfile
 import com.project.on_road.data.UserStage
 import com.project.on_road.data.UserUpdate
+import com.project.on_road.data.NextStep
+import com.project.on_road.data.Readiness
+import com.project.on_road.data.ReadinessArea
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.time.LocalDate
@@ -154,17 +159,24 @@ class RemoteOnRoadApi(
     }
 
     /** 서버 정책 id는 숫자. 예시 데이터 id(settlement 등)가 들어오면 null. */
+    /** 정책 상세는 5분 동안 다시 쓴다 (홈 · 다음 할 일 · 비교 화면이 같은 정책을 여러 번 부름). 대상 판정이 사람마다 달라 키에 user_id 를 넣는다 */
+    private val policyCache = MemoCache<Pair<Long, String?>, Policy?>(5 * 60 * 1000L)
+
     override suspend fun getPolicy(policyId: String): Policy? {
         val id = policyId.toLongOrNull() ?: return null
-        return try {
-            Network.call { service.getPolicy(id, currentUserId).toPolicy() }
-        } catch (e: ApiException) {
-            if (e.code == "POLICY_NOT_FOUND") null else throw e
+        return policyCache.getOrLoad(id to currentUserId) {
+            try {
+                Network.call { service.getPolicy(id, currentUserId).toPolicy() }
+            } catch (e: ApiException) {
+                if (e.code == "POLICY_NOT_FOUND") null else throw e
+            }
         }
     }
 
-    override suspend fun getPolicies(ids: List<String>): List<Policy> =
-        ids.mapNotNull { runCatching { getPolicy(it) }.getOrNull() }
+    /** 여러 정책은 한꺼번에 (하나씩 기다리지 않게) */
+    override suspend fun getPolicies(ids: List<String>): List<Policy> = kotlinx.coroutines.coroutineScope {
+        ids.map { id -> async { runCatching { getPolicy(id) }.getOrNull() } }.awaitAll().filterNotNull()
+    }
 
     // 3.23 단계별 쉬운 말: 변환 결과가 없으면 null → 화면은 기존 쉬운 말(easy_text)을 보여준다
     override suspend fun getEasyText(policyId: String, level: String?): EasyTextView? {
@@ -225,8 +237,10 @@ class RemoteOnRoadApi(
 
     // ---------------- 시뮬레이션 (3.7, 3.8, 3.14. 앱은 만원, 서버는 원) ----------------
 
+    private val criteriaCache = MemoCache<Unit, CriteriaDto>(60 * 60 * 1000L)
+
     override suspend fun getCriteria(): Map<BudgetCategory, Int> {
-        val res = Network.call { service.getCriteria() }
+        val res = criteriaCache.getOrLoad(Unit) { Network.call { service.getCriteria() } }
         // 앱은 만원 단위라서 올림 (앱 기준을 넘기면 서버 기준도 넘도록)
         return res.items.associate { categoryOf(it.key) to (it.minimum + WON - 1) / WON }
     }
@@ -248,6 +262,26 @@ class RemoteOnRoadApi(
         val id = simulationId.toLongOrNull()
             ?: throw ApiException(404, "SIMULATION_NOT_FOUND", "시뮬레이션 기록을 찾을 수 없습니다.")
         return Network.call { service.getSimulation(id, userId) }.toResult()
+    }
+
+    // ---------------- 활동 기록 · 자립 준비도 ----------------
+
+    override suspend fun logActivity(userId: String, kind: String, ref: String?, data: Map<String, Any?>) {
+        Network.call { service.postActivity(userId, ActivityDto(kind, ref, data)) }
+    }
+
+    override suspend fun getReadiness(userId: String): Readiness {
+        val res = Network.call { service.getReadiness(userId) }
+        fun FollowUpDto.toStep() = NextStep(kind, label, query, scenarioId)
+        return Readiness(
+            score = res.score,
+            level = res.level,
+            areas = res.areas.map { a ->
+                ReadinessArea(a.key, a.label, a.score, a.doneCount, a.total, a.items.map { it.label to it.done }, a.nextStep?.toStep())
+            },
+            weakest = res.weakest,
+            nextSteps = res.nextSteps.map { it.toStep() },
+        )
     }
 
     // ---------------- 성장 기록 (3.13) ----------------
