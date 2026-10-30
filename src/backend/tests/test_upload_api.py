@@ -133,3 +133,14 @@ def test_date_parts_become_one_date_field(api, db_session, doc_llm, clock):
     got = api.get(f"/api/documents/{d['document_id']}", params={"user_id": str(user.id)}).json()
     date_field = next(f for f in got["fields"] if f["label"] == "년 월 일")
     assert date_field["value"] == clock.today.strftime("%Y.%m.%d") and date_field["is_completed"] is False
+
+
+def test_scattered_date_parts_are_merged(api, db_session, doc_llm):
+    user = make_user(db_session)
+    doc_llm.form = {"title": "", "fields": [
+        {"label": "년", "type": "date"}, {"label": "신청 사유", "type": "text"},
+        {"label": "월:", "type": "date"}, {"label": "일", "type": "date"},
+    ]}
+    d = _up(api, user, _png()).json()
+    assert [(f["label"], f["input_type"]) for f in d["fields"]] == [("년 월 일", "date"), ("신청 사유", "text")]
+    assert d["source_id"].startswith("upload-v2-")
