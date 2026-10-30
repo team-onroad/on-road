@@ -4,12 +4,15 @@ from sqlalchemy.orm import Session
 
 from app.crisis import CRISIS_MESSAGE, is_crisis
 from app.llm_client import Llm, call_llm
-from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, lines_for, pick_plan, plan_of
+from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, hint, lines_for, next_steps, pick_plan, plan_of
 from app.schemas.roleplay import (
     BetterOut,
     FeedbackItemOut,
     FeedbackRequest,
     FeedbackResponse,
+    HintRequest,
+    HintResponse,
+    NextStepOut,
     Opening,
     ReplyRequest,
     ReplyResponse,
@@ -117,4 +120,16 @@ def give_feedback(db: Session, user: User, s: Scenario, body: FeedbackRequest) -
         items=[FeedbackItemOut(label=i.label, ok=i.ok, kind=i.kind, example=i.example) for i in items],
         situation=plan.variant.title if plan.variant and plan.variant.situation else None,
         retry_lines=[i.example for i in items if not i.ok and i.example],
+        next_steps=[
+            NextStepOut(kind=f.kind, label=f.label, query=f.query, scenario_id=f.scenario_id) for f in next_steps(s, items)
+        ],
     )
+
+
+def give_hint(s: Scenario, body: HintRequest) -> HintResponse:
+    """LLM 을 쓰지 않는다 (체크 항목 규칙만)"""
+    plan = plan_of(s, body.variant_id, body.surprise_ids)
+    turns = [h.content for h in body.history if h.role == "user"]
+    last = next((h.content for h in reversed(body.history) if h.role == "assistant"), "")
+    h = hint(s, turns, last, plan)
+    return HintResponse(done=h.kind == "closing", label=h.label, example=h.example, kind=h.kind, remaining=h.remaining)

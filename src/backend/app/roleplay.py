@@ -2,6 +2,7 @@
 
 import json
 import random
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -60,6 +61,20 @@ class Surprise(BaseModel):
     checkpoint: Checkpoint  # 돌발 상황에 잘 대처했는지
 
 
+class FollowUp(BaseModel):
+    """연습 뒤 이어서 해 볼 것 (다른 기능으로 연결). when=missed 면 놓친 게 있을 때만,
+    labels 를 주면 그 체크 항목 중 하나라도 놓쳤을 때만"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["search", "practice", "budget", "month", "forms", "chat"]
+    label: Text
+    query: str | None = None  # search·chat 검색어/질문
+    scenario_id: str | None = None  # practice 상황 id
+    when: Literal["always", "missed"] = "always"
+    labels: list[str] = []
+
+
 class Scenario(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -80,6 +95,7 @@ class Scenario(BaseModel):
     better: list[Better]
     variants: list[Variant] = []
     surprises: list[Surprise] = []
+    follow_ups: list[FollowUp] = []
 
 
 @lru_cache
@@ -89,6 +105,12 @@ def get_scenarios() -> dict[str, Scenario]:
     scenarios = {s.scenario_id: s for s in items}
     if len(scenarios) != len(items):
         raise ValueError("roleplay_scenarios.json scenario_id 중복")
+    for s in items:
+        for f in s.follow_ups:
+            if f.kind == "practice" and f.scenario_id not in scenarios:
+                raise ValueError(f"{s.scenario_id}: 없는 연습 상황 {f.scenario_id}")
+            if f.kind in ("search", "chat") and not f.query:
+                raise ValueError(f"{s.scenario_id}: {f.kind} 에는 query 가 필요해요")
     return scenarios
 
 
@@ -196,3 +218,51 @@ def feedback_items(s: Scenario, user_turns: list[str], plan: Plan | None = None)
 
 def grade(score: int) -> str:
     return next(label for cut, label in GRADES if score >= cut)
+
+
+NEXT_STEPS_MAX = 3
+
+
+def next_steps(s: Scenario, items: list[FeedbackItem]) -> list[FollowUp]:
+    """놓친 것과 이어지는 것 먼저, 그다음 늘 권하는 것 (최대 3개)"""
+    missed = {i.label for i in items if not i.ok}
+    hit = [f for f in s.follow_ups if f.when == "missed" and missed and (not f.labels or missed & set(f.labels))]
+    always = [f for f in s.follow_ups if f.when == "always"]
+    return (hit + always)[:NEXT_STEPS_MAX]
+
+
+# ------------------------------------------------------------------ 대화 중 힌트 ("뭐라고 하지?")
+
+CLOSING_LABEL = "마무리 인사하기"
+CLOSING_EXAMPLE = "감사합니다. 말씀하신 대로 준비해서 다시 올게요."
+_WORD = re.compile(r"[가-힣A-Za-z0-9]{2,}")
+
+
+@dataclass(frozen=True)
+class Hint:
+    kind: str  # basic | situation | surprise | closing
+    label: str
+    example: str
+    remaining: int
+
+
+def _close_to(a: str, b: str) -> bool:
+    """상대가 돌발 대사를 바꿔 말해도 알아보게: 두 글자 이상 낱말이 2개 이상 겹치면 같은 말로 본다"""
+    return len(set(_WORD.findall(a)) & set(_WORD.findall(b))) >= 2
+
+
+def hint(s: Scenario, user_turns: list[str], last_partner: str, plan: Plan | None = None) -> Hint:
+    """아직 안 챙긴 것 하나. 방금 돌발 상황이 나왔으면 그 대처부터, 그다음 이번 전개 → 기본 순서"""
+    items, _ = feedback_items(s, user_turns, plan)
+    todo = [i for i in items if not i.ok]
+    if not todo:
+        return Hint("closing", CLOSING_LABEL, CLOSING_EXAMPLE, 0)
+    just_now = {x.checkpoint.label for x in (plan.surprises if plan else ()) if _close_to(x.line, last_partner)}
+    order = (
+        [i for i in todo if i.kind == "surprise" and i.label in just_now]
+        + [i for i in todo if i.kind == "situation"]
+        + [i for i in todo if i.kind == "basic"]
+        + [i for i in todo if i.kind == "surprise"]
+    )
+    pick = order[0]
+    return Hint(pick.kind, pick.label, pick.example or f"{pick.label}에 대해 말해 보세요.", len(todo))

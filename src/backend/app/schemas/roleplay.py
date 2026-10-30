@@ -90,6 +90,13 @@ class FeedbackItemOut(BaseModel):
     example: str | None  # 놓친 항목이면 "이렇게 말해 보세요"
 
 
+class NextStepOut(BaseModel):
+    kind: Literal["search", "practice", "budget", "month", "forms", "chat"]
+    label: str
+    query: str | None = None
+    scenario_id: str | None = None
+
+
 class FeedbackResponse(BaseModel):
     roleplay_id: int | None  # save: false 면 null
     good: list[str]
@@ -101,3 +108,23 @@ class FeedbackResponse(BaseModel):
     items: list[FeedbackItemOut] = []
     situation: str | None = None
     retry_lines: list[str] = []  # 다시 해 볼 때 써 볼 문장 (놓친 항목의 예시)
+    next_steps: list[NextStepOut] = []  # 이어서 해 볼 것 (정책 찾기 · 다른 연습 · 생활비 · 서류)
+
+
+class HintRequest(BaseModel):
+    """대화 중 '뭐라고 하지?' (LLM 안 씀). 지금까지 대화와 이번 전개를 보내면 아직 안 챙긴 것 하나를 알려 준다"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    history: History
+    stage: Stage | None = None
+    variant_id: Annotated[str, Field(max_length=40)] | None = None
+    surprise_ids: IdList = []
+
+
+class HintResponse(BaseModel):
+    done: bool  # 다 챙겼으면 true (마무리 인사를 권함)
+    label: str  # 이번에 챙길 것
+    example: str  # 이렇게 말해 보세요
+    kind: Literal["basic", "situation", "surprise", "closing"]
+    remaining: int  # 아직 안 챙긴 것 개수
