@@ -199,3 +199,18 @@ class RoleplayResult(Base):
     good: Mapped[list] = mapped_column(JSONB, nullable=False)
     missed: Mapped[list] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = _created_at()
+
+
+class ActivityLog(Base):
+    """앱에서 한 활동 (실전 연습 한 번 · 한 달 살아보기 한 번). 대화 내용은 저장하지 않는다"""
+
+    __tablename__ = "activity_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)  # practice | month_life
+    ref: Mapped[str | None] = mapped_column(String(50))  # practice: scenario_id
+    data: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = _created_at()
