@@ -123,13 +123,9 @@ class DashboardViewModel : ViewModel() {
         private set
     var practiceLine by mutableStateOf<String?>(null)
         private set
-    /** 자립 준비도 (서버). 못 받으면 카드를 숨긴다 */
-    var readiness by mutableStateOf<com.project.on_road.data.Readiness?>(null)
-        private set
 
     fun load() {
         val id = userId ?: return
-        viewModelScope.launch { readiness = runCatching { AppContainer.api.getReadiness(id) }.getOrNull() }
         viewModelScope.launch {
             val dash = runCatching { AppContainer.api.getDashboard(id) }.getOrNull()
             if (dash != null) {
@@ -243,25 +239,6 @@ fun DashboardScreen(
             // ── 2. 다음 일정 (1개) ──
             Spacer(Modifier.height(8.dp))
             ScheduleRow(upcoming, if (goal) "목표 D-day" else "퇴소 D-day") { onNavigate(Routes.SIM_TIMELINE) }
-
-            // ── 자립 준비도: 모든 기능 기록을 6개 영역 점수로 ──
-            // 점수를 받아 오면 부드럽게 펼쳐진다 (홈 아래 내용이 툭 밀리지 않게)
-            androidx.compose.animation.AnimatedVisibility(
-                visible = vm.readiness != null,
-                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(260)) +
-                    androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(260)),
-            ) {
-                vm.readiness?.let { r ->
-                    Column {
-                        Spacer(Modifier.height(HomeGap))
-                        SectionHeader("자립 준비도", actionText = "자세히", onAction = { onNavigate(Routes.READINESS) })
-                        Spacer(Modifier.height(12.dp))
-                        ReadinessHomeCard(r, onOpen = { onNavigate(Routes.READINESS) }) { s ->
-                            onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(s))
-                        }
-                    }
-                }
-            }
 
             // ── 3. 바로가기: 모든 기능을 한 화면에 ──
             Spacer(Modifier.height(HomeGap))

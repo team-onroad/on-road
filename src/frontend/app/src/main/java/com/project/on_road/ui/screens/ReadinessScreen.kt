@@ -1,5 +1,6 @@
 package com.project.on_road.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -115,36 +116,52 @@ private fun AreaCard(a: ReadinessArea, weakest: Boolean, onStep: (com.project.on
     }
 }
 
-/** 홈 카드: 점수 · 영역 6개 · 가장 약한 곳 바로 가기 */
+/** 성장 기록 맨 위 카드 (흰 바탕): 점수 · 단계 · 영역 6개 · 가장 약한 곳 하러 가기 (메인 색 버튼) */
 @Composable
-fun ReadinessHomeCard(r: Readiness, onOpen: () -> Unit, onStep: (com.project.on_road.data.NextStep) -> Unit) {
-    SubtleCard(Modifier.fillMaxWidth(), onClick = onOpen, contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp)) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("${r.score}", style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
-            Spacer(Modifier.width(3.dp))
-            Text("점", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
-            Spacer(Modifier.width(8.dp))
-            OnRoadTag(r.level, style = TagStyle.Neutral, textStyle = OnRoadType.Tiny, modifier = Modifier.padding(bottom = 4.dp))
-            Spacer(Modifier.weight(1f))
-            Text("자세히", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary, modifier = Modifier.padding(bottom = 4.dp))
+fun ReadinessSummaryCard(r: Readiness, onOpen: () -> Unit, onStep: (com.project.on_road.data.NextStep) -> Unit) {
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        borderColor = OnRoadColors.BorderChip,
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
+        onClick = onOpen,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("자립 준비도", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+            Text("자세히", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("${r.score}", style = OnRoadType.Display.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            Spacer(Modifier.width(3.dp))
+            Text("점", style = OnRoadType.Body2, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
+            Spacer(Modifier.width(8.dp))
+            OnRoadTag(r.level, style = TagStyle.Neutral, modifier = Modifier.padding(bottom = 5.dp))
+        }
+        Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth()) {
             r.areas.forEach { a ->
+                val weak = a.key == r.weakest
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(a.label, style = OnRoadType.Tiny, color = OnRoadColors.TextSecondary, textAlign = TextAlign.Center)
-                    Spacer(Modifier.height(2.dp))
                     Text(
                         "${a.score}",
-                        style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                        color = if (a.key == r.weakest) OnRoadColors.Primary else OnRoadColors.TextPrimary,
+                        style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                        color = if (weak) OnRoadColors.TextPrimary else OnRoadColors.TextSecondary,
                     )
+                    Spacer(Modifier.height(2.dp))
+                    Text(a.label, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary, textAlign = TextAlign.Center)
+                    if (weak) {
+                        Spacer(Modifier.height(4.dp))
+                        Box(Modifier.width(16.dp).height(2.dp).background(OnRoadColors.Primary))
+                    }
                 }
             }
         }
         r.areas.firstOrNull { it.key == r.weakest }?.nextStep?.let { s ->
-            Spacer(Modifier.height(12.dp))
-            NextStepRow(s) { onStep(s) }
+            Spacer(Modifier.height(16.dp))
+            Text("가장 약한 곳부터", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+            Spacer(Modifier.height(6.dp))
+            OnRoadButton(s.label, { onStep(s) }, Modifier.fillMaxWidth(), height = 44.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold))
         }
     }
 }

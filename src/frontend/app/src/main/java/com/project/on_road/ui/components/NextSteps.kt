@@ -1,6 +1,9 @@
 package com.project.on_road.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -45,7 +48,23 @@ fun NextStepRow(step: NextStep, onClick: () -> Unit) {
                 Text(step.label, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
             }
             Spacer(Modifier.width(12.dp))
-            Text("바로 가기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
+            PrimaryPill("바로 가기", onClick)
         }
     }
+}
+
+/** 작은 메인 색 버튼 (흰 글씨). 카드 안 '바로 가기' 같은 곳 */
+@Composable
+fun PrimaryPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+        color = androidx.compose.ui.graphics.Color.White,
+        maxLines = 1,
+        modifier = modifier
+            .clip(OnRoadShapes.Chip)
+            .background(OnRoadColors.Primary)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    )
 }
