@@ -59,6 +59,7 @@ class Surprise(BaseModel):
     level: Literal["NORMAL", "HARD"]
     line: Text  # 상대가 할 말 (LLM 은 상황에 맞게 바꿔 말해도 됨)
     checkpoint: Checkpoint  # 돌발 상황에 잘 대처했는지
+    fits: list[StrictStr] = []  # 어울리는 전개(variant_id). 비면 모든 전개 (예: 아이가 뛰는 집에 '공사 중' 돌발은 안 맞음)
 
 
 class FollowUp(BaseModel):
@@ -106,6 +107,10 @@ def get_scenarios() -> dict[str, Scenario]:
     if len(scenarios) != len(items):
         raise ValueError("roleplay_scenarios.json scenario_id 중복")
     for s in items:
+        known = {v.variant_id for v in s.variants}
+        for x in s.surprises:
+            if any(f not in known for f in x.fits):
+                raise ValueError(f"roleplay_scenarios.json {s.scenario_id}/{x.surprise_id}: 없는 전개 {x.fits}")
         for f in s.follow_ups:
             if f.kind == "practice" and f.scenario_id not in scenarios:
                 raise ValueError(f"{s.scenario_id}: 없는 연습 상황 {f.scenario_id}")
@@ -149,7 +154,11 @@ def pick_plan(s: Scenario, level: str, variant_id: str | None = None, rng: rando
     if s.variants:
         variant = next((v for v in s.variants if v.variant_id == variant_id), None) or rng.choice(s.variants)
     count = SURPRISE_COUNT.get(level, 0)
-    pool = [x for x in s.surprises if level == "HARD" or x.level == "NORMAL"]
+    vid = variant.variant_id if variant else None
+    pool = [
+        x for x in s.surprises
+        if (level == "HARD" or x.level == "NORMAL") and (not x.fits or vid is None or vid in x.fits)
+    ]
     hard = [x for x in pool if x.level == "HARD"]
     rest = [x for x in pool if x.level != "HARD"]
     rng.shuffle(hard)
@@ -176,7 +185,8 @@ def lines_for(s: Scenario, level: str, plan: Plan | None = None) -> list[str]:
         base = mixed
     if plan:
         for n, x in enumerate(plan.surprises):
-            base.insert(min(1 + n * 2, len(base)), x.line)
+            # 대화가 조금 이어진 뒤에 (첫마디 바로 다음에 갑자기 끼어들지 않게)
+            base.insert(min(2 + n * 2, len(base)), x.line)
     return base
 
 
