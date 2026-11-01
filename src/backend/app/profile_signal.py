@@ -15,6 +15,8 @@ from app.schemas.chat import ProfileChange
 from db.models import User
 
 STATUS_LABELS = {"in_care": "보호 중", "leaving_soon": "퇴소 예정", "left_care": "퇴소함"}
+# 지금 하는 일 (앱 타임라인 개인화용). 서버에 저장하지 않고 앱이 기기에만 둔다
+WORK_LABELS = {"student": "학생", "working": "일해요", "job_seeking": "일 찾는 중", "resting": "쉬는 중"}
 
 # 지역 이름(긴 것부터) → 코드
 _REGION_NAMES: list[tuple[str, str]] = sorted(
@@ -34,6 +36,13 @@ _PHONE_RE = re.compile(r"(01[016789])[-\s.]?(\d{3,4})[-\s.]?(\d{4})")
 _PHONE_WORDS = ("번호", "바꿨", "바뀌", "바꿔", "새폰", "새로")
 _LEFT_WORDS = ("퇴소했", "퇴소를했", "보호종료됐", "보호종료되었", "보호가끝났", "시설에서나왔", "시설나왔")
 _LEAVING_WORDS = ("곧퇴소", "퇴소예정", "퇴소할예정", "퇴소를앞두", "퇴소앞두", "퇴소하게됐", "퇴소하게되")
+# 바뀌었다는 말이 있을 때만 (앞에 나온 것이 먼저: 그만두고 학교 다녀요 → 학생)
+_WORK_WORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("job_seeking", ("퇴사했", "그만뒀", "그만두게됐", "일을그만", "알바그만", "잘렸", "해고됐", "계약이끝났", "일자리찾고", "일찾고있", "구직중", "취업준비중", "취준중")),
+    ("student", ("입학했", "복학했", "대학생이됐", "대학생이되", "학교다니게됐", "학교다니고있", "대학다니고", "학교에다녀", "학생이됐")),
+    ("working", ("취업했", "입사했", "출근하게됐", "출근하기시작", "알바시작", "알바를시작", "알바하게됐", "일하게됐", "일을시작", "일시작했", "일하기시작", "직장다니")),
+    ("resting", ("쉬고있어", "쉬고있는", "쉬는중", "당분간쉬", "잠깐쉬")),
+]
 _DATE_RE = re.compile(r"(\d{4})\s*(?:년|[.\-/])\s*(\d{1,2})\s*(?:월|[.\-/])\s*(\d{1,2})")
 _NAME_WORDS = ("개명", "이름바꿨", "이름을바꿨", "이름이바뀌", "이름바뀌", "이름변경", "새이름")
 # 새 이름 후보: 한글 2~4자 + (조사·말끝) + 끝 (예: "정서현으로", "정서현이야", "정서현이에요", "정서현")
@@ -85,6 +94,13 @@ def _status(message: str, current: str) -> str | None:
     return None
 
 
+def _work(message: str) -> str | None:
+    """지금 하는 일이 바뀌었다는 말. 여러 개면 문장에서 마지막에 나온 것 (그만두고 학교 다녀요 → 학생)"""
+    flat = _flat(message)
+    hits = [(flat.rfind(w), code) for code, words in _WORK_WORDS for w in words if w in flat]
+    return max(hits)[1] if hits else None
+
+
 def _d_date(message: str) -> date | None:
     if "퇴소" not in message:
         return None
@@ -132,6 +148,11 @@ def detect(message: str, user: User, today: date) -> list[ProfileChange]:
     if status:
         out.append(ProfileChange(field="status", label="보호 상태", current=STATUS_LABELS.get(user.status),
                                  proposed=status, proposed_label=STATUS_LABELS[status]))
+    work = _work(message)
+    if work:
+        # 서버는 지금 하는 일을 모른다 (current 없음). 앱이 승인받아 기기에 저장한다
+        out.append(ProfileChange(field="work", label="지금 하는 일", current=None, proposed=work,
+                                 proposed_label=WORK_LABELS[work]))
     d = _d_date(message)
     new_status = status or user.status
     if d and new_status == "leaving_soon" and d >= today and d != user.d_date:
