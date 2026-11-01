@@ -176,3 +176,14 @@ def test_roleplay_marks_voice_questions_in_message_and_history():
     assert {"role": "user", "content": "원룸 보러 왔어요"} in msgs
     assert "음성 인식" in msgs[0]["content"] and "질문을 받았으면 먼저 그 질문에 답하고" in msgs[0]["content"]
     assert voice_message("월세 얼마예요?") == "월세 얼마예요?"
+
+
+def test_roleplay_does_not_end_early_on_question_or_without_closing():
+    llm = FakeLLM({"reply": "네, 그럼 이만.", "is_finished": True})
+    first = [{"role": "assistant", "content": "어서 오세요."}]
+    # 대사 흐름이 남았고 끝맺는 말도 없으면 LLM 이 끝내자고 해도 이어 간다
+    assert roleplay_reply(SCENARIO, first, "통장 만들래요", llm)["is_finished"] is False
+    # 질문이면 끝내지 않는다
+    assert roleplay_reply(SCENARIO, first, "수수료 얼마예요", llm)["is_finished"] is False
+    # 사용자가 인사하며 끝내면 받아들인다
+    assert roleplay_reply(SCENARIO, first, "네 감사합니다", llm)["is_finished"] is True
