@@ -6,9 +6,10 @@ from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
 
-from app.api import chat, checklists, forms, health, policies, roleplay, simulations, users, writer
+from app.api import chat, checklists, forms, health, policies, risk, roleplay, simulations, users, writer
 from app.criteria import get_criteria
 from app.errors import register_error_handlers
+from app.doc_risk import get_rules
 from app.forms import get_templates
 from app.roleplay import get_scenarios
 
@@ -29,6 +30,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     logger.info("시뮬레이션 기준표 버전: %s", criteria.version)
     get_scenarios()  # 롤플레잉 상황·서류 양식 파일 형식 오류도 시작 시 실패
     get_templates()
+    get_rules()  # 서류 위험 규칙 (연습 상황 id 확인 포함)
     yield
 
 
@@ -59,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(roleplay.router, prefix="/api")
     app.include_router(forms.router, prefix="/api")
     app.include_router(writer.router, prefix="/api")
+    app.include_router(risk.router, prefix="/api")
     return app
 
 

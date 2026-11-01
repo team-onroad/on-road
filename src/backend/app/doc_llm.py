@@ -21,6 +21,8 @@ class DocLlm:
     extract_answer: Callable[..., dict] = llm_mock.extract_answer
     # 올린 양식(사진·PDF) → 칸 목록. {"title", "form_text", "fields"}
     read_form: Callable[..., dict] = llm_mock.read_form
+    # 서류 속 위험 찾기: (규칙, PDF 글자, 쪽 이미지) → {"values": {...}, "findings": [{"rule_id", "status", "evidence"}]}
+    read_risk: Callable[..., dict] = llm_mock.read_risk
 
 
 @lru_cache
@@ -30,11 +32,13 @@ def _real_doc_llm() -> DocLlm:
         sys.path.insert(0, src)
     from docwriter import llm
 
-    return DocLlm(llm.route_message, llm.assist_field, llm.extract_answer, llm.read_form)
+    return DocLlm(llm.route_message, llm.assist_field, llm.extract_answer, llm.read_form, llm.read_risk)
 
 
 def get_doc_llm() -> DocLlm:
     """FastAPI 의존성. 테스트에서는 dependency_overrides 로 교체"""
     if get_settings().llm_mode == "real":
         return _real_doc_llm()
-    return DocLlm(llm_mock.route_message, llm_mock.assist_field, llm_mock.extract_answer, llm_mock.read_form)
+    return DocLlm(
+        llm_mock.route_message, llm_mock.assist_field, llm_mock.extract_answer, llm_mock.read_form, llm_mock.read_risk,
+    )
