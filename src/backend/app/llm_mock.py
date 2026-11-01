@@ -162,8 +162,11 @@ def read_risk(rules: dict, form_text: str | None, images: list[str]) -> dict:
         found[rule_id] = (hit, ev) if ev else (miss, None)
 
     def date_after(word: str) -> str | None:
-        m = re.search(word + r"[^\d]{0,10}(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})", t)
-        return f"{m[1]}-{int(m[2]):02d}-{int(m[3]):02d}" if m else None
+        m = re.search("(?:" + word + r")[^\d]{0,10}(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})", t)
+        if not m:
+            return None
+        y, mo, d = m.groups()[-3:]  # word 안의 괄호 묶음은 건너뛴다
+        return f"{y}-{int(mo):02d}-{int(d):02d}"
 
     if doc_type == "labor":
         m = re.search(r"시급\s*[:：]?\s*([\d,]+)\s*원", t)
@@ -185,9 +188,13 @@ def read_risk(rules: dict, form_text: str | None, images: list[str]) -> dict:
         presence("LEA-03", r"전입.*(않|금지|불가)", "danger", "ok")
         presence("LEA-04", r"(근저당|담보).*(설정하지|금지)", "ok", "check")
         presence("LEA-06", r"관리비", "ok", "check")
-        presence("LEA-07", r"(모든|일체).*(수리|원상복구).*(임차인|세입자)", "check", "ok")
+        presence("LEA-07", r"(임차인|세입자).*(모든|일체).*(수리|원상복구)|(모든|일체).*(수리|원상복구).*(임차인|세입자)", "check", "ok")
         presence("LEA-02", r"대리인", "check", "ok")
-        values["start_date"] = date_after(r"(임대차기간|계약기간)")
+        landlord = re.search(r"임대인\s*[:：]\s*([가-힣]{2,4})", t)
+        account = _line(t, r"(입금\s*계좌|계좌)")
+        if landlord and account:
+            found["LEA-01"] = ("ok", None) if landlord[1] in account else ("danger", account)
+        values["start_date"] = date_after(r"임대차기간|계약기간")
         values["end_date"] = date_after(r"(부터|~)")
         m = re.search(r"보증금\s*[:：]?\s*(?:금\s*)?([\d,]+)\s*원", t)
         values["deposit"] = int(m[1].replace(",", "")) if m else None

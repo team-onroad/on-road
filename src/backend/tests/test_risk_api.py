@@ -237,3 +237,26 @@ def test_errors(api, db_session):
     assert res.status_code == 422 and res.json()["error"]["code"] == "UPLOAD_INVALID"
     res = _check(api, user, _png(), context={"market_price": -1})
     assert res.status_code == 422
+
+
+def test_lease_two_years_ending_day_before_is_ok():
+    j = _by_id(judge("lease", _out({"start_date": "2026-12-01", "end_date": "2028-11-30"}), Context(), TODAY, None))
+    assert j["LEA-05"]["status"] == "ok"
+    j = _by_id(judge("lease", _out({"start_date": "2026-12-01", "end_date": "2027-11-30"}), Context(), TODAY, None))
+    assert j["LEA-05"]["status"] == "check"
+
+
+def test_pdf_lease_with_mock_llm(api, db_session):
+    user = make_user(db_session)
+    pdf = _pdf([
+        "주택 월세 계약서", "보증금: 금 10,000,000원", "입금 계좌: 가상은행 김대리 명의 계좌",
+        "임대차기간: 2026.12.01 부터 2027.11.30 까지",
+        "1. 임차인은 전입신고 및 확정일자를 하지 않기로 한다.",
+        "2. 임차인은 거주 중 발생하는 모든 수리 및 원상복구를 부담한다.",
+        "임대인: 박집주",
+    ])
+    j = _by_id(_check(api, user, pdf, doc_type="lease").json())
+    assert j["LEA-01"]["status"] == "danger" and "김대리" in j["LEA-01"]["evidence"]
+    assert j["LEA-03"]["status"] == "danger"
+    assert j["LEA-05"]["status"] == "check"
+    assert j["LEA-07"]["status"] == "check" and j["LEA-07"]["practice"]["scenario_id"] == "landlord"
