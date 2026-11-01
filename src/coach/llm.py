@@ -43,13 +43,13 @@ class CoachFormatError(RuntimeError):
 JSON_RETRIES = 1
 
 
-def _openai_generate(messages: list[dict]) -> dict:
+def _openai_generate(messages: list[dict], temperature: float = 0.4) -> dict:
     from rag.openai_client import _client
     from rag.settings import get_rag_settings
 
     for _ in range(1 + JSON_RETRIES):
         resp = _client().chat.completions.create(
-            model=get_rag_settings().coach_model, temperature=0.4, max_tokens=500,
+            model=get_rag_settings().coach_model, temperature=temperature, max_tokens=500,
             response_format={"type": "json_object"}, messages=messages,
         )
         try:
@@ -135,6 +135,34 @@ def _surprises(scenario: dict) -> str:
     )
 
 
+# 음성 인식 글은 문장부호가 없다. 질문으로 보이면 (질문) 을 붙여 상대 역할이 질문에 먼저 답하게 한다
+_ASK_WORDS = re.compile(r"(뭐|무엇|무슨|언제|어디|얼마|몇|왜|어떻게|어떤|누구|어느)")
+_ASK_ENDINGS = re.compile(r"(나요|까요|까|는지요|는지|죠|지요|니|냐|어때요|어때)$")
+_STATEMENT_ENDINGS = re.compile(r"(주세요|드려요|드릴게요|게요|했어요|됐어요|왔어요|싶어요|합니다|습니다)$")
+
+
+def looks_question(text: str) -> bool:
+    """음성 인식 글(문장부호 없음)이 질문 같은지. 문장부호가 있으면 그대로 따른다"""
+    t = text.strip()
+    if not t:
+        return False
+    if t.endswith("?"):
+        return True
+    if t.endswith((".", "!")):
+        return False
+    tail = t.split()[-1]
+    if _STATEMENT_ENDINGS.search(tail):
+        return False
+    if _ASK_ENDINGS.search(tail):
+        return True
+    # "~요" 로 끝나도 의문사가 있으면 질문 ("보증금 얼마예요", "언제 와요")
+    return tail.endswith("요") and bool(_ASK_WORDS.search(t))
+
+
+def voice_message(message: str) -> str:
+    return f"{message} (질문)" if looks_question(message) and not message.strip().endswith("?") else message
+
+
 def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: Generate | None = None) -> dict:
     """history 첫 대사(상대 역할의 첫마디)는 백엔드가 넣어 둔다."""
     lines = [str(x) for x in scenario.get("lines") or []]
@@ -150,11 +178,13 @@ def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: 
         surprises=_surprises(scenario),
         lines="\n".join(f"{i}. {x}" for i, x in enumerate(lines, 1)) or "(없음)",
     )
-    out = (generate or _openai_generate)([
-        {"role": "system", "content": system},
-        *_history(history),
-        {"role": "user", "content": message},
-    ])
+    # 앞 대화의 사용자 말에도 같은 표시를 붙인다 (앞에서 무엇을 물었는지 알게)
+    turns = [
+        {**h, "content": voice_message(h["content"])} if h["role"] == "user" else h for h in _history(history)
+    ]
+    messages = [{"role": "system", "content": system}, *turns, {"role": "user", "content": voice_message(message)}]
+    # 엉뚱한 말이 덜 나오게 조금 낮은 온도
+    out = generate(messages) if generate else _openai_generate(messages, temperature=0.3)
     reply = _text(out.get("reply") if isinstance(out, dict) else None)
     if not reply:
         raise CoachFormatError("롤플레잉 답변이 비어 있습니다.")
