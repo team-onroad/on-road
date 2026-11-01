@@ -127,6 +127,7 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
     value = w._value(row.segments).strip()
     can_skip = spec.get("required") is not True
     options = spec.get("options")
+    example = None
     if confirm_text is not None:
         text = (f"'{name}'에 '{confirm_text}'(이)라고 적을까요? 맞으면 '네', 아니면 칸에 쓸 내용을 다시 알려 주세요. "
                 "궁금한 게 있으면 물어봐도 돼요.")
@@ -154,7 +155,8 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
             hint = f" ({' → '.join(outline)} 순서로 말해 주면 좋아요.)" if outline else ""
             text = f"'{name}'에 쓸 내용을 편하게 말해 주세요. 제가 문장으로 정리해 드릴게요.{hint}"
         elif spec.get("input_type") == "date":
-            text = f"'{name}'{_josa(name, '을', '를')} 알려 주세요. (예: 2026.10.27)"
+            text = f"'{name}'{_josa(name, '을', '를')} 알려 주세요."
+            example = "(예: 2026.10.27)"
         else:
             text = f"'{name}'{_josa(name, '을', '를')} 알려 주세요."
             if spec.get("guide"):
@@ -163,6 +165,8 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
             text += f" (지금은 '{value}'만 있어요.)"
     if can_skip and not confirm:
         text += " 해당 없으면 '해당 없음'이라고 해 주세요."
+    if example:  # 예시는 맨 끝에 (안내 문장 사이에 끼면 읽기 어렵다)
+        text += f" {example}"
     return Question(
         field_id=row.field_id, label=spec["label"], text=text, input_type=spec.get("input_type", "text"),
         options=options, items=w.confirm_items(spec), current_value=value or None, awaiting_confirm=confirm,
