@@ -45,3 +45,24 @@ def test_labels_for_card():
     s = detect("퇴소했어요", user(status="leaving_soon"), TODAY)[0]
     assert (s.current, s.proposed_label) == ("퇴소 예정", "퇴소함")
     assert detect("퇴소했어요", user(status="left_care"), TODAY) == []  # 이미 퇴소함
+
+
+@pytest.mark.parametrize("message,expected", [
+    ("저 이번에 취업했어요", "working"),
+    ("편의점 알바 시작했어", "working"),
+    ("다음 달부터 출근하게 됐어요", "working"),
+    ("대학교 입학했어요", "student"),
+    ("알바 그만두고 학교 다니고 있어요", "student"),
+    ("회사 그만뒀어요", "job_seeking"),
+    ("요즘 일자리 찾고 있어요", "job_seeking"),
+    ("당분간 쉬고 있어요", "resting"),
+    ("취업 지원 정책 알려줘", None),
+    ("학교 근처 집 알아봐", None),
+])
+def test_detect_work(message, expected):
+    assert changes(message).get("work") == expected
+
+
+def test_work_change_has_no_current_value():
+    c = next(c for c in detect("취업했어요", user(), TODAY) if c.field == "work")
+    assert c.label == "지금 하는 일" and c.current is None and c.proposed_label == "일해요"
