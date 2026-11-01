@@ -7,7 +7,7 @@ import pytest
 
 from coach.llm import (
     HISTORY_TURNS, ROLEPLAY_END, ROLEPLAY_EXTRA_TURNS, SAFE_COUNSEL, CoachFormatError, classify_intent, counsel_reply,
-    looks_question, polish_sentences, polite, roleplay_reply, safe_counsel, voice_message,
+    looks_question, polish_sentences, polite, repeats, roleplay_reply, safe_counsel, voice_message,
 )
 from coach.prompts import LEVEL_GUIDE, STAGE_STYLE
 
@@ -189,3 +189,36 @@ def test_roleplay_does_not_end_early_on_question_or_without_closing():
     assert roleplay_reply(SCENARIO, first, "수수료 얼마예요", llm)["is_finished"] is False
     # 사용자가 인사하며 끝내면 받아들인다
     assert roleplay_reply(SCENARIO, first, "네 감사합니다", llm)["is_finished"] is True
+
+
+def test_repeats():
+    said = ["신분증 가져오셨어요? 본인 확인이 필요해요."]
+    assert repeats("신분증 가져오셨어요? 본인 확인이 필요해요.", said)
+    assert not repeats("네, 확인됐어요. 이제 서명해 주세요.", said)
+    assert not repeats("네.", said)
+
+
+class SeqLLM:
+    def __init__(self, outputs):
+        self.outputs = list(outputs)
+        self.calls = []
+
+    def __call__(self, messages):
+        self.calls.append(messages)
+        return self.outputs.pop(0)
+
+
+def test_roleplay_marks_done_lines_and_retries_repeat():
+    history = [
+        {"role": "assistant", "content": "어서 오세요. 신분증 있으세요?"},
+        {"role": "user", "content": "네 여기요"},
+    ]
+    llm = SeqLLM([
+        {"reply": "어서 오세요. 신분증 있으세요?", "is_finished": False},
+        {"reply": "확인했어요. 여기 서명해 주세요.", "is_finished": False},
+    ])
+    out = roleplay_reply(SCENARIO, history, "네 여기요", llm)
+    assert out["reply"] == "확인했어요. 여기 서명해 주세요."
+    system = llm.calls[0][0]["content"]
+    assert "1. 신분증 있으세요? (이미 함" in system and "2. 도장이나 서명 해 주세요.\n" in system + "\n"
+    assert len(llm.calls) == 2

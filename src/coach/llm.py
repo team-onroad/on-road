@@ -20,6 +20,11 @@ Generate = Callable[[list[dict]], dict]
 
 # LLM 에 넘기는 앞 대화 수 (오래된 것부터 버림)
 HISTORY_TURNS = 10
+# 롤플레잉은 통화 전체를 봐야 같은 말을 되풀이하지 않는다
+ROLEPLAY_HISTORY_TURNS = 40
+# 앞서 한 말과 낱말이 이만큼 겹치면 되풀이로 본다
+REPEAT_OVERLAP = 0.7
+_WORD = re.compile(r"[가-힣A-Za-z0-9]{2,}")
 # 상대 역할이 대사 흐름보다 이만큼 더 말하면 마무리한다 (대화가 끝없이 이어지는 것만 막는다)
 ROLEPLAY_EXTRA_TURNS = 10
 # 사용자가 대화를 끝내려는 말 (이 말이 있을 때만 LLM 의 마무리를 받아들인다)
@@ -62,9 +67,31 @@ def _openai_generate(messages: list[dict], temperature: float = 0.4) -> dict:
     raise CoachFormatError("LLM 출력이 JSON 이 아닙니다.")  # 원문(대화 포함 가능)은 넣지 않는다
 
 
-def _history(history: list[dict]) -> list[dict]:
+def _words(text: str) -> set[str]:
+    return set(_WORD.findall(text))
+
+
+def repeats(reply: str, said: list[str]) -> bool:
+    """앞서 상대 역할이 한 말을 거의 그대로 다시 하는지 (낱말 70% 이상 겹침)"""
+    w = _words(reply)
+    if len(w) < 3:
+        return False
+    return any(len(w & _words(x)) / len(w) >= REPEAT_OVERLAP for x in said)
+
+
+def _done_lines(lines: list[str], said: list[str]) -> set[int]:
+    """대사 흐름 중 상대 역할이 이미 꺼낸 것 (낱말 절반 이상 겹침)"""
+    out = set()
+    for i, line in enumerate(lines):
+        w = _words(line)
+        if w and any(len(w & _words(x)) / len(w) >= 0.5 for x in said):
+            out.add(i)
+    return out
+
+
+def _history(history: list[dict], limit: int = HISTORY_TURNS) -> list[dict]:
     turns = [h for h in history if h.get("role") in ("user", "assistant") and str(h.get("content") or "").strip()]
-    return [{"role": h["role"], "content": str(h["content"])} for h in turns[-HISTORY_TURNS:]]
+    return [{"role": h["role"], "content": str(h["content"])} for h in turns[-limit:]]
 
 
 def _text(v: object) -> str:
@@ -170,6 +197,8 @@ def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: 
     """history 첫 대사(상대 역할의 첫마디)는 백엔드가 넣어 둔다."""
     lines = [str(x) for x in scenario.get("lines") or []]
     spoken = sum(1 for h in history if h.get("role") == "assistant")
+    said = [str(h.get("content") or "") for h in history if h.get("role") == "assistant"]
+    done = _done_lines(lines, said)
     if spoken >= len(lines) + ROLEPLAY_EXTRA_TURNS:
         return {"reply": ROLEPLAY_END, "is_finished": True}
     system = ROLEPLAY_SYSTEM.format(
@@ -179,16 +208,29 @@ def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: 
         level_guide=LEVEL_GUIDE.get(str(scenario.get("level")), LEVEL_GUIDE["NORMAL"]),
         situation=_situation(scenario),
         surprises=_surprises(scenario),
-        lines="\n".join(f"{i}. {x}" for i, x in enumerate(lines, 1)) or "(없음)",
+        lines="\n".join(
+            f"{i}. {x}" + (" (이미 함, 다시 말하지 않음)" if i - 1 in done else "") for i, x in enumerate(lines, 1)
+        ) or "(없음)",
     )
     # 앞 대화의 사용자 말에도 같은 표시를 붙인다 (앞에서 무엇을 물었는지 알게)
     turns = [
-        {**h, "content": voice_message(h["content"])} if h["role"] == "user" else h for h in _history(history)
+        {**h, "content": voice_message(h["content"])} if h["role"] == "user" else h
+        for h in _history(history, ROLEPLAY_HISTORY_TURNS)
     ]
     messages = [{"role": "system", "content": system}, *turns, {"role": "user", "content": voice_message(message)}]
     # 사람처럼 말하게 하되, 엉뚱한 말은 프롬프트 규칙으로 막는다
     out = generate(messages) if generate else _openai_generate(messages, temperature=0.5)
     reply = _text(out.get("reply") if isinstance(out, dict) else None)
+    # 앞서 한 말을 되풀이하면 한 번만 다시 요청한다
+    if reply and repeats(reply, said):
+        again = messages + [
+            {"role": "assistant", "content": json.dumps(out, ensure_ascii=False)},
+            {"role": "system", "content": "방금 답은 앞에서 이미 한 말과 거의 같다. 같은 말을 되풀이하지 말고, 사용자의 마지막 말에 맞는 새 말로 다시 답한다."},
+        ]
+        retry = generate(again) if generate else _openai_generate(again, temperature=0.5)
+        new = _text(retry.get("reply") if isinstance(retry, dict) else None)
+        if new and not repeats(new, said):
+            out, reply = retry, new
     if not reply:
         raise CoachFormatError("롤플레잉 답변이 비어 있습니다.")
     # 상대 역할이 혼자 대화를 끝내지 않게: 질문이 아니고, 사용자가 끝맺는 말을 했거나 대사 흐름을 다 했을 때만 받아들인다
