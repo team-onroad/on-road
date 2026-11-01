@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.crisis import CRISIS_MESSAGE, is_crisis
 from app.llm_client import Llm, call_llm
-from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, hint, lines_for, next_steps, pick_plan, plan_of, progress
+from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, hint, lines_for, next_steps, pick_plan, my_better, plan_of, progress
 from app.schemas.roleplay import (
     BetterOut,
     FeedbackItemOut,
@@ -115,7 +115,7 @@ def give_feedback(db: Session, user: User, s: Scenario, body: FeedbackRequest) -
         good=good,
         missed=missed,
         documents=s.documents,
-        better=[BetterOut(before=b.before, after=b.after) for b in better],
+        better=[BetterOut(before=before, after=after) for before, after in my_better(better, turns)],
         score=score,
         grade=grade(score),
         items=[FeedbackItemOut(label=i.label, ok=i.ok, kind=i.kind, example=i.example) for i in items],
