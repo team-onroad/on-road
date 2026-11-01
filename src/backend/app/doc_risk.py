@@ -12,7 +12,7 @@
 import json
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -239,7 +239,7 @@ def _calc(rule: Rule, v: dict, ctx: Context, today: date, ai: Judged) -> Judged:
             two_years = s.replace(year=s.year + 2)
         except ValueError:  # 2월 29일
             two_years = s.replace(year=s.year + 2, day=28)
-        if e < two_years:
+        if e < two_years - timedelta(days=1):  # 12.1 ~ 2년 뒤 11.30 까지는 2년
             return Judged("check", ai.evidence, rule.explain)
         return Judged("ok", ai.evidence, "계약 기간이 2년 이상이에요.")
     if rule.id == "LAB-01":
