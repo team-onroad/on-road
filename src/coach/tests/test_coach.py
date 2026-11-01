@@ -7,7 +7,7 @@ import pytest
 
 from coach.llm import (
     HISTORY_TURNS, ROLEPLAY_END, ROLEPLAY_EXTRA_TURNS, SAFE_COUNSEL, CoachFormatError, classify_intent, counsel_reply,
-    polish_sentences, polite, roleplay_reply, safe_counsel,
+    looks_question, polish_sentences, polite, roleplay_reply, safe_counsel, voice_message,
 )
 from coach.prompts import LEVEL_GUIDE, STAGE_STYLE
 
@@ -149,3 +149,30 @@ def test_roleplay_prompt_has_situation_and_surprises():
     plain = FakeLLM({"reply": "네", "is_finished": False})
     roleplay_reply(SCENARIO, [{"role": "assistant", "content": "여보세요?"}], "안녕하세요", generate=plain)
     assert "[이번 전개]" not in plain.calls[0][0]["content"] and "[돌발 상황]" not in plain.calls[0][0]["content"]
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("보증금 얼마예요", True), ("언제 와요", True), ("수리해 주실 수 있나요", True), ("이거 맞죠", True),
+    ("몇 시까지 가면 돼요", True), ("서류 뭐 필요해요", True), ("계약은 어떻게 해요", True), ("통장 만들까", True),
+    ("통장 만들래요", False), ("보일러가 고장 났어요", False), ("뭐라도 할게요", False), ("수리해 주세요", False),
+    ("감사합니다", False), ("얼마예요?", True), ("얼마예요.", False), ("", False),
+])
+def test_looks_question(text, expected):
+    assert looks_question(text) is expected
+
+
+def test_roleplay_marks_voice_questions_in_message_and_history():
+    llm = FakeLLM({"reply": "50만 원이에요.", "is_finished": False})
+    history = [
+        {"role": "assistant", "content": "어떤 집 보러 오셨어요?"},
+        {"role": "user", "content": "원룸 보러 왔어요"},
+        {"role": "assistant", "content": "이쪽이에요."},
+        {"role": "user", "content": "관리비 포함이에요"},
+        {"role": "assistant", "content": "네, 포함이에요."},
+    ]
+    roleplay_reply(SCENARIO, history, "월세 얼마예요", llm)
+    msgs = llm.calls[0]
+    assert msgs[-1] == {"role": "user", "content": "월세 얼마예요 (질문)"}
+    assert {"role": "user", "content": "원룸 보러 왔어요"} in msgs
+    assert "음성 인식" in msgs[0]["content"] and "질문을 받았으면 먼저 그 질문에 답하고" in msgs[0]["content"]
+    assert voice_message("월세 얼마예요?") == "월세 얼마예요?"
