@@ -628,7 +628,7 @@ def test_reply_sends_variant_and_surprise_to_llm(api, db_session, llm):
     scenario = llm.calls[0][0]
     assert "세입자가 고쳐 써야" in scenario["situation"]
     assert scenario["surprises"] == ["수리비는 반반 내요. 세입자도 쓰는 거니까."]  # 모르는 id 는 무시
-    assert scenario["lines"][1] == "수리비는 반반 내요. 세입자도 쓰는 거니까."  # 두 번째 대사 자리에 끼워 넣음
+    assert scenario["lines"][2] == "수리비는 반반 내요. 세입자도 쓰는 거니까."  # 대화가 조금 이어진 세 번째 자리에
 
 
 def test_feedback_with_variant_and_surprise(api, db_session):
@@ -668,3 +668,17 @@ def test_follow_ups_point_to_real_scenarios():
     ids = set(get_scenarios())
     for s in get_scenarios().values():
         assert all(f.scenario_id in ids for f in s.follow_ups if f.kind == "practice")
+
+
+def test_surprise_fits_variant():
+    from app.roleplay import pick_plan
+    s = get_scenarios()["neighbor"]
+    kids = next(v for v in s.variants if v.variant_id == "kids")
+    for _ in range(40):
+        plan = pick_plan(s, "HARD", "kids")
+        assert plan.variant == kids
+        assert "nb-renovation" not in {x.surprise_id for x in plan.surprises}  # 아이가 뛰는 집에 '공사 중'은 안 맞음
+    s = get_scenarios()["scam-call"]
+    for _ in range(40):
+        ids = {x.surprise_id for x in pick_plan(s, "HARD", "family").surprises}
+        assert not ids & {"sc-arrest", "sc-meet", "sc-app", "sc-card"}
