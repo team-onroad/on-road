@@ -1,6 +1,9 @@
 """롤플레잉 상황 데이터와 규칙 (api.md 3.16~3.19). 앱 FakeCoachApi 와 같은 규칙"""
 
 import json
+import random
+import re
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
@@ -24,6 +27,7 @@ class Checkpoint(BaseModel):
 
     keywords: Annotated[list[Text], Field(min_length=1)]
     label: Text
+    example: str | None = None  # 놓쳤을 때 "이렇게 말해 보세요"
 
 
 class Better(BaseModel):
@@ -31,6 +35,44 @@ class Better(BaseModel):
 
     before: Text
     after: Text
+
+
+class Variant(BaseModel):
+    """같은 상황의 다른 전개 (할 때마다 하나를 고른다)"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    variant_id: Annotated[StrictStr, Field(min_length=1, max_length=40)]
+    title: Text  # 앱에 보여 줄 이번 상황 (예: "집주인이 수리를 미룸")
+    situation: str  # 상대 역할이 따를 전개 (LLM 에 줌). 빈 문자열이면 기본 상황
+    lines: list[Text]  # 비어 있으면 상황의 기본 대사 흐름
+    checkpoints: list[Checkpoint]  # 이 전개에서 더 확인할 것
+    better: list["Better"]
+
+
+class Surprise(BaseModel):
+    """난이도별 돌발 상황: 보통은 1개, 어려움은 2개까지 대화 중간에 끼어든다"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    surprise_id: Annotated[StrictStr, Field(min_length=1, max_length=40)]
+    level: Literal["NORMAL", "HARD"]
+    line: Text  # 상대가 할 말 (LLM 은 상황에 맞게 바꿔 말해도 됨)
+    checkpoint: Checkpoint  # 돌발 상황에 잘 대처했는지
+
+
+class FollowUp(BaseModel):
+    """연습 뒤 이어서 해 볼 것 (다른 기능으로 연결). when=missed 면 놓친 게 있을 때만,
+    labels 를 주면 그 체크 항목 중 하나라도 놓쳤을 때만"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["search", "practice", "budget", "month", "forms", "chat"]
+    label: Text
+    query: str | None = None  # search·chat 검색어/질문
+    scenario_id: str | None = None  # practice 상황 id
+    when: Literal["always", "missed"] = "always"
+    labels: list[str] = []
 
 
 class Scenario(BaseModel):
@@ -51,6 +93,9 @@ class Scenario(BaseModel):
     checkpoints: list[Checkpoint]
     documents: list[Text]
     better: list[Better]
+    variants: list[Variant] = []
+    surprises: list[Surprise] = []
+    follow_ups: list[FollowUp] = []
 
 
 @lru_cache
@@ -60,6 +105,12 @@ def get_scenarios() -> dict[str, Scenario]:
     scenarios = {s.scenario_id: s for s in items}
     if len(scenarios) != len(items):
         raise ValueError("roleplay_scenarios.json scenario_id 중복")
+    for s in items:
+        for f in s.follow_ups:
+            if f.kind == "practice" and f.scenario_id not in scenarios:
+                raise ValueError(f"{s.scenario_id}: 없는 연습 상황 {f.scenario_id}")
+            if f.kind in ("search", "chat") and not f.query:
+                raise ValueError(f"{s.scenario_id}: {f.kind} 에는 query 가 필요해요")
     return scenarios
 
 
@@ -80,23 +131,138 @@ def level_for(s: Scenario, stage: str | None) -> str:
     return s.level_by_stage.get(stage, s.level) if stage else s.level
 
 
-def lines_for(s: Scenario, level: str) -> list[str]:
-    """실전은 압박 질문을 대사 사이사이에 섞음"""
-    if level != "HARD" or not s.hard_lines:
-        return list(s.lines)
-    mixed = []
-    for i, line in enumerate(s.lines):
-        mixed.append(line)
-        if i < len(s.hard_lines):
-            mixed.append(s.hard_lines[i])
-    return mixed
+@dataclass(frozen=True)
+class Plan:
+    """이번 연습의 전개: 고른 전개 + 돌발 상황 (앱이 opening 에서 받아 reply·feedback 에 그대로 보낸다)"""
+
+    variant: Variant | None
+    surprises: tuple[Surprise, ...]
 
 
-def feedback(s: Scenario, user_turns: list[str]) -> tuple[list[str], list[str]]:
-    said = " ".join(user_turns)
-    good, missed = [], []
-    for c in s.checkpoints:
-        (good if any(k in said for k in c.keywords) else missed).append(c.label)
+SURPRISE_COUNT = {"EASY": 0, "NORMAL": 1, "HARD": 2}
+
+
+def pick_plan(s: Scenario, level: str, variant_id: str | None = None, rng: random.Random | None = None) -> Plan:
+    """전개는 무작위(또는 variant_id), 돌발 상황은 난이도만큼. 어려움은 HARD 돌발을 먼저 고른다"""
+    rng = rng or random.Random()
+    variant = None
+    if s.variants:
+        variant = next((v for v in s.variants if v.variant_id == variant_id), None) or rng.choice(s.variants)
+    count = SURPRISE_COUNT.get(level, 0)
+    pool = [x for x in s.surprises if level == "HARD" or x.level == "NORMAL"]
+    hard = [x for x in pool if x.level == "HARD"]
+    rest = [x for x in pool if x.level != "HARD"]
+    rng.shuffle(hard)
+    rng.shuffle(rest)
+    return Plan(variant, tuple((hard + rest)[:count]))
+
+
+def plan_of(s: Scenario, variant_id: str | None, surprise_ids: list[str]) -> Plan:
+    """앱이 보낸 id 로 전개를 되살린다. 모르는 id 는 무시"""
+    variant = next((v for v in s.variants if v.variant_id == variant_id), None)
+    by_id = {x.surprise_id: x for x in s.surprises}
+    return Plan(variant, tuple(by_id[i] for i in surprise_ids if i in by_id))
+
+
+def lines_for(s: Scenario, level: str, plan: Plan | None = None) -> list[str]:
+    """대사 흐름: 전개의 대사(없으면 기본) + 실전 압박 질문 + 돌발 상황(두 번째 대사부터 사이사이)"""
+    base = list(plan.variant.lines) if plan and plan.variant and plan.variant.lines else list(s.lines)
+    if level == "HARD" and s.hard_lines:
+        mixed = []
+        for i, line in enumerate(base):
+            mixed.append(line)
+            if i < len(s.hard_lines):
+                mixed.append(s.hard_lines[i])
+        base = mixed
+    if plan:
+        for n, x in enumerate(plan.surprises):
+            base.insert(min(1 + n * 2, len(base)), x.line)
+    return base
+
+
+@dataclass(frozen=True)
+class FeedbackItem:
+    label: str
+    ok: bool
+    kind: str  # basic | situation | surprise
+    example: str | None
+
+
+GRADES = ((85, "아주 잘했어요"), (60, "잘했어요"), (0, "한 번 더 해 봐요"))
+
+
+def feedback(s: Scenario, user_turns: list[str], plan: Plan | None = None) -> tuple[list[str], list[str]]:
+    items, _ = feedback_items(s, user_turns, plan)
+    good = [i.label for i in items if i.ok]
+    missed = [i.label for i in items if not i.ok]
     if len(user_turns) >= FINISHED_MIN_TURNS:
         good.append(FINISHED_GOOD)
     return good, missed
+
+
+def feedback_items(s: Scenario, user_turns: list[str], plan: Plan | None = None) -> tuple[list[FeedbackItem], int]:
+    """체크 항목별 결과와 점수 (0~100). 돌발 상황 대처는 2배로 친다. 끝까지 대화하면 10점 더"""
+    said = " ".join(user_turns)
+    checks: list[tuple[Checkpoint, str]] = [(c, "basic") for c in s.checkpoints]
+    if plan and plan.variant:
+        checks += [(c, "situation") for c in plan.variant.checkpoints]
+    if plan:
+        checks += [(x.checkpoint, "surprise") for x in plan.surprises]
+    items = [FeedbackItem(c.label, any(k in said for k in c.keywords), kind, c.example) for c, kind in checks]
+    weight = {"basic": 1, "situation": 1, "surprise": 2}
+    total = sum(weight[i.kind] for i in items) or 1
+    got = sum(weight[i.kind] for i in items if i.ok)
+    score = round(90 * got / total) + (10 if len(user_turns) >= FINISHED_MIN_TURNS else 0)
+    return items, min(score, 100)
+
+
+def grade(score: int) -> str:
+    return next(label for cut, label in GRADES if score >= cut)
+
+
+NEXT_STEPS_MAX = 3
+
+
+def next_steps(s: Scenario, items: list[FeedbackItem]) -> list[FollowUp]:
+    """놓친 것과 이어지는 것 먼저, 그다음 늘 권하는 것 (최대 3개)"""
+    missed = {i.label for i in items if not i.ok}
+    hit = [f for f in s.follow_ups if f.when == "missed" and missed and (not f.labels or missed & set(f.labels))]
+    always = [f for f in s.follow_ups if f.when == "always"]
+    return (hit + always)[:NEXT_STEPS_MAX]
+
+
+# ------------------------------------------------------------------ 대화 중 힌트 ("뭐라고 하지?")
+
+CLOSING_LABEL = "마무리 인사하기"
+CLOSING_EXAMPLE = "감사합니다. 말씀하신 대로 준비해서 다시 올게요."
+_WORD = re.compile(r"[가-힣A-Za-z0-9]{2,}")
+
+
+@dataclass(frozen=True)
+class Hint:
+    kind: str  # basic | situation | surprise | closing
+    label: str
+    example: str
+    remaining: int
+
+
+def _close_to(a: str, b: str) -> bool:
+    """상대가 돌발 대사를 바꿔 말해도 알아보게: 두 글자 이상 낱말이 2개 이상 겹치면 같은 말로 본다"""
+    return len(set(_WORD.findall(a)) & set(_WORD.findall(b))) >= 2
+
+
+def hint(s: Scenario, user_turns: list[str], last_partner: str, plan: Plan | None = None) -> Hint:
+    """아직 안 챙긴 것 하나. 방금 돌발 상황이 나왔으면 그 대처부터, 그다음 이번 전개 → 기본 순서"""
+    items, _ = feedback_items(s, user_turns, plan)
+    todo = [i for i in items if not i.ok]
+    if not todo:
+        return Hint("closing", CLOSING_LABEL, CLOSING_EXAMPLE, 0)
+    just_now = {x.checkpoint.label for x in (plan.surprises if plan else ()) if _close_to(x.line, last_partner)}
+    order = (
+        [i for i in todo if i.kind == "surprise" and i.label in just_now]
+        + [i for i in todo if i.kind == "situation"]
+        + [i for i in todo if i.kind == "basic"]
+        + [i for i in todo if i.kind == "surprise"]
+    )
+    pick = order[0]
+    return Hint(pick.kind, pick.label, pick.example or f"{pick.label}에 대해 말해 보세요.", len(todo))

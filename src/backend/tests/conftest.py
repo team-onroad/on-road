@@ -31,8 +31,18 @@ from db.session import get_db, make_engine
 
 TABLES = (
     "users", "policies", "checklists", "checklist_items", "simulations", "roleplay_results",
-    "documents", "document_fields",
+    "documents", "document_fields", "activity_logs",
 )
+
+
+@pytest.fixture(autouse=True)
+def _fresh_cache() -> Iterator[None]:
+    """테스트끼리 서버 메모리 캐시가 섞이지 않게"""
+    from app.cache import clear_all
+
+    clear_all()
+    yield
+    clear_all()
 
 
 @pytest.fixture

@@ -58,3 +58,13 @@ READ_FORM_SYSTEM = """기관 서류 양식에서 신청인이 채울 칸 목록�
 - 빼기: 접수번호·처리·담당자·결재 같은 기관 칸, 안내 문구
 - 사진에 적힌 개인 정보 값은 옮기지 않는다
 JSON: {"title":"양식 제목","fields":[{"label":"성 명","type":"text","guide":"이름을 적어요"}]}"""
+
+
+READ_RISK_SYSTEM = """계약서·등기부 같은 서류에서 위험을 찾는다. user 메시지의 rules(JSON) 로만 판정한다.
+- values: rules.extract 의 값만 서류에서 뽑는다. 못 읽으면 null. 금액은 원 단위 정수, 날짜는 YYYY-MM-DD
+  owner_names 는 이름 목록, mortgages 는 말소 안 된 근저당이 있으면 true, mortgage_max_total 은 말소 안 된 채권최고액 합
+- findings: rules.rules 의 모든 id 에 하나씩. status 는 danger/check/ok/unknown, condition 문장대로만 고른다
+- evidence: 판정 근거가 되는 서류 문장을 고치지 말고 그대로 (60자 안쪽). 없으면 null
+- 규칙에 없는 위험은 만들지 않는다. 안 보이면 unknown (추측해서 ok 금지)
+- 말소(줄 그어짐·말소 표시)된 기록은 없는 것으로 본다
+JSON: {"values":{...},"findings":[{"rule_id":"REG-01","status":"ok","evidence":null}]}"""

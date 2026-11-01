@@ -4,6 +4,8 @@
 - 지원 금액·자격·신청 여부 문장 만들지 않음 (계획서 7.3)
 """
 
+import re
+
 _POLICY_WORDS = (
     "지원", "수당", "정책", "제도", "혜택", "신청", "자격", "대상", "금액", "얼마",
     "월세", "전세", "보증금", "임대", "주거", "장학", "대출", "적금", "통장", "보조금", "받을수",
@@ -136,3 +138,81 @@ def read_form(form_text: str | None, images: list[str]) -> dict:
     else:
         hits = [known[0], known[2], known[3], known[5]]
     return {"title": "", "fields": [{"label": k[0], "type": k[1], "guide": k[2]} for k in hits]}
+
+
+def _line(text: str, pattern: str) -> str | None:
+    for line in text.splitlines():
+        if re.search(pattern, line):
+            return line.strip()
+    return None
+
+
+def read_risk(rules: dict, form_text: str | None, images: list[str]) -> dict:
+    """규칙 기반 (LLM_MODE=mock): PDF 글자에서 낱말로 찾는다. 사진은 읽지 못해 모두 unknown"""
+    doc_type = rules["doc_type"]
+    ids = [r["id"] for r in rules["rules"]]
+    if not form_text:
+        return {"values": {}, "findings": [{"rule_id": i, "status": "unknown", "evidence": None} for i in ids]}
+    t = form_text
+    values: dict = {}
+    found: dict[str, tuple[str, str | None]] = {}
+
+    def presence(rule_id: str, pattern: str, hit: str, miss: str) -> None:
+        ev = _line(t, pattern)
+        found[rule_id] = (hit, ev) if ev else (miss, None)
+
+    def date_after(word: str) -> str | None:
+        m = re.search("(?:" + word + r")[^\d]{0,10}(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})", t)
+        if not m:
+            return None
+        y, mo, d = m.groups()[-3:]  # word 안의 괄호 묶음은 건너뛴다
+        return f"{y}-{int(mo):02d}-{int(d):02d}"
+
+    if doc_type == "labor":
+        m = re.search(r"시급\s*[:：]?\s*([\d,]+)\s*원", t)
+        values["hourly_wage"] = int(m[1].replace(",", "")) if m else None
+        m = re.search(r"주\s*(\d+)\s*시간", t)
+        values["work_hours_per_week"] = int(m[1]) if m else None
+        values["weekly_holiday"] = _line(t, r"주휴")
+        values["break_time"] = _line(t, r"휴게")
+        values["probation"] = _line(t, r"수습")
+        values["contract_start"] = date_after(r"(근로계약기간|계약기간|시작)")
+        values["contract_end"] = date_after(r"(부터|~)")
+        presence("LAB-04", r"(위약금|배상|손해)", "danger", "ok")
+        presence("LAB-05", r"(지급일|매월\s*\d+\s*일)", "ok", "check")
+        presence("LAB-06", r"3\.3", "check", "ok")
+        presence("LAB-07", r"휴게", "ok", "check")
+        missing = [w for w in ("임금", "근로시간", "휴일", "연차") if w not in t.replace(" ", "")]
+        found["LAB-02"] = ("check", None) if missing else ("ok", None)
+    elif doc_type == "lease":
+        presence("LEA-03", r"전입.*(않|금지|불가)", "danger", "ok")
+        presence("LEA-04", r"(근저당|담보).*(설정하지|금지)", "ok", "check")
+        presence("LEA-06", r"관리비", "ok", "check")
+        presence("LEA-07", r"(임차인|세입자).*(모든|일체).*(수리|원상복구)|(모든|일체).*(수리|원상복구).*(임차인|세입자)", "check", "ok")
+        presence("LEA-02", r"대리인", "check", "ok")
+        landlord = re.search(r"임대인\s*[:：]\s*([가-힣]{2,4})", t)
+        account = _line(t, r"(입금\s*계좌|계좌)")
+        if landlord and account:
+            found["LEA-01"] = ("ok", None) if landlord[1] in account else ("danger", account)
+        values["start_date"] = date_after(r"임대차기간|계약기간")
+        values["end_date"] = date_after(r"(부터|~)")
+        m = re.search(r"보증금\s*[:：]?\s*(?:금\s*)?([\d,]+)\s*원", t)
+        values["deposit"] = int(m[1].replace(",", "")) if m else None
+    else:
+        presence("REG-02", r"신탁", "danger", "ok")
+        presence("REG-03", r"(가압류|압류|가처분|경매개시)", "danger", "ok")
+        presence("REG-05", r"임차권", "danger", "ok")
+        amounts = [int(a.replace(",", "")) for a in re.findall(r"채권최고액\s*금?\s*([\d,]+)\s*원", t)]
+        values["mortgage_max_total"] = sum(amounts) if amounts else None
+        values["mortgages"] = bool(amounts)
+        m = re.search(r"소유자\s+([가-힣]{2,4})", t)
+        values["owner_names"] = [m[1]] if m else []
+        values["issued_at"] = date_after(r"(발급일|열람일시|발행일)")
+        m = re.search(r"(?:소재지|주소)\s*[:：]?\s*(.+)", t)
+        values["address"] = m[1].strip() if m else None
+        values["owner_changed_at"] = date_after(r"소유권이전")
+    findings = []
+    for i in ids:
+        status, ev = found.get(i, ("unknown", None))
+        findings.append({"rule_id": i, "status": status, "evidence": ev})
+    return {"values": values, "findings": findings}

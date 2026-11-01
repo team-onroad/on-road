@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.clock import get_today
 from app.schemas.home import DashboardResponse, GrowthResponse
+from app.schemas.readiness import ActivityCreate, ActivityCreated, ReadinessResponse
 from app.schemas.users import UserCreate, UserResponse, UserUpdate
-from app.services import home
+from app.services import home, readiness
 from app.services import users as service
 from db.models import User
 from db.session import get_db
@@ -115,3 +116,24 @@ def get_growth(user: ExistingUser, db: DB, today: Today) -> GrowthResponse:
 def update_user(user: ExistingUser, body: UpdateBody, db: DB, today: Today) -> UserResponse:
     service.update_user(db, user, body, today)
     return service.to_response(user, today)
+
+
+@router.post(
+    "/{user_id}/activities",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ActivityCreated,
+    summary="활동 기록 (실전 연습 한 번 · 한 달 살아보기 한 번)",
+    responses=ERROR_RESPONSES,
+)
+def post_activity(user: ExistingUser, body: ActivityCreate, db: DB) -> ActivityCreated:
+    return ActivityCreated(activity_id=readiness.add_activity(db, user, body))
+
+
+@router.get(
+    "/{user_id}/readiness",
+    response_model=ReadinessResponse,
+    summary="자립 준비도 (6개 영역 점수와 다음 할 일)",
+    responses={404: ERROR_RESPONSES[404]},
+)
+def get_readiness(user: ExistingUser, db: DB) -> ReadinessResponse:
+    return readiness.readiness(db, user)
