@@ -137,3 +137,15 @@ def test_polish_keeps_original_when_output_is_wrong(out):
 def test_polish_empty_input_skips_llm():
     llm = FakeLLM({"sentences": []})
     assert polish_sentences("resume", [], llm) == [] and llm.calls == []
+
+
+def test_roleplay_prompt_has_situation_and_surprises():
+    fake = FakeLLM({"reply": "네", "is_finished": False})
+    scenario = {**SCENARIO, "situation": "집주인이 수리를 미룬다.", "surprises": ["수리비는 반반 내요."]}
+    roleplay_reply(scenario, [{"role": "assistant", "content": "여보세요?"}], "보일러가 고장 났어요", generate=fake)
+    system = fake.calls[0][0]["content"]
+    assert "[이번 전개] 집주인이 수리를 미룬다." in system
+    assert "[돌발 상황]" in system and "- 수리비는 반반 내요." in system
+    plain = FakeLLM({"reply": "네", "is_finished": False})
+    roleplay_reply(SCENARIO, [{"role": "assistant", "content": "여보세요?"}], "안녕하세요", generate=plain)
+    assert "[이번 전개]" not in plain.calls[0][0]["content"] and "[돌발 상황]" not in plain.calls[0][0]["content"]

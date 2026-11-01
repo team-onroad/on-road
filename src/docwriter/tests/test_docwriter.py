@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from docwriter.llm import DocwriterFormatError, assist_field, extract_answer, read_form, route_message
+from docwriter.llm import DocwriterFormatError, assist_field, extract_answer, read_form, read_risk, route_message
 
 
 class FakeLLM:
@@ -122,3 +122,35 @@ def test_read_form_photo_and_text():
     assert fake.calls[0][1]["content"] == "주소 칸이 있는 양식"
     with pytest.raises(DocwriterFormatError):
         read_form("x", [], generate=FakeLLM([]))
+
+
+RISK_RULES = {"doc_type": "labor", "rules": [{"id": "LAB-01"}, {"id": "LAB-04"}]}
+
+
+def test_read_risk_keeps_known_rules_and_statuses():
+    fake = FakeLLM({
+        "values": {"hourly_wage": 9000},
+        "findings": [
+            {"rule_id": "LAB-01", "status": "danger", "evidence": " 시급 9,000원 "},
+            {"rule_id": "LAB-04", "status": "maybe"},
+            {"rule_id": "LAB-99", "status": "danger"},
+            "x",
+        ],
+    })
+    out = read_risk(RISK_RULES, "시급 9,000원", [], generate=fake)
+    assert out["values"] == {"hourly_wage": 9000}
+    assert out["findings"] == [
+        {"rule_id": "LAB-01", "status": "danger", "evidence": "시급 9,000원"},
+        {"rule_id": "LAB-04", "status": "unknown", "evidence": None},
+    ]
+    assert "LAB-04" in fake.calls[0][1]["content"] and "시급 9,000원" in fake.calls[0][1]["content"]
+
+
+def test_read_risk_photo_and_format_error():
+    fake = FakeLLM({"values": "x", "findings": None})
+    out = read_risk(RISK_RULES, None, ["data:image/jpeg;base64,AAA"], generate=fake)
+    assert out == {"values": {}, "findings": []}
+    content = fake.calls[0][1]["content"]
+    assert content[0]["type"] == "text" and content[1]["image_url"]["url"] == "data:image/jpeg;base64,AAA"
+    with pytest.raises(DocwriterFormatError):
+        read_risk(RISK_RULES, "x", [], generate=FakeLLM([]))

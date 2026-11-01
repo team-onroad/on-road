@@ -1,0 +1,410 @@
+{
+  "version": "2026-11-01",
+  "description": "서류 속 숨겨진 위험 찾기 규칙. AI는 서류에서 값을 뽑고, 이 규칙대로 판정한다. 규칙에 없는 위험은 만들지 않는다.",
+  "statuses": {
+    "danger": "위험 · 계약 전에 꼭 해결해야 해요",
+    "check": "확인 필요 · 물어보거나 서류를 더 봐야 해요",
+    "ok": "괜찮아요",
+    "unknown": "서류에서 찾을 수 없어요"
+  },
+  "judge_rules": [
+    "AI 는 서류에서 values 를 뽑고, 규칙마다 status 와 근거 문장(evidence)만 낸다. 설명·할 일은 서버가 이 파일에서 붙인다.",
+    "판정은 condition 으로만 한다. 규칙에 없는 위험은 만들지 않는다.",
+    "evidence 는 서류에 적힌 문장을 그대로 옮긴다. 없으면 null.",
+    "값이 안 보이거나 흐려서 못 읽으면 unknown. 추측해서 ok 로 두지 않는다.",
+    "kind 가 calc 인 규칙은 서버가 values 로 다시 계산해 판정을 덮어쓴다. kind 가 match 인 규칙은 사용자가 입력한 계약 정보와 비교한다.",
+    "근거 문장 없는 위험(danger)은 서버가 확인 필요(check)로 낮춘다. PDF 글자가 있으면 그 글자에 없는 근거 문장도 버린다."
+  ],
+  "params": {
+    "min_wage": {
+      "2026": 10320,
+      "2027": 10700
+    },
+    "lease_debt_ratio_danger": 0.7,
+    "registry_fresh_days": 7,
+    "recent_owner_change_days": 90,
+    "weekly_holiday_hours": 15
+  },
+  "docs": {
+    "registry": {
+      "label": "등기부등본 (등기사항전부증명서)",
+      "extract": [
+        "issued_at",
+        "address",
+        "owner_names",
+        "owner_changed_at",
+        "trust",
+        "restrictions",
+        "mortgages",
+        "lease_registration"
+      ],
+      "rules": [
+        {
+          "id": "REG-01",
+          "kind": "match",
+          "section": "갑구",
+          "title": "집주인이 진짜 주인인지",
+          "condition": {
+            "danger": "갑구 현재 소유자와 계약서 임대인 이름이 다름",
+            "ok": "같음"
+          },
+          "explain": "등기부 주인과 계약하는 사람이 달라요.",
+          "action": "주인 본인과 계약하거나, 위임장과 인감증명서를 받아요.",
+          "practice": "realestate"
+        },
+        {
+          "id": "REG-02",
+          "kind": "presence",
+          "section": "갑구",
+          "title": "신탁된 집인지",
+          "condition": {
+            "danger": "갑구에 '신탁' 등기가 있음",
+            "ok": "없음"
+          },
+          "explain": "집 주인이 신탁회사예요. 동의 없이 계약하면 보증금을 못 받을 수 있어요.",
+          "action": "신탁원부를 떼어 보고, 신탁회사 동의서를 받아요."
+        },
+        {
+          "id": "REG-03",
+          "kind": "presence",
+          "section": "갑구·을구",
+          "title": "압류·가압류·가처분·경매",
+          "condition": {
+            "danger": "말소되지 않은 압류, 가압류, 가처분, 경매개시결정이 있음",
+            "ok": "없음"
+          },
+          "explain": "집주인이 빚 문제가 있다는 신호예요.",
+          "action": "말소되기 전에는 계약하지 않는 게 안전해요."
+        },
+        {
+          "id": "REG-04",
+          "kind": "calc",
+          "section": "을구",
+          "title": "빚과 보증금이 집값에 비해 많은지",
+          "values": [
+            "mortgage_max_total",
+            "deposit",
+            "market_price"
+          ],
+          "condition": {
+            "danger": "(말소 안 된 근저당 채권최고액 합 + 보증금) / 시세 > lease_debt_ratio_danger",
+            "check": "시세를 알 수 없음",
+            "ok": "그 이하"
+          },
+          "explain": "집이 팔려도 보증금을 다 못 돌려받을 수 있어요.",
+          "action": "실거래가를 확인하고, 보증금을 줄이거나 반환보증 가입이 되는지 물어봐요."
+        },
+        {
+          "id": "REG-05",
+          "kind": "presence",
+          "section": "을구",
+          "title": "전 세입자가 보증금을 못 받았는지",
+          "condition": {
+            "danger": "임차권등기(명령)가 있음",
+            "ok": "없음"
+          },
+          "explain": "전에 살던 사람이 보증금을 못 돌려받았다는 기록이에요.",
+          "action": "계약하지 않는 게 안전해요."
+        },
+        {
+          "id": "REG-06",
+          "kind": "match",
+          "section": "표제부",
+          "title": "주소가 같은지",
+          "condition": {
+            "danger": "표제부 주소(동·호수 포함)와 계약서 주소가 다름",
+            "ok": "같음"
+          },
+          "explain": "계약하는 집과 등기부의 집이 달라요.",
+          "action": "동·호수까지 맞는 등기부를 다시 떼요."
+        },
+        {
+          "id": "REG-07",
+          "kind": "calc",
+          "section": "갑구",
+          "title": "최근에 주인이 바뀌었는지",
+          "values": [
+            "owner_changed_at"
+          ],
+          "condition": {
+            "check": "소유권 이전이 recent_owner_change_days 일 안쪽",
+            "ok": "그보다 오래됨"
+          },
+          "explain": "주인이 바뀐 지 얼마 안 됐어요.",
+          "action": "왜 바뀌었는지, 이전 주인과의 관계를 물어봐요."
+        },
+        {
+          "id": "REG-08",
+          "kind": "calc",
+          "section": "발급 정보",
+          "title": "최근에 뗀 등기부인지",
+          "values": [
+            "issued_at"
+          ],
+          "condition": {
+            "check": "발급일이 오늘보다 registry_fresh_days 일 넘게 지남",
+            "ok": "그 안쪽"
+          },
+          "explain": "오래된 등기부라 그사이 빚이 생겼을 수 있어요.",
+          "action": "계약하는 날과 잔금 내는 날에 다시 떼서 확인해요."
+        }
+      ]
+    },
+    "lease": {
+      "label": "임대차(월세·전세) 계약서",
+      "extract": [
+        "landlord_name",
+        "agent_name",
+        "address",
+        "deposit",
+        "monthly_rent",
+        "maintenance_fee",
+        "start_date",
+        "end_date",
+        "account_holder",
+        "special_terms"
+      ],
+      "rules": [
+        {
+          "id": "LEA-01",
+          "kind": "match",
+          "title": "보증금 받는 계좌가 집주인 이름인지",
+          "condition": {
+            "danger": "입금 계좌 예금주가 임대인과 다름",
+            "unknown": "계좌가 적혀 있지 않음",
+            "ok": "같음"
+          },
+          "explain": "다른 사람 계좌로 보내면 돌려받기 어려워요.",
+          "action": "집주인 본인 이름 계좌로만 보내요."
+        },
+        {
+          "id": "LEA-02",
+          "kind": "presence",
+          "title": "대리인과 계약하는지",
+          "condition": {
+            "check": "임대인 대신 대리인이 서명함",
+            "ok": "임대인 본인"
+          },
+          "explain": "집주인이 아닌 사람이 계약해요.",
+          "action": "위임장과 집주인 인감증명서를 받고, 집주인과 통화해 확인해요.",
+          "practice": "realestate"
+        },
+        {
+          "id": "LEA-03",
+          "kind": "presence",
+          "title": "전입신고를 막는 특약",
+          "condition": {
+            "danger": "전입신고·확정일자를 하지 않는다는 특약이 있음",
+            "ok": "없음"
+          },
+          "explain": "전입신고를 못 하면 보증금을 지킬 권리가 약해져요.",
+          "action": "이 특약은 빼 달라고 해요."
+        },
+        {
+          "id": "LEA-04",
+          "kind": "presence",
+          "title": "잔금 전후 새 대출을 막는 특약",
+          "condition": {
+            "check": "잔금일 다음 날까지 새 근저당을 설정하지 않는다는 특약이 없음",
+            "ok": "있음"
+          },
+          "explain": "잔금 낸 날 집주인이 몰래 대출을 받을 수 있어요.",
+          "action": "'잔금일 다음 날까지 담보 설정 금지' 특약을 넣어 달라고 해요."
+        },
+        {
+          "id": "LEA-05",
+          "kind": "calc",
+          "title": "계약 기간",
+          "values": [
+            "start_date",
+            "end_date"
+          ],
+          "condition": {
+            "check": "2년보다 짧음",
+            "ok": "2년 이상"
+          },
+          "explain": "2년보다 짧게 써도 법으로 2년은 살 수 있어요.",
+          "action": "더 일찍 나가라고 하면 2년 보장을 이야기해요."
+        },
+        {
+          "id": "LEA-06",
+          "kind": "presence",
+          "title": "관리비가 적혀 있는지",
+          "condition": {
+            "check": "관리비 금액이나 포함 항목이 없음",
+            "ok": "있음"
+          },
+          "explain": "나중에 관리비가 갑자기 많이 나올 수 있어요.",
+          "action": "관리비 금액과 포함 항목(수도·인터넷 등)을 적어 달라고 해요."
+        },
+        {
+          "id": "LEA-07",
+          "kind": "presence",
+          "title": "수리를 다 세입자에게 넘기는지",
+          "condition": {
+            "check": "모든 수리·원상복구를 세입자가 한다는 특약",
+            "ok": "없음"
+          },
+          "explain": "보일러처럼 큰 고장도 내가 고쳐야 할 수 있어요.",
+          "action": "큰 고장은 집주인이 고친다고 적어 달라고 해요.",
+          "practice": "landlord"
+        }
+      ]
+    },
+    "labor": {
+      "label": "근로계약서",
+      "extract": [
+        "employer_name",
+        "hourly_wage",
+        "monthly_wage",
+        "work_hours_per_week",
+        "work_days",
+        "break_time",
+        "weekly_holiday",
+        "pay_day",
+        "contract_start",
+        "contract_end",
+        "probation",
+        "job_type",
+        "insurance",
+        "special_terms"
+      ],
+      "rules": [
+        {
+          "id": "LAB-01",
+          "kind": "calc",
+          "title": "시급이 최저임금보다 낮은지",
+          "values": [
+            "hourly_wage",
+            "contract_start",
+            "probation",
+            "contract_end",
+            "job_type"
+          ],
+          "condition": {
+            "danger": "시급 < 그해 min_wage. 단, 수습 3개월 안이고 계약 1년 이상이며 단순노무직이 아니면 90%까지 허용",
+            "ok": "그 이상"
+          },
+          "explain": "법에서 정한 최저 시급보다 적어요.",
+          "action": "최저임금 이상으로 고쳐 달라고 해요.",
+          "practice": "wage"
+        },
+        {
+          "id": "LAB-02",
+          "kind": "presence",
+          "title": "꼭 있어야 할 내용이 빠졌는지",
+          "condition": {
+            "check": "임금, 근로시간, 휴일, 연차휴가 중 빠진 것이 있음",
+            "ok": "모두 있음"
+          },
+          "explain": "법으로 꼭 적어야 하는 내용이 빠졌어요.",
+          "action": "빠진 내용을 적어 달라고 하고, 계약서 한 부를 꼭 받아요."
+        },
+        {
+          "id": "LAB-03",
+          "kind": "calc",
+          "title": "주휴수당",
+          "values": [
+            "work_hours_per_week",
+            "weekly_holiday"
+          ],
+          "condition": {
+            "check": "주 weekly_holiday_hours 시간 이상인데 주휴일·주휴수당이 안 적혀 있음",
+            "ok": "적혀 있거나 15시간 미만"
+          },
+          "explain": "주 15시간 넘게 일하면 쉬는 날에도 하루치 돈을 받아요.",
+          "action": "주휴수당을 주는지 물어봐요."
+        },
+        {
+          "id": "LAB-04",
+          "kind": "presence",
+          "title": "그만두면 돈을 물어내라는 조항",
+          "condition": {
+            "danger": "중간에 그만두면 위약금·손해배상을 낸다는 조항",
+            "ok": "없음"
+          },
+          "explain": "이런 약속은 법으로 금지돼 있어서 지키지 않아도 돼요.",
+          "action": "이 조항은 빼 달라고 해요. 강요하면 고용센터에 물어봐요.",
+          "practice": "jobcenter"
+        },
+        {
+          "id": "LAB-05",
+          "kind": "presence",
+          "title": "월급날이 적혀 있는지",
+          "condition": {
+            "check": "임금 지급일·지급 방법이 없음",
+            "ok": "있음"
+          },
+          "explain": "돈을 언제 받는지 정해져 있지 않아요.",
+          "action": "매달 며칠에 받는지 적어 달라고 해요.",
+          "practice": "wage"
+        },
+        {
+          "id": "LAB-06",
+          "kind": "presence",
+          "title": "4대보험 대신 3.3% 떼는지",
+          "condition": {
+            "check": "4대보험 없이 3.3%만 뗀다고 적혀 있음",
+            "ok": "4대보험 가입"
+          },
+          "explain": "다치거나 그만둘 때 보험 도움을 못 받을 수 있어요.",
+          "action": "4대보험 가입이 되는지 물어봐요."
+        },
+        {
+          "id": "LAB-07",
+          "kind": "calc",
+          "title": "쉬는 시간",
+          "values": [
+            "break_time",
+            "work_hours_per_week",
+            "work_days"
+          ],
+          "condition": {
+            "check": "하루 4시간이면 30분, 8시간이면 1시간 이상 쉬는 시간이 안 적혀 있음",
+            "ok": "적혀 있음"
+          },
+          "explain": "오래 일하면 중간에 쉬는 시간이 있어야 해요.",
+          "action": "쉬는 시간을 몇 시부터 몇 시까지인지 적어 달라고 해요."
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "for": "params.min_wage",
+      "text": "최저임금위원회 의결: 2026년 시급 10,320원, 2027년 시급 10,700원"
+    },
+    {
+      "for": "REG-01~08, LEA-01·03·04",
+      "text": "국토교통부 안심 전세계약 체크리스트, 등기부 갑구·을구 확인 사항"
+    },
+    {
+      "for": "REG-04",
+      "text": "근저당 설정액과 보증금 합이 시세의 70%를 넘으면 위험 신호 (전세사기 예방 안내)"
+    },
+    {
+      "for": "LEA-05",
+      "text": "주택임대차보호법 제4조 (기간을 2년 미만으로 정해도 2년으로 봄)"
+    },
+    {
+      "for": "LAB-02",
+      "text": "근로기준법 제17조 (근로조건 명시·서면 교부)"
+    },
+    {
+      "for": "LAB-03",
+      "text": "근로기준법 제18조 (4주 평균 주 15시간 미만은 주휴·연차 미적용)"
+    },
+    {
+      "for": "LAB-04",
+      "text": "근로기준법 제20조 (위약 예정의 금지)"
+    },
+    {
+      "for": "LAB-07",
+      "text": "근로기준법 제54조 (4시간에 30분, 8시간에 1시간 이상 휴게)"
+    },
+    {
+      "for": "LAB-01",
+      "text": "최저임금법 수습 감액: 1년 이상 계약, 수습 3개월 이내, 단순노무직 제외 시 90%"
+    }
+  ]
+}

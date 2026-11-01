@@ -14,6 +14,7 @@ from docwriter.prompts import (
     ASSIST_SYSTEM,
     EXTRACT_ANSWER_SYSTEM,
     READ_FORM_SYSTEM,
+    READ_RISK_SYSTEM,
     ROUTE_CHAT_SYSTEM,
     ROUTE_DOCUMENT_SYSTEM,
 )
@@ -201,14 +202,14 @@ READ_FORM_TEXT_CHARS = 8000
 READ_FORM_FIELDS = 60
 
 
-def _form_generate(messages: list[dict]) -> dict:
+def _form_generate(messages: list[dict], max_tokens: int | None = None) -> dict:
     from rag.openai_client import _client
     from rag.settings import get_rag_settings
 
     model = get_rag_settings().form_read_model  # .env 의 FORM_READ_MODEL (기본 gpt-4.1-mini)
     for _ in range(1 + JSON_RETRIES):
         resp = _client().with_options(timeout=60.0).chat.completions.create(
-            model=model, temperature=0, max_tokens=READ_FORM_MAX_TOKENS,
+            model=model, temperature=0, max_tokens=max_tokens or READ_FORM_MAX_TOKENS,
             response_format={"type": "json_object"}, messages=messages,
         )
         try:
@@ -233,3 +234,31 @@ def read_form(form_text: str | None, images: list[str], generate: Generate | Non
         raise DocwriterFormatError("양식 읽기 출력 형식이 다릅니다.")
     fields = [f for f in out.get("fields") or [] if isinstance(f, dict) and _text(f.get("label"))]
     return {"title": _text(out.get("title"))[:100], "fields": fields[:READ_FORM_FIELDS]}
+
+
+RISK_STATUSES = ("danger", "check", "ok", "unknown")
+READ_RISK_MAX_TOKENS = 2000  # 값 10여 개 + 규칙 8개 판정·근거 문장
+
+
+def read_risk(rules: dict, form_text: str | None, images: list[str], generate: Generate | None = None) -> dict:
+    """서류 속 위험 찾기. rules 는 app/doc_risk.prompt_rules (판정 조건만). 최종 판정은 백엔드가 다시 확인한다.
+    → {"values": dict, "findings": [{"rule_id", "status", "evidence"}]}"""
+    rules_text = json.dumps(rules, ensure_ascii=False)
+    if form_text:
+        content: object = f"rules:\n{rules_text}\n\n서류:\n{form_text[:READ_FORM_TEXT_CHARS]}"
+    else:
+        content = [{"type": "text", "text": f"rules:\n{rules_text}"}] + [
+            {"type": "image_url", "image_url": {"url": url, "detail": "high"}} for url in images
+        ]
+    messages = [{"role": "system", "content": READ_RISK_SYSTEM}, {"role": "user", "content": content}]
+    out = generate(messages) if generate else _form_generate(messages, READ_RISK_MAX_TOKENS)
+    if not isinstance(out, dict):
+        raise DocwriterFormatError("위험 찾기 출력 형식이 다릅니다.")
+    ids = {r["id"] for r in rules.get("rules", [])}
+    findings = [
+        {"rule_id": f["rule_id"], "status": f.get("status") if f.get("status") in RISK_STATUSES else "unknown",
+         "evidence": _text(f.get("evidence")) or None}
+        for f in out.get("findings") or [] if isinstance(f, dict) and f.get("rule_id") in ids
+    ]
+    values = out.get("values") if isinstance(out.get("values"), dict) else {}
+    return {"values": values, "findings": findings}
