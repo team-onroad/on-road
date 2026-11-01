@@ -106,6 +106,8 @@ def test_roleplay_prompt_has_role_and_lines():
 def test_roleplay_finishes_when_llm_says_or_turns_run_out():
     llm = FakeLLM({"reply": "다 됐어요. 안녕히 가세요.", "is_finished": True})
     assert roleplay_reply(SCENARIO, turns(2), "감사합니다", llm)["is_finished"] is True
+    # 대사 흐름을 다 했어도 끝맺는 말이 없으면 이어 간다
+    assert roleplay_reply(SCENARIO, turns(4), "저는 데이터 추가요", llm)["is_finished"] is False
     # 마지막 허용 차례면 LLM 이 안 끝내도 끝낸다
     last = [{"role": "assistant", "content": "x"}] * (len(SCENARIO["lines"]) + ROLEPLAY_EXTRA_TURNS - 1)
     assert roleplay_reply(SCENARIO, last, "네", FakeLLM({"reply": "네.", "is_finished": False}))["is_finished"] is True

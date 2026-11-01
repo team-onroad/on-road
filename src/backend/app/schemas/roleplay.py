@@ -122,9 +122,16 @@ class HintRequest(BaseModel):
     surprise_ids: IdList = []
 
 
+class HintCheck(BaseModel):
+    label: str
+    ok: bool
+    kind: Literal["basic", "situation", "surprise"]
+
+
 class HintResponse(BaseModel):
     done: bool  # 다 챙겼으면 true (마무리 인사를 권함)
     label: str  # 이번에 챙길 것
     example: str  # 이렇게 말해 보세요
     kind: Literal["basic", "situation", "surprise", "closing"]
     remaining: int  # 아직 안 챙긴 것 개수
+    checks: list[HintCheck] = []  # 대화 중 보여 줄 챙길 것 (돌발 상황 대처는 그 말이 나온 뒤에만)
