@@ -95,8 +95,20 @@ def test_hint_closing_when_all_done(client):
     said = "전화로는 개인정보 못 알려 드려요. 끊고 직접 확인할게요. 112에 신고할게요."
     history = [{"role": "assistant", "content": "여보세요"}, {"role": "user", "content": said}]
     r = _hint(client, "scam-call", history).json()
-    assert r == {"done": True, "label": "마무리 인사하기", "example": r["example"], "kind": "closing", "remaining": 0}
+    assert {k: r[k] for k in ("done", "label", "kind", "remaining")} == {
+        "done": True, "label": "마무리 인사하기", "kind": "closing", "remaining": 0,
+    }
+    assert r["checks"] and all(c["ok"] for c in r["checks"])
 
 
 def test_hint_unknown_scenario(client):
     assert _hint(client, "nope", [{"role": "assistant", "content": "x"}]).status_code == 404
+
+
+def test_hint_checks_hide_surprise_until_heard(client):
+    first = [{"role": "assistant", "content": "여보세요"}, {"role": "user", "content": "네"}]
+    r = _hint(client, "scam-call", first, surprise_ids=["sc-arrest"]).json()
+    assert [c["kind"] for c in r["checks"]] == ["basic"] * 3 and not any(c["ok"] for c in r["checks"])
+    heard = first + [{"role": "assistant", "content": "지금 전화 끊으시면 바로 체포영장이 나갑니다."}]
+    r = _hint(client, "scam-call", heard, surprise_ids=["sc-arrest"]).json()
+    assert r["checks"][-1] == {"label": "협박에 흔들리지 않고 끊기", "ok": False, "kind": "surprise"}

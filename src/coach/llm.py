@@ -21,9 +21,7 @@ Generate = Callable[[list[dict]], dict]
 # LLM 에 넘기는 앞 대화 수 (오래된 것부터 버림)
 HISTORY_TURNS = 10
 # 상대 역할이 대사 흐름보다 이만큼 더 말하면 마무리한다 (대화가 끝없이 이어지는 것만 막는다)
-ROLEPLAY_EXTRA_TURNS = 6
-# 대사 흐름을 다 하고도 이만큼 더 이야기한 뒤에야, 끝맺는 말 없이도 LLM 의 마무리를 받아들인다
-ROLEPLAY_SOFT_EXTRA = 2
+ROLEPLAY_EXTRA_TURNS = 10
 # 사용자가 대화를 끝내려는 말 (이 말이 있을 때만 LLM 의 마무리를 받아들인다)
 _CLOSING_WORDS = ("감사합니다", "고맙습니다", "감사해요", "고마워요", "안녕히", "수고하세요", "수고하셨", "끊을게", "끊겠습니다",
                   "들어가세요", "그럼이만", "이만할게", "됐어요", "됐습니다", "알겠습니다", "알겠어요", "그렇게할게요")
@@ -188,16 +186,15 @@ def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: 
         {**h, "content": voice_message(h["content"])} if h["role"] == "user" else h for h in _history(history)
     ]
     messages = [{"role": "system", "content": system}, *turns, {"role": "user", "content": voice_message(message)}]
-    # 엉뚱한 말이 덜 나오게 조금 낮은 온도
-    out = generate(messages) if generate else _openai_generate(messages, temperature=0.3)
+    # 사람처럼 말하게 하되, 엉뚱한 말은 프롬프트 규칙으로 막는다
+    out = generate(messages) if generate else _openai_generate(messages, temperature=0.5)
     reply = _text(out.get("reply") if isinstance(out, dict) else None)
     if not reply:
         raise CoachFormatError("롤플레잉 답변이 비어 있습니다.")
     # 상대 역할이 혼자 대화를 끝내지 않게: 질문이 아니고, 사용자가 끝맺는 말을 했거나 대사 흐름을 다 했을 때만 받아들인다
     closing = any(w in re.sub(r"\s+", "", message) for w in _CLOSING_WORDS)
-    llm_done = out.get("is_finished") is True and not looks_question(message) and (
-        closing or spoken + 1 >= len(lines) + ROLEPLAY_SOFT_EXTRA
-    )
+    # 사용자가 끝맺는 말을 했을 때만 받아들인다 (대사 흐름을 다 했다고 혼자 끝내지 않음)
+    llm_done = out.get("is_finished") is True and closing and not looks_question(message)
     finished = llm_done or spoken + 1 >= len(lines) + ROLEPLAY_EXTRA_TURNS
     return {"reply": reply, "is_finished": finished}
 
