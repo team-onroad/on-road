@@ -4,12 +4,13 @@ from sqlalchemy.orm import Session
 
 from app.crisis import CRISIS_MESSAGE, is_crisis
 from app.llm_client import Llm, call_llm
-from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, hint, lines_for, next_steps, pick_plan, plan_of
+from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, hint, lines_for, next_steps, pick_plan, plan_of, progress
 from app.schemas.roleplay import (
     BetterOut,
     FeedbackItemOut,
     FeedbackRequest,
     FeedbackResponse,
+    HintCheck,
     HintRequest,
     HintResponse,
     NextStepOut,
@@ -132,4 +133,8 @@ def give_hint(s: Scenario, body: HintRequest) -> HintResponse:
     turns = [h.content for h in body.history if h.role == "user"]
     last = next((h.content for h in reversed(body.history) if h.role == "assistant"), "")
     h = hint(s, turns, last, plan)
-    return HintResponse(done=h.kind == "closing", label=h.label, example=h.example, kind=h.kind, remaining=h.remaining)
+    partner = [t.content for t in body.history if t.role == "assistant"]
+    checks = [HintCheck(label=i.label, ok=i.ok, kind=i.kind) for i in progress(s, turns, partner, plan)]
+    return HintResponse(
+        done=h.kind == "closing", label=h.label, example=h.example, kind=h.kind, remaining=h.remaining, checks=checks,
+    )
