@@ -589,7 +589,11 @@
           ],
           "label": "받을 수 있는 지원 적극적으로 묻기",
           "example": "네, 어떤 지원이 있는지 알려 주세요."
-        }
+        },
+        "fits": [
+          "basic",
+          "no-contract"
+        ]
       }
     ],
     "follow_ups": [
@@ -1069,7 +1073,11 @@
           ],
           "label": "근로계약서 먼저 요청하기",
           "example": "근로계약서는 일 시작하기 전에 쓰는 거라고 들었어요. 첫날 쓰고 시작하고 싶어요."
-        }
+        },
+        "fits": [
+          "basic",
+          "schedule-change"
+        ]
       },
       {
         "surprise_id": "pt-weekend",
@@ -1085,7 +1093,11 @@
           ],
           "label": "근무 가능 시간 솔직하게 말하기",
           "example": "주말은 토요일만 가능하고, 대타는 미리 말씀해 주시면 최대한 할게요."
-        }
+        },
+        "fits": [
+          "basic",
+          "no-contract-pay"
+        ]
       },
       {
         "surprise_id": "pt-trial",
@@ -1591,7 +1603,11 @@
           ],
           "label": "공백 기간을 솔직하고 긍정적으로 설명하기",
           "example": "그 기간에 자격증을 준비하면서 아르바이트로 현장 경험을 쌓았어요."
-        }
+        },
+        "fits": [
+          "basic",
+          "salary"
+        ]
       },
       {
         "surprise_id": "jb-salary",
@@ -1607,7 +1623,11 @@
           ],
           "label": "희망 연봉 답하기",
           "example": "회사 내규를 따르겠지만, 2,800만 원 정도를 희망합니다."
-        }
+        },
+        "fits": [
+          "basic",
+          "gap"
+        ]
       },
       {
         "surprise_id": "jb-weakness",
@@ -2850,7 +2870,10 @@
           ],
           "label": "협박에 흔들리지 않고 끊기",
           "example": "그럼 제가 직접 검찰에 확인할게요. 끊겠습니다."
-        }
+        },
+        "fits": [
+          "basic"
+        ]
       },
       {
         "surprise_id": "sc-app",
@@ -2865,7 +2888,11 @@
           ],
           "label": "앱 설치 요구 거절하기",
           "example": "링크나 앱은 설치하지 않을게요."
-        }
+        },
+        "fits": [
+          "basic",
+          "loan-scam"
+        ]
       },
       {
         "surprise_id": "sc-name",
@@ -2913,7 +2940,10 @@
           ],
           "label": "현금 전달 요구 거절하고 신고하기",
           "example": "현금은 절대 전달하지 않을게요. 112에 신고하겠습니다."
-        }
+        },
+        "fits": [
+          "basic"
+        ]
       },
       {
         "surprise_id": "sc-card",
@@ -2929,7 +2959,11 @@
           ],
           "label": "카드 정보 알려 주지 않기",
           "example": "카드 번호랑 비밀번호는 알려 드리지 않아요."
-        }
+        },
+        "fits": [
+          "basic",
+          "loan-scam"
+        ]
       },
       {
         "surprise_id": "sc-voice",
@@ -2945,7 +2979,10 @@
           ],
           "label": "울먹이는 목소리에도 확인부터 하기",
           "example": "끊고 원래 번호로 다시 전화해서 확인할게요."
-        }
+        },
+        "fits": [
+          "family"
+        ]
       }
     ],
     "follow_ups": [
@@ -3126,7 +3163,7 @@
       {
         "surprise_id": "nb-not-home",
         "level": "NORMAL",
-        "line": "(문을 열지 않고) 지금 바빠요. 다음에 오세요.",
+        "line": "지금 좀 바빠서 길게 얘기 못 해요. 다음에 다시 와요.",
         "checkpoint": {
           "keywords": [
             "메모",
@@ -3153,7 +3190,10 @@
           ],
           "label": "공사 시간·기간 확인하기",
           "example": "공사가 언제까지인지, 몇 시부터 몇 시까지인지 알려 주실 수 있을까요?"
-        }
+        },
+        "fits": [
+          "basic"
+        ]
       },
       {
         "surprise_id": "nb-elder",
