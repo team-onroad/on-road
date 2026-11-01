@@ -364,19 +364,28 @@ def test_reply_malformed_json(api, llm):
 
 def test_feedback_good_and_missed(api, db_session):
     user = make_user(db_session)
-    res = _feedback(api, user, history=_user_turns("신분증 여기요", "확정 일자도요"))  # 띄어쓰기 다르면 못 찾음
+    # 음성 인식 띄어쓰기가 달라도 찾는다 ("확정 일자" → 확정일자)
+    res = _feedback(api, user, history=_user_turns("신분증 여기요", "확정 일자도요"))
 
     assert res.status_code == 200
     data = res.json()
     assert {k: data[k] for k in ("roleplay_id", "good", "missed", "documents", "better")} == {
         "roleplay_id": None,
-        "good": ["신분증 준비"],
-        "missed": ["확정일자 함께 받기", "임대차 계약서 챙기기"],
+        "good": ["신분증 준비", "확정일자 함께 받기"],
+        "missed": ["임대차 계약서 챙기기"],
         "documents": ["신분증", "임대차 계약서 (확정일자용)"],
-        "better": [{"before": "이사 왔어요", "after": "이사해서 전입신고하고, 확정일자도 같이 받고 싶어요"}],
+        "better": [],  # "이사 왔어요" 같은 말을 하지 않았으니 고칠 말도 없음
     }
-    assert data["score"] == 30 and data["grade"] == "한 번 더 해 봐요"
-    assert data["retry_lines"] == ["확정일자도 같이 받고 싶어요.", "임대차 계약서 원본 가져왔어요."]
+    assert data["score"] == 60 and data["grade"] == "잘했어요"
+    assert data["retry_lines"] == ["임대차 계약서 원본 가져왔어요."]
+
+
+def test_feedback_better_uses_my_own_words(api, db_session):
+    user = make_user(db_session)
+    data = _feedback(api, user, history=_user_turns("저 이사 왔어요 전입신고요", "신분증 여기요")).json()
+    assert data["better"] == [
+        {"before": "저 이사 왔어요 전입신고요", "after": "이사해서 전입신고하고, 확정일자도 같이 받고 싶어요"}
+    ]
 
 
 def test_feedback_keywords_across_turns(api, db_session):
@@ -634,7 +643,7 @@ def test_feedback_with_variant_and_surprise(api, db_session):
     assert data["situation"] == "집주인이 수리를 미룸"
     assert 0 < data["score"] <= 100 and data["grade"]
     assert "날이 추워서 이번 주 안에는 꼭 고쳐야 해요." in data["retry_lines"]
-    assert any(b["before"] == "아 네… 그럼 다음 달에요" for b in data["better"])  # 전개별 고친 말도
+    assert data["better"] == []  # 고칠 말은 내가 실제로 비슷하게 말했을 때만
 
 
 # ------------------------------------------------------------------ 이어서 해 볼 것 (다른 기능으로 연결)

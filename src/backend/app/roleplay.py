@@ -202,13 +202,16 @@ def feedback(s: Scenario, user_turns: list[str], plan: Plan | None = None) -> tu
 
 def feedback_items(s: Scenario, user_turns: list[str], plan: Plan | None = None) -> tuple[list[FeedbackItem], int]:
     """체크 항목별 결과와 점수 (0~100). 돌발 상황 대처는 2배로 친다. 끝까지 대화하면 10점 더"""
-    said = " ".join(user_turns)
+    # 음성 인식 글은 띄어쓰기가 들쭉날쭉해서 띄어쓰기를 빼고 비교한다 ("필요 없" ↔ "필요없어요")
+    said = re.sub(r"\s+", "", " ".join(user_turns))
     checks: list[tuple[Checkpoint, str]] = [(c, "basic") for c in s.checkpoints]
     if plan and plan.variant:
         checks += [(c, "situation") for c in plan.variant.checkpoints]
     if plan:
         checks += [(x.checkpoint, "surprise") for x in plan.surprises]
-    items = [FeedbackItem(c.label, any(k in said for k in c.keywords), kind, c.example) for c, kind in checks]
+    items = [
+        FeedbackItem(c.label, any(re.sub(r"\s+", "", k) in said for k in c.keywords), kind, c.example) for c, kind in checks
+    ]
     weight = {"basic": 1, "situation": 1, "surprise": 2}
     total = sum(weight[i.kind] for i in items) or 1
     got = sum(weight[i.kind] for i in items if i.ok)
@@ -221,6 +224,20 @@ def grade(score: int) -> str:
 
 
 NEXT_STEPS_MAX = 3
+
+
+def my_better(better: list[Better], user_turns: list[str]) -> list[tuple[str, str]]:
+    """'이렇게 말해 보면 더 좋아요'는 내가 실제로 비슷하게 말한 것만, 내 말 그대로 보여 준다 (낱말 절반 이상 겹침)"""
+    out: list[tuple[str, str]] = []
+    for b in better:
+        want = set(_WORD.findall(b.before))
+        if not want:
+            continue
+        for t in user_turns:
+            if len(want & set(_WORD.findall(t))) / len(want) >= 0.5 or re.sub(r"\s+", "", b.before) in re.sub(r"\s+", "", t):
+                out.append((t.strip(), b.after))
+                break
+    return out
 
 
 def next_steps(s: Scenario, items: list[FeedbackItem]) -> list[FollowUp]:
