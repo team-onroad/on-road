@@ -20,8 +20,13 @@ Generate = Callable[[list[dict]], dict]
 
 # LLM 에 넘기는 앞 대화 수 (오래된 것부터 버림)
 HISTORY_TURNS = 10
-# 상대 역할이 대사 흐름보다 이만큼 더 말하면 마무리한다 (대화가 끝나지 않는 것 방지)
-ROLEPLAY_EXTRA_TURNS = 2
+# 상대 역할이 대사 흐름보다 이만큼 더 말하면 마무리한다 (대화가 끝없이 이어지는 것만 막는다)
+ROLEPLAY_EXTRA_TURNS = 6
+# 대사 흐름을 다 하고도 이만큼 더 이야기한 뒤에야, 끝맺는 말 없이도 LLM 의 마무리를 받아들인다
+ROLEPLAY_SOFT_EXTRA = 2
+# 사용자가 대화를 끝내려는 말 (이 말이 있을 때만 LLM 의 마무리를 받아들인다)
+_CLOSING_WORDS = ("감사합니다", "고맙습니다", "감사해요", "고마워요", "안녕히", "수고하세요", "수고하셨", "끊을게", "끊겠습니다",
+                  "들어가세요", "그럼이만", "이만할게", "됐어요", "됐습니다", "알겠습니다", "알겠어요", "그렇게할게요")
 
 SAFE_COUNSEL = (
     "이야기해 줘서 고마워요. 지원 제도의 금액이나 받을 수 있는지는 정책 찾기에서 물어보면 공식 자료로 알려 줄게요. "
@@ -188,7 +193,12 @@ def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: 
     reply = _text(out.get("reply") if isinstance(out, dict) else None)
     if not reply:
         raise CoachFormatError("롤플레잉 답변이 비어 있습니다.")
-    finished = out.get("is_finished") is True or spoken + 1 >= len(lines) + ROLEPLAY_EXTRA_TURNS
+    # 상대 역할이 혼자 대화를 끝내지 않게: 질문이 아니고, 사용자가 끝맺는 말을 했거나 대사 흐름을 다 했을 때만 받아들인다
+    closing = any(w in re.sub(r"\s+", "", message) for w in _CLOSING_WORDS)
+    llm_done = out.get("is_finished") is True and not looks_question(message) and (
+        closing or spoken + 1 >= len(lines) + ROLEPLAY_SOFT_EXTRA
+    )
+    finished = llm_done or spoken + 1 >= len(lines) + ROLEPLAY_EXTRA_TURNS
     return {"reply": reply, "is_finished": finished}
 
 
