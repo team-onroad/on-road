@@ -251,6 +251,17 @@ def _close_to(a: str, b: str) -> bool:
     return len(set(_WORD.findall(a)) & set(_WORD.findall(b))) >= 2
 
 
+def progress(s: Scenario, user_turns: list[str], partner_turns: list[str], plan: Plan | None = None) -> list[FeedbackItem]:
+    """대화 중 보여 줄 '챙길 것' (기본 · 이번 전개). 돌발 상황 대처는 상대가 그 말을 꺼낸 뒤에만 보인다 (미리 알려 주지 않음)"""
+    items, _ = feedback_items(s, user_turns, plan)
+    shown = {
+        x.checkpoint.label
+        for x in (plan.surprises if plan else ())
+        if any(_close_to(x.line, said) for said in partner_turns)
+    }
+    return [i for i in items if i.kind != "surprise" or i.ok or i.label in shown]
+
+
 def hint(s: Scenario, user_turns: list[str], last_partner: str, plan: Plan | None = None) -> Hint:
     """아직 안 챙긴 것 하나. 방금 돌발 상황이 나왔으면 그 대처부터, 그다음 이번 전개 → 기본 순서"""
     items, _ = feedback_items(s, user_turns, plan)
