@@ -30,6 +30,12 @@ class DocumentRepository(private val service: OnRoadService, private val userId:
         return Network.call { service.uploadDocument(DocumentUploadDto(userId(), b64, file.name, checklistItemId, policyId)) }
     }
 
+    /** 서류 속 숨겨진 위험 찾기. 파일과 결과는 서버에 남지 않는다 */
+    suspend fun riskCheck(file: UploadFile, docType: String, context: RiskContextDto? = null): RiskCheckDto {
+        val b64 = android.util.Base64.encodeToString(file.bytes, android.util.Base64.NO_WRAP)
+        return Network.call { service.riskCheck(RiskCheckRequestDto(userId(), docType, b64, file.name, context)) }
+    }
+
     suspend fun list(): List<DocumentSummaryDto> = Network.call { service.listDocuments(userId()) }.documents
 
     suspend fun get(documentId: Long): WriterDocumentDto = Network.call { service.getDocument(documentId, userId()) }

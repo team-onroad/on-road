@@ -25,8 +25,25 @@ data class JobRecommendation(
     val name: String,
     val description: String,
     val reason: String,
-    val types: List<Riasec>
+    val types: List<Riasec>,
+    /** 적합도 % (서버 계산). null 이면 앱에서 계산 */
+    val match: Int? = null,
 )
+
+/** 직업 상세: 하는 일 · 되는 길 · 자격증 · 관련 지원 찾기(정책 검색어) · 해 볼 연습 */
+data class JobDetail(
+    val id: String,
+    val name: String,
+    val description: String,
+    val types: List<Riasec>,
+    val tasks: List<String>,
+    val path: List<String>,
+    val certificates: List<String>,
+    val policyQuery: String?,
+    val practices: List<JobPractice>,
+)
+
+data class JobPractice(val scenarioId: String, val title: String)
 
 data class RoadmapStep(val period: String, val title: String, val detail: String)
 
@@ -83,7 +100,15 @@ data class RoleplayFeedback(
 data class NextStep(val kind: String, val label: String, val query: String? = null, val scenarioId: String? = null)
 
 /** 대화 중 힌트: 이번에 챙길 것과 예시 문장. done 이면 다 챙김 (마무리 인사) */
-data class RoleplayHint(val done: Boolean, val label: String, val example: String, val kind: String, val remaining: Int)
+data class RoleplayHint(
+    val done: Boolean,
+    val label: String,
+    val example: String,
+    val kind: String,
+    val remaining: Int,
+    /** 대화 중 보여 줄 챙길 것 (돌발 상황 대처는 그 말이 나온 뒤에만) */
+    val checks: List<RoleplayCheck> = emptyList(),
+)
 
 /** 자립 준비도 (6개 영역) */
 data class Readiness(
@@ -198,6 +223,7 @@ interface CoachApi {
     suspend fun analyzeInterest(userId: String, answers: List<InterestOption>, freeText: String): InterestProfile
     suspend fun recommendJobs(userId: String, profile: InterestProfile, stage: UserStage): List<JobRecommendation>
     suspend fun buildRoadmap(userId: String, job: JobRecommendation, stage: UserStage): Roadmap
+    suspend fun jobDetail(userId: String, job: JobRecommendation, stage: UserStage): JobDetail
 
     suspend fun roleplayScenarios(stage: UserStage): List<RoleplayScenario>
     suspend fun roleplayOpening(scenarioId: String, stage: UserStage): RoleplayTurn

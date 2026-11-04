@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -40,9 +42,16 @@ import com.project.on_road.data.UserUpdate
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.AppContainer
-import com.project.on_road.data.TimelineLink
-import com.project.on_road.data.TimelineRules
-import com.project.on_road.data.TimelineTask
+import com.project.on_road.data.PlanAction
+import com.project.on_road.data.PlanGo
+import com.project.on_road.data.PlanKind
+import com.project.on_road.data.PlanPolicy
+import com.project.on_road.data.PlanTask
+import com.project.on_road.data.PlanInput
+import com.project.on_road.data.PlanWeakArea
+import com.project.on_road.data.TimelinePlanner
+import com.project.on_road.data.WorkStatus
+import com.project.on_road.ui.screens.navigation.Routes
 import com.project.on_road.notification.DdayNotifier
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
@@ -60,10 +69,51 @@ class TimelineViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var alarmOn by mutableStateOf(session.ddayAlarm)
         private set
+    var work by mutableStateOf(session.workStatus)
+        private set
+    var region by mutableStateOf<String?>(null)
+        private set
+    var policies by mutableStateOf<List<PlanPolicy>>(emptyList())
+        private set
+    var weak by mutableStateOf<PlanWeakArea?>(null)
+        private set
     val done = mutableStateListOf<String>().apply { addAll(session.timelineDone) }
+    val na = mutableStateListOf<String>().apply { addAll(session.timelineNa) }
 
-    /** 이 화면은 퇴소 전 전용 (퇴소 후는 GoalTimelineScreen) */
-    val dateLabel: String get() = "퇴소 예정일"
+    init {
+        loadPersonal()
+    }
+
+    /** 사는 지역 · 진행 중인 신청 · 저장한 정책. 못 불러와도 기본 할 일은 그대로 보인다 */
+    private fun loadPersonal() {
+        val userId = session.userId ?: return
+        viewModelScope.launch {
+            region = runCatching { AppContainer.api.getUser(userId)?.region }.getOrNull()
+            val checklists = runCatching { AppContainer.api.getChecklists(userId) }.getOrDefault(emptyList())
+            // 진행 중 + 끝낸 신청 (끝낸 신청은 관련 할 일을 자동으로 끝낸다)
+            val mine = checklists.map { PlanPolicy(it.policyId, it.policyName, it.nextStep?.title, completed = it.completed) }
+            val known = checklists.map { it.policyId }.toSet()
+            val saved = session.savedPolicyIds.filter { it !in known }.take(3).mapNotNull { id ->
+                runCatching { AppContainer.api.getPolicy(id) }.getOrNull()?.let { PlanPolicy(it.id, it.name, null) }
+            }
+            policies = mine + saved
+            // 자립 준비도에서 가장 약한 영역
+            weak = runCatching { AppContainer.api.getReadiness(userId) }.getOrNull()?.let { r ->
+                r.areas.firstOrNull { it.key == r.weakest }?.let { a -> a.nextStep?.let { PlanWeakArea(a.label, it) } }
+            }
+        }
+    }
+
+    fun plan(today: LocalDate): List<PlanTask> =
+        TimelinePlanner.plan(PlanInput(leaveDate, today, region, work, policies, weak))
+
+    /** 신청을 끝낸 정책 때문에 자동으로 끝난 할 일 (id → 까닭) */
+    fun autoDone(): Map<String, String> = TimelinePlanner.autoDone(policies).associate { it.taskId to it.reason }
+
+    fun pickWork(w: WorkStatus) {
+        work = if (work == w) null else w
+        session.workStatus = work
+    }
 
     fun updateDate(date: LocalDate) {
         leaveDate = date
@@ -85,24 +135,19 @@ class TimelineViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setAlarm(on: Boolean) {
-        alarmOn = on
-        session.ddayAlarm = on
-        if (session.leaveDate == null) session.leaveDate = leaveDate
-        if (on) DdayNotifier.schedule(getApplication(), leaveDate) else DdayNotifier.cancel(getApplication())
-    }
-
-    fun preview() = DdayNotifier.preview(getApplication(), leaveDate)
-
     fun toggle(id: String) {
         if (id in done) done.remove(id) else done.add(id)
         session.timelineDone = done.toSet()
     }
+
+    fun toggleNa(id: String) {
+        if (id in na) na.remove(id) else na.add(id)
+        session.timelineNa = na.toSet()
+    }
 }
 
-private enum class TaskStatus { DONE, PAST, TODAY, SOON, LATER }
-
-private val dateFormat = DateTimeFormatter.ofPattern("yyyy.MM.dd (E)", Locale.KOREAN)
+private val dateFormat = DateTimeFormatter.ofPattern("M월 d일 (E)", Locale.KOREAN)
+private val fullDateFormat = DateTimeFormatter.ofPattern("yyyy.MM.dd (E)", Locale.KOREAN)
 
 private fun dLabel(days: Long): String = when {
     days > 0 -> "D-$days"
@@ -110,106 +155,100 @@ private fun dLabel(days: Long): String = when {
     else -> "D+${-days}"
 }
 
-/** 퇴소 D-day 타임라인 */
+/** 할 일에서 바로 갈 화면 */
+private fun routeOf(go: PlanGo): String = when (go) {
+    is PlanGo.Practice -> Routes.roleplay(go.scenarioId)
+    PlanGo.RiskCheck -> Routes.RISK
+    is PlanGo.Checklist -> Routes.checklist(go.policyId)
+    is PlanGo.PolicySearch -> Routes.policy(query = go.query)
+    PlanGo.Budget -> Routes.SIM_BUDGET
+    PlanGo.Housing -> Routes.SIM_HOUSING
+    PlanGo.Savings -> Routes.SIM_SAVINGS
+    PlanGo.MonthLife -> Routes.SIM_MONTH
+    PlanGo.Forms -> Routes.FORMS
+    is PlanGo.Chat -> Routes.chat(question = go.question)
+}
+
+/** 퇴소 D-day 타임라인 (내 상황에 맞춘 할 일) */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimelineScreen(
     onBack: () -> Unit,
-    onLink: (TimelineLink) -> Unit,
+    onNavigate: (String) -> Unit,
     vm: TimelineViewModel = viewModel(),
 ) {
-    val context = LocalContext.current
     var showPicker by remember { mutableStateOf(false) }
-    var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) pendingAction?.invoke()
-        pendingAction = null
-    }
-
-    // 알림 권한이 필요한 동작은 권한 확인 후 실행 (Android 13+)
-    fun withNotificationPermission(action: () -> Unit) {
-        val needs = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        if (needs) {
-            pendingAction = action
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            action()
-        }
-    }
+    var showClosed by remember { mutableStateOf(false) }
 
     val today = LocalDate.now()
     val daysLeft = ChronoUnit.DAYS.between(today, vm.leaveDate)
-    val tasks = TimelineRules.tasks
-    val doneCount = tasks.count { it.id in vm.done }
+    val all = vm.plan(today)
+    val auto = vm.autoDone()
+    // 오래 지난 일은 놓친 일에 쌓지 않고 지난 일로 넘긴다
+    val stale = all.filter { it.date.isBefore(today.minusDays(TimelinePlanner.MISSED_DAYS.toLong())) }
+    val closed = all.filter { it.id in vm.done || it.id in vm.na || it.id in auto || it in stale }
+    val open = all - closed.toSet()
+    val missed = open.filter { it.date.isBefore(today) }
+    val thisWeek = open.filter { !it.date.isBefore(today) && !it.date.isAfter(today.plusDays(7)) }
+    val later = open.filter { it.date.isAfter(today.plusDays(7)) }
 
     OnRoadScreen("퇴소 D-day 타임라인", onBack) {
-        // 퇴소일
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OnRoadTag(vm.dateLabel, style = TagStyle.SlatePrimary, shape = OnRoadShapes.Field, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp))
-            Spacer(Modifier.weight(1f))
+        // 퇴소일: 흰 카드 (왼쪽 D-day · 날짜, 오른쪽 날짜 바꾸기)
+        OnRoadCard(
+            Modifier.fillMaxWidth(),
+            borderColor = OnRoadColors.BorderChip,
+            shape = OnRoadShapes.Item,
+            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("퇴소 예정일", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSecondary)
+                    Text(dLabel(daysLeft), style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
+                    Text(vm.leaveDate.format(fullDateFormat), style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+                }
+                Spacer(Modifier.width(12.dp))
+                PrimaryPill("날짜 바꾸기", { showPicker = true })
+            }
+        }
+
+        // 지금 하는 일: 고르면 그에 맞는 할 일이 더해진다
+        Spacer(Modifier.height(OnRoadDimens.BlockGap))
+        SubHeader("지금 나는")
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            WorkStatus.entries.forEach { w -> ChoiceChip(w.label, selected = vm.work == w) { vm.pickWork(w) } }
+        }
+
+        if (missed.isNotEmpty()) {
+            Group("놓친 일") { missed.forEach { TaskCard(it, today, vm, onNavigate) } }
+        }
+        Group("이번 주") {
+            if (thisWeek.isEmpty()) {
+                Text("이번 주에 할 일은 없어요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(start = 4.dp))
+            } else {
+                thisWeek.forEach { TaskCard(it, today, vm, onNavigate) }
+            }
+        }
+        if (later.isNotEmpty()) {
+            Group("다가오는 일") { later.forEach { TaskCard(it, today, vm, onNavigate) } }
+        }
+        if (closed.isNotEmpty()) {
+            Spacer(Modifier.height(OnRoadDimens.BlockGap))
             Row(
-                Modifier
-                    .clip(OnRoadShapes.Field)
-                    .border(1.dp, OnRoadColors.BorderInput, OnRoadShapes.Field)
-                    .clickable { showPicker = true }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                Modifier.fillMaxWidth().clip(OnRoadShapes.Item).clickable { showClosed = !showClosed }.padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.Edit, null, tint = OnRoadColors.TextSlate, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("날짜 바꾸기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlate)
+                Text("끝낸 일·지난 일", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+                Text(if (showClosed) "접기" else "보기", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
+            }
+            if (showClosed) {
+                Spacer(Modifier.height(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    closed.forEach { TaskCard(it, today, vm, onNavigate, auto[it.id]) }
+                }
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Text(dLabel(daysLeft), style = OnRoadType.Hero, color = OnRoadColors.Primary)
-        Text(vm.leaveDate.format(dateFormat), style = OnRoadType.Caption, color = OnRoadColors.TextMuted)
-
-        Spacer(Modifier.height(28.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("준비한 일", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateMid, modifier = Modifier.weight(1f))
-            Text("$doneCount", style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-            Text("/${tasks.size}개", style = OnRoadType.Tiny, color = OnRoadColors.TextSlateMid, modifier = Modifier.padding(bottom = 3.dp))
-        }
-        Spacer(Modifier.height(8.dp))
-        ProgressBar(doneCount / tasks.size.toFloat())
-
-        // 알림은 설정에서 한 번에 켜고 끈다
-        Spacer(Modifier.height(16.dp))
-        Text(
-            if (vm.alarmOn) "할 일 날짜 아침 9시에 알림이 와요. 알림은 설정에서 끌 수 있어요."
-            else "알림을 켜면 할 일 날짜 아침 9시에 알려 드려요. 설정 > 알림 받기에서 켤 수 있어요.",
-            style = OnRoadType.Tiny,
-            color = OnRoadColors.TextTertiary,
-        )
-
-        // 할 일 목록
-        Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("날짜별 할 일")
-        Spacer(Modifier.height(16.dp))
-        tasks.forEachIndexed { i, task ->
-            val date = vm.leaveDate.plusDays(task.offsetDays.toLong())
-            val diff = ChronoUnit.DAYS.between(today, date)
-            val status = when {
-                task.id in vm.done -> TaskStatus.DONE
-                diff < 0 -> TaskStatus.PAST
-                diff == 0L -> TaskStatus.TODAY
-                diff <= 14 -> TaskStatus.SOON
-                else -> TaskStatus.LATER
-            }
-            TimelineItem(
-                task = task,
-                date = date,
-                status = status,
-                isLast = i == tasks.lastIndex,
-                onToggle = { vm.toggle(task.id) },
-                onLink = { task.link?.let(onLink) },
-            )
-        }
-
         Spacer(Modifier.height(24.dp))
-        Footnote("일정은 일반적인 예시예요.\n기관과 지역에 따라 신청 시기가 다를 수 있어요.")
     }
 
     if (showPicker) {
@@ -245,82 +284,99 @@ fun TimelineScreen(
 }
 
 @Composable
-private fun TimelineItem(
-    task: TimelineTask,
-    date: LocalDate,
-    status: TaskStatus,
-    isLast: Boolean,
-    onToggle: () -> Unit,
-    onLink: () -> Unit,
-) {
-    val isDday = task.offsetDays == 0
-    val done = status == TaskStatus.DONE
-    val urgent = status == TaskStatus.SOON || status == TaskStatus.TODAY
-    val offsetLabel = when {
-        task.offsetDays < 0 -> "D${task.offsetDays}"
-        task.offsetDays == 0 -> "D-DAY"
-        else -> "D+${task.offsetDays}"
-    }
+private fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Spacer(Modifier.height(OnRoadDimens.BlockGap))
+    SubHeader(title)
+    Spacer(Modifier.height(12.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+}
 
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        // 세로 선 + 체크 원
-        Column(Modifier.width(28.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                Modifier
-                    .padding(top = 18.dp)
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(if (done) OnRoadColors.Primary else Color.White)
-                    .border(1.5.dp, if (done || isDday) OnRoadColors.Primary else OnRoadColors.BorderSage, CircleShape)
-                    .clickable(onClick = onToggle),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (done) Icon(Icons.Filled.Check, "완료 취소", tint = Color.White, modifier = Modifier.size(14.dp))
-            }
-            if (!isLast) {
-                Box(Modifier.padding(top = 4.dp).width(1.dp).weight(1f).background(OnRoadColors.Border))
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f).padding(bottom = if (isLast) 0.dp else 8.dp)) {
-            OnRoadCard(
-                Modifier.fillMaxWidth(),
-                background = if (done) OnRoadColors.SurfaceFile else OnRoadColors.Surface,
-                borderColor = when {
-                    done || isDday -> OnRoadColors.Primary
-                    urgent -> OnRoadColors.Danger.copy(alpha = 0.5f)
-                    else -> OnRoadColors.BorderSage.copy(alpha = 0.7f)
-                },
-                shape = OnRoadShapes.Item,
-                contentPadding = PaddingValues(horizontal = 15.dp, vertical = 14.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "$offsetLabel  ${date.format(dateFormat)}",
-                        style = OnRoadType.Micro,
-                        color = if (isDday) OnRoadColors.Primary else OnRoadColors.TextMuted,
-                        modifier = Modifier.weight(1f),
-                    )
-                    when (status) {
-                        TaskStatus.DONE -> OnRoadTag("완료", style = TagStyle.PrimaryFilled, shape = OnRoadShapes.Badge)
-                        TaskStatus.TODAY -> OnRoadTag("오늘", style = TagStyle.Danger)
-                        TaskStatus.SOON -> OnRoadTag("곧", style = TagStyle.Danger)
-                        TaskStatus.PAST -> OnRoadTag("지난 일정", style = TagStyle.SlateFilled)
-                        TaskStatus.LATER -> Unit
-                    }
+/** 연회색 카드: 체크 동그라미 · 날짜 / 제목 / 설명 / 바로 하기 버튼 · 해당 없음 */
+@Composable
+private fun TaskCard(
+    t: PlanTask,
+    today: LocalDate,
+    vm: TimelineViewModel,
+    onNavigate: (String) -> Unit,
+    /** 체크리스트로 신청을 끝내서 자동으로 끝난 까닭 */
+    autoReason: String? = null,
+) {
+    val done = t.id in vm.done || autoReason != null
+    val na = t.id in vm.na
+    val past = !done && !na && t.date.isBefore(today)
+    val closed = done || na || (past && t.date.isBefore(today.minusDays(TimelinePlanner.MISSED_DAYS.toLong())))
+    val offset = t.offsetDays
+    val whenText = when {
+        autoReason != null -> autoReason
+        t.label != null -> t.label
+        offset == null -> t.date.format(fullDateFormat)
+        offset == 0 -> "D-DAY · ${t.date.format(dateFormat)}"
+        offset < 0 -> "D$offset · ${t.date.format(dateFormat)}"
+        else -> "D+$offset · ${t.date.format(dateFormat)}"
+    }
+    val todayMark = t.kind != PlanKind.POLICY && t.date == today
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Top) {
+            // 정책 할 일은 체크리스트에서 끝낸다 (여기서는 체크 없음)
+            if (t.kind != PlanKind.POLICY) {
+                Box(
+                    Modifier
+                        .padding(top = 1.dp)
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(if (done) OnRoadColors.Primary else Color.White)
+                        .border(1.dp, if (done) OnRoadColors.Primary else OnRoadColors.BorderChip, CircleShape)
+                        .clickable(enabled = autoReason == null) { vm.toggle(t.id) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (done) Icon(Icons.Filled.Check, "완료 취소", tint = Color.White, modifier = Modifier.size(14.dp))
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.width(12.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(whenText, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, modifier = Modifier.weight(1f))
+                    if (todayMark && !closed) OnRoadTag("오늘", style = TagStyle.PrimaryFilled)
+                    if (na) Text("해당 없음", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
+                }
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    task.title,
+                    t.title,
                     style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
-                    color = if (done) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
-                    textDecoration = if (done) TextDecoration.LineThrough else null,
+                    color = if (closed) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
                 )
-                Spacer(Modifier.height(2.dp))
-                Text(task.description, style = OnRoadType.Caption2, color = OnRoadColors.TextPrimary.copy(alpha = 0.6f))
-                if (task.linkLabel != null) {
-                    Spacer(Modifier.height(10.dp))
-                    SmallBoxButton(task.linkLabel, onLink, trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight)
+                if (!closed) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(t.description, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
+                    if (t.actions.isNotEmpty() || t.kind != PlanKind.POLICY) {
+                        Spacer(Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                t.actions.forEach { a -> PrimaryPill(a.label, { onNavigate(routeOf(a.go)) }) }
+                            }
+                            if (t.kind != PlanKind.POLICY) {
+                                Text(
+                                    "해당 없음",
+                                    style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                                    color = OnRoadColors.TextTertiary,
+                                    modifier = Modifier.clickable { vm.toggleNa(t.id) }.padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                                )
+                            }
+                        }
+                    }
+                } else if (na) {
+                    Text(
+                        "되돌리기",
+                        style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                        color = OnRoadColors.TextTertiary,
+                        modifier = Modifier.clickable { vm.toggleNa(t.id) }.padding(top = 6.dp),
+                    )
                 }
             }
         }

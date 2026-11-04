@@ -177,3 +177,47 @@ data class InterviewResponseDto(
     val contacts: List<ContactDto>,
     @SerializedName("profile_changes") val profileChanges: List<ProfileChangeDto>? = null,
 )
+
+
+// ---------------- 서류 속 숨겨진 위험 찾기 (POST /documents/risk-check) ----------------
+
+/** 등기부등본을 볼 때 계약서와 맞춰 볼 정보 (저장하지 않음). 금액은 원 */
+data class RiskContextDto(
+    @SerializedName("landlord_name") val landlordName: String? = null,
+    val address: String? = null,
+    val deposit: Long? = null,
+    @SerializedName("market_price") val marketPrice: Long? = null,
+)
+
+data class RiskCheckRequestDto(
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("doc_type") val docType: String, // registry | lease | labor
+    @SerializedName("file_base64") val fileBase64: String,
+    @SerializedName("file_name") val fileName: String? = null,
+    val context: RiskContextDto? = null,
+)
+
+data class RiskPracticeDto(@SerializedName("scenario_id") val scenarioId: String, val title: String)
+
+data class RiskFindingDto(
+    @SerializedName("rule_id") val ruleId: String,
+    val title: String,
+    val status: String, // danger | check | unknown | ok
+    val evidence: String?,
+    val explain: String,
+    val action: String?,
+    val practice: RiskPracticeDto?,
+)
+
+data class RiskCountsDto(val danger: Int, val check: Int, val ok: Int, val unknown: Int)
+
+data class RiskSummaryDto(val level: String, val headline: String, val counts: RiskCountsDto)
+
+data class RiskCheckDto(
+    @SerializedName("doc_type") val docType: String,
+    val label: String,
+    @SerializedName("rules_version") val rulesVersion: String,
+    val summary: RiskSummaryDto,
+    val findings: List<RiskFindingDto>,
+    val notice: String,
+)

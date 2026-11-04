@@ -113,128 +113,67 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
     }
 
     OnRoadScreen("설정", onBack) {
-        ListRow(
-            AppContainer.session.nickname.ifBlank { "사용자" },
-            "${AppState.stage.label} 화면으로 보고 있어요",
-            icon = Icons.Outlined.Person,
-        )
+        val myId = AppContainer.session.userId.orEmpty()
+
+        // ── 내 정보: 배경·테두리 없이 글만 ──
+        Column(Modifier.padding(start = 4.dp)) {
+            Text(AppContainer.session.nickname.ifBlank { "사용자" }, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary)
+            Spacer(Modifier.height(2.dp))
+            Text("${AppState.stage.label} 화면으로 보고 있어요", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+        }
+
+        // ── 알림 · 음성 ──
+        SettingsGroup("알림 · 음성") {
+            SettingRow(
+                "알림 받기",
+                "D-day 할 일, 쓰다 만 서류, 다시 해 볼 연습",
+                trailing = { OnRoadSwitch(checked = notifyOn, onCheckedChange = { setNotify(it) }) },
+            )
+            SettingRow(
+                "음성으로 듣고 말하기",
+                if (isChild) "아동 화면에서는 항상 켜져 있어요" else "글을 읽어 주고, 말로 입력해요",
+                trailing = {
+                    OnRoadSwitch(
+                        checked = AppState.voiceOn,
+                        onCheckedChange = { AppState.updateVoice(AppContainer.session, it) },
+                        enabled = !isChild,
+                    )
+                },
+            )
+        }
 
         // ── 계정 ──
-        Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("계정")
-        Spacer(Modifier.height(16.dp))
-        ListRow(
-            "계정 바꾸기",
-            "이 휴대폰에서 쓴 계정으로 바로 바꿔요",
-            icon = Icons.Outlined.SwitchAccount,
-        ) {
-            accountList = AppContainer.session.accounts
-            showAccounts = true
-        }
-        Spacer(Modifier.height(8.dp))
-        val myId = AppContainer.session.userId.orEmpty()
-        ListRow(
-            "이 계정 지우기",
-            "이 휴대폰에서 지금 계정과 기록을 지워요",
-            icon = Icons.Outlined.PersonRemove,
-        ) {
-            AppContainer.session.accounts.firstOrNull { it.userId == AppContainer.session.userId }?.let { deleting = it }
-        }
-        Spacer(Modifier.height(8.dp))
-        ListRow(
-            "내 아이디 복사",
-            myId.ifBlank { "아직 없어요" },
-            icon = Icons.Outlined.ContentCopy,
-        ) {
-            if (myId.isNotBlank()) {
-                clipboard.setText(AnnotatedString(myId))
-                Toast.makeText(context, "아이디를 복사했어요. 다른 휴대폰의 '이미 사용 중이에요'에 붙여 넣으세요.", Toast.LENGTH_LONG).show()
+        SettingsGroup("계정") {
+            SettingRow("계정 바꾸기", "이 휴대폰에서 쓴 계정으로 바로 바꿔요") {
+                accountList = AppContainer.session.accounts
+                showAccounts = true
             }
-        }
-
-        Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("알림")
-        Spacer(Modifier.height(16.dp))
-        SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 15.dp, end = 6.dp, top = 12.dp, bottom = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("알림 받기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-                    Text(
-                        "퇴소 D-day 할 일, 쓰다 만 서류, 다시 해 볼 연습을 알려 드려요",
-                        style = OnRoadType.Tiny,
-                        color = OnRoadColors.TextTertiary,
-                    )
+            SettingRow(
+                "내 아이디 복사",
+                myId.ifBlank { "아직 없어요" },
+            ) {
+                if (myId.isNotBlank()) {
+                    clipboard.setText(AnnotatedString(myId))
+                    Toast.makeText(context, "아이디를 복사했어요. 다른 휴대폰의 '이미 사용 중이에요'에 붙여 넣으세요.", Toast.LENGTH_LONG).show()
                 }
-                OnRoadSwitch(checked = notifyOn, onCheckedChange = { setNotify(it) })
+            }
+            SettingRow("이 계정 지우기", "이 휴대폰에서 지금 계정과 기록을 지워요", danger = true) {
+                AppContainer.session.accounts.firstOrNull { it.userId == AppContainer.session.userId }?.let { deleting = it }
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "D-day 알림은 할 일 날짜 아침 9시, 오늘 챙길 것은 저녁 7시 반에 하루 한 번만 와요. 알림을 누르면 그 화면으로 바로 가요.",
-            style = OnRoadType.Tiny,
-            color = OnRoadColors.TextQuaternary,
-        )
 
-        Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("음성")
-        Spacer(Modifier.height(16.dp))
-        SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 15.dp, end = 6.dp, top = 12.dp, bottom = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("음성으로 듣고 말하기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-                    Text(
-                        if (isChild) "아동 화면에서는 항상 켜져 있어요" else "화면 글을 읽어 주고, 말로 입력할 수 있어요",
-                        style = OnRoadType.Tiny,
-                        color = OnRoadColors.TextTertiary,
-                    )
-                }
-                OnRoadSwitch(
-                    checked = AppState.voiceOn,
-                    onCheckedChange = { AppState.updateVoice(AppContainer.session, it) },
-                    enabled = !isChild,
-                )
+        // ── 프로필 · 기록 ──
+        SettingsGroup("프로필 · 기록") {
+            // 퇴소 처리는 자립준비청년만
+            if (AppState.stage == UserStage.YOUNG_ADULT && status != null && status != LivingStatus.LEFT) {
+                SettingRow(
+                    if (leaving) "바꾸는 중…" else "퇴소했어요",
+                    "상황을 '퇴소 후'로 바꿔요. 퇴소 예정일은 지워져요",
+                ) { if (!leaving) confirmLeave = true }
             }
+            SettingRow("프로필 다시 설정", "지금 계정은 그대로 남아요") { confirmReset = true }
+            SettingRow("앱에 쌓인 기록 지우기", "이 계정의 상담·연습·기록장을 지워요", danger = true) { confirmWipe = true }
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "음성은 휴대폰 안에서 글자로 바뀌고, 목소리 자체는 서버에 저장하지 않아요.",
-            style = OnRoadType.Tiny,
-            color = OnRoadColors.TextQuaternary,
-        )
-
-        Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("프로필")
-        Spacer(Modifier.height(16.dp))
-        // 퇴소 예정 · 시설 생활 중인 청소년·자립준비청년만
-        // 퇴소 처리는 자립준비청년만 (청소년·아동에게는 보이지 않게)
-        if (AppState.stage == UserStage.YOUNG_ADULT && status != null && status != LivingStatus.LEFT) {
-            ListRow(
-                if (leaving) "바꾸는 중…" else "퇴소했어요",
-                "상황을 '퇴소 후'로 바꿔요. 지금 정해 둔 퇴소 예정일은 지워져요",
-                icon = Icons.Outlined.Home,
-            ) { if (!leaving) confirmLeave = true }
-            Spacer(Modifier.height(8.dp))
-        }
-        ListRow(
-            "프로필 다시 설정",
-            "지금 계정은 그대로 남아요",
-            icon = Icons.Outlined.Refresh,
-        ) { confirmReset = true }
-
-        Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("내 기록")
-        Spacer(Modifier.height(16.dp))
-        ListRow(
-            "앱에 쌓인 기록 지우기",
-            "이 계정의 상담·연습·기록장을 지워요",
-            icon = Icons.Outlined.DeleteOutline,
-        ) { confirmWipe = true }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "이 기록들은 휴대폰 안에만 저장되고, 다른 사람에게 자동으로 보내지 않아요.",
-            style = OnRoadType.Tiny,
-            color = OnRoadColors.TextQuaternary,
-        )
     }
 
     if (showAccounts) {
@@ -379,5 +318,53 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
                 }
             },
         )
+    }
+}
+
+/* ---------------------------- 설정 조각 ---------------------------- */
+
+/** 묶음: 작은 제목 + 줄마다 따로 된 연회색 카드 (다른 화면 목록과 같은 모양, 선 없음) */
+@Composable
+private fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Spacer(Modifier.height(OnRoadDimens.BlockGap))
+    Text(title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSecondary, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+}
+
+/** 설정 한 줄: 연회색 카드, 아이콘 없이 제목 · 설명, 오른쪽에 스위치(있으면). 지우는 줄은 흰 카드 */
+@Composable
+private fun SettingRow(
+    title: String,
+    sub: String? = null,
+    danger: Boolean = false,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
+) {
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        // 지우는 줄은 흰 바탕 (나머지는 연회색)
+        background = if (danger) OnRoadColors.Surface else OnRoadColors.SurfaceSubtle,
+        borderColor = if (danger) OnRoadColors.BorderChip else OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(start = 16.dp, end = if (trailing != null) 8.dp else 16.dp, top = 14.dp, bottom = 14.dp),
+        onClick = onClick,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                    color = OnRoadColors.TextPrimary,
+                )
+                sub?.let {
+                    Spacer(Modifier.height(2.dp))
+                    Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+            }
+            trailing?.let {
+                Spacer(Modifier.width(8.dp))
+                it()
+            }
+        }
     }
 }

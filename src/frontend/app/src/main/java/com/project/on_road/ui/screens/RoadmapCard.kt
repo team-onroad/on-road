@@ -25,6 +25,7 @@ internal fun dayText(millis: Long): String {
 /**
  * 저장한 진로 로드맵 + 단계 체크 (청소년 홈 · 성장 기록 공용).
  * compact = true 면 다음 단계 하나만 보여 준다.
+ * 연회색 카드, 단계는 번호 동그라미 (진로 탐색 로드맵과 같은 모양)
  */
 @Composable
 fun RoadmapProgressCard(
@@ -33,29 +34,29 @@ fun RoadmapProgressCard(
     compact: Boolean = false,
     onMore: (() -> Unit)? = null,
 ) {
-    OnRoadCard(modifier.fillMaxWidth(), contentPadding = PaddingValues(20.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OnRoadTag("로드맵", style = TagStyle.PrimarySoft)
-            Spacer(Modifier.width(8.dp))
-            Text(
-                "${roadmap.jobName}까지",
-                style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
-                color = OnRoadColors.TextPrimary,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text("${roadmap.done.size}/${roadmap.steps.size}", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
-        }
+    OnRoadCard(
+        modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(18.dp),
+    ) {
+        Text(
+            "${roadmap.jobName}까지",
+            style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+            color = OnRoadColors.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Spacer(Modifier.height(10.dp))
-        ProgressBar(roadmap.progress, height = 6.dp)
+        ProgressBar(roadmap.progress, Modifier.fillMaxWidth(), height = 5.dp)
         Spacer(Modifier.height(14.dp))
 
         val indices = if (compact) listOfNotNull(roadmap.nextIndex) else roadmap.steps.indices.toList()
         if (indices.isEmpty()) {
             Text("모든 단계를 해냈어요. 새 목표를 찾아볼까요?", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
         }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             indices.forEach { i ->
                 val s = roadmap.steps[i]
                 val checked = i in roadmap.done
@@ -63,21 +64,21 @@ fun RoadmapProgressCard(
                     Modifier
                         .fillMaxWidth()
                         .clickable { ActivityStore.toggleRoadmapStep(i) }
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
-                    CheckBoxMark(checked, Modifier.padding(top = 2.dp))
-                    Spacer(Modifier.width(10.dp))
+                    RoadmapMark(i + 1, checked, i == roadmap.nextIndex, size = 22)
+                    Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
                             (if (compact) "이번에 할 일 · " else "") + s.period,
-                            style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold),
-                            color = OnRoadColors.Primary,
+                            style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
+                            color = OnRoadColors.TextTertiary,
                         )
                         Text(
                             s.title,
                             style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                            color = if (checked) OnRoadColors.TextQuaternary else OnRoadColors.TextPrimary,
+                            color = if (checked) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -92,9 +93,9 @@ fun RoadmapProgressCard(
             Spacer(Modifier.height(12.dp))
             Text(
                 "다른 직업 다시 찾아보기",
-                style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
-                color = OnRoadColors.TextSecondary,
-                modifier = Modifier.clickable(onClick = onMore),
+                style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                color = OnRoadColors.TextTertiary,
+                modifier = Modifier.clickable(onClick = onMore).padding(vertical = 4.dp),
             )
         }
     }

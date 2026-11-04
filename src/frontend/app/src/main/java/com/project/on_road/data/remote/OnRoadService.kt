@@ -169,6 +169,11 @@ interface OnRoadService {
     @POST("documents/upload")
     suspend fun uploadDocument(@Body body: DocumentUploadDto): WriterDocumentDto
 
+    /** 서류 속 숨겨진 위험 찾기 (등기부등본 · 임대차 계약서 · 근로계약서). 사진 읽기라 타임아웃을 늘린다 */
+    @Headers("${Network.TIMEOUT_HEADER}: 120")
+    @POST("documents/risk-check")
+    suspend fun riskCheck(@Body body: RiskCheckRequestDto): RiskCheckDto
+
     @GET("users/{userId}/documents")
     suspend fun listDocuments(@Path("userId") userId: String): DocumentListDto
 
@@ -666,7 +671,16 @@ data class RoleplayHintRequestDto(
     @SerializedName("surprise_ids") val surpriseIds: List<String> = emptyList(),
 )
 
-data class RoleplayHintDto(val done: Boolean, val label: String, val example: String, val kind: String, val remaining: Int)
+data class RoleplayHintCheckDto(val label: String, val ok: Boolean, val kind: String)
+
+data class RoleplayHintDto(
+    val done: Boolean,
+    val label: String,
+    val example: String,
+    val kind: String,
+    val remaining: Int,
+    val checks: List<RoleplayHintCheckDto>? = null,
+)
 
 // ---------------- 활동 기록 · 자립 준비도 ----------------
 

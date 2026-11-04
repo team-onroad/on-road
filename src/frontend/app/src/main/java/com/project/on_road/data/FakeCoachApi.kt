@@ -130,6 +130,115 @@ class FakeCoachApi : CoachApi {
             }
     }
 
+    /** 직업별 하는 일 · 되는 길 (청소년/청년) · 자격증 · 관련 지원 검색어 */
+    private class JobInfo(val tasks: List<String>, val teen: List<String>, val youth: List<String>, val certificates: List<String>, val policyQuery: String)
+
+    private val jobInfo = mapOf(
+        "barista" to JobInfo(
+            tasks = listOf("에스프레소와 음료를 만들어요", "손님 주문을 받고 응대해요", "원두와 매장 위생을 관리해요"),
+            teen = listOf("카페 체험이나 방과후 바리스타 수업 들어 보기", "조리·외식 계열 특성화고 알아보기", "바리스타 2급 자격 준비"),
+            youth = listOf("국민내일배움카드로 바리스타 과정 듣기", "카페 아르바이트로 경력 쌓기", "바리스타 자격 취득 후 매장 지원"),
+            certificates = listOf("바리스타 1·2급(민간)"),
+            policyQuery = "내일배움카드",
+        ),
+        "mechanic" to JobInfo(
+            tasks = listOf("자동차 상태를 점검해요", "고장 난 부품을 고치고 바꿔요", "정비 기록을 남겨요"),
+            teen = listOf("자동차·기계 계열 특성화고 알아보기", "정비 체험 프로그램 참여", "자동차정비기능사 공부 시작"),
+            youth = listOf("폴리텍대학·직업훈련 정비 과정 알아보기", "자동차정비기능사 취득", "정비소 보조로 시작해 경력 쌓기"),
+            certificates = listOf("자동차정비기능사", "자동차정비산업기사"),
+            policyQuery = "직업훈련",
+        ),
+        "cook" to JobInfo(
+            tasks = listOf("재료를 손질하고 음식을 만들어요", "새 메뉴를 만들어 봐요", "주방 위생과 재료를 관리해요"),
+            teen = listOf("조리 동아리나 요리 체험 해 보기", "조리 계열 특성화고·학과 알아보기", "한식조리기능사 공부 시작"),
+            youth = listOf("내일배움카드로 조리 과정 듣기", "한식·양식조리기능사 취득", "식당 주방 보조로 경력 쌓기"),
+            certificates = listOf("한식조리기능사", "양식조리기능사"),
+            policyQuery = "내일배움카드",
+        ),
+        "developer" to JobInfo(
+            tasks = listOf("필요한 기능을 정리하고 설계해요", "코드를 짜서 앱과 프로그램을 만들어요", "오류를 찾아 고쳐요"),
+            teen = listOf("무료 코딩 강의로 첫 프로그램 만들어 보기", "정보·소프트웨어 동아리 참여", "소프트웨어 학과·특성화고 알아보기"),
+            youth = listOf("K-디지털 트레이닝 등 무료 개발 교육 알아보기", "작은 프로젝트로 포트폴리오 만들기", "정보처리기능사·기사 준비"),
+            certificates = listOf("정보처리기능사", "정보처리기사"),
+            policyQuery = "디지털 훈련",
+        ),
+        "lab" to JobInfo(
+            tasks = listOf("혈액 등 검체를 검사해요", "검사 장비를 다루고 관리해요", "결과를 정리해 의료진에게 전해요"),
+            teen = listOf("생명과학·화학 과목에 관심 갖기", "보건 계열 진로 체험 참여", "임상병리학과 입시 정보 알아보기"),
+            youth = listOf("임상병리학과(전문대·대학) 진학 알아보기", "장학금·학자금 지원 확인", "임상병리사 면허 시험 준비"),
+            certificates = listOf("임상병리사 면허(국가)"),
+            policyQuery = "장학금",
+        ),
+        "designer" to JobInfo(
+            tasks = listOf("포스터·로고·화면을 디자인해요", "고객의 요청을 듣고 시안을 만들어요", "디자인 도구로 작업물을 다듬어요"),
+            teen = listOf("그림·디자인 동아리 참여", "디자인 프로그램 무료 강의 들어 보기", "디자인 계열 학과·특성화고 알아보기"),
+            youth = listOf("내일배움카드로 디자인 툴 과정 듣기", "작업물로 포트폴리오 만들기", "컴퓨터그래픽스운용기능사 준비"),
+            certificates = listOf("컴퓨터그래픽스운용기능사", "시각디자인기사"),
+            policyQuery = "내일배움카드",
+        ),
+        "video" to JobInfo(
+            tasks = listOf("찍은 영상을 자르고 이어 붙여요", "자막·음악·효과를 넣어요", "완성본을 다듬어 올려요"),
+            teen = listOf("휴대폰으로 짧은 영상 만들어 보기", "방송·영상 동아리 참여", "영상 계열 학과·특성화고 알아보기"),
+            youth = listOf("내일배움카드로 영상 편집 과정 듣기", "작업 영상으로 포트폴리오 만들기", "편집 아르바이트·외주로 경력 쌓기"),
+            certificates = listOf("멀티미디어콘텐츠제작전문가"),
+            policyQuery = "내일배움카드",
+        ),
+        "social" to JobInfo(
+            tasks = listOf("도움이 필요한 사람을 만나 상담해요", "필요한 지원을 찾아 연결해요", "지원 기록을 정리해요"),
+            teen = listOf("봉사활동 꾸준히 해 보기", "사회복지 진로 체험 참여", "사회복지학과 입시 정보 알아보기"),
+            youth = listOf("사회복지학과 진학 또는 학점은행제 알아보기", "실습 기관 찾기", "사회복지사 2급 취득 후 기관 지원"),
+            certificates = listOf("사회복지사 1·2급(국가)"),
+            policyQuery = "장학금",
+        ),
+        "care" to JobInfo(
+            tasks = listOf("아이들을 돌보고 놀이로 가르쳐요", "하루 활동을 계획해요", "부모님과 아이 이야기를 나눠요"),
+            teen = listOf("아이 돌봄 봉사 해 보기", "유아교육·보육 진로 체험", "관련 학과 입시 정보 알아보기"),
+            youth = listOf("보육교사 자격 과정(학과·학점은행) 알아보기", "어린이집 실습", "보육교사 2급 취득 후 지원"),
+            certificates = listOf("보육교사 1~3급(국가)"),
+            policyQuery = "장학금",
+        ),
+        "nurse" to JobInfo(
+            tasks = listOf("환자 상태를 살피고 돌봐요", "진료를 준비하고 돕는 일을 해요", "병원 물품을 관리해요"),
+            teen = listOf("보건 계열 진로 체험 참여", "보건 계열 특성화고 알아보기", "응급처치 교육 들어 보기"),
+            youth = listOf("간호조무사 교육기관·내일배움카드 과정 알아보기", "병원 실습", "간호조무사 자격 시험 준비"),
+            certificates = listOf("간호조무사 자격(국가)"),
+            policyQuery = "내일배움카드",
+        ),
+        "sales" to JobInfo(
+            tasks = listOf("매장 매출과 재고를 관리해요", "직원 일정과 업무를 나눠요", "손님 불편을 해결해요"),
+            teen = listOf("학교 행사·동아리 운영 맡아 보기", "판매 아르바이트 체험", "유통·경영 계열 학과 알아보기"),
+            youth = listOf("매장 아르바이트로 시작해 경력 쌓기", "유통관리사 준비", "관리자 채용 공고에 지원"),
+            certificates = listOf("유통관리사 2급"),
+            policyQuery = "청년 취업",
+        ),
+        "office" to JobInfo(
+            tasks = listOf("서류를 만들고 정리해요", "돈이 들어오고 나간 것을 기록해요", "엑셀로 자료를 정리해요"),
+            teen = listOf("엑셀·문서 프로그램 익히기", "상업·회계 계열 특성화고 알아보기", "전산회계 자격 공부 시작"),
+            youth = listOf("내일배움카드로 사무·회계 과정 듣기", "컴퓨터활용능력·전산회계 취득", "사무직 채용 공고에 지원"),
+            certificates = listOf("컴퓨터활용능력", "전산회계(민간)"),
+            policyQuery = "내일배움카드",
+        ),
+    )
+
+    override suspend fun jobDetail(userId: String, job: JobRecommendation, stage: UserStage): JobDetail {
+        latency(300)
+        val info = jobInfo[job.id]
+        val teen = stage == UserStage.TEEN || stage == UserStage.CHILD
+        val practices = if (teen) listOf(JobPractice("parttime", "아르바이트 면접"), JobPractice("school", "진학 면접"))
+        else listOf(JobPractice("parttime", "아르바이트 면접"), JobPractice("job", "취업 면접 (실전)"), JobPractice("jobcenter", "고용센터 취업 상담"))
+        return JobDetail(
+            id = job.id,
+            name = job.name,
+            description = job.description,
+            types = job.types,
+            tasks = info?.tasks ?: listOf(job.description),
+            path = info?.let { if (teen) it.teen else it.youth } ?: buildRoadmap(userId, job, stage).steps.map { it.title },
+            certificates = info?.certificates.orEmpty(),
+            policyQuery = info?.policyQuery,
+            practices = practices,
+        )
+    }
+
     override suspend fun buildRoadmap(userId: String, job: JobRecommendation, stage: UserStage): Roadmap {
         latency(1100)
         val steps = if (stage == UserStage.TEEN) listOf(

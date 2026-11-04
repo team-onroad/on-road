@@ -66,6 +66,7 @@ import com.project.on_road.ui.screens.OnboardingScreen
 import com.project.on_road.ui.screens.PolicySearchScreen
 import com.project.on_road.ui.screens.PracticeListScreen
 import com.project.on_road.ui.screens.PracticePlayScreen
+import com.project.on_road.ui.screens.RiskCheckScreen
 import com.project.on_road.ui.screens.RoleplayListScreen
 import com.project.on_road.ui.screens.RoleplayPlayScreen
 import com.project.on_road.ui.screens.SavingsScreen
@@ -104,6 +105,7 @@ object Routes {
     const val ROLEPLAY = "coach/roleplay"
     const val ROLEPLAY_PLAY = "coach/roleplay/{id}"
     const val FORMS = "coach/forms"
+    const val RISK = "coach/risk"           // 서류 속 숨겨진 위험 찾기
     const val DOCUMENT = "coach/document"
     const val DOC_PICKER = "coach/docs/{policyId}"
     const val DOC_WRITER = "coach/doc?documentId={documentId}&policyId={policyId}&templateId={templateId}&itemId={itemId}&ctx={ctx}"
@@ -372,7 +374,7 @@ private fun OnRoadGraph(
         composable(Routes.SIM_TIMELINE) {
             // 퇴소 전: 퇴소일 기준 타임라인 / 퇴소 후: 내가 정한 목표 D-day (같은 d_date 를 다른 뜻으로 쓰므로 화면을 나눈다)
             if (DDate.isGoal(AppContainer.session.status)) GoalTimelineScreen(onBack = back, onLink = { go(timelineRoute(it)) })
-            else TimelineScreen(onBack = back, onLink = { go(timelineRoute(it)) })
+            else TimelineScreen(onBack = back, onNavigate = go)
         }
 
         composable(Routes.PRACTICE) { PracticeListScreen(onBack = back, onOpen = { go(Routes.practice(it)) }) }
@@ -474,8 +476,10 @@ private fun OnRoadGraph(
                 onBack = back,
                 onOpenDocument = { go(Routes.docWriter(documentId = it)) },
                 onStartTemplate = { go(Routes.docWriter(templateId = it)) },
+                onRiskCheck = { go(Routes.RISK) },
             )
         }
+        composable(Routes.RISK) { RiskCheckScreen(onBack = back, onPractice = { go(Routes.roleplay(it)) }) }
         composable(
             Routes.DOC_PICKER,
             arguments = listOf(navArgument("policyId") { type = NavType.StringType }),

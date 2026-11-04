@@ -153,6 +153,8 @@ fun FormHelperScreen(
     onOpenDocument: (Long) -> Unit = {},
     /** 자주 쓰는 양식을 문서 AI 로 쓰기. null 이면 예전처럼 앱 안에서 항목만 채운다 */
     onStartTemplate: ((String) -> Unit)? = null,
+    /** 서류 속 숨겨진 위험 찾기 (계약서 · 등기부등본 · 근로계약서) */
+    onRiskCheck: (() -> Unit)? = null,
     vm: FormHelperViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -189,6 +191,7 @@ fun FormHelperScreen(
                 onPick = onStartTemplate ?: vm::openTemplate,
                 onTakePhoto = uploader.takePhoto,
                 onPickFile = uploader.pickFile,
+                onRiskCheck = onRiskCheck,
             )
         }
     }
@@ -203,6 +206,7 @@ private fun TemplateList(
     onPick: (String) -> Unit,
     onTakePhoto: () -> Unit,
     onPickFile: () -> Unit,
+    onRiskCheck: (() -> Unit)? = null,
 ) {
     Column(
         Modifier
@@ -215,6 +219,26 @@ private fun TemplateList(
 
         Spacer(Modifier.height(OnRoadDimens.BlockGap))
         UploadFormCard(onTakePhoto, onPickFile)
+        // 서명하기 전 계약서 위험 찾기: 흰 카드 + 메인 색 작은 버튼
+        onRiskCheck?.let { open ->
+            Spacer(Modifier.height(8.dp))
+            OnRoadCard(
+                Modifier.fillMaxWidth(),
+                borderColor = OnRoadColors.BorderChip,
+                shape = OnRoadShapes.Item,
+                contentPadding = PaddingValues(start = 20.dp, end = 14.dp, top = 18.dp, bottom = 18.dp),
+                onClick = open,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("계약서 위험 찾기", style = OnRoadType.Title3, color = OnRoadColors.TextPrimary)
+                        Text("서명 전에 숨은 위험을 찾아요", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    PrimaryPill("찾아보기", open)
+                }
+            }
+        }
         error?.let {
             Spacer(Modifier.height(12.dp))
             NoticeBox(it, title = "읽지 못했어요", tone = NoticeTone.Warning)

@@ -172,6 +172,16 @@ class SessionStore(private val context: Context) {
         get() = prefs.getStringSet(KEY_TIMELINE_DONE, emptySet()).orEmpty().toSet()
         set(value) = prefs.edit().putStringSet(KEY_TIMELINE_DONE, value).apply()
 
+    /** 타임라인에서 '해당 없음'으로 뺀 할 일 id */
+    var timelineNa: Set<String>
+        get() = prefs.getStringSet(KEY_TIMELINE_NA, emptySet()).orEmpty().toSet()
+        set(value) = prefs.edit().putStringSet(KEY_TIMELINE_NA, value).apply()
+
+    /** 지금 하는 일 (학생 · 일함 · 구직 중 · 쉬는 중). 타임라인 개인화에만 쓰고 서버에 보내지 않는다 */
+    var workStatus: WorkStatus?
+        get() = prefs.getString(KEY_WORK_STATUS, null)?.let { runCatching { WorkStatus.valueOf(it) }.getOrNull() }
+        set(value) = prefs.edit().apply { if (value == null) remove(KEY_WORK_STATUS) else putString(KEY_WORK_STATUS, value.name) }.apply()
+
     /** 홈 바로가기 (HomeFeature 이름, 순서대로). null = 아직 편집 안 함 → 기본값 사용 */
     var homeShortcuts: List<String>?
         get() = prefs.getString(KEY_SHORTCUTS, null)?.split(",")?.filter { it.isNotBlank() }
@@ -230,6 +240,8 @@ class SessionStore(private val context: Context) {
         const val KEY_STATUS = "living_status"
         const val KEY_DDAY_ALARM = "dday_alarm"
         const val KEY_TIMELINE_DONE = "timeline_done"
+        const val KEY_TIMELINE_NA = "timeline_na"
+        const val KEY_WORK_STATUS = "work_status"
         const val KEY_SHORTCUTS = "home_shortcuts"
         const val KEY_STARS_SPENT = "stars_spent"
         const val KEY_OWNED_STICKERS = "owned_stickers"

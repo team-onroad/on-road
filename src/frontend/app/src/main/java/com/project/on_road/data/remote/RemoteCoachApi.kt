@@ -25,6 +25,9 @@ class RemoteCoachApi(
     override suspend fun buildRoadmap(userId: String, job: JobRecommendation, stage: UserStage): Roadmap =
         local.buildRoadmap(userId, job, stage)
 
+    override suspend fun jobDetail(userId: String, job: JobRecommendation, stage: UserStage): JobDetail =
+        local.jobDetail(userId, job, stage)
+
     override suspend fun analyzeUpload(userId: String, bytes: ByteArray, mimeType: String): FormDraft =
         local.analyzeUpload(userId, bytes, mimeType)
 
@@ -96,7 +99,10 @@ class RemoteCoachApi(
                 RoleplayHintRequestDto(historyOf(history.map { it.fromUser to it.text }), plan.variantId, plan.surpriseIds),
             )
         }
-        return RoleplayHint(res.done, res.label, res.example, res.kind, res.remaining)
+        return RoleplayHint(
+            res.done, res.label, res.example, res.kind, res.remaining,
+            res.checks.orEmpty().map { RoleplayCheck(it.label, it.ok, it.kind, null) },
+        )
     }
 
     // POST /coach/roleplay/{id}/feedback

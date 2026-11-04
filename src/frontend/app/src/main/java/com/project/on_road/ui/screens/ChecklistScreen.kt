@@ -8,7 +8,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.platform.LocalContext
 import com.project.on_road.ui.components.ChoiceChip
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +24,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.NorthEast
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +53,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -127,7 +134,7 @@ fun ChecklistListScreen(
             else -> {
                 Text("나의 체크리스트", style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
                 Spacer(Modifier.height(4.dp))
-                Text("단계를 하나씩 체크하며 신청을 준비해요.", style = OnRoadType.Caption2, color = OnRoadColors.TextMuted)
+                Text("단계를 하나씩 체크하며 신청을 준비해요.", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
                 Spacer(Modifier.height(24.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     vm.items.forEach { c -> ChecklistSummaryCard(c) { onOpen(c.policyId) } }
@@ -153,22 +160,18 @@ private fun ChecklistSummaryCard(c: ChecklistSummary, onClick: () -> Unit) {
                 color = OnRoadColors.TextPrimary,
                 modifier = Modifier.weight(1f),
             )
+            Spacer(Modifier.width(8.dp))
+            // 준비 중: 흰 바탕 + 회색 테두리 / 완료: 메인 색 바탕 + 흰 글씨
             OnRoadTag(
-                if (c.completed) "완료" else "신청 준비 중",
-                style = if (c.completed) TagStyle.PrimaryFilled else TagStyle.SlatePrimary,
+                if (c.completed) "완료" else "신청 중",
+                style = if (c.completed) TagStyle.PrimaryFilled else TagStyle.Neutral,
+                textStyle = OnRoadType.Caption2.copy(fontWeight = if (c.completed) FontWeight.Bold else FontWeight.Medium),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
             )
-        }
-        Spacer(Modifier.height(6.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OnRoadTag(c.policy.category, style = TagStyle.Neutral)
-            if (!c.policy.isActive) {
-                Spacer(Modifier.width(6.dp))
-                OnRoadTag("더 이상 운영되지 않는 정책", style = TagStyle.Danger)
-            }
         }
         Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.Bottom) {
-            Text("진행 단계", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateMid, modifier = Modifier.weight(1f))
+            Text("진행 단계", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary, modifier = Modifier.weight(1f))
             ProgressCount(c.doneSteps, c.totalSteps, "단계")
         }
         Spacer(Modifier.height(8.dp))
@@ -181,7 +184,7 @@ private fun ProgressCount(done: Int, total: Int, unit: String) {
     Text(
         buildAnnotatedString {
             withStyle(SpanStyle(fontSize = OnRoadType.Headline.fontSize, fontWeight = FontWeight.Bold, color = OnRoadColors.TextPrimary)) { append("$done") }
-            withStyle(SpanStyle(fontSize = OnRoadType.Tiny.fontSize, color = OnRoadColors.TextSlateMid)) { append("/$total$unit") }
+            withStyle(SpanStyle(fontSize = OnRoadType.Tiny.fontSize, color = OnRoadColors.TextTertiary)) { append("/$total$unit") }
         },
     )
 }
@@ -404,28 +407,35 @@ fun ChecklistScreen(
             error != null || c == null -> Column(Modifier.padding(OnRoadDimens.ScreenPadding)) {
                 NoticeBox(error ?: "잠시 후 다시 시도해 주세요.", title = "체크리스트를 열 수 없어요", tone = NoticeTone.Warning)
             }
-            else -> Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
-                    Spacer(Modifier.height(24.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        OnRoadTag(
-                            if (c.completed) "모든 단계를 마쳤어요" else "신청 준비 중",
-                            style = TagStyle.SlatePrimary,
-                            textStyle = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
-                            shape = OnRoadShapes.Field,
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
-                        )
-                        Spacer(Modifier.weight(1f))
-                        SaveIndicator(vm.saveState)
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Text(c.policyName, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        "${c.policy.agency} · ${c.policy.checkedAt} 기준",
-                        style = OnRoadType.Caption2,
-                        color = OnRoadColors.TextMuted,
+            else -> {
+                // 지금 할 단계 (모두 끝났으면 -1). 처음엔 이 단계만 펼쳐 둔다
+                val current = c.steps.indexOfFirst { !it.done }
+                val open = remember(c.id) { mutableStateMapOf<Long, Boolean>() }
+                val hasDocsStep = c.steps.any { it.type == StepType.DOCS }
+                val docsBody: @Composable () -> Unit = {
+                    DocsBody(
+                        c = c,
+                        vm = vm,
+                        hasForm = hasForm,
+                        onOpenDocs = { onOpenDocs(c.policyId) },
+                        onOpenDocument = onOpenDocument,
                     )
+                }
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = OnRoadDimens.ScreenPadding),
+                ) {
+                    Spacer(Modifier.height(24.dp))
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text(c.policyName, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        Box(Modifier.padding(top = 6.dp)) { SaveIndicator(vm.saveState) }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text("${c.policy.agency} · ${c.policy.checkedAt} 기준", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+
                     if (!c.policy.isActive) {
                         Spacer(Modifier.height(16.dp))
                         NoticeBox(
@@ -435,92 +445,44 @@ fun ChecklistScreen(
                         )
                     }
 
-                    Spacer(Modifier.height(32.dp))
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text("진행 단계", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateMid, modifier = Modifier.weight(1f))
-                        ProgressCount(c.doneCount, c.steps.size, "단계")
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    ProgressBar(c.progress)
-
-                    Spacer(Modifier.height(24.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // 단계: 번호 동그라미 + 제목. 누르면 펼쳐진다
+                    Spacer(Modifier.height(28.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         c.steps.forEachIndexed { i, step ->
-                            StepCard(
+                            val expanded = open[step.itemId] ?: (i == current)
+                            StepItem(
                                 index = i + 1,
                                 step = step,
-                                policyName = c.policyName,
-                                agency = c.policy.agency,
-                                info = vm.policyInfo,
-                                easy = step.type in vm.easy,
+                                current = i == current,
+                                expanded = expanded,
+                                onExpand = { open[step.itemId] = !expanded },
                                 onToggle = { vm.toggleStep(step) },
-                                onToggleEasy = { vm.toggleEasy(step.type) },
-                            )
-                        }
-                    }
-
-                    // 서류 작성 (문서 AI): 준비 서류 바로 위. 쓸 서류는 다음 화면에서 고른다
-                    if (hasForm) {
-                        val writtenForm = c.docs.firstOrNull { "신청서" in it.name }?.checked == true
-                        Spacer(Modifier.height(40.dp))
-                        OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary, onClick = { onOpenDocs(c.policyId) }) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("서류 작성 도우미", style = OnRoadType.Title3, color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
-                                if (writtenForm) OnRoadTag("신청서 작성 완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
-                            }
-                            Spacer(Modifier.height(12.dp))
-                            OnRoadButton(
-                                "서류 고르고 쓰기",
-                                { onOpenDocs(c.policyId) },
-                                Modifier.fillMaxWidth(),
-                                height = 40.dp,
-                                textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                            )
-                        }
-                    }
-
-                    if (c.docs.isNotEmpty()) {
-                        Spacer(Modifier.height(40.dp))
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text("준비 서류", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateMid, modifier = Modifier.weight(1f))
-                            ProgressCount(c.docChecked, c.docTotal, "개")
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        ProgressBar(c.docProgress)
-                        // 신청 상황 태그: 켠 상황의 서류만 보인다
-                        if (vm.situations.isNotEmpty()) {
-                            Spacer(Modifier.height(14.dp))
-                            Row(
-                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                DocSituation.entries.filter { it in vm.situations }.forEach { s ->
-                                    ChoiceChip(s.label, selected = vm.situations[s] == true) { vm.toggleSituation(s) }
+                                when (step.type) {
+                                    StepType.TARGET -> TargetSummary(c.policyName, c.policy.agency, vm.policyInfo)
+                                    StepType.CONDITION -> ConditionList(step)
+                                    StepType.DOCS -> docsBody()
+                                    StepType.APPLY -> ApplyMethods(step)
                                 }
                             }
                         }
-                        Spacer(Modifier.height(16.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            vm.visibleDocs(c).forEach { doc ->
-                                DocRow(
-                                    doc,
-                                    onClick = { doc.documentId?.takeIf { doc.written }?.let(onOpenDocument) ?: vm.toggleDoc(doc) },
-                                    onNotApplicable = { vm.toggleNotApplicable(doc) },
-                                )
-                            }
-                        }
                     }
-                }
 
-                Spacer(Modifier.height(40.dp))
-                GuideBlock(
-                    "AI 가이드",
-                    "모든 서류는 공고일 이후 발급본이어야 효력이 인정되는 경우가 많아요.\n" +
-                            "신청 전 최종 조건과 제출 서류는 담당 기관에서 꼭 확인해 주세요.",
-                )
+                    // 서류 준비 단계가 없는 체크리스트: 서류만 따로
+                    if (!hasDocsStep && c.docs.isNotEmpty()) {
+                        Spacer(Modifier.height(OnRoadDimens.BlockGap))
+                        Text("준비 서류", style = OnRoadType.Title3, color = OnRoadColors.TextPrimary)
+                        Spacer(Modifier.height(12.dp))
+                        OnRoadCard(
+                            Modifier.fillMaxWidth(),
+                            background = OnRoadColors.SurfaceSubtle,
+                            borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+                            shape = OnRoadShapes.Item,
+                            contentPadding = PaddingValues(16.dp),
+                        ) { docsBody() }
+                    }
 
-                Column(Modifier.padding(horizontal = 20.dp)) {
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(OnRoadDimens.BlockGap))
                     // 공식 신청 페이지가 없으면 버튼을 숨긴다
                     c.policy.applyUrl?.let { url ->
                         OnRoadButton(
@@ -530,20 +492,28 @@ fun ChecklistScreen(
                             trailingIcon = Icons.Filled.NorthEast,
                             shape = OnRoadShapes.Inner,
                         )
-                        Spacer(Modifier.height(18.dp))
+                        Spacer(Modifier.height(16.dp))
                     }
                     // 문의처가 없으면 숨긴다
                     c.policy.contact?.let { contact ->
-                        val tel = contact.filter { it.isDigit() || it == '-' }.trim('-')
-                        Row(
-                            Modifier
-                                .align(Alignment.CenterHorizontally)
-                                .clickable(enabled = tel.isNotEmpty()) { runCatching { uri.openUri("tel:$tel") } },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("문의", style = OnRoadType.Caption, color = OnRoadColors.TextSlateMid)
-                            Spacer(Modifier.width(6.dp))
-                            Text(contact, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
+                        // "A / B" 로 이어진 문의처는 한 줄에 하나씩, 줄마다 눌러서 전화
+                        val lines = contact.split("/").map { it.trim() }.filter { it.isNotEmpty() }
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.Top) {
+                            Text("문의", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(top = 4.dp))
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                lines.forEach { line ->
+                                    val tel = line.filter { it.isDigit() || it == '-' }.trim('-')
+                                    Text(
+                                        line,
+                                        style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                                        color = OnRoadColors.TextPrimary,
+                                        modifier = Modifier
+                                            .clickable(enabled = tel.isNotEmpty()) { runCatching { uri.openUri("tel:$tel") } }
+                                            .padding(vertical = 4.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                     // 신청하러 가기 전에: 그 기관 상황 연습 · 궁금한 점 상담 · 한 달 살아보기
@@ -559,87 +529,184 @@ fun ChecklistScreen(
     }
 }
 
+/** 서류 준비 단계 본문: 신청 상황 · 서류 체크 · 서류 작성 도우미 */
+@Composable
+private fun DocsBody(
+    c: Checklist,
+    vm: ChecklistViewModel,
+    hasForm: Boolean,
+    onOpenDocs: () -> Unit,
+    onOpenDocument: (Long) -> Unit,
+) {
+    if (vm.situations.isNotEmpty()) {
+        Text("이렇게 신청한다면", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DocSituation.entries.filter { it in vm.situations }.forEach { s ->
+                ChoiceChip(s.label, selected = vm.situations[s] == true) { vm.toggleSituation(s) }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        vm.visibleDocs(c).forEach { doc ->
+            DocRow(
+                doc,
+                onClick = { doc.documentId?.takeIf { doc.written }?.let(onOpenDocument) ?: vm.toggleDoc(doc) },
+                onNotApplicable = { vm.toggleNotApplicable(doc) },
+            )
+        }
+    }
+    // 서류 작성 (문서 AI): 흰 카드 + 메인 색 작은 버튼
+    if (hasForm) {
+        val writtenForm = c.docs.firstOrNull { "신청서" in it.name }?.checked == true
+        Spacer(Modifier.height(18.dp))
+        OnRoadCard(
+            Modifier.fillMaxWidth(),
+            borderColor = OnRoadColors.BorderChip,
+            shape = OnRoadShapes.Item,
+            contentPadding = PaddingValues(start = 14.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
+            onClick = onOpenDocs,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("서류 작성 도우미", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        if (writtenForm) "신청서를 다 썼어요" else "AI와 같이 신청서를 써요",
+                        style = OnRoadType.Caption2,
+                        color = OnRoadColors.TextTertiary,
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                com.project.on_road.ui.components.PrimaryPill("서류 쓰기", onOpenDocs)
+            }
+        }
+    }
+}
+
 @Composable
 private fun SaveIndicator(state: SaveState) {
     val (text, color) = when (state) {
-        SaveState.IDLE -> "" to OnRoadColors.TextMuted
-        SaveState.SAVING -> "저장 중" to OnRoadColors.TextMuted
+        SaveState.IDLE -> "" to OnRoadColors.TextTertiary
+        SaveState.SAVING -> "저장 중" to OnRoadColors.TextTertiary
         SaveState.SAVED -> "저장됨" to OnRoadColors.Primary
         SaveState.FAILED -> "저장 실패" to OnRoadColors.Danger
     }
     if (text.isNotEmpty()) Text(text, style = OnRoadType.Micro, color = color)
 }
 
-/** 단계 카드: 완료 시 회색 바탕 + 녹색 테두리 (디자인의 '첨부 완료' 카드 스타일) */
+/** 단계 한 줄 (번호 동그라미 · 제목 · 안내) + 펼치면 연회색 카드에 본문 */
 @Composable
-private fun StepCard(
+private fun StepItem(
     index: Int,
     step: ChecklistStep,
-    policyName: String,
-    agency: String,
-    info: Policy?,
-    @Suppress("UNUSED_PARAMETER") easy: Boolean,
+    current: Boolean,
+    expanded: Boolean,
+    onExpand: () -> Unit,
     onToggle: () -> Unit,
-    @Suppress("UNUSED_PARAMETER") onToggleEasy: () -> Unit,
+    body: @Composable () -> Unit,
 ) {
     val done = step.done
     var showOriginal by remember(step.itemId) { mutableStateOf(false) }
-    OnRoadCard(
-        Modifier.fillMaxWidth(),
-        background = if (done) OnRoadColors.SurfaceFile else OnRoadColors.Surface,
-        borderColor = if (done) OnRoadColors.Primary else OnRoadColors.BorderSage.copy(alpha = 0.7f),
-        shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 18.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "$index. ${step.type.title}",
-                style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold),
-                color = OnRoadColors.TextPrimary,
-                modifier = Modifier.weight(1f),
-            )
-            if (done) OnRoadTag("완료", style = TagStyle.PrimaryFilled, shape = OnRoadShapes.Badge)
-        }
-        Spacer(Modifier.height(4.dp))
-        // 단계마다 "무엇을 하면 되는지" 한 줄
-        Text(
-            stepGuide(step.type),
-            style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
-            color = OnRoadColors.TextSlateMid,
-        )
-        if (step.type != StepType.DOCS) Spacer(Modifier.height(12.dp))
-
-        when (step.type) {
-            StepType.TARGET -> TargetSummary(policyName, agency, info)
-            StepType.CONDITION -> ConditionList(step)
-            StepType.DOCS -> Unit // 아래 준비 서류 목록이 본문
-            StepType.APPLY -> ApplyMethods(step)
-        }
-
-        Spacer(Modifier.height(14.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // 원문은 카드에 다 펼치지 않고 시트로 본다 (서류 준비는 아래 목록이 본문)
-            if (step.type != StepType.DOCS && step.description.isNotBlank()) {
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(OnRoadShapes.Item)
+                .clickable(onClick = onExpand)
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StepMark(index, done, current)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
                 Text(
-                    "원문 전체 보기 >",
-                    style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
-                    color = OnRoadColors.TextSlateMid,
-                    modifier = Modifier.clickable { showOriginal = true }.padding(vertical = 4.dp),
+                    step.type.title,
+                    style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold),
+                    color = if (done && !expanded) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    stepGuide(step.type),
+                    style = OnRoadType.Caption2,
+                    color = OnRoadColors.TextTertiary,
                 )
             }
-            Spacer(Modifier.weight(1f))
-            SmallBoxButton(
-                text = if (done) "완료 취소" else "이 단계 완료로 표시",
-                onClick = onToggle,
-                background = if (done) OnRoadColors.SurfaceMuted else OnRoadColors.Surface,
-                borderColor = if (done) OnRoadColors.BorderSage else OnRoadColors.BorderDark,
-                leadingIcon = if (done) null else Icons.Filled.Check,
+            Icon(
+                if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                null,
+                tint = OnRoadColors.TextQuaternary,
+                modifier = Modifier.size(22.dp),
             )
+        }
+        if (expanded) {
+            Spacer(Modifier.height(4.dp))
+            OnRoadCard(
+                Modifier.fillMaxWidth(),
+                background = OnRoadColors.SurfaceSubtle,
+                borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+                shape = OnRoadShapes.Item,
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 14.dp),
+            ) {
+                body()
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 원문은 시트로 본다 (서류 준비는 목록이 본문)
+                    if (step.type != StepType.DOCS && step.description.isNotBlank()) {
+                        Text(
+                            "원문 보기",
+                            style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                            color = OnRoadColors.TextTertiary,
+                            modifier = Modifier.clickable { showOriginal = true }.padding(vertical = 6.dp),
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (done) {
+                        Text(
+                            "완료 취소",
+                            style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                            color = OnRoadColors.TextTertiary,
+                            modifier = Modifier.clickable(onClick = onToggle).padding(vertical = 6.dp, horizontal = 4.dp),
+                        )
+                    } else {
+                        com.project.on_road.ui.components.PrimaryPill("이 단계 끝냈어요", onToggle)
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
         }
     }
 
     if (showOriginal) {
         OriginalSheet("${step.type.title} 원문", stepText(step.description)) { showOriginal = false }
+    }
+}
+
+/** 번호 동그라미: 끝낸 단계는 메인 색 + 체크, 지금 단계는 메인 색 테두리, 나머지는 연한 테두리 */
+@Composable
+private fun StepMark(index: Int, done: Boolean, current: Boolean) {
+    val shape = androidx.compose.foundation.shape.CircleShape
+    Box(
+        Modifier
+            .size(28.dp)
+            .clip(shape)
+            .background(if (done) OnRoadColors.Primary else OnRoadColors.Surface)
+            .border(if (current) 1.5.dp else 1.dp, if (done || current) OnRoadColors.Primary else OnRoadColors.BorderChip, shape),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (done) {
+            Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        } else {
+            Text(
+                "$index",
+                style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                color = if (current) OnRoadColors.Primary else OnRoadColors.TextQuaternary,
+            )
+        }
     }
 }
 
@@ -656,8 +723,8 @@ private fun StepBody(text: String) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         sentences(text).map(::plain).filter { it.isNotBlank() }.forEach { line ->
             Row {
-                Text("·", style = BODY, color = OnRoadColors.TextSlateMid, modifier = Modifier.width(12.dp))
-                Text(line, style = BODY, color = OnRoadColors.TextSlateDark, modifier = Modifier.weight(1f))
+                Text("·", style = BODY.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold), color = OnRoadColors.TextTertiary, modifier = Modifier.width(14.dp))
+                Text(line, style = BODY, color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -669,7 +736,7 @@ private val BODY = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHei
 @Composable
 private fun InfoLine(label: String, value: String) {
     Row(verticalAlignment = Alignment.Top) {
-        Text(label, style = BODY, color = OnRoadColors.TextMuted, modifier = Modifier.width(64.dp))
+        Text(label, style = BODY, color = OnRoadColors.TextTertiary, modifier = Modifier.width(64.dp))
         Text(value, style = BODY.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
     }
 }
@@ -739,17 +806,11 @@ private fun ConditionList(step: ChecklistStep) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         checks.forEach { c ->
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(c.label, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
                 Text(
-                    when (c.ok) { true -> "✓"; false -> "✕"; null -> "?" },
-                    style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                    color = when (c.ok) { true -> OnRoadColors.Primary; false -> OnRoadColors.Danger; null -> OnRoadColors.Warning },
-                    modifier = Modifier.width(20.dp),
-                )
-                Text(c.label, style = OnRoadType.Caption, color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
-                OnRoadTag(
-                    when (c.ok) { true -> "기본 조건 해당"; false -> "해당 안 됨"; null -> "확인 필요" },
-                    style = when (c.ok) { true -> TagStyle.PrimarySoft; false -> TagStyle.Danger; null -> TagStyle.Warning },
-                    textStyle = OnRoadType.Tiny,
+                    when (c.ok) { true -> "해당돼요"; false -> "해당 안 돼요"; null -> "확인 필요" },
+                    style = OnRoadType.Caption2.copy(fontWeight = if (c.ok == true) FontWeight.Bold else FontWeight.Medium),
+                    color = if (c.ok == true) OnRoadColors.TextPrimary else OnRoadColors.TextTertiary,
                 )
             }
         }
@@ -757,19 +818,21 @@ private fun ConditionList(step: ChecklistStep) {
             val exclusion = sec.label.contains("받을 수 없")
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(sec.label, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
-                OnRoadTag(
+                Text(sec.label, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+                Text(
                     if (exclusion) "해당하면 제외" else "확인 필요",
-                    style = if (exclusion) TagStyle.Danger else TagStyle.Warning,
-                    textStyle = OnRoadType.Tiny,
+                    style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                    color = OnRoadColors.TextTertiary,
                 )
             }
+            Spacer(Modifier.height(2.dp))
             BulletList(sec.items)
         }
         Text(
             step.summary?.notice ?: "확인 필요 항목은 원문이나 담당 기관에서 확인해 주세요.",
-            style = OnRoadType.Tiny,
-            color = OnRoadColors.TextMuted,
+            style = OnRoadType.Micro,
+            color = OnRoadColors.TextTertiary,
+            modifier = Modifier.padding(top = 4.dp),
         )
     }
 }
@@ -780,8 +843,8 @@ private fun BulletList(items: List<String>) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items.forEach { line ->
             Row {
-                Text("·", style = BODY, color = OnRoadColors.TextSlateMid, modifier = Modifier.width(12.dp))
-                Text(line, style = BODY, color = OnRoadColors.TextSlateDark, modifier = Modifier.weight(1f))
+                Text("·", style = BODY.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold), color = OnRoadColors.TextTertiary, modifier = Modifier.width(14.dp))
+                Text(line, style = BODY, color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -798,23 +861,10 @@ private fun ApplyMethods(step: ChecklistStep) {
         return
     }
     var picked by remember(step.itemId) { mutableStateOf(0) }
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        methods.forEachIndexed { i, m ->
-            val on = i == picked
-            Text(
-                m.label,
-                style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
-                color = if (on) OnRoadColors.Surface else OnRoadColors.TextSlateDark,
-                modifier = Modifier
-                    .clip(OnRoadShapes.Tag)
-                    .background(if (on) OnRoadColors.Primary else OnRoadColors.Surface)
-                    .border(1.dp, if (on) OnRoadColors.Primary else OnRoadColors.BorderSlate, OnRoadShapes.Tag)
-                    .clickable { picked = i }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            )
-        }
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        methods.forEachIndexed { i, m -> ChoiceChip(m.label, selected = i == picked) { picked = i } }
     }
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(12.dp))
     val idx = picked.coerceIn(0, methods.lastIndex)
     if (summaryItems.isNotEmpty()) BulletList(grouped[idx].second) else StepBody(methods[idx].text)
 }
@@ -854,7 +904,7 @@ private fun OriginalSheet(title: String, text: String, onDismiss: () -> Unit) {
         ) {
             Text(title, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary)
             Spacer(Modifier.height(4.dp))
-            Text("공식 자료 원문이에요. 최종 조건은 담당 기관에서 확인해 주세요.", style = OnRoadType.Caption2, color = OnRoadColors.TextMuted)
+            Text("공식 자료 원문이에요. 최종 조건은 담당 기관에서 확인해 주세요.", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
             Spacer(Modifier.height(16.dp))
             Text(
                 text,
@@ -869,38 +919,22 @@ private fun OriginalSheet(title: String, text: String, onDismiss: () -> Unit) {
 @Composable
 private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -> Unit) {
     val checked = doc.checked && !doc.notApplicable
-    OnRoadCard(
-        Modifier.fillMaxWidth(),
-        background = when {
-            checked -> OnRoadColors.SurfaceFile
-            doc.notApplicable -> OnRoadColors.SurfaceMuted
-            else -> OnRoadColors.Surface
-        },
-        borderColor = if (checked) OnRoadColors.Primary else OnRoadColors.BorderSage.copy(alpha = 0.7f),
-        shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 14.dp),
-        onClick = onClick,
+    val short = doc.shortLabel
+    val label = remember(doc.name, short) { docLabel(short ?: doc.name) }
+    var more by remember(doc.itemId) { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().clip(OnRoadShapes.Chip).clickable(onClick = onClick),
+        verticalAlignment = Alignment.Top,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CheckBoxMark(checked)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                // 서버 짧은 이름(조건 포함)이 있으면 그걸 쓰고, 원래 이름·조건은 자세히 보기로 접는다
-                val short = doc.shortLabel
-                val label = remember(doc.name, short) { docLabel(short ?: doc.name) }
-                var more by remember(doc.itemId) { mutableStateOf(false) }
-                val dim = if (doc.notApplicable) OnRoadColors.TextMuted else OnRoadColors.TextPrimary
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (label.pickOne) {
-                        OnRoadTag("1가지 선택", style = TagStyle.PrimaryOutline, textStyle = OnRoadType.Tiny)
-                        Spacer(Modifier.width(6.dp))
-                    }
-                    Text(
-                        label.title,
-                        style = OnRoadType.Body2.copy(fontWeight = if (checked) FontWeight.Medium else FontWeight.Normal),
-                        color = dim,
-                    )
-                }
+        CheckBoxMark(checked, Modifier.padding(top = 2.dp), size = 20.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                label.title,
+                style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium),
+                color = if (doc.notApplicable) OnRoadColors.TextQuaternary else OnRoadColors.TextPrimary,
+            )
+            if (!doc.notApplicable) {
                 DocLabelParts(label)
                 if (short == null) {
                     DocCondition(doc.condition)
@@ -908,37 +942,41 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
                     Text(
                         if (more) "접기" else "자세히 보기",
                         style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
-                        color = OnRoadColors.TextSlateMid,
+                        color = OnRoadColors.TextTertiary,
                         modifier = Modifier.clickable { more = !more }.padding(top = 4.dp),
                     )
                     if (more) {
                         val full = remember(doc.name) { docLabel(doc.name) }
                         Spacer(Modifier.height(2.dp))
-                        Text(full.title, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateDark)
+                        Text(full.title, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary)
                         DocLabelParts(full)
                         DocCondition(doc.condition)
                     }
                 }
             }
-            when {
-                doc.written -> OnRoadTag("AI로 작성 완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
-                doc.documentStatus == "writing" -> OnRoadTag("작성 중", style = TagStyle.PrimaryOutline, textStyle = OnRoadType.Tiny)
-                checked -> Text("준비 완료", style = OnRoadType.Micro, color = OnRoadColors.Primary)
-                doc.notApplicable -> Text("해당 없음", style = OnRoadType.Micro, color = OnRoadColors.TextMuted)
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            val status = when {
+                doc.written -> "작성 완료"
+                doc.documentStatus == "writing" -> "작성 중"
+                doc.notApplicable -> "해당 없음"
+                else -> null
+            }
+            status?.let {
+                Text(it, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary, modifier = Modifier.padding(top = 2.dp))
             }
             if (doc.condition != null && !doc.written) {
-                Spacer(Modifier.width(8.dp))
-                SmallBoxButton(
-                    text = if (doc.notApplicable) "해당 없음 취소" else "해당 없음",
-                    onClick = onNotApplicable,
-                    background = if (doc.notApplicable) OnRoadColors.SurfaceMuted else OnRoadColors.Surface,
-                    borderColor = if (doc.notApplicable) OnRoadColors.BorderSage else OnRoadColors.BorderDark,
+                Text(
+                    if (doc.notApplicable) "되돌리기" else "해당 없음",
+                    style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                    color = OnRoadColors.TextTertiary,
+                    modifier = Modifier.clickable(onClick = onNotApplicable).padding(top = 2.dp, bottom = 2.dp, start = 6.dp),
                 )
             }
         }
     }
 }
-
 
 /** "방문: … 온라인: … 우편·팩스: …" 처럼 이어진 원문을 항목별로 줄을 나눈다 */
 private fun stepText(text: String): String =
@@ -948,15 +986,15 @@ private fun stepText(text: String): String =
 private fun DocLabelParts(label: DocLabel) {
     label.detail?.let {
         Spacer(Modifier.height(2.dp))
-        Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextSlateDark)
+        Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
     }
     if (label.options.isNotEmpty()) {
         Spacer(Modifier.height(4.dp))
-        label.options.forEach { Text("· $it", style = OnRoadType.Caption2, color = OnRoadColors.TextSlateDark) }
+        label.options.forEach { Text("· $it", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary) }
     }
     label.note?.let {
         Spacer(Modifier.height(4.dp))
-        Text(it, style = OnRoadType.Micro, color = OnRoadColors.TextMuted)
+        Text(it, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
     }
 }
 
@@ -967,7 +1005,7 @@ private fun DocCondition(condition: String?) {
     Text(
         "필요한 경우 · " + sentences(condition).map(::plain).joinToString(" / "),
         style = OnRoadType.Micro,
-        color = OnRoadColors.TextSlateMid,
+        color = OnRoadColors.TextTertiary,
     )
 }
 

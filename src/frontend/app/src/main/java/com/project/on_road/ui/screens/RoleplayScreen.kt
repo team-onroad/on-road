@@ -1,5 +1,6 @@
 package com.project.on_road.ui.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -189,6 +191,7 @@ class RoleplayViewModel : ViewModel() {
                 .onSuccess {
                     plan = it.plan
                     turns.add(it.opening)
+                    refreshChecks()
                 }
                 .onFailure { error = it.userMessage("첫 대사를 불러오지 못했어요.") }
             waiting = false
@@ -222,6 +225,18 @@ class RoleplayViewModel : ViewModel() {
         hint = null
     }
 
+    /** 대화 중 '챙길 것' 진행 (서버 규칙, LLM 안 씀). 상대가 말할 때마다 조용히 다시 받는다 */
+    var checks by mutableStateOf<List<RoleplayCheck>>(emptyList())
+        private set
+
+    private fun refreshChecks() {
+        if (turns.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { AppContainer.coachApi.roleplayHint(scenarioId, turns.toList(), plan) }
+                .getOrNull()?.let { checks = it.checks }
+        }
+    }
+
     fun send(text: String = input) {
         val t = text.trim().take(MESSAGE_LIMIT)
         if (t.isEmpty() || !canSend) return
@@ -234,6 +249,7 @@ class RoleplayViewModel : ViewModel() {
             runCatching { AppContainer.coachApi.roleplayReplyWith(userId, scenarioId, stage, turns.toList(), plan) }
                 .onSuccess { r ->
                     turns.add(RoleplayTurn(false, r.text))
+                    refreshChecks()
                     // 상대역이 대화를 마무리하면 바로 피드백
                     if (r.finished) {
                         waiting = false
@@ -298,6 +314,7 @@ class RoleplayViewModel : ViewModel() {
         hint = null
         hintCount = 0
         saveError = null
+        checks = emptyList()
         turns.clear()
         val id = scenarioId
         val variant = plan.variantId.takeIf { sameSituation }
@@ -473,52 +490,26 @@ fun RoleplayPlayScreen(
             return@Column
         }
 
-        // 상대 · 상태 · 통화 시간
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = OnRoadDimens.ScreenPadding).padding(top = 28.dp, bottom = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(partner, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                when (phase) {
-                    CallPhase.THINKING -> if (vm.turns.isEmpty()) "연결하는 중…" else "생각하는 중…"
-                    CallPhase.SPEAKING -> "말하는 중…"
-                    CallPhase.LISTENING -> "듣고 있어요"
-                    CallPhase.MY_TURN -> when {
-                        typing -> "글로 대답해 주세요"
-                        draft != null -> "들은 말을 확인해 주세요"
-                        else -> "내 차례예요"
-                    }
-                },
-                style = OnRoadType.Caption,
-                color = OnRoadColors.TextSecondary,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text("%02d:%02d".format(seconds / 60, seconds % 60), style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
-        }
-
-        // 상황 · 목표 · 이번 전개
+        Spacer(Modifier.height(14.dp))
+        // 상황 · 목표 (카드), 챙길 것은 카드 밖에
         vm.scenario?.let { s ->
             SubtleCard(
                 Modifier.fillMaxWidth().padding(horizontal = OnRoadDimens.ScreenPadding),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
             ) {
-                Text(s.setting, style = OnRoadType.Caption, color = OnRoadColors.TextPrimary)
+                Text(s.setting, style = OnRoadType.Caption, color = OnRoadColors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
-                Text("목표 · ${s.goal}", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
-                val p = vm.plan
-                if (p.situation != null || p.surpriseCount > 0) {
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        p.situation?.let { OnRoadTag("이번 전개 · $it", style = TagStyle.Neutral, textStyle = OnRoadType.Tiny) }
-                        if (p.surpriseCount > 0) OnRoadTag("돌발 상황 ${p.surpriseCount}개", style = TagStyle.Neutral, textStyle = OnRoadType.Tiny)
-                    }
-                }
+                Text("목표 · ${s.goal}", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        // 챙길 것: 넘치면 다음 줄로. 말하면 바로 체크
+        if (vm.checks.isNotEmpty()) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = OnRoadDimens.ScreenPadding).padding(top = 10.dp)) {
+                CheckChips(vm.checks)
             }
         }
 
-        // 자막 (대화 기록)
+        // 자막 (대화 기록): 위로 올라간 자막은 위쪽에서 흐려지며 사라진다
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (captions) {
                 Captions(
@@ -526,6 +517,17 @@ fun RoleplayPlayScreen(
                     partner,
                     live = listener.partial.takeIf { phase == CallPhase.LISTENING }
                         ?.let { p -> if (appending && draft != null) "$draft $p".trim() else p },
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(28.dp)
+                        .align(Alignment.TopCenter)
+                        .background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(OnRoadColors.Background, OnRoadColors.Background.copy(alpha = 0f)),
+                            ),
+                        ),
                 )
             } else {
                 Text(
@@ -566,7 +568,7 @@ fun RoleplayPlayScreen(
                 onClose = vm::clearHint,
             )
         } else if (canTalk && draft == null) {
-            Box(Modifier.fillMaxWidth().background(Color.White).padding(top = 12.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().background(Color.White).padding(top = 8.dp), contentAlignment = Alignment.Center) {
                 Text(
                     if (vm.hinting) "생각하는 중…" else "뭐라고 하지?",
                     style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
@@ -612,7 +614,7 @@ fun RoleplayPlayScreen(
             )
         } else {
             Column(
-                Modifier.fillMaxWidth().background(Color.White).padding(top = 20.dp),
+                Modifier.fillMaxWidth().background(Color.White).padding(top = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 MicCircle(
@@ -624,7 +626,7 @@ fun RoleplayPlayScreen(
                         if (phase == CallPhase.LISTENING) listener.stop() else talk()
                     },
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
                     when (phase) {
                         CallPhase.LISTENING -> "말을 마치면 눌러 주세요"
@@ -761,7 +763,67 @@ private fun HeardCard(
     }
 }
 
-/** 대화 기록을 자막처럼: 말풍선 없이 "누가 · 무슨 말" (모두 왼쪽 정렬) */
+/** 챙길 것 칩: 넘치면 다음 줄로. 챙기면 색이 부드럽게 바뀌고, 새로 생긴 칩(돌발 상황)은 서서히 나타난다 */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CheckChips(checks: List<RoleplayCheck>) {
+    FlowRow(
+        Modifier.fillMaxWidth().animateContentSize(androidx.compose.animation.core.tween(300)),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        checks.forEach { c -> key(c.label) { CheckChip(c) } }
+    }
+}
+
+@Composable
+private fun CheckChip(c: RoleplayCheck) {
+    val spec = androidx.compose.animation.core.tween<Color>(350)
+    val bg by androidx.compose.animation.animateColorAsState(if (c.ok) OnRoadColors.Primary else OnRoadColors.Surface, spec, label = "chip-bg")
+    val line by androidx.compose.animation.animateColorAsState(if (c.ok) OnRoadColors.Primary else OnRoadColors.BorderChip, spec, label = "chip-line")
+    val fg by androidx.compose.animation.animateColorAsState(if (c.ok) Color.White else OnRoadColors.TextSecondary, spec, label = "chip-fg")
+    // 처음 나타날 때 서서히
+    val appear = remember { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
+    androidx.compose.animation.AnimatedVisibility(
+        visibleState = appear,
+        enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400)) +
+            androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(400), initialScale = 0.9f),
+    ) {
+        Row(
+            Modifier
+                .clip(OnRoadShapes.Chip)
+                .background(bg)
+                .border(1.dp, line, OnRoadShapes.Chip)
+                .padding(horizontal = 10.dp, vertical = 5.dp)
+                .animateContentSize(androidx.compose.animation.core.tween(300)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = c.ok,
+                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) +
+                    androidx.compose.animation.expandHorizontally(androidx.compose.animation.core.tween(300)),
+                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)) +
+                    androidx.compose.animation.shrinkHorizontally(androidx.compose.animation.core.tween(200)),
+            ) {
+                Row {
+                    Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+            }
+            Text(
+                c.label,
+                style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
+                color = fg,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/** 자막 글씨: 상대 말 · 내 말 같은 크기 (14sp) */
+private val CAPTION_TEXT = OnRoadType.Body3
+
+/** 대화 기록을 자막처럼: 상대 말은 왼쪽 글자, 내 말은 오른쪽 연회색 말풍선 */
 @Composable
 private fun Captions(turns: List<RoleplayTurn>, partner: String, live: String?) {
     val list = rememberLazyListState()
@@ -770,44 +832,50 @@ private fun Captions(turns: List<RoleplayTurn>, partner: String, live: String?) 
     LazyColumn(
         state = list,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = OnRoadDimens.ScreenPadding, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = 24.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        itemsIndexed(turns) { _, t -> CaptionLine(if (t.fromUser) "나" else partner, t.text, mine = t.fromUser) }
+        itemsIndexed(turns) { _, t -> CaptionLine(partner, t.text, mine = t.fromUser) }
         if (live != null) {
-            item(key = "live") { CaptionLine("나", live.ifBlank { "…" }, mine = true, live = true) }
+            item(key = "live") { CaptionLine(partner, live.ifBlank { "…" }, mine = true, live = true) }
         }
     }
 }
 
 @Composable
-private fun CaptionLine(who: String, text: String, mine: Boolean, live: Boolean = false) {
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-            who,
-            style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold),
-            color = if (mine) OnRoadColors.Primary else OnRoadColors.TextSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(4.dp))
-        BubbleText(
-            text,
-            color = if (live) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
-            style = OnRoadType.Body2,
-        )
+private fun CaptionLine(partner: String, text: String, mine: Boolean, live: Boolean = false) {
+    if (mine) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+            Text(
+                text,
+                style = CAPTION_TEXT,
+                color = if (live) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
+                modifier = Modifier
+                    .widthIn(max = 300.dp)
+                    .clip(OnRoadShapes.Inner)
+                    .background(OnRoadColors.SurfaceSubtle)
+                    .border(1.dp, OnRoadColors.Border.copy(alpha = 0.7f), OnRoadShapes.Inner)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            )
+        }
+    } else {
+        Column(Modifier.fillMaxWidth()) {
+            Text(partner, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(3.dp))
+            Text(text, style = CAPTION_TEXT, color = OnRoadColors.TextPrimary, modifier = Modifier.padding(end = 40.dp))
+        }
     }
 }
 
-/** 가운데 큰 마이크. 듣는 동안 목소리 크기만큼 테두리가 커진다 */
+/** 가운데 마이크. 듣는 동안 목소리 크기만큼 테두리가 커진다 */
 @Composable
 private fun MicCircle(phase: CallPhase, level: Float, enabled: Boolean, onClick: () -> Unit) {
     val listening = phase == CallPhase.LISTENING
     val ring by androidx.compose.animation.core.animateDpAsState(
-        if (listening) 80.dp + (level * 16).dp else 72.dp,
+        if (listening) 66.dp + (level * 12).dp else 60.dp,
         label = "mic-ring",
     )
-    Box(Modifier.size(96.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(78.dp), contentAlignment = Alignment.Center) {
         if (listening) {
             Box(
                 Modifier
@@ -818,20 +886,20 @@ private fun MicCircle(phase: CallPhase, level: Float, enabled: Boolean, onClick:
         }
         Box(
             Modifier
-                .size(72.dp)
+                .size(60.dp)
                 .clip(androidx.compose.foundation.shape.CircleShape)
                 .background(if (enabled) OnRoadColors.Primary else OnRoadColors.SurfaceMuted)
                 .clickable(enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
             if (listening) {
-                Box(Modifier.size(20.dp).clip(OnRoadShapes.Chip).background(Color.White))
+                Box(Modifier.size(18.dp).clip(OnRoadShapes.Chip).background(Color.White))
             } else {
                 Icon(
                     Icons.Outlined.Mic,
                     contentDescription = "말하기",
                     tint = if (enabled) Color.White else OnRoadColors.TextQuaternary,
-                    modifier = Modifier.size(30.dp),
+                    modifier = Modifier.size(26.dp),
                 )
             }
         }
@@ -851,12 +919,12 @@ private fun CallActions(
         Modifier
             .fillMaxWidth()
             .background(Color.White)
-            .padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 14.dp),
+            .padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        OnRoadButton(if (captions) "자막 끄기" else "자막 켜기", onCaptions, Modifier.weight(1f), height = 36.dp, variant = ButtonVariant.Outline, textStyle = OnRoadType.Caption, borderColor = OnRoadColors.BorderChip)
-        OnRoadButton("다시 듣기", onReplay, Modifier.weight(1f), height = 36.dp, variant = ButtonVariant.Outline, textStyle = OnRoadType.Caption, borderColor = OnRoadColors.BorderChip)
-        OnRoadButton(switchLabel, onSwitch, Modifier.weight(1f), height = 36.dp, variant = ButtonVariant.Outline, textStyle = OnRoadType.Caption, borderColor = OnRoadColors.BorderChip)
+        OnRoadButton(if (captions) "자막 끄기" else "자막 켜기", onCaptions, Modifier.weight(1f), height = 34.dp, variant = ButtonVariant.Outline, textStyle = OnRoadType.Caption, borderColor = OnRoadColors.BorderChip)
+        OnRoadButton("다시 듣기", onReplay, Modifier.weight(1f), height = 34.dp, variant = ButtonVariant.Outline, textStyle = OnRoadType.Caption, borderColor = OnRoadColors.BorderChip)
+        OnRoadButton(switchLabel, onSwitch, Modifier.weight(1f), height = 34.dp, variant = ButtonVariant.Outline, textStyle = OnRoadType.Caption, borderColor = OnRoadColors.BorderChip)
     }
 }
 
@@ -924,77 +992,101 @@ private fun FeedbackPage(
     onDone: () -> Unit,
     onStep: (NextStep) -> Unit = {},
 ) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
-            Spacer(Modifier.height(24.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OnRoadTag("연습 끝", style = TagStyle.PrimaryFilled)
-                fb.situation?.let { OnRoadTag(it, style = TagStyle.PrimarySoft) }
-            }
-            Spacer(Modifier.height(12.dp))
-            val score = fb.score
-            if (score != null) ScoreHeader(score, fb.grade)
-            else ScreenHeadline("수고했어요!", "대화를 돌아볼까요?")
-            Spacer(Modifier.height(OnRoadDimens.BlockGap))
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = OnRoadDimens.ScreenPadding),
+    ) {
+        Spacer(Modifier.height(24.dp))
+        Text(
+            "연습 결과" + (fb.situation?.let { " · $it" } ?: ""),
+            style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+            color = OnRoadColors.TextTertiary,
+        )
+        Spacer(Modifier.height(6.dp))
+        val score = fb.score
+        if (score != null) ScoreHeader(score, fb.grade)
+        else Text("수고했어요", style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
 
-            if (fb.items.isNotEmpty()) {
-                // 항목별: 잘한 것 ✓ / 놓친 것은 "이렇게 말해 보세요"까지. 돌발 상황 대처는 따로 표시
-                val surprise = fb.items.filter { it.kind == "surprise" }
-                val rest = fb.items.filter { it.kind != "surprise" }
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (surprise.isNotEmpty()) CheckBlock("돌발 상황 대처", surprise)
-                    CheckBlock("대화에서 챙길 것", rest)
-                    if (fb.documents.isNotEmpty()) FeedbackBlock("준비할 서류", fb.documents, done = false)
+        if (fb.items.isNotEmpty()) {
+            // 놓친 것 먼저 (다시 할 때 바로 보이게), 잘한 것은 아래
+            val missed = fb.items.filter { !it.ok }
+            val good = fb.items.filter { it.ok }
+            if (missed.isNotEmpty()) {
+                FbSection("다음엔 이것도 챙겨요") {
+                    missed.forEach { MissedCard(it) }
                 }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (fb.good.isNotEmpty()) FeedbackBlock("잘 챙긴 것", fb.good, done = true)
-                    if (fb.missed.isNotEmpty()) FeedbackBlock("빠뜨린 것", fb.missed, done = false, danger = true)
-                    if (fb.documents.isNotEmpty()) FeedbackBlock("준비할 서류", fb.documents, done = false)
+            }
+            if (good.isNotEmpty()) {
+                FbSection("잘 챙겼어요") {
+                    FbCard {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            good.forEach { c -> CheckLine(c.label + if (c.kind == "surprise") " (돌발)" else "", true) }
+                        }
+                    }
+                }
+            }
+        } else {
+            if (fb.missed.isNotEmpty()) FbSection("다음엔 이것도 챙겨요") { FbCard { fb.missed.forEach { CheckLine(it, false) } } }
+            if (fb.good.isNotEmpty()) FbSection("잘 챙겼어요") { FbCard { fb.good.forEach { CheckLine(it, true) } } }
+        }
+
+        // 내가 실제로 한 말 → 이렇게 바꿔 보기 (서버가 내 말과 비슷한 것만 준다)
+        if (fb.better.isNotEmpty()) {
+            FbSection("이렇게 바꿔 말해 봐요") {
+                fb.better.forEach { (before, after) ->
+                    FbCard {
+                        Text("내가 한 말", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+                        Text(before, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+                        Spacer(Modifier.height(8.dp))
+                        Text("이렇게 말하면", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+                        Text(after, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                    }
                 }
             }
         }
 
-        if (fb.better.isNotEmpty()) {
-            Spacer(Modifier.height(OnRoadDimens.BlockGap))
-            GuideBlock(
-                "이렇게 말해 보면 더 좋아요",
-                fb.better.joinToString("\n\n") { (before, after) -> "“$before”\n→ “$after”" },
-            )
+        if (fb.documents.isNotEmpty()) {
+            FbSection("챙겨 갈 서류") {
+                FbCard { Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { fb.documents.forEach { Text("· $it", style = OnRoadType.Caption, color = OnRoadColors.TextPrimary) } } }
+            }
         }
 
         if (fb.nextSteps.isNotEmpty()) {
             Spacer(Modifier.height(OnRoadDimens.BlockGap))
-            NextStepList(fb.nextSteps, onStep, Modifier.padding(horizontal = OnRoadDimens.ScreenPadding))
+            NextStepList(fb.nextSteps, onStep)
         }
 
-        Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
-            Spacer(Modifier.height(24.dp))
-            Footnote("서류와 절차는 기관마다 다를 수 있어요.\n방문 전에 담당 기관에 확인해 주세요.")
-            Spacer(Modifier.height(24.dp))
-            // 다시 연습: 같은 전개로 놓친 것 다시 / 다른 전개로 새로
-            OnRoadButton("같은 상황 다시 하기", onRetrySame, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(OnRoadDimens.BlockGap))
+        OnRoadButton("같은 상황 다시 하기", onRetrySame, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(8.dp))
+        OnRoadButton("다른 전개로 연습하기", onRetryNew, Modifier.fillMaxWidth(), variant = ButtonVariant.Outline, borderColor = OnRoadColors.BorderChip)
+        Spacer(Modifier.height(8.dp))
+        // 피드백 결과만 성장 기록에 남긴다 (대화 내용은 남기지 않음)
+        val saved = fb.roleplayId != null
+        OnRoadButton(
+            if (saved) "기록에 남겼어요" else "기록에 남기기",
+            onSave,
+            Modifier.fillMaxWidth(),
+            variant = ButtonVariant.Outline,
+            borderColor = OnRoadColors.BorderChip,
+            enabled = !saved,
+            loading = saving,
+        )
+        saveError?.let {
             Spacer(Modifier.height(8.dp))
-            OnRoadButton("다른 전개로 연습하기", onRetryNew, Modifier.fillMaxWidth(), variant = ButtonVariant.Outline)
-            Spacer(Modifier.height(8.dp))
-            // 피드백 결과만 성장 기록에 남긴다 (대화 내용은 남기지 않음)
-            val saved = fb.roleplayId != null
-            OnRoadButton(
-                if (saved) "기록에 남겼어요" else "기록에 남기기",
-                onSave,
-                Modifier.fillMaxWidth(),
-                variant = ButtonVariant.Outline,
-                enabled = !saved,
-                loading = saving,
-            )
-            saveError?.let {
-                Spacer(Modifier.height(8.dp))
-                Text(it, style = OnRoadType.Caption2, color = OnRoadColors.Danger)
-            }
-            Spacer(Modifier.height(8.dp))
-            OnRoadButton("목록으로", onDone, Modifier.fillMaxWidth(), variant = ButtonVariant.Outline)
-            Spacer(Modifier.height(32.dp))
+            Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
         }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "목록으로",
+            style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+            color = OnRoadColors.TextTertiary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onDone).padding(vertical = 12.dp),
+        )
+        Spacer(Modifier.height(20.dp))
     }
 }
 
@@ -1002,72 +1094,70 @@ private fun FeedbackPage(
 @Composable
 private fun ScoreHeader(score: Int, grade: String?) {
     Row(verticalAlignment = Alignment.Bottom) {
-        Text("$score", style = OnRoadType.Display, color = OnRoadColors.Primary)
-        Spacer(Modifier.width(4.dp))
-        Text("점", style = OnRoadType.Headline, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
-        Spacer(Modifier.width(12.dp))
-        grade?.let { Text(it, style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.padding(bottom = 4.dp)) }
+        Text("$score", style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
+        Spacer(Modifier.width(2.dp))
+        Text("점", style = OnRoadType.Body2, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 5.dp))
+        Spacer(Modifier.width(10.dp))
+        grade?.let { Text(it, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 5.dp)) }
     }
     Spacer(Modifier.height(10.dp))
-    // 점수 막대
-    Box(Modifier.fillMaxWidth().height(8.dp).clip(OnRoadShapes.Field).background(OnRoadColors.SurfaceMuted)) {
-        Box(Modifier.fillMaxWidth(score.coerceIn(0, 100) / 100f).fillMaxHeight().background(OnRoadColors.Primary))
-    }
+    ProgressBar(score.coerceIn(0, 100) / 100f, Modifier.fillMaxWidth(), height = 6.dp)
 }
 
-/** 항목별 결과: ✓ 잘함 / ✗ 놓침 + 이렇게 말해 보세요 */
 @Composable
-private fun CheckBlock(title: String, items: List<RoleplayCheck>) {
-    OnRoadCard(
-        Modifier.fillMaxWidth(),
-        borderColor = OnRoadColors.BorderSage.copy(alpha = 0.7f),
-        shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 18.dp),
-    ) {
-        Text(title, style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-        items.forEach { c ->
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.Top) {
-                Text(
-                    if (c.ok) "✓" else "✗",
-                    style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
-                    color = if (c.ok) OnRoadColors.Primary else OnRoadColors.Danger,
-                    modifier = Modifier.width(20.dp),
-                )
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(c.label, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f, fill = false))
-                        if (c.kind == "situation") {
-                            Spacer(Modifier.width(6.dp))
-                            OnRoadTag("이번 전개", style = TagStyle.PrimarySoft, textStyle = OnRoadType.Tiny)
-                        }
-                    }
-                    if (!c.ok && c.example != null) {
-                        Spacer(Modifier.height(4.dp))
-                        BubbleText("“${c.example}”", color = OnRoadColors.TextSlateDark, style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight))
-                    }
-                }
-            }
-        }
-    }
+private fun FbSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Spacer(Modifier.height(OnRoadDimens.BlockGap))
+    SubHeader(title)
+    Spacer(Modifier.height(12.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
 }
 
-/** 피드백 카드 (체크리스트 항목 카드 스타일) */
+/** 연회색 카드 */
 @Composable
-private fun FeedbackBlock(title: String, items: List<String>, done: Boolean, danger: Boolean = false) {
-    OnRoadCard(
-        Modifier.fillMaxWidth(),
-        background = if (done) OnRoadColors.SurfaceFile else OnRoadColors.Surface,
-        borderColor = when {
-            done -> OnRoadColors.Primary
-            danger -> OnRoadColors.Danger.copy(alpha = 0.5f)
-            else -> OnRoadColors.BorderSage.copy(alpha = 0.7f)
-        },
-        shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 18.dp),
-    ) {
-        Text(title, style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = if (danger) OnRoadColors.Danger else OnRoadColors.TextPrimary)
+private fun FbCard(content: @Composable ColumnScope.() -> Unit) = OnRoadCard(
+    Modifier.fillMaxWidth(),
+    background = OnRoadColors.SurfaceSubtle,
+    borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+    shape = OnRoadShapes.Item,
+    contentPadding = PaddingValues(16.dp),
+    content = content,
+)
+
+/** 놓친 것 하나: 무엇을 챙길지 + 이렇게 말해 보세요 */
+@Composable
+private fun MissedCard(c: RoleplayCheck) = FbCard {
+    CheckLine(c.label + if (c.kind == "surprise") " (돌발)" else "", false)
+    c.example?.let {
         Spacer(Modifier.height(8.dp))
-        items.forEach { BulletText(it, OnRoadColors.TextPrimary.copy(alpha = 0.75f), Modifier.padding(vertical = 2.dp)) }
+        Text(
+            "“$it”",
+            style = OnRoadType.Caption,
+            color = OnRoadColors.TextPrimary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(OnRoadShapes.Inner)
+                .background(OnRoadColors.Surface)
+                .border(1.dp, OnRoadColors.BorderChip, OnRoadShapes.Inner)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        )
+    }
+}
+
+/** 동그라미 체크 + 글 (챙김: 메인 색 체크 / 놓침: 빈 동그라미) */
+@Composable
+private fun CheckLine(label: String, ok: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(18.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(if (ok) OnRoadColors.Primary else OnRoadColors.Surface)
+                .border(1.dp, if (ok) OnRoadColors.Primary else OnRoadColors.BorderChip, androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (ok) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(12.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(label, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary)
     }
 }

@@ -10,7 +10,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,7 +49,7 @@ import kotlin.math.sin
  * 아동은 '좋아하는 거 찾기'(ChildFindScreen)를 쓰지만, 혹시 들어오면 같은 흐름에서 자유 입력 없이 진행한다.
  */
 
-enum class InterestStep { LOADING, INTRO, QUESTIONS, FREE_TEXT, ANALYZING, RESULT, JOBS, ROADMAP }
+enum class InterestStep { LOADING, INTRO, QUESTIONS, FREE_TEXT, ANALYZING, RESULT, JOBS, JOB_DETAIL, ROADMAP }
 
 /** 흥미 유형별 강점·해 볼 활동 (결과 화면) */
 private val Riasec.strength: String
@@ -92,6 +94,13 @@ class InterestViewModel : ViewModel() {
     var jobs by mutableStateOf<List<JobRecommendation>>(emptyList())
         private set
     var roadmap by mutableStateOf<Roadmap?>(null)
+        private set
+    /** 고른 직업과 그 상세 (상세를 못 불러오면 detail 은 null, 로드맵 만들기는 그대로 된다) */
+    var job by mutableStateOf<JobRecommendation?>(null)
+        private set
+    var detail by mutableStateOf<JobDetail?>(null)
+        private set
+    var detailLoading by mutableStateOf(false)
         private set
     var loading by mutableStateOf(false)
         private set
@@ -164,6 +173,17 @@ class InterestViewModel : ViewModel() {
         }
     }
 
+    fun openJob(j: JobRecommendation) {
+        job = j
+        detail = null
+        detailLoading = true
+        step = InterestStep.JOB_DETAIL
+        viewModelScope.launch {
+            detail = runCatching { AppContainer.coachApi.jobDetail(userId, j, stage) }.getOrNull()
+            detailLoading = false
+        }
+    }
+
     fun pickJob(job: JobRecommendation) {
         loading = true
         viewModelScope.launch {
@@ -187,7 +207,15 @@ class InterestViewModel : ViewModel() {
 
     /** 뒤로가기: 단계 안에서 먼저 되돌린다. 더 못 가면 false */
     fun stepBack(): Boolean = when (step) {
-        InterestStep.ROADMAP -> { step = if (jobs.isEmpty()) InterestStep.INTRO else InterestStep.JOBS; true }
+        InterestStep.ROADMAP -> {
+            step = when {
+                jobs.isEmpty() -> InterestStep.INTRO
+                job != null -> InterestStep.JOB_DETAIL
+                else -> InterestStep.JOBS
+            }
+            true
+        }
+        InterestStep.JOB_DETAIL -> { step = InterestStep.JOBS; true }
         InterestStep.JOBS -> { step = InterestStep.RESULT; true }
         InterestStep.RESULT -> { step = InterestStep.INTRO; true }
         InterestStep.QUESTIONS -> {
@@ -223,7 +251,18 @@ fun InterestScreen(
             InterestStep.FREE_TEXT -> FreeTextPage(vm)
             InterestStep.ANALYZING -> LoadingState("대답을 보고 흥미 유형을 살펴보고 있어요")
             InterestStep.RESULT -> vm.profile?.let { ResultPage(it, vm.notes, vm.loading, vm::loadJobs, vm::start) }
-            InterestStep.JOBS -> JobsPage(vm.jobs, vm.profile, vm.loading, vm::pickJob)
+            InterestStep.JOBS -> JobsPage(vm.jobs, vm.profile, vm::openJob)
+            InterestStep.JOB_DETAIL -> vm.job?.let { j ->
+                JobDetailPage(
+                    job = j,
+                    detail = vm.detail,
+                    detailLoading = vm.detailLoading,
+                    roadmapLoading = vm.loading,
+                    onRoadmap = { vm.pickJob(j) },
+                    onPolicy = { q -> onNavigate(com.project.on_road.ui.screens.navigation.Routes.policy(query = q)) },
+                    onPractice = { id -> onNavigate(com.project.on_road.ui.screens.navigation.Routes.roleplay(id)) },
+                )
+            }
             InterestStep.ROADMAP -> vm.roadmap?.let { RoadmapPage(it, onRoleplay) { s -> onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(s)) } }
         }
         }
@@ -244,18 +283,50 @@ private fun Page(content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-/** 영문 유형 글자 동그라미 (R I A S E C) */
+/** 연회색 데이터 카드 */
+@Composable
+private fun DataCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    contentPadding: PaddingValues = PaddingValues(16.dp),
+    content: @Composable ColumnScope.() -> Unit,
+) = OnRoadCard(
+    modifier,
+    background = OnRoadColors.SurfaceSubtle,
+    borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+    shape = OnRoadShapes.Item,
+    contentPadding = contentPadding,
+    onClick = onClick,
+    content = content,
+)
+
+/** 영문 유형 글자 동그라미 (R I A S E C): 내 유형은 메인 색, 나머지는 흰 바탕 + 연한 테두리 */
 @Composable
 private fun TypeBadge(r: Riasec, on: Boolean = true, size: Int = 28) {
     Box(
         Modifier
             .size(size.dp)
             .clip(CircleShape)
-            .background(if (on) OnRoadColors.Primary else OnRoadColors.SurfaceSlate),
+            .background(if (on) OnRoadColors.Primary else OnRoadColors.Surface)
+            .border(1.dp, if (on) OnRoadColors.Primary else OnRoadColors.BorderChip, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Text(r.name, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = if (on) Color.White else OnRoadColors.TextSlateMid)
+        Text(r.name, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = if (on) Color.White else OnRoadColors.TextTertiary)
     }
+}
+
+/** 화면 머리: 헤드라인 + 회색 설명 */
+@Composable
+private fun PageHead(first: String, second: String, caption: String) {
+    ScreenHeadline(first, second)
+    Spacer(Modifier.height(6.dp))
+    Text(caption, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+}
+
+/** 아래 고정 버튼 영역 */
+@Composable
+private fun BottomBar(content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.background(OnRoadColors.Background).padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 16.dp), content = content)
 }
 
 /* ---------------------------- 시작 ---------------------------- */
@@ -263,7 +334,7 @@ private fun TypeBadge(r: Riasec, on: Boolean = true, size: Int = 28) {
 @Composable
 private fun IntroPage(questionCount: Int, onStart: () -> Unit, onRoadmap: () -> Unit) {
     val last = remember { ActivityStore.interests().firstOrNull() }
-    val saved = remember { ActivityStore.roadmap() }
+    val saved = remember(ActivityStore.version) { ActivityStore.roadmap() }
     val kid = remember { ActivityStore.likedCounts().take(2).map { it.first } }
     Column(Modifier.fillMaxSize()) {
         Column(
@@ -273,71 +344,89 @@ private fun IntroPage(questionCount: Int, onStart: () -> Unit, onRoadmap: () -> 
                 .padding(horizontal = OnRoadDimens.ScreenPadding),
         ) {
             Spacer(Modifier.height(24.dp))
-            OnRoadTag("진로 탐색", style = TagStyle.PrimaryFilled)
-            Spacer(Modifier.height(12.dp))
-            ScreenHeadline("나는 어떤 일을 할 때", "즐거울까요?")
-            Spacer(Modifier.height(6.dp))
-            Text("정답은 없어요. 끌리는 쪽을 골라 주세요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+            PageHead("나는 어떤 일을 할 때", "즐거울까요?", "정답은 없어요. 끌리는 쪽을 골라 주세요.")
 
-            // 진행 순서
-            Spacer(Modifier.height(OnRoadDimens.BlockGap))
-            OnRoadCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    listOf("질문 ${questionCount}개", "흥미 유형", "직업·로드맵").forEachIndexed { i, label ->
-                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(
-                                Modifier.size(26.dp).clip(CircleShape).background(if (i == 0) OnRoadColors.Primary else OnRoadColors.SurfaceSlate),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("${i + 1}", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = if (i == 0) Color.White else OnRoadColors.TextSlateMid)
+            // 이어서 보기: 저장한 로드맵 · 지난 결과
+            if (saved != null || last != null) {
+                Spacer(Modifier.height(OnRoadDimens.BlockGap))
+                SubHeader("이어서 보기")
+                Spacer(Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    saved?.let { rm ->
+                        val next = rm.nextIndex?.let { rm.steps[it] }
+                        DataCard(Modifier.fillMaxWidth(), onClick = onRoadmap) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("${rm.jobName} 로드맵", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        next?.let { "다음 · ${it.title}" } ?: "모든 단계를 해냈어요",
+                                        style = OnRoadType.Caption2,
+                                        color = OnRoadColors.TextTertiary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                PrimaryPill("이어 보기", onRoadmap)
                             }
-                            Spacer(Modifier.height(6.dp))
-                            Text(label, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary, maxLines = 1)
+                            Spacer(Modifier.height(12.dp))
+                            ProgressBar(rm.progress, Modifier.fillMaxWidth(), height = 5.dp)
                         }
-                        if (i < 2) Box(Modifier.width(18.dp).height(1.dp).background(OnRoadColors.Border))
+                    }
+                    last?.let {
+                        DataCard(Modifier.fillMaxWidth()) {
+                            Text("지난 결과", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "${it.top.joinToString(" · ") { t -> t.label }} · ${dayText(it.at)}",
+                                style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                                color = OnRoadColors.TextPrimary,
+                            )
+                        }
                     }
                 }
             }
 
-            // 6가지 유형 미리 보기
+            // 6가지 유형 미리 보기 (지난번 내 유형은 메인 색)
             Spacer(Modifier.height(OnRoadDimens.BlockGap))
-            SubHeader("이런 6가지 유형 중에서 찾아요")
+            SubHeader("이 6가지 유형 중에서 찾아요")
             Spacer(Modifier.height(12.dp))
-            Riasec.entries.chunked(2).forEach { pair ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-                    pair.forEach { r ->
-                        SubtleCard(Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TypeBadge(r, on = r in (last?.top.orEmpty()), size = 26)
-                                Spacer(Modifier.width(8.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(r.label, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1)
-                                    Text(r.strength, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Riasec.entries.chunked(2).forEach { pair ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pair.forEach { r ->
+                            DataCard(Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    TypeBadge(r, on = r in (last?.top.orEmpty()), size = 26)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(r.label, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1)
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(r.strength, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-
-            // 지난 기록
-            if (last != null || saved != null || kid.isNotEmpty()) {
-                Spacer(Modifier.height(OnRoadDimens.BlockGap - 8.dp))
-                SubHeader("이어서 보기")
+            if (kid.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    last?.let { ListRow("지난 결과 · ${dayText(it.at)}", "${it.top.joinToString("·") { t -> t.label }} 성향") }
-                    saved?.let { ListRow("${it.jobName} 로드맵", "${it.steps.size}단계 중 ${it.done.size}단계 완료", onClick = onRoadmap) }
-                    if (kid.isNotEmpty()) ListRow("어릴 때 좋아했던 것", kid.joinToString(" · ") + " · 결과에 반영돼요")
-                }
+                Text(
+                    "어릴 때 좋아했던 ${kid.joinToString("·")}도 결과에 반영돼요",
+                    style = OnRoadType.Caption2,
+                    color = OnRoadColors.TextTertiary,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
             }
+            Spacer(Modifier.height(24.dp))
         }
-        Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 16.dp)) {
+        BottomBar {
             OnRoadButton(
-                if (last == null) "시작하기" else "다시 탐색하기",
+                if (last == null) "질문 ${questionCount}개로 시작하기" else "다시 탐색하기",
                 onStart,
                 Modifier.fillMaxWidth(),
-                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
             )
         }
     }
@@ -365,24 +454,20 @@ private fun QuestionPage(q: InterestQuestion, index: Int, total: Int, onPick: (I
                         .weight(1f)
                         .height(4.dp)
                         .clip(OnRoadShapes.Badge)
-                        .background(if (i <= index) OnRoadColors.Primary else OnRoadColors.SurfaceSlate),
+                        .background(if (i <= index) OnRoadColors.Primary else OnRoadColors.SurfaceMuted),
                 )
             }
         }
-        Spacer(Modifier.height(24.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("Q${index + 1}", style = OnRoadType.Display, color = OnRoadColors.Primary)
-            Spacer(Modifier.width(6.dp))
-            Text("/ $total", style = OnRoadType.Caption, color = OnRoadColors.TextQuaternary, modifier = Modifier.padding(bottom = 6.dp))
-            Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(28.dp))
+        Row(verticalAlignment = Alignment.Top) {
+            Text(q.prompt, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
             SpeakButton(q.prompt)
         }
-        Spacer(Modifier.height(8.dp))
-        Text(q.prompt, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
         Spacer(Modifier.height(28.dp))
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            q.options.forEachIndexed { i, o ->
+            q.options.forEach { o ->
                 val on = picked == o
                 Row(
                     Modifier
@@ -390,25 +475,11 @@ private fun QuestionPage(q: InterestQuestion, index: Int, total: Int, onPick: (I
                         .heightIn(min = 60.dp)
                         .clip(OnRoadShapes.Inner)
                         .background(if (on) OnRoadColors.Primary else Color.White)
-                        .border(1.dp, if (on) OnRoadColors.Primary else OnRoadColors.BorderSlate, OnRoadShapes.Inner)
+                        .border(1.dp, if (on) OnRoadColors.Primary else OnRoadColors.BorderChip, OnRoadShapes.Inner)
                         .clickable(enabled = picked == null) { picked = o }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(
-                        Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(if (on) Color.White else OnRoadColors.SurfaceSlate),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            ('A' + i).toString(),
-                            style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold),
-                            color = if (on) OnRoadColors.Primary else OnRoadColors.TextSlateMid,
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
                     Text(
                         o.text,
                         style = OnRoadType.Body2.copy(fontWeight = if (on) FontWeight.Bold else FontWeight.Medium),
@@ -443,19 +514,17 @@ private fun FreeTextPage(vm: InterestViewModel) {
                 .padding(horizontal = OnRoadDimens.ScreenPadding),
         ) {
             Spacer(Modifier.height(24.dp))
-            OnRoadTag("마지막", style = TagStyle.PrimarySoft)
-            Spacer(Modifier.height(12.dp))
-            ScreenHeadline("요즘 관심 있는 것을", "알려 주세요.")
-            Spacer(Modifier.height(6.dp))
-            Text("눌러서 고르거나 직접 써도 돼요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
-            Spacer(Modifier.height(20.dp))
+            PageHead("요즘 관심 있는 것을", "알려 주세요.", "눌러서 고르거나 직접 써도 돼요.")
+            Spacer(Modifier.height(24.dp))
             // 예시 칩 (누르면 글에 더해짐)
-            FreeTextChips.chunked(3).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-                    row.forEach { c -> ChoiceChip(c, selected = vm.freeText.contains(c)) { vm.addChip(c) } }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FreeTextChips.chunked(3).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { c -> ChoiceChip(c, selected = vm.freeText.contains(c)) { vm.addChip(c) } }
+                    }
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 OnRoadTextField(
                     value = vm.freeText,
@@ -468,7 +537,7 @@ private fun FreeTextPage(vm: InterestViewModel) {
                 MicButton(onResult = { vm.addChip(it) }, modifier = Modifier.padding(start = 8.dp), dim = 48.dp)
             }
         }
-        Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 16.dp)) {
+        BottomBar {
             OnRoadButton("결과 보기", vm::analyze, Modifier.fillMaxWidth())
             Spacer(Modifier.height(6.dp))
             Text(
@@ -495,121 +564,129 @@ private fun ResultPage(
     val top = p.top
     val first = top.first()
     SpeakOnce("${top.joinToString(", ") { it.label }} 성향이 높게 나왔어요.")
-    val uri = LocalUriHandler.current
 
-    Page {
-        // 대표 유형 카드 (진한 남색)
+    Column(Modifier.fillMaxSize()) {
         Column(
             Modifier
-                .fillMaxWidth()
-                .clip(OnRoadShapes.Card)
-                .background(OnRoadColors.Primary)
-                .padding(22.dp),
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = OnRoadDimens.ScreenPadding),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("나의 흥미 유형", style = OnRoadType.Caption, color = Color.White.copy(alpha = 0.7f), modifier = Modifier.weight(1f))
-                Text(top.joinToString("") { it.name }, style = OnRoadType.Title2, color = Color.White.copy(alpha = 0.9f))
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(top.joinToString(" · ") { it.label }, style = OnRoadType.Display, color = Color.White, maxLines = 1)
+            Spacer(Modifier.height(24.dp))
+            // 대표 유형: 카드 없이 크게
+            Text("나의 흥미 유형", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
             Spacer(Modifier.height(6.dp))
-            Text(first.description, style = OnRoadType.Caption, color = Color.White.copy(alpha = 0.8f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-
-        notes.forEach { n ->
-            Spacer(Modifier.height(8.dp))
-            SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(n, style = OnRoadType.Micro, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(top.joinToString(" · ") { it.label }, style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
+            Spacer(Modifier.height(6.dp))
+            Text(first.description, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+            notes.forEach { n ->
+                Spacer(Modifier.height(4.dp))
+                Text(n, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
             }
-        }
 
-        // 육각형 그래프
-        Spacer(Modifier.height(OnRoadDimens.BlockGap))
-        SubHeader("6가지 유형 점수")
-        Spacer(Modifier.height(12.dp))
-        OnRoadCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(12.dp)) {
-            RiasecRadar(p, Modifier.fillMaxWidth().aspectRatio(1.15f))
-        }
+            // 육각형 그래프 (흰 카드)
+            Spacer(Modifier.height(OnRoadDimens.BlockGap))
+            OnRoadCard(
+                Modifier.fillMaxWidth(),
+                borderColor = OnRoadColors.BorderChip,
+                shape = OnRoadShapes.Item,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
+            ) {
+                RiasecRadar(p, Modifier.fillMaxWidth().height(250.dp))
+            }
 
-        // 강점 카드
-        Spacer(Modifier.height(OnRoadDimens.BlockGap))
-        SubHeader("나의 강점")
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            top.forEach { r ->
-                OnRoadCard(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(16.dp)) {
-                    TypeBadge(r)
-                    Spacer(Modifier.height(10.dp))
-                    Text(r.strength, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 2)
-                    Spacer(Modifier.height(4.dp))
-                    Text(r.activity, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // 강점: 유형마다 연회색 카드 한 줄
+            Spacer(Modifier.height(OnRoadDimens.BlockGap))
+            SubHeader("나의 강점")
+            Spacer(Modifier.height(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                top.forEach { r ->
+                    DataCard(Modifier.fillMaxWidth()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TypeBadge(r)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(r.strength, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                                Spacer(Modifier.height(2.dp))
+                                Text("해 보기 · ${r.activity}", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+                            }
+                        }
+                    }
                 }
             }
+            Spacer(Modifier.height(24.dp))
         }
-
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "탐색용 결과예요 · 정식 검사는 커리어넷",
-            style = OnRoadType.Tiny,
-            color = OnRoadColors.TextQuaternary,
-            modifier = Modifier.clickable { runCatching { uri.openUri("https://www.career.go.kr") } },
-        )
-        Spacer(Modifier.height(24.dp))
-        OnRoadButton("나에게 맞는 직업 보기", onJobs, Modifier.fillMaxWidth(), loading = loading, trailingIcon = Icons.AutoMirrored.Filled.ArrowForward)
-        Spacer(Modifier.height(8.dp))
-        OnRoadButton("다시 해 보기", onRestart, Modifier.fillMaxWidth(), variant = ButtonVariant.Outline)
+        BottomBar {
+            OnRoadButton("나에게 맞는 직업 보기", onJobs, Modifier.fillMaxWidth(), loading = loading)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "다시 해 보기",
+                style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                color = OnRoadColors.TextTertiary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onRestart).padding(vertical = 8.dp),
+            )
+        }
     }
 }
 
-/** 육각형(레이더) 그래프: 6개 유형 점수 */
+/** 육각형(레이더) 그래프: 6개 유형 점수. 자립 준비도 차트와 같은 눈금 (안쪽은 점선, 바깥으로 갈수록 실선) */
 @Composable
 private fun RiasecRadar(p: InterestProfile, modifier: Modifier) {
     val measurer = rememberTextMeasurer()
-    val labelStyle = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = OnRoadColors.TextSecondary)
-    val topStyle = labelStyle.copy(fontWeight = FontWeight.Bold, color = OnRoadColors.Primary)
-    val grid = OnRoadColors.Border
-    val fill = OnRoadColors.Primary.copy(alpha = 0.16f)
-    val stroke = OnRoadColors.Primary
+    val labelStyle = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = OnRoadColors.TextTertiary)
+    val topStyle = labelStyle.copy(fontWeight = FontWeight.Bold, color = OnRoadColors.TextPrimary)
+    val ink = OnRoadColors.Primary
     val types = Riasec.entries
+    val rings = listOf(
+        0.25f to floatArrayOf(1f, 2.5f),
+        0.5f to floatArrayOf(3f, 3f),
+        0.75f to floatArrayOf(7f, 3f),
+        1f to null,
+    )
+    val ringAlpha = listOf(0.25f, 0.4f, 0.55f, 0.8f)
     Canvas(modifier) {
         val c = Offset(size.width / 2, size.height / 2)
-        val radius = minOf(size.width, size.height) / 2 * 0.70f
+        val radius = minOf(size.width, size.height) / 2 * 0.74f
         fun point(i: Int, r: Float): Offset {
             val a = -PI / 2 + i * 2 * PI / types.size
             return Offset(c.x + (r * cos(a)).toFloat(), c.y + (r * sin(a)).toFloat())
         }
-        // 배경 육각형 3겹 + 축
-        for (ring in 1..3) {
+        types.indices.forEach { i -> drawLine(ink.copy(alpha = 0.12f), c, point(i, radius), strokeWidth = 1.dp.toPx()) }
+        rings.forEachIndexed { k, (ratio, dash) ->
             val path = Path()
             types.indices.forEach { i ->
-                val pt = point(i, radius * ring / 3f)
+                val pt = point(i, radius * ratio)
                 if (i == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y)
             }
             path.close()
-            drawPath(path, grid, style = Stroke(width = 1.dp.toPx()))
+            drawPath(
+                path,
+                ink.copy(alpha = ringAlpha[k]),
+                style = Stroke(
+                    width = 1.dp.toPx(),
+                    pathEffect = dash?.let { d -> androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(d[0].dp.toPx(), d[1].dp.toPx())) },
+                ),
+            )
         }
-        types.indices.forEach { i -> drawLine(grid, c, point(i, radius), strokeWidth = 1.dp.toPx()) }
 
         // 내 점수
-        val max = p.max.toFloat()
+        val max = p.max.toFloat().coerceAtLeast(1f)
+        fun ratio(r: Riasec) = ((p.scores[r] ?: 0) / max).coerceIn(0f, 1f)
         val shape = Path()
         types.forEachIndexed { i, r ->
-            val v = ((p.scores[r] ?: 0) / max).coerceIn(0.08f, 1f)
-            val pt = point(i, radius * v)
+            val pt = point(i, radius * ratio(r))
             if (i == 0) shape.moveTo(pt.x, pt.y) else shape.lineTo(pt.x, pt.y)
         }
         shape.close()
-        drawPath(shape, fill)
-        drawPath(shape, stroke, style = Stroke(width = 2.dp.toPx()))
-        types.forEachIndexed { i, r ->
-            val v = ((p.scores[r] ?: 0) / max).coerceIn(0.08f, 1f)
-            drawCircle(stroke, 3.dp.toPx(), point(i, radius * v))
-        }
+        drawPath(shape, ink.copy(alpha = 0.14f))
+        drawPath(shape, ink, style = Stroke(width = 2.dp.toPx()))
+        types.forEach { r -> drawCircle(ink, 3.5.dp.toPx(), point(types.indexOf(r), radius * ratio(r))) }
 
-        // 이름
+        // 이름 (내 유형은 진하게)
         types.forEachIndexed { i, r ->
             val layout = measurer.measure(r.short, if (r in p.top) topStyle else labelStyle)
-            val pt = point(i, radius + 18.dp.toPx())
+            val pt = point(i, radius + 16.dp.toPx())
             drawText(layout, topLeft = Offset(pt.x - layout.size.width / 2, pt.y - layout.size.height / 2))
         }
     }
@@ -625,61 +702,168 @@ private fun matchPercent(job: JobRecommendation, p: InterestProfile?): Int {
 }
 
 @Composable
-private fun JobsPage(jobs: List<JobRecommendation>, profile: InterestProfile?, loading: Boolean, onPick: (JobRecommendation) -> Unit) {
+private fun JobsPage(jobs: List<JobRecommendation>, profile: InterestProfile?, onPick: (JobRecommendation) -> Unit) {
     Page {
-        OnRoadTag("직업 추천", style = TagStyle.PrimarySoft)
-        Spacer(Modifier.height(12.dp))
-        ScreenHeadline("이런 직업은", "어때요?")
-        Spacer(Modifier.height(6.dp))
-        Text("하나를 고르면 로드맵을 만들어요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
-        Spacer(Modifier.height(24.dp))
-        if (loading) {
-            LoadingState("로드맵을 만들고 있어요")
-            return@Page
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            jobs.forEachIndexed { i, j ->
-                val pct = matchPercent(j, profile)
-                OnRoadCard(
-                    Modifier.fillMaxWidth(),
-                    borderColor = if (i == 0) OnRoadColors.Primary else OnRoadColors.Border,
-                    contentPadding = PaddingValues(18.dp),
-                    onClick = { onPick(j) },
-                ) {
+        PageHead("이런 직업은", "어때요?", "눌러서 하는 일과 되는 길을 살펴봐요.")
+        Spacer(Modifier.height(OnRoadDimens.BlockGap))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            jobs.forEach { j ->
+                val pct = j.match ?: matchPercent(j, profile)
+                DataCard(Modifier.fillMaxWidth(), onClick = { onPick(j) }, contentPadding = PaddingValues(start = 16.dp, end = 14.dp, top = 16.dp, bottom = 16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // 적합도
-                        Box(
-                            Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(if (i == 0) OnRoadColors.Primary else OnRoadColors.SurfaceSlate),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                "$pct%",
-                                style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                                color = if (i == 0) Color.White else OnRoadColors.TextSlateDark,
-                            )
-                        }
-                        Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    j.name,
-                                    style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
-                                    color = OnRoadColors.TextPrimary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f, fill = false),
-                                )
-                                j.types.forEach { Spacer(Modifier.width(4.dp)); TypeBadge(it, on = it in profile?.top.orEmpty(), size = 20) }
-                            }
+                            Text(j.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(2.dp))
-                            Text(j.description, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(j.description, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            if (j.types.isNotEmpty()) {
+                                Spacer(Modifier.height(8.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    j.types.forEach { TypeBadge(it, on = it in profile?.top.orEmpty(), size = 20) }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        // 적합도
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("$pct%", style = OnRoadType.Title3, color = OnRoadColors.TextPrimary)
+                            Text("잘 맞아요", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/* ---------------------------- 직업 상세 ---------------------------- */
+
+@Composable
+private fun JobDetailPage(
+    job: JobRecommendation,
+    detail: JobDetail?,
+    detailLoading: Boolean,
+    roadmapLoading: Boolean,
+    onRoadmap: () -> Unit,
+    onPolicy: (String) -> Unit,
+    onPractice: (String) -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = OnRoadDimens.ScreenPadding),
+        ) {
+            Spacer(Modifier.height(24.dp))
+            Text(job.name, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
+            Spacer(Modifier.height(6.dp))
+            Text(job.description, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+            if (job.reason.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(job.reason, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+            }
+
+            when {
+                detailLoading -> {
+                    Spacer(Modifier.height(OnRoadDimens.BlockGap))
+                    LoadingState("직업 정보를 불러오고 있어요")
+                }
+                detail != null -> {
+                    // 하는 일
+                    DetailSection("하는 일") {
+                        DataCard(Modifier.fillMaxWidth()) { Bullets(detail.tasks) }
+                    }
+                    // 되는 길: 번호 동그라미
+                    if (detail.path.isNotEmpty()) {
+                        DetailSection("이렇게 준비해요") {
+                            DataCard(Modifier.fillMaxWidth()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    detail.path.forEachIndexed { i, line ->
+                                        Row(verticalAlignment = Alignment.Top) {
+                                            RoadmapMark(i + 1, done = false, current = i == 0, size = 22)
+                                            Spacer(Modifier.width(12.dp))
+                                            Text(line, style = OnRoadType.Caption, color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f).padding(top = 2.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // 자격증: 같은 모양 태그
+                    if (detail.certificates.isNotEmpty()) {
+                        DetailSection("도움 되는 자격증") {
+                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                detail.certificates.forEach {
+                                    OnRoadTag(
+                                        it,
+                                        style = TagStyle.Neutral,
+                                        textStyle = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    // 관련 지원: 정책 검색으로 이어서 찾기
+                    detail.policyQuery?.let { q ->
+                        DetailSection("받을 수 있는 지원") {
+                            LinkRow("‘$q’ 지원 찾아보기", "정책 검색에서 나에게 맞는 지원을 찾아요") { onPolicy(q) }
+                        }
+                    }
+                    // 해 볼 연습
+                    if (detail.practices.isNotEmpty()) {
+                        DetailSection("미리 연습해요") {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                detail.practices.forEach { pr -> LinkRow(pr.title, "상황 연습") { onPractice(pr.scenarioId) } }
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+        BottomBar {
+            OnRoadButton("이 직업으로 로드맵 만들기", onRoadmap, Modifier.fillMaxWidth(), loading = roadmapLoading)
+        }
+    }
+}
+
+@Composable
+private fun DetailSection(title: String, content: @Composable () -> Unit) {
+    Spacer(Modifier.height(OnRoadDimens.BlockGap))
+    SubHeader(title)
+    Spacer(Modifier.height(12.dp))
+    content()
+}
+
+@Composable
+private fun Bullets(lines: List<String>) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        lines.forEach { line ->
+            Row {
+                Text("·", style = OnRoadType.Caption.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold, lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextTertiary, modifier = Modifier.width(14.dp))
+                Text(line, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/** 연회색 줄 카드: 제목 · 설명 · › */
+@Composable
+private fun LinkRow(title: String, sub: String, onClick: () -> Unit) {
+    DataCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = PaddingValues(start = 16.dp, end = 10.dp, top = 14.dp, bottom = 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(2.dp))
+                Text(sub, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            androidx.compose.material3.Icon(
+                androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                null,
+                tint = OnRoadColors.TextQuaternary,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
@@ -692,61 +876,63 @@ private fun RoadmapPage(r: Roadmap, onRoleplay: () -> Unit, onStep: (com.project
     val done = remember(ActivityStore.version, r.job.name) {
         ActivityStore.roadmap()?.takeIf { it.jobName == r.job.name }?.done.orEmpty()
     }
+    val current = r.steps.indices.firstOrNull { it !in done }
     Page {
-        OnRoadTag("로드맵", style = TagStyle.PrimaryFilled)
-        Spacer(Modifier.height(12.dp))
-        ScreenHeadline("${r.job.name}까지", "가는 길이에요.")
-        Spacer(Modifier.height(6.dp))
-        Text("해낸 단계는 눌러서 체크해요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+        PageHead("${r.job.name}까지", "가는 길이에요.", "해낸 단계는 눌러서 체크해요.")
         Spacer(Modifier.height(16.dp))
-        ProgressBar(if (r.steps.isEmpty()) 0f else done.size / r.steps.size.toFloat(), height = 6.dp)
+        ProgressBar(if (r.steps.isEmpty()) 0f else done.size / r.steps.size.toFloat(), Modifier.fillMaxWidth(), height = 6.dp)
         Spacer(Modifier.height(OnRoadDimens.BlockGap))
-        r.steps.forEachIndexed { i, s ->
-            val checked = i in done
-            Row(Modifier.height(IntrinsicSize.Min)) {
-                Column(Modifier.width(28.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        Modifier.size(24.dp).clip(CircleShape).background(if (checked) OnRoadColors.Primary else OnRoadColors.SurfaceSlate),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            if (checked) "✓" else "${i + 1}",
-                            style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold),
-                            color = if (checked) Color.White else OnRoadColors.TextSlateMid,
-                        )
-                    }
-                    if (i < r.steps.lastIndex) {
-                        Box(Modifier.padding(top = 4.dp).width(1.dp).weight(1f).background(OnRoadColors.Border))
-                    }
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f).padding(bottom = if (i < r.steps.lastIndex) 8.dp else 0.dp)) {
-                    OnRoadCard(
-                        Modifier.fillMaxWidth(),
-                        borderColor = if (checked) OnRoadColors.Primary else OnRoadColors.BorderSage.copy(alpha = 0.7f),
-                        shape = OnRoadShapes.Item,
-                        contentPadding = PaddingValues(horizontal = 15.dp, vertical = 14.dp),
-                        onClick = { ActivityStore.toggleRoadmapStep(i) },
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(s.period, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary, modifier = Modifier.weight(1f))
-                            CheckBoxMark(checked)
+        // 체크리스트 단계와 같은 모양: 번호 동그라미 + 연회색 카드
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            r.steps.forEachIndexed { i, s ->
+                val checked = i in done
+                DataCard(
+                    Modifier.fillMaxWidth(),
+                    onClick = { ActivityStore.toggleRoadmapStep(i) },
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.Top) {
+                        RoadmapMark(i + 1, checked, i == current)
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(s.period, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                s.title,
+                                style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                                color = if (checked) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
+                            )
+                            if (s.detail.isNotBlank()) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(s.detail, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
+                            }
                         }
-                        Spacer(Modifier.height(4.dp))
-                        Text(s.title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(2.dp))
-                        Text(s.detail, style = OnRoadType.Caption2, color = OnRoadColors.TextPrimary.copy(alpha = 0.6f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
-        }
-        if (r.note.isNotBlank()) {
-            Spacer(Modifier.height(24.dp))
-            Footnote(r.note)
         }
         Spacer(Modifier.height(OnRoadDimens.SectionGap))
         NextStepList(com.project.on_road.data.Links.afterCareer(r.job.name), onStep)
         Spacer(Modifier.height(16.dp))
         OnRoadButton("다른 면접 상황도 보기", onRoleplay, Modifier.fillMaxWidth(), variant = ButtonVariant.Outline, borderColor = OnRoadColors.BorderChip)
+    }
+}
+
+/** 번호 동그라미: 해낸 단계는 메인 색 + 체크, 지금 단계는 메인 색 테두리, 나머지는 연한 테두리 */
+@Composable
+internal fun RoadmapMark(index: Int, done: Boolean, current: Boolean, size: Int = 26) {
+    Box(
+        Modifier
+            .size(size.dp)
+            .clip(CircleShape)
+            .background(if (done) OnRoadColors.Primary else OnRoadColors.Surface)
+            .border(if (current) 1.5.dp else 1.dp, if (done || current) OnRoadColors.Primary else OnRoadColors.BorderChip, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (done) {
+            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size((size * 0.58f).dp))
+        } else {
+            Text("$index", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold), color = if (current) OnRoadColors.Primary else OnRoadColors.TextQuaternary)
+        }
     }
 }
