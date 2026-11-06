@@ -210,6 +210,11 @@ python -m db.demo_seed
 - `title`은 연습 상황 이름. 상황 파일에 없으면 `ref` 그대로, 한 달 살아보기는 null
 - 연습 결과는 저장된 `good`, `missed`만. 없는 ID, 형식 오류, 다른 사용자 기록은 404 `ROLEPLAY_NOT_FOUND`
 
+롤플레잉 피드백 기록, 성장 기록 횟수
+- 피드백을 부를 때마다 `save`와 상관없이 `activity_logs`에 practice 1줄 (`good`, `missed` 개수, `score`)
+- 앱은 피드백 뒤에 `POST /activities`를 따로 부르지 않음 (부르면 두 번 기록됨)
+- 성장 기록 `summary`: `roleplay_count` 기록에 남긴 연습, `practice_count` 끝낸 연습 전체, `month_life_count` 한 달 살아보기
+
 조건부 서류 해당 없음 (3.6, 3.10, 3.11)
 - 해당 없음인 서류에 `is_checked: false`를 보내면 변화 없음 (해당 없음 유지)
 - 체크된 서류에 `is_not_applicable: false`를 보내면 변화 없음 (체크 유지)

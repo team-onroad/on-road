@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.codes import ALLOCATION_ITEMS
@@ -26,7 +26,7 @@ from app.schemas.home import (
     SimulationSummary,
 )
 from app.services.checklists import next_step, policy_object, progress
-from db.models import Checklist, ChecklistItem, Policy, RoleplayResult, Simulation, User
+from db.models import ActivityLog, Checklist, ChecklistItem, Policy, RoleplayResult, Simulation, User
 
 
 @dataclass
@@ -127,6 +127,9 @@ def growth(db: Session, user: User, today: date) -> GrowthResponse:
     checklists = user_checklists(db, user)
     simulations = list(db.scalars(_simulations(user)))
     roleplays = list(db.scalars(_roleplays(user)))
+    activity_counts = dict(db.execute(
+        select(ActivityLog.kind, func.count()).where(ActivityLog.user_id == user.id).group_by(ActivityLog.kind)
+    ).all())
     return GrowthResponse(
         user=GrowthUser(**_user_fields(user, today), created_at=user.created_at),
         summary=GrowthSummary(
@@ -134,6 +137,8 @@ def growth(db: Session, user: User, today: date) -> GrowthResponse:
             completed_checklist_count=sum(s.next_step is None for s in checklists),
             simulation_count=len(simulations),
             roleplay_count=len(roleplays),
+            practice_count=activity_counts.get("practice", 0),
+            month_life_count=activity_counts.get("month_life", 0),
         ),
         checklists=[
             GrowthChecklist(
