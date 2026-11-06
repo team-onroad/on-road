@@ -157,6 +157,7 @@ python -m db.demo_seed
 | POST | `/api/checklists` | 3.9 |
 | GET | `/api/checklists/{checklist_id}` | 3.10 |
 | PATCH | `/api/checklists/{checklist_id}/items/{item_id}` | 3.11 |
+| PATCH | `/api/checklists/{checklist_id}` | 신청 예정일 설정 |
 | POST | `/api/chat` | 3.15 (LLM은 목 함수) |
 | GET | `/api/coach/roleplay/scenarios` | 3.16 |
 | GET | `/api/coach/roleplay/{scenario_id}/opening` | 3.17 |
@@ -193,6 +194,13 @@ python -m db.demo_seed
 - DELETE는 저장 안 한 정책이어도 204. `policy_id` 형식 오류만 404 `POLICY_NOT_FOUND`
 - 목록은 저장 최신순 (같으면 나중에 저장한 것 먼저). 비활성 정책도 `is_active: false`로 남김
 - 초안의 저장한 정책 수는 DB에서 셈. `app_records.saved_policy_count`는 받기만 하고 안 씀
+
+신청 예정일 (PATCH /checklists/{checklist_id})
+- `?user_id=` 필수. 본문 `{"due_date": "YYYY-MM-DD"}`, `null`이면 지움, 필드가 없으면 422
+- 오늘(한국 시간) 이전 날짜는 422. 응답은 체크리스트 상세와 같은 형식
+- 확인 순서: 사용자 404 → 체크리스트 404 → 본문 422
+- 값이 바뀔 때만 체크리스트 `updated_at` 갱신 (홈 정렬에 반영)
+- 체크리스트 상세, 홈, 성장 기록에 `due_date` 표시
 
 조건부 서류 해당 없음 (3.6, 3.10, 3.11)
 - 해당 없음인 서류에 `is_checked: false`를 보내면 변화 없음 (해당 없음 유지)

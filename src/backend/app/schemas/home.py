@@ -21,6 +21,7 @@ class DashboardUser(BaseModel):
 class DashboardChecklist(BaseModel):
     checklist_id: int
     policy: ChecklistPolicy
+    due_date: date | None
     progress: Progress
     next_step: NextStep | None  # 4단계 모두 체크면 null
     updated_at: datetime
@@ -55,6 +56,7 @@ class GrowthSummary(BaseModel):
 class GrowthChecklist(BaseModel):
     checklist_id: int
     policy: ChecklistPolicy
+    due_date: date | None
     progress: Progress
     document_progress: DocumentProgress
     next_step: NextStep | None

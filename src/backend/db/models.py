@@ -103,6 +103,7 @@ class Checklist(Base):
     policy_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("policies.id", ondelete="RESTRICT"), nullable=False
     )
+    due_date: Mapped[date | None] = mapped_column(Date)  # 사용자가 정한 신청 예정일
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
 
