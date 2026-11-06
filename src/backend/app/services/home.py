@@ -105,6 +105,7 @@ def dashboard(db: Session, user: User, today: date) -> DashboardResponse:
             DashboardChecklist(
                 checklist_id=s.checklist.id,
                 policy=policy_object(s.policy),
+                due_date=s.checklist.due_date,
                 progress=s.progress,
                 next_step=s.next_step,
                 updated_at=s.checklist.updated_at,
@@ -135,6 +136,7 @@ def growth(db: Session, user: User, today: date) -> GrowthResponse:
             GrowthChecklist(
                 checklist_id=s.checklist.id,
                 policy=policy_object(s.policy),
+                due_date=s.checklist.due_date,
                 progress=s.progress,
                 document_progress=s.document_progress,
                 next_step=s.next_step,
