@@ -20,7 +20,7 @@ from app.schemas.roleplay import (
     ScenarioList,
     ScenarioOut,
 )
-from db.models import RoleplayResult, User
+from db.models import ActivityLog, RoleplayResult, User
 
 
 def scenario_list(stage: str | None) -> ScenarioList:
@@ -103,12 +103,17 @@ def give_feedback(db: Session, user: User, s: Scenario, body: FeedbackRequest) -
     missed = [i.label for i in items if not i.ok]
     if len(turns) >= FINISHED_MIN_TURNS:
         good.append(FINISHED_GOOD)
-    roleplay_id = None
+    # save 와 상관없이 연습 1번으로 기록 (자립 준비도·성장 기록용)
+    db.add(ActivityLog(
+        user_id=user.id, kind="practice", ref=s.scenario_id,
+        data={"good": len(good), "missed": len(missed), "score": score},
+    ))
+    row = None
     if body.save:
         row = RoleplayResult(user_id=user.id, scenario_id=s.scenario_id, good=good, missed=missed)
         db.add(row)
-        db.commit()
-        roleplay_id = row.id
+    db.commit()
+    roleplay_id = row.id if row else None
     better = list(s.better) + (list(plan.variant.better) if plan.variant else [])
     return FeedbackResponse(
         roleplay_id=roleplay_id,

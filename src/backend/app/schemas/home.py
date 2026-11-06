@@ -50,7 +50,9 @@ class GrowthSummary(BaseModel):
     checklist_count: int
     completed_checklist_count: int  # next_step 이 null 인 것
     simulation_count: int
-    roleplay_count: int
+    roleplay_count: int  # 기록에 남긴 연습 (roleplay_results)
+    practice_count: int  # 끝낸 연습 전체 (activity_logs practice)
+    month_life_count: int
 
 
 class GrowthChecklist(BaseModel):

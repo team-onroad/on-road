@@ -682,3 +682,54 @@ def test_surprise_fits_variant():
     for _ in range(40):
         ids = {x.surprise_id for x in pick_plan(s, "HARD", "family").surprises}
         assert not ids & {"sc-arrest", "sc-meet", "sc-app", "sc-card"}
+
+
+# ------------------------------------------------------------------ 피드백 → activity_logs
+
+
+def _practice_logs(db_session):
+    return db_session.execute(
+        text("SELECT user_id, ref, data FROM activity_logs WHERE kind = 'practice' ORDER BY id")
+    ).mappings().all()
+
+
+@pytest.mark.parametrize("save", [True, False])
+def test_feedback_logs_practice_activity(api, db_session, save):
+    user = make_user(db_session)
+    fb = _feedback(api, user, history=_user_turns("신분증", "네", "네"), save=save).json()
+
+    logs = _practice_logs(db_session)
+    assert len(logs) == 1
+    assert logs[0]["user_id"] == user.id
+    assert logs[0]["ref"] == "community-center"
+    assert logs[0]["data"] == {"good": len(fb["good"]), "missed": len(fb["missed"]), "score": fb["score"]}
+
+
+def test_feedback_save_also_keeps_roleplay_result(api, db_session):
+    user = make_user(db_session)
+    _feedback(api, user, save=True)
+    assert db_session.execute(text("SELECT count(*) FROM roleplay_results")).scalar() == 1
+    assert len(_practice_logs(db_session)) == 1
+
+
+def test_feedback_errors_do_not_log(api, db_session):
+    user = make_user(db_session)
+    _feedback(api, user, save="x")
+    _feedback(api, user, scenario_id="no-such-scenario")
+    assert _practice_logs(db_session) == []
+
+
+def test_growth_counts_practice_and_month_life(api, db_session):
+    user = make_user(db_session)
+    _feedback(api, user, save=True)
+    _feedback(api, user, save=False)
+    api.post(f"/api/users/{user.id}/activities", json={"kind": "practice", "ref": "bank",
+                                                       "data": {"good": 1, "missed": 0}})
+    api.post(f"/api/users/{user.id}/activities", json={"kind": "month_life", "data": {
+        "income": 180, "left": 12, "shortage": 0, "used_emergency": 0, "home": "STUDIO", "good": 5, "bad": 2,
+    }})
+    other = make_user(db_session)
+    _feedback(api, other, save=True)
+
+    summary = api.get(f"/api/users/{user.id}/growth").json()["summary"]
+    assert (summary["roleplay_count"], summary["practice_count"], summary["month_life_count"]) == (1, 3, 1)
