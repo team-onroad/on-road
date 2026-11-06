@@ -1,5 +1,6 @@
 """활동 기록 · 자립 준비도 (docs/readiness.md)"""
 
+from datetime import datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, ValidationError, model_validator
@@ -32,13 +33,16 @@ class MonthLifeData(BaseModel):
     bad_events: Annotated[list[EventId], Field(max_length=40)] = []
 
 
+ActivityKind = Literal["practice", "month_life"]
+
+
 class ActivityCreate(BaseModel):
     """practice: ref = 연습 상황 id (scenario_id), data = PracticeData
     month_life: ref 없음, data = MonthLifeData"""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["practice", "month_life"]
+    kind: ActivityKind
     ref: Annotated[StrictStr, Field(min_length=1, max_length=50)] | None = None
     data: dict
 
@@ -59,6 +63,19 @@ class ActivityCreate(BaseModel):
 
 class ActivityCreated(BaseModel):
     activity_id: int
+
+
+class ActivityItem(BaseModel):
+    activity_id: int
+    kind: ActivityKind
+    ref: str | None
+    title: str | None  # practice: 연습 상황 이름 (상황 파일에 없으면 ref 그대로), month_life: null
+    data: dict
+    created_at: datetime
+
+
+class ActivityList(BaseModel):
+    activities: list[ActivityItem]
 
 
 class ReadinessItem(BaseModel):

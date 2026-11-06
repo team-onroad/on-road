@@ -82,6 +82,15 @@ class RoleplaySummary(BaseModel):
     created_at: datetime
 
 
+class RoleplayDetail(BaseModel):
+    roleplay_id: int
+    scenario_id: str
+    title: str
+    good: list[str]
+    missed: list[str]
+    created_at: datetime
+
+
 class GrowthResponse(BaseModel):
     user: GrowthUser
     summary: GrowthSummary

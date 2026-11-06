@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import JsonBody
 from app.clock import get_today
-from app.schemas.home import DashboardResponse, GrowthResponse
-from app.schemas.readiness import ActivityCreate, ActivityCreated, ReadinessResponse
+from app.schemas.home import DashboardResponse, GrowthResponse, RoleplayDetail
+from app.schemas.readiness import ActivityCreate, ActivityCreated, ActivityKind, ActivityList, ReadinessResponse
 from app.schemas.saved_policies import SavedPolicy, SavedPolicyCreate, SavedPolicyList
 from app.schemas.users import UserCreate, UserResponse, UserUpdate
 from app.services import home, readiness, saved_policies
@@ -137,6 +137,26 @@ def update_user(user: ExistingUser, body: UpdateBody, db: DB, today: Today) -> U
 )
 def post_activity(user: ExistingUser, body: ActivityCreate, db: DB) -> ActivityCreated:
     return ActivityCreated(activity_id=readiness.add_activity(db, user, body))
+
+
+@router.get(
+    "/{user_id}/activities",
+    response_model=ActivityList,
+    summary="활동 기록 목록 (실전 연습 · 한 달 살아보기)",
+    responses=ERROR_RESPONSES,
+)
+def list_activities(user: ExistingUser, db: DB, kind: ActivityKind | None = None) -> ActivityList:
+    return readiness.activities(db, user, kind)
+
+
+@router.get(
+    "/{user_id}/roleplays/{roleplay_id}",
+    response_model=RoleplayDetail,
+    summary="기록에 남긴 연습 결과",
+    responses={404: {"description": "USER_NOT_FOUND / ROLEPLAY_NOT_FOUND"}},
+)
+def get_roleplay(user: ExistingUser, roleplay_id: str, db: DB) -> RoleplayDetail:
+    return home.roleplay_detail(db, user, roleplay_id)
 
 
 @router.get(

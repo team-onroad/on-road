@@ -14,9 +14,17 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.schemas.readiness import ActivityCreate, ReadinessArea, ReadinessItem, ReadinessResponse
+from app.schemas.readiness import (
+    ActivityCreate,
+    ActivityItem,
+    ActivityKind,
+    ActivityList,
+    ReadinessArea,
+    ReadinessItem,
+    ReadinessResponse,
+)
 from app.schemas.roleplay import NextStepOut
-from app.services.home import shortage_count, user_checklists
+from app.services.home import roleplay_title, shortage_count, user_checklists
 from db.models import ActivityLog, Document, RoleplayResult, Simulation, User
 
 NEXT_STEPS_MAX = 3
@@ -28,6 +36,25 @@ def add_activity(db: Session, user: User, body: ActivityCreate) -> int:
     db.add(row)
     db.commit()
     return row.id
+
+
+def activities(db: Session, user: User, kind: ActivityKind | None) -> ActivityList:
+    """최신순, created_at 같으면 ID 큰 것 먼저"""
+    query = select(ActivityLog).where(ActivityLog.user_id == user.id)
+    if kind is not None:
+        query = query.where(ActivityLog.kind == kind)
+    rows = db.scalars(query.order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc()))
+    return ActivityList(activities=[
+        ActivityItem(
+            activity_id=r.id,
+            kind=r.kind,
+            ref=r.ref,
+            title=roleplay_title(r.ref) if r.kind == "practice" and r.ref else None,
+            data=r.data,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ])
 
 
 @dataclass(frozen=True)
