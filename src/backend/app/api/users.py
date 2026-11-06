@@ -2,16 +2,18 @@ import json
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.api.deps import JsonBody
 from app.clock import get_today
 from app.schemas.home import DashboardResponse, GrowthResponse
 from app.schemas.readiness import ActivityCreate, ActivityCreated, ReadinessResponse
+from app.schemas.saved_policies import SavedPolicy, SavedPolicyCreate, SavedPolicyList
 from app.schemas.users import UserCreate, UserResponse, UserUpdate
-from app.services import home, readiness
+from app.services import home, readiness, saved_policies
 from app.services import users as service
 from db.models import User
 from db.session import get_db
@@ -53,6 +55,14 @@ async def _update_body(request: Request, _user: ExistingUser) -> UserUpdate:
 
 
 UpdateBody = Annotated[UserUpdate, Depends(_update_body)]
+
+
+def _saved_body(_user: ExistingUser, payload: JsonBody) -> SavedPolicyCreate:
+    # _user 를 먼저 선언해야 404 가 본문 422 (깨진 JSON 포함) 보다 먼저
+    try:
+        return SavedPolicyCreate.model_validate(payload)
+    except ValidationError as e:
+        raise RequestValidationError(e.errors(include_input=False)) from None
 
 
 @router.post(
@@ -137,3 +147,48 @@ def post_activity(user: ExistingUser, body: ActivityCreate, db: DB) -> ActivityC
 )
 def get_readiness(user: ExistingUser, db: DB) -> ReadinessResponse:
     return readiness.readiness(db, user)
+
+
+@router.get(
+    "/{user_id}/saved-policies",
+    response_model=SavedPolicyList,
+    summary="저장한 정책 목록",
+    responses={404: ERROR_RESPONSES[404]},
+)
+def list_saved_policies(user: ExistingUser, db: DB) -> SavedPolicyList:
+    return saved_policies.saved_list(db, user)
+
+
+@router.post(
+    "/{user_id}/saved-policies",
+    response_model=SavedPolicy,
+    summary="정책 저장 (이미 저장했으면 그대로)",
+    responses={
+        201: {"description": "새로 저장", "model": SavedPolicy},
+        404: {"description": "USER_NOT_FOUND / POLICY_NOT_FOUND"},
+        422: ERROR_RESPONSES[422],
+    },
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": SavedPolicyCreate.model_json_schema()}},
+        }
+    },
+)
+def save_policy(
+    user: ExistingUser, body: Annotated[SavedPolicyCreate, Depends(_saved_body)], response: Response, db: DB
+) -> SavedPolicy:
+    item, created = saved_policies.save(db, user, body.policy_id)
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    return item
+
+
+@router.delete(
+    "/{user_id}/saved-policies/{policy_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="정책 저장 취소 (저장 안 한 정책이어도 성공)",
+    responses={404: {"description": "USER_NOT_FOUND / POLICY_NOT_FOUND (policy_id 형식 오류)"}},
+)
+def unsave_policy(user: ExistingUser, policy_id: str, db: DB) -> Response:
+    saved_policies.unsave(db, user, policy_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
