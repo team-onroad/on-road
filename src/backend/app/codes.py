@@ -9,6 +9,7 @@ POLICY_REGIONS = (NATIONWIDE, *USER_REGIONS)
 
 USER_STATUSES = ("in_care", "leaving_soon", "left_care")
 USER_STAGES = ("child", "teen", "youth")
+USER_WORKS = ("student", "working", "job_seeking", "resting")
 
 POLICY_CATEGORIES = (
     "independence", "housing", "education", "employment",

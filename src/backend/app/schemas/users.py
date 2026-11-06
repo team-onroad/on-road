@@ -7,11 +7,12 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from app.codes import USER_REGIONS, USER_STAGES, USER_STATUSES
+from app.codes import USER_REGIONS, USER_STAGES, USER_STATUSES, USER_WORKS
 
 Region = Literal[USER_REGIONS]
 Status = Literal[USER_STATUSES]
 Stage = Literal[USER_STAGES]
+Work = Literal[USER_WORKS]
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _PHONE_RE = re.compile(r"^01[0-9]{8,9}$")
@@ -63,7 +64,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    """보낸 필드만 바꾼다. phone, d_date 는 null 이면 지우고, 나머지는 null 불가."""
+    """보낸 필드만 바꾼다. phone, d_date, work 는 null 이면 지우고, 나머지는 null 불가."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -73,6 +74,7 @@ class UserUpdate(BaseModel):
     region: Region | None = None
     status: Status | None = None
     d_date: date | None = None
+    work: Work | None = None
 
     _dates = field_validator("birth_date", "d_date", mode="before")(_date_string_only)
     _phone_empty = field_validator("phone", mode="before")(_empty_phone_to_none)
@@ -105,5 +107,6 @@ class UserResponse(BaseModel):
     stage: Stage
     d_date: date | None
     d_day: int | None
+    work: Work | None
     created_at: datetime
     updated_at: datetime
