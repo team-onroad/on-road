@@ -16,7 +16,7 @@ ONBOARDING = {
 }
 RESPONSE_KEYS = {
     "user_id", "name", "birth_date", "age", "phone", "region", "status", "stage",
-    "d_date", "d_day", "created_at", "updated_at",
+    "d_date", "d_day", "work", "created_at", "updated_at",
 }
 
 
@@ -249,6 +249,46 @@ def test_patch_d_date_null_clears(api):
     created = _create(api)
     data = _patch(api, created["user_id"], {"d_date": None}).json()
     assert (data["d_date"], data["d_day"]) == (None, None)
+
+
+@pytest.mark.parametrize("value", ["student", "working", "job_seeking", "resting"])
+def test_patch_set_work(api, db_session, value):
+    created = _create(api)
+    assert created["work"] is None
+    data = _patch(api, created["user_id"], {"work": value}).json()
+    assert data["work"] == value
+    assert _db_user(db_session, created["user_id"])["work"] == value
+
+
+def test_patch_work_null_clears(api):
+    created = _create(api)
+    _patch(api, created["user_id"], {"work": "working"})
+    assert _patch(api, created["user_id"], {"work": None}).json()["work"] is None
+
+
+@pytest.mark.parametrize("value", ["WORKING", "", "employed", 1])
+def test_patch_work_invalid(api, value):
+    created = _create(api)
+    _assert_error(_patch(api, created["user_id"], {"work": value}), 422, "VALIDATION_ERROR")
+
+
+def test_patch_work_unknown_user_404_before_422(api):
+    _assert_error(_patch(api, str(uuid.uuid4()), {"work": "bad"}), 404, "USER_NOT_FOUND")
+
+
+def test_create_user_rejects_work(api):
+    _assert_error(api.post("/api/users", json={**ONBOARDING, "work": "working"}), 422, "VALIDATION_ERROR")
+
+
+def test_db_rejects_unknown_work(db_session):
+    from sqlalchemy.exc import IntegrityError
+
+    with pytest.raises(IntegrityError):
+        db_session.execute(text(
+            "INSERT INTO users (name, birth_date, region, status, stage, work) "
+            "VALUES ('a', '2005-01-01', '서울', 'left_care', 'youth', 'bad')"
+        ))
+    db_session.rollback()
 
 
 def test_patch_set_d_date(api):

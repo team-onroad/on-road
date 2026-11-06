@@ -48,6 +48,7 @@ def to_response(user: User, today: date) -> UserResponse:
         stage=user.stage,
         d_date=user.d_date,
         d_day=calc_d_day(user.d_date, today),
+        work=user.work,
         created_at=user.created_at,
         updated_at=user.updated_at,
     )

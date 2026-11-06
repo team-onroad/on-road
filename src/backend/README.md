@@ -179,6 +179,10 @@ python -m db.demo_seed
 - 홈·성장 기록 체크리스트 정렬: 진행 중 → 완료, 각각 최근 수정순 (같으면 나중에 만든 것 먼저)
 - 성장 기록 시뮬레이션은 최신순
 
+지금 하는 일 `work` (PATCH 3.12)
+- 값: `student`, `working`, `job_seeking`, `resting`. `null`이면 지움. 온보딩에서는 안 받음
+- 채팅 `profile_changes`의 work 카드 `current`는 저장된 값의 이름 (없으면 null)
+
 조건부 서류 해당 없음 (3.6, 3.10, 3.11)
 - 해당 없음인 서류에 `is_checked: false`를 보내면 변화 없음 (해당 없음 유지)
 - 체크된 서류에 `is_not_applicable: false`를 보내면 변화 없음 (체크 유지)

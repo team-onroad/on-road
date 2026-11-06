@@ -53,6 +53,7 @@ class User(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     stage: Mapped[str] = mapped_column(String(10), nullable=False)
     d_date: Mapped[date | None] = mapped_column(Date)
+    work: Mapped[str | None] = mapped_column(String(20))  # student | working | job_seeking | resting
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
 
