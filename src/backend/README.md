@@ -169,6 +169,8 @@ python -m db.demo_seed
 | GET | `/api/users/{user_id}/saved-policies` | 저장한 정책 목록 |
 | POST | `/api/users/{user_id}/saved-policies` | 정책 저장 |
 | DELETE | `/api/users/{user_id}/saved-policies/{policy_id}` | 정책 저장 취소 |
+| GET | `/api/users/{user_id}/activities` | 활동 기록 목록 |
+| GET | `/api/users/{user_id}/roleplays/{roleplay_id}` | 기록에 남긴 연습 결과 |
 
 명세에 없어서 따로 정한 부분
 - `user_id`가 잘못된 형식이거나 없는 사용자면 항상 404 `USER_NOT_FOUND` (앱은 온보딩으로 이동)
@@ -201,6 +203,12 @@ python -m db.demo_seed
 - 확인 순서: 사용자 404 → 체크리스트 404 → 본문 422
 - 값이 바뀔 때만 체크리스트 `updated_at` 갱신 (홈 정렬에 반영)
 - 체크리스트 상세, 홈, 성장 기록에 `due_date` 표시
+
+활동 기록 목록, 연습 결과 다시 보기
+- 활동 목록은 `activity_logs`만. 최신순 (같으면 ID 큰 것 먼저), 페이지 없음
+- `?kind=practice|month_life`로 거르기. 다른 값은 422 (사용자 404가 먼저)
+- `title`은 연습 상황 이름. 상황 파일에 없으면 `ref` 그대로, 한 달 살아보기는 null
+- 연습 결과는 저장된 `good`, `missed`만. 없는 ID, 형식 오류, 다른 사용자 기록은 404 `ROLEPLAY_NOT_FOUND`
 
 조건부 서류 해당 없음 (3.6, 3.10, 3.11)
 - 해당 없음인 서류에 `is_checked: false`를 보내면 변화 없음 (해당 없음 유지)

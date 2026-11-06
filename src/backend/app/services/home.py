@@ -7,6 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.codes import ALLOCATION_ITEMS
+from app.errors import AppError
+from app.ids import parse_id
 from app.roleplay import get_scenarios
 from app.rules import calc_d_day
 from app.schemas.checklists import DocumentProgress, NextStep, Progress
@@ -19,6 +21,7 @@ from app.schemas.home import (
     GrowthSummary,
     GrowthUser,
     LatestSimulation,
+    RoleplayDetail,
     RoleplaySummary,
     SimulationSummary,
 )
@@ -76,7 +79,7 @@ def _roleplays(user: User):
     )
 
 
-def _roleplay_title(scenario_id: str) -> str:
+def roleplay_title(scenario_id: str) -> str:
     # 상황 파일에서 빠진 상황이면 scenario_id 그대로
     s = get_scenarios().get(scenario_id)
     return s.title if s else scenario_id
@@ -160,11 +163,31 @@ def growth(db: Session, user: User, today: date) -> GrowthResponse:
             RoleplaySummary(
                 roleplay_id=r.id,
                 scenario_id=r.scenario_id,
-                title=_roleplay_title(r.scenario_id),
+                title=roleplay_title(r.scenario_id),
                 good_count=len(r.good),
                 missed_count=len(r.missed),
                 created_at=r.created_at,
             )
             for r in roleplays
         ],
+    )
+
+
+def roleplay_detail(db: Session, user: User, roleplay_id: str) -> RoleplayDetail:
+    """없는 ID, 형식 오류, 다른 사용자 것 → 404 ROLEPLAY_NOT_FOUND"""
+    rid = parse_id(roleplay_id)
+    row = None
+    if rid is not None:
+        row = db.scalars(
+            select(RoleplayResult).where(RoleplayResult.id == rid, RoleplayResult.user_id == user.id)
+        ).one_or_none()
+    if row is None:
+        raise AppError(404, "ROLEPLAY_NOT_FOUND", "연습 기록을 찾을 수 없습니다.")
+    return RoleplayDetail(
+        roleplay_id=row.id,
+        scenario_id=row.scenario_id,
+        title=roleplay_title(row.scenario_id),
+        good=row.good,
+        missed=row.missed,
+        created_at=row.created_at,
     )
