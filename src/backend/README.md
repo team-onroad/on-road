@@ -165,6 +165,9 @@ python -m db.demo_seed
 | GET | `/api/forms/templates` | 3.20 |
 | GET | `/api/forms/templates/{template_id}` | 3.21 |
 | POST | `/api/users/{user_id}/documents` | 3.22 |
+| GET | `/api/users/{user_id}/saved-policies` | 저장한 정책 목록 |
+| POST | `/api/users/{user_id}/saved-policies` | 정책 저장 |
+| DELETE | `/api/users/{user_id}/saved-policies/{policy_id}` | 정책 저장 취소 |
 
 명세에 없어서 따로 정한 부분
 - `user_id`가 잘못된 형식이거나 없는 사용자면 항상 404 `USER_NOT_FOUND` (앱은 온보딩으로 이동)
@@ -182,6 +185,14 @@ python -m db.demo_seed
 지금 하는 일 `work` (PATCH 3.12)
 - 값: `student`, `working`, `job_seeking`, `resting`. `null`이면 지움. 온보딩에서는 안 받음
 - 채팅 `profile_changes`의 work 카드 `current`는 저장된 값의 이름 (없으면 null)
+
+저장한 정책
+- POST 본문 `{"policy_id": 1}`. 새로 저장 201, 이미 저장 200 (정책이 비활성이 돼도 200)
+- 노출 대상이 아닌 정책은 저장 불가 404 `POLICY_NOT_FOUND`
+- 확인 순서: 사용자 404 → 본문 422 → 정책 404
+- DELETE는 저장 안 한 정책이어도 204. `policy_id` 형식 오류만 404 `POLICY_NOT_FOUND`
+- 목록은 저장 최신순 (같으면 나중에 저장한 것 먼저). 비활성 정책도 `is_active: false`로 남김
+- 초안의 저장한 정책 수는 DB에서 셈. `app_records.saved_policy_count`는 받기만 하고 안 씀
 
 조건부 서류 해당 없음 (3.6, 3.10, 3.11)
 - 해당 없음인 서류에 `is_checked: false`를 보내면 변화 없음 (해당 없음 유지)
@@ -221,7 +232,7 @@ AI 롤플레잉 (3.16~3.19, 3.13)
 - 흥미 탐색 결과는 받은 문장 그대로, 출처 "흥미 탐색 결과". 빈 문자열은 없는 것으로 봄
 - 흥미 탐색 결과는 기록 수에 안 셈. 흥미 결과만 있으면 흥미 문장은 넣고 `notice`는 기록 없음 문구
 - 사용자 단계와 상관없이 초안 3종 모두 만듦
-- `app_records`가 `null`이면 없는 것과 같음. 빠진 필드는 `saved_policy_count` 0, `interest_summary` null
+- `app_records`가 `null`이면 없는 것과 같음. 빠진 `interest_summary`는 null
 - `saved_policy_count`는 정수만 (INT 범위). `interest_summary`는 앞뒤 공백 제거 후 500자 이하. 모르는 필드는 422
 
 

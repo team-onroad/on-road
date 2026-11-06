@@ -189,6 +189,20 @@ class DocumentField(Base):
     updated_at: Mapped[datetime] = _updated_at()
 
 
+class SavedPolicy(Base):
+    __tablename__ = "saved_policies"
+    __table_args__ = (UniqueConstraint("user_id", "policy_id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    policy_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("policies.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = _created_at()
+
+
 class RoleplayResult(Base):
     __tablename__ = "roleplay_results"
 
