@@ -5,10 +5,10 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
 from app.api.deps import DB, BodyUser, JsonBody, Today, openapi_body, validated_body
-from app.schemas.checklists import ChecklistCreate, ChecklistResponse, ItemToggle, ToggleResponse
+from app.schemas.checklists import ChecklistCreate, ChecklistResponse, DueDateUpdate, ItemToggle, ToggleResponse
 from app.services import checklists as service
 from app.services.users import get_user
-from db.models import Checklist, ChecklistItem
+from db.models import Checklist, ChecklistItem, User
 
 router = APIRouter(prefix="/checklists", tags=["체크리스트"])
 
@@ -46,6 +46,52 @@ def get_or_create(
 def get_checklist(checklist_id: str, user_id: str, db: DB, today: Today) -> ChecklistResponse:
     user = get_user(db, user_id)
     return service.to_response(db, service.get_owned(db, user, checklist_id), user, today)
+
+
+def _owned(checklist_id: str, user_id: str, db: DB) -> tuple[User, Checklist]:
+    # 확인 순서: 사용자 → 체크리스트
+    user = get_user(db, user_id)
+    return user, service.get_owned(db, user, checklist_id)
+
+
+Owned = Annotated[tuple[User, Checklist], Depends(_owned)]
+
+
+def _due_body(target: Owned, payload: JsonBody) -> DueDateUpdate:
+    # target 을 먼저 선언해야 404 가 본문 422 (깨진 JSON 포함) 보다 먼저
+    try:
+        return DueDateUpdate.model_validate(payload)
+    except ValidationError as e:
+        raise RequestValidationError(e.errors(include_input=False)) from None
+
+
+@router.patch(
+    "/{checklist_id}",
+    response_model=ChecklistResponse,
+    summary="신청 예정일 설정",
+    responses={
+        404: {"description": "USER_NOT_FOUND / CHECKLIST_NOT_FOUND"},
+        422: {"description": "VALIDATION_ERROR (오늘 이전 날짜 포함)"},
+    },
+    openapi_extra=openapi_body(DueDateUpdate),
+)
+def update_checklist(
+    target: Owned, body: Annotated[DueDateUpdate, Depends(_due_body)], db: DB, today: Today
+) -> ChecklistResponse:
+    user, checklist = target
+    service.set_due_date(db, checklist, body.due_date, today)
+    return service.to_response(db, checklist, user, today)
+
+
+@router.delete(
+    "/{checklist_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="체크리스트 삭제 (여기서 시작한 서류는 남음)",
+    responses={404: {"description": "USER_NOT_FOUND / CHECKLIST_NOT_FOUND"}},
+)
+def delete_checklist(target: Owned, db: DB) -> Response:
+    service.delete_checklist(db, target[1])
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _toggle_target(checklist_id: str, item_id: str, user_id: str, db: DB) -> tuple[Checklist, ChecklistItem]:

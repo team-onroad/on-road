@@ -10,16 +10,28 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date, timedelta
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.schemas.readiness import ActivityCreate, ReadinessArea, ReadinessItem, ReadinessResponse
+from app.schemas.readiness import (
+    ActivityCreate,
+    ActivityItem,
+    ActivityKind,
+    ActivityList,
+    ReadinessArea,
+    ReadinessItem,
+    ReadinessResponse,
+    RecentScore,
+)
 from app.schemas.roleplay import NextStepOut
-from app.services.home import shortage_count, user_checklists
-from db.models import ActivityLog, Document, RoleplayResult, Simulation, User
+from app.services.home import roleplay_title, shortage_count, user_checklists
+from db.models import ActivityLog, Document, ReadinessSnapshot, RoleplayResult, Simulation, User
 
 NEXT_STEPS_MAX = 3
+RECENT_SCORES_MAX = 7
 LEVELS = ((85, "자립 준비 완료"), (60, "거의 다 왔어요"), (30, "준비 중"), (0, "첫걸음"))
 
 
@@ -28,6 +40,25 @@ def add_activity(db: Session, user: User, body: ActivityCreate) -> int:
     db.add(row)
     db.commit()
     return row.id
+
+
+def activities(db: Session, user: User, kind: ActivityKind | None) -> ActivityList:
+    """최신순, created_at 같으면 ID 큰 것 먼저"""
+    query = select(ActivityLog).where(ActivityLog.user_id == user.id)
+    if kind is not None:
+        query = query.where(ActivityLog.kind == kind)
+    rows = db.scalars(query.order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc()))
+    return ActivityList(activities=[
+        ActivityItem(
+            activity_id=r.id,
+            kind=r.kind,
+            ref=r.ref,
+            title=roleplay_title(r.ref) if r.kind == "practice" and r.ref else None,
+            data=r.data,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ])
 
 
 @dataclass(frozen=True)
@@ -138,7 +169,37 @@ AREAS: tuple[tuple[str, str, tuple[Item, ...]], ...] = (
 )
 
 
-def readiness(db: Session, user: User) -> ReadinessResponse:
+def _save_snapshot(db: Session, user: User, today: date, score: int, areas: list[ReadinessArea]) -> None:
+    """하루 1줄. 같은 날 다시 보면 마지막 값으로 덮어씀"""
+    values = {"score": score, "areas": {a.key: a.score for a in areas}}
+    db.execute(
+        insert(ReadinessSnapshot)
+        .values(user_id=user.id, snapshot_date=today, **values)
+        .on_conflict_do_update(index_elements=["user_id", "snapshot_date"], set_=values)
+    )
+    db.commit()
+
+
+def _last_week_score(db: Session, user: User, today: date) -> int | None:
+    return db.scalar(
+        select(ReadinessSnapshot.score)
+        .where(ReadinessSnapshot.user_id == user.id, ReadinessSnapshot.snapshot_date <= today - timedelta(days=7))
+        .order_by(ReadinessSnapshot.snapshot_date.desc())
+        .limit(1)
+    )
+
+
+def _recent_scores(db: Session, user: User) -> list[RecentScore]:
+    rows = db.execute(
+        select(ReadinessSnapshot.snapshot_date, ReadinessSnapshot.score)
+        .where(ReadinessSnapshot.user_id == user.id)
+        .order_by(ReadinessSnapshot.snapshot_date.desc())
+        .limit(RECENT_SCORES_MAX)
+    )
+    return [RecentScore(date=d, score=s) for d, s in rows]
+
+
+def readiness(db: Session, user: User, today: date) -> ReadinessResponse:
     facts = collect(db, user)
     areas: list[ReadinessArea] = []
     for key, label, items in AREAS:
@@ -154,10 +215,13 @@ def readiness(db: Session, user: User) -> ReadinessResponse:
         ))
     score = round(sum(a.score for a in areas) / len(areas))
     open_areas = sorted((a for a in areas if a.next_step), key=lambda a: a.score)  # 낮은 순 (같으면 원래 순서)
+    _save_snapshot(db, user, today, score, areas)
     return ReadinessResponse(
         score=score,
         level=next(name for cut, name in LEVELS if score >= cut),
         areas=areas,
         weakest=open_areas[0].key if open_areas else None,
         next_steps=[a.next_step for a in open_areas[:NEXT_STEPS_MAX] if a.next_step],
+        last_week_score=_last_week_score(db, user, today),
+        recent_scores=_recent_scores(db, user),
     )

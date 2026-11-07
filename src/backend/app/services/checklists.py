@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -122,6 +122,12 @@ def get_owned(db: Session, user: User, checklist_id: str) -> Checklist:
     return checklist
 
 
+def delete_checklist(db: Session, checklist: Checklist) -> None:
+    """항목은 CASCADE 로 삭제. 여기서 시작한 서류는 남고 checklist_item_id 만 null (FK SET NULL)"""
+    db.execute(delete(Checklist).where(Checklist.id == checklist.id))
+    db.commit()
+
+
 def get_item(db: Session, checklist: Checklist, item_id: str) -> ChecklistItem:
     """없는 ID, 형식 오류, 다른 체크리스트 소속 → 404 ITEM_NOT_FOUND"""
     iid = parse_id(item_id)
@@ -237,6 +243,7 @@ def to_response(db: Session, checklist: Checklist, user: User, today: date) -> C
     return ChecklistResponse(
         checklist_id=checklist.id,
         policy=policy_object(policy),
+        due_date=checklist.due_date,
         progress=step_progress,
         document_progress=document_progress,
         steps=steps,
@@ -290,3 +297,11 @@ def toggle(db: Session, checklist: Checklist, item: ChecklistItem, body: ItemTog
         progress=step_progress,
         document_progress=document_progress,
     )
+
+
+def set_due_date(db: Session, checklist: Checklist, due_date: date | None, today: date) -> None:
+    """오늘(KST) 이전 날짜는 422. 같은 값이면 updated_at 유지"""
+    if due_date is not None and due_date < today:
+        raise AppError(422, "VALIDATION_ERROR", "요청 값이 올바르지 않습니다. (due_date)")
+    checklist.due_date = due_date
+    db.commit()

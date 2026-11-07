@@ -157,6 +157,7 @@ python -m db.demo_seed
 | POST | `/api/checklists` | 3.9 |
 | GET | `/api/checklists/{checklist_id}` | 3.10 |
 | PATCH | `/api/checklists/{checklist_id}/items/{item_id}` | 3.11 |
+| PATCH | `/api/checklists/{checklist_id}` | 신청 예정일 설정 |
 | POST | `/api/chat` | 3.15 (LLM은 목 함수) |
 | GET | `/api/coach/roleplay/scenarios` | 3.16 |
 | GET | `/api/coach/roleplay/{scenario_id}/opening` | 3.17 |
@@ -165,6 +166,15 @@ python -m db.demo_seed
 | GET | `/api/forms/templates` | 3.20 |
 | GET | `/api/forms/templates/{template_id}` | 3.21 |
 | POST | `/api/users/{user_id}/documents` | 3.22 |
+| GET | `/api/users/{user_id}/saved-policies` | 저장한 정책 목록 |
+| POST | `/api/users/{user_id}/saved-policies` | 정책 저장 |
+| DELETE | `/api/users/{user_id}/saved-policies/{policy_id}` | 정책 저장 취소 |
+| GET | `/api/users/{user_id}/activities` | 활동 기록 목록 |
+| GET | `/api/users/{user_id}/roleplays/{roleplay_id}` | 기록에 남긴 연습 결과 |
+| GET | `/api/users/{user_id}/readiness` | 자립 준비도 |
+| DELETE | `/api/users/{user_id}` | 탈퇴 |
+| DELETE | `/api/documents/{document_id}?user_id=` | 서류 삭제 |
+| DELETE | `/api/checklists/{checklist_id}?user_id=` | 체크리스트 삭제 |
 
 명세에 없어서 따로 정한 부분
 - `user_id`가 잘못된 형식이거나 없는 사용자면 항상 404 `USER_NOT_FOUND` (앱은 온보딩으로 이동)
@@ -178,6 +188,53 @@ python -m db.demo_seed
 - 체크 값(`is_checked`)은 `true`/`false`만 받음
 - 홈·성장 기록 체크리스트 정렬: 진행 중 → 완료, 각각 최근 수정순 (같으면 나중에 만든 것 먼저)
 - 성장 기록 시뮬레이션은 최신순
+
+지금 하는 일 `work` (PATCH 3.12)
+- 값: `student`, `working`, `job_seeking`, `resting`. `null`이면 지움. 온보딩에서는 안 받음
+- 채팅 `profile_changes`의 work 카드 `current`는 저장된 값의 이름 (없으면 null)
+
+저장한 정책
+- POST 본문 `{"policy_id": 1}`. 새로 저장 201, 이미 저장 200 (정책이 비활성이 돼도 200)
+- 노출 대상이 아닌 정책은 저장 불가 404 `POLICY_NOT_FOUND`
+- 확인 순서: 사용자 404 → 본문 422 → 정책 404
+- DELETE는 저장 안 한 정책이어도 204. `policy_id` 형식 오류만 404 `POLICY_NOT_FOUND`
+- 목록은 저장 최신순 (같으면 나중에 저장한 것 먼저). 비활성 정책도 `is_active: false`로 남김
+- 초안의 저장한 정책 수는 DB에서 셈. `app_records.saved_policy_count`는 받기만 하고 안 씀
+
+신청 예정일 (PATCH /checklists/{checklist_id})
+- `?user_id=` 필수. 본문 `{"due_date": "YYYY-MM-DD"}`, `null`이면 지움, 필드가 없으면 422
+- 오늘(한국 시간) 이전 날짜는 422. 응답은 체크리스트 상세와 같은 형식
+- 확인 순서: 사용자 404 → 체크리스트 404 → 본문 422
+- 값이 바뀔 때만 체크리스트 `updated_at` 갱신 (홈 정렬에 반영)
+- 체크리스트 상세, 홈, 성장 기록에 `due_date` 표시
+
+활동 기록 목록, 연습 결과 다시 보기
+- 활동 목록은 `activity_logs`만. 최신순 (같으면 ID 큰 것 먼저), 페이지 없음
+- `?kind=practice|month_life`로 거르기. 다른 값은 422 (사용자 404가 먼저)
+- `title`은 연습 상황 이름. 상황 파일에 없으면 `ref` 그대로, 한 달 살아보기는 null
+- 연습 결과는 저장된 `good`, `missed`만. 없는 ID, 형식 오류, 다른 사용자 기록은 404 `ROLEPLAY_NOT_FOUND`
+
+롤플레잉 피드백 기록, 성장 기록 횟수
+- 피드백을 부를 때마다 `save`와 상관없이 `activity_logs`에 practice 1줄 (`good`, `missed` 개수, `score`)
+- 앱은 피드백 뒤에 `POST /activities`를 따로 부르지 않음 (부르면 두 번 기록됨)
+- 성장 기록 `summary`: `roleplay_count` 기록에 남긴 연습, `practice_count` 끝낸 연습 전체, `month_life_count` 한 달 살아보기
+
+삭제 (탈퇴, 서류, 체크리스트)
+- 성공 204, 본문 없음. 이미 지웠거나 없는 ID, 형식 오류, 다른 사용자 것은 404 (`USER_NOT_FOUND`, `DOCUMENT_NOT_FOUND`, `CHECKLIST_NOT_FOUND`)
+- 확인 순서: 사용자 404 → 대상 404
+- 탈퇴: 사용자 기록 전부 삭제 (체크리스트, 시뮬레이션, 연습, 서류, 활동, 저장한 정책, 준비도 기록). 정책 데이터는 남음
+- 서류 삭제: 칸까지 삭제
+- 체크리스트 삭제: 항목까지 삭제. 여기서 시작한 서류는 남고 체크리스트 연결만 끊김 (`checklist_item_id` null)
+- 같은 정책으로 다시 만들면 새 체크리스트 (진행 0%)
+
+처리 안 된 오류
+- 정해 둔 오류 밖의 예외는 500 `{"error": {"code": "INTERNAL_ERROR", "message": ...}}`
+- 로그에는 메서드, 경로 틀(`/api/users/{user_id}/...`), 예외 종류, 코드 위치만. 예외 메시지, 요청 값, 실제 ID는 남기지 않음
+
+자립 준비도 기록 (GET /readiness)
+- 조회할 때마다 오늘(한국 시간) 점수를 `readiness_snapshots`에 저장. 같은 날 다시 보면 마지막 값으로 덮어씀
+- `last_week_score`: 7일 전이나 그 이전 기록 중 가장 최근 점수. 없으면 null
+- `recent_scores`: 기록 있는 날 최근 7개 `{date, score}`, 최신순 (오늘 포함). 조회 안 한 날은 채우지 않음
 
 조건부 서류 해당 없음 (3.6, 3.10, 3.11)
 - 해당 없음인 서류에 `is_checked: false`를 보내면 변화 없음 (해당 없음 유지)
@@ -217,7 +274,7 @@ AI 롤플레잉 (3.16~3.19, 3.13)
 - 흥미 탐색 결과는 받은 문장 그대로, 출처 "흥미 탐색 결과". 빈 문자열은 없는 것으로 봄
 - 흥미 탐색 결과는 기록 수에 안 셈. 흥미 결과만 있으면 흥미 문장은 넣고 `notice`는 기록 없음 문구
 - 사용자 단계와 상관없이 초안 3종 모두 만듦
-- `app_records`가 `null`이면 없는 것과 같음. 빠진 필드는 `saved_policy_count` 0, `interest_summary` null
+- `app_records`가 `null`이면 없는 것과 같음. 빠진 `interest_summary`는 null
 - `saved_policy_count`는 정수만 (INT 범위). `interest_summary`는 앞뒤 공백 제거 후 500자 이하. 모르는 필드는 422
 
 
