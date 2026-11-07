@@ -190,6 +190,19 @@ class DocumentField(Base):
     updated_at: Mapped[datetime] = _updated_at()
 
 
+class ReadinessSnapshot(Base):
+    __tablename__ = "readiness_snapshots"
+    __table_args__ = (UniqueConstraint("user_id", "snapshot_date"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    score: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    areas: Mapped[dict] = mapped_column(JSONB, nullable=False)  # {"housing": 50, "money": 75, ...}
+    snapshot_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+
 class SavedPolicy(Base):
     __tablename__ = "saved_policies"
     __table_args__ = (UniqueConstraint("user_id", "policy_id"),)
