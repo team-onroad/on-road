@@ -227,6 +227,10 @@ python -m db.demo_seed
 - 체크리스트 삭제: 항목까지 삭제. 여기서 시작한 서류는 남고 체크리스트 연결만 끊김 (`checklist_item_id` null)
 - 같은 정책으로 다시 만들면 새 체크리스트 (진행 0%)
 
+처리 안 된 오류
+- 정해 둔 오류 밖의 예외는 500 `{"error": {"code": "INTERNAL_ERROR", "message": ...}}`
+- 로그에는 메서드, 경로 틀(`/api/users/{user_id}/...`), 예외 종류, 코드 위치만. 예외 메시지, 요청 값, 실제 ID는 남기지 않음
+
 자립 준비도 기록 (GET /readiness)
 - 조회할 때마다 오늘(한국 시간) 점수를 `readiness_snapshots`에 저장. 같은 날 다시 보면 마지막 값으로 덮어씀
 - `last_week_score`: 7일 전이나 그 이전 기록 중 가장 최근 점수. 없으면 null
