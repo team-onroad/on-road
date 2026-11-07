@@ -29,6 +29,12 @@ def _doc(api, user_id, type_="resume", **extra):
     return api.post(f"/api/users/{user_id}/documents", json={"type": type_, **extra})
 
 
+def _save_policies(api, user, db_session, n):
+    for _ in range(n):
+        res = api.post(f"/api/users/{user.id}/saved-policies", json={"policy_id": make_policy(db_session).id})
+        assert res.status_code == 201, res.text
+
+
 def _texts(data):
     return {s["title"]: [(x["text"], x["source"]) for x in s["sentences"]] for s in data["sections"]}
 
@@ -166,8 +172,9 @@ def test_records_order_and_sources(api, db_session):
     _set_time(db_session, "checklists", "updated_at", newer, base + timedelta(hours=1))
     _simulate(api, user)
     _simulate(api, user)
+    _save_policies(api, user, db_session, 2)
 
-    data = _doc(api, user.id, app_records={"saved_policy_count": 2}).json()
+    data = _doc(api, user.id).json()
 
     assert _texts(data)["경험·활동"] == [
         ("자립수당 신청 절차를 스스로 확인하고 서류를 준비해 신청을 마쳤습니다.", "체크리스트 완료 · 자립수당"),
@@ -218,8 +225,21 @@ def test_records_from_other_users_excluded(api, db_session):
 
 def test_saved_policy_only_counts_as_record(api, db_session):
     user = make_user(db_session)
-    data = _doc(api, user.id, app_records={"saved_policy_count": 1}).json()
+    _save_policies(api, user, db_session, 1)
+    data = _doc(api, user.id).json()
     assert data["notice"] == NOTICE_RECORDS
+    assert _texts(data)["경험·활동"] == [("자립에 필요한 제도 1가지를 찾아보고 정리했습니다.", "저장한 정책 1개")]
+
+
+def test_saved_policy_count_from_db_not_request(api, db_session):
+    user = make_user(db_session)
+    other = make_user(db_session)
+    _save_policies(api, other, db_session, 3)
+    data = _doc(api, user.id, app_records={"saved_policy_count": 5}).json()
+    assert data["notice"] == NOTICE_EMPTY
+
+    _save_policies(api, user, db_session, 1)
+    data = _doc(api, user.id, app_records={"saved_policy_count": 5}).json()
     assert _texts(data)["경험·활동"] == [("자립에 필요한 제도 1가지를 찾아보고 정리했습니다.", "저장한 정책 1개")]
 
 

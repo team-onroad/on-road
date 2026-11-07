@@ -237,6 +237,7 @@ def to_response(db: Session, checklist: Checklist, user: User, today: date) -> C
     return ChecklistResponse(
         checklist_id=checklist.id,
         policy=policy_object(policy),
+        due_date=checklist.due_date,
         progress=step_progress,
         document_progress=document_progress,
         steps=steps,
@@ -290,3 +291,11 @@ def toggle(db: Session, checklist: Checklist, item: ChecklistItem, body: ItemTog
         progress=step_progress,
         document_progress=document_progress,
     )
+
+
+def set_due_date(db: Session, checklist: Checklist, due_date: date | None, today: date) -> None:
+    """오늘(KST) 이전 날짜는 422. 같은 값이면 updated_at 유지"""
+    if due_date is not None and due_date < today:
+        raise AppError(422, "VALIDATION_ERROR", "요청 값이 올바르지 않습니다. (due_date)")
+    checklist.due_date = due_date
+    db.commit()
