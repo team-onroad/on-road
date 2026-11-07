@@ -128,6 +128,17 @@ def update_user(user: ExistingUser, body: UpdateBody, db: DB, today: Today) -> U
     return service.to_response(user, today)
 
 
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="탈퇴 (사용자 기록 전부 삭제)",
+    responses={404: ERROR_RESPONSES[404]},
+)
+def delete_user(user: ExistingUser, db: DB) -> Response:
+    service.delete_user(db, user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post(
     "/{user_id}/activities",
     status_code=status.HTTP_201_CREATED,

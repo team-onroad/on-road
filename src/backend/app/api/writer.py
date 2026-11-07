@@ -129,6 +129,17 @@ def get_document(target: QueryTarget, db: DB, today: Today) -> DocumentResponse:
     return service.to_response(db, doc)
 
 
+@router.delete(
+    "/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="서류 삭제",
+    responses={404: {"description": NOT_FOUND}},
+)
+def delete_document(target: QueryTarget, db: DB) -> Response:
+    service.delete_document(db, target[1])
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.patch(
     "/documents/{document_id}/fields/{field_id}",
     response_model=FieldResponse,
