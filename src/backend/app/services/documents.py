@@ -15,6 +15,7 @@ from app.schemas.forms import (
     TemplateSummary,
 )
 from app.services.home import user_checklists
+from app.services.saved_policies import saved_count
 from db.models import Simulation, User
 
 NOTICE_EMPTY = "앱에 쌓인 기록이 아직 적어서 빈칸이 많아요. 기록이 쌓일수록 초안이 풍부해져요."
@@ -40,7 +41,7 @@ def _blank(hint: str) -> Sentence:
     return Sentence(text=hint, source=None)
 
 
-def _records(db: Session, user: User, app_records: AppRecords) -> list[Sentence]:
+def _records(db: Session, user: User) -> list[Sentence]:
     """완료 체크리스트(3.13 순서) → 시뮬레이션 횟수 → 저장한 정책 수"""
     records = [
         Sentence(
@@ -56,7 +57,7 @@ def _records(db: Session, user: User, app_records: AppRecords) -> list[Sentence]
             text=f"생활비 계획을 {sims}번 세워 보며 지출을 관리하는 연습을 했습니다.",
             source=f"생활 시뮬레이션 {sims}회",
         ))
-    saved = app_records.saved_policy_count
+    saved = saved_count(db, user)
     if saved:
         records.append(Sentence(
             text=f"자립에 필요한 제도 {saved}가지를 찾아보고 정리했습니다.",
@@ -67,7 +68,7 @@ def _records(db: Session, user: User, app_records: AppRecords) -> list[Sentence]
 
 def generate(db: Session, user: User, body: DocumentRequest) -> DocumentResponse:
     app_records = body.app_records or AppRecords()
-    records = _records(db, user, app_records)
+    records = _records(db, user)
     interest = (
         [Sentence(text=app_records.interest_summary, source=INTEREST_SOURCE)]
         if app_records.interest_summary

@@ -28,7 +28,7 @@ def test_empty_growth(api, db_session):
         "user": {"user_id": str(user.id), "name": "테스트", "stage": "youth", "status": "leaving_soon",
                  "d_date": "2026-11-12", "d_day": 39},
         "summary": {"checklist_count": 0, "completed_checklist_count": 0, "simulation_count": 0,
-                    "roleplay_count": 0},
+                    "roleplay_count": 0, "practice_count": 0, "month_life_count": 0},
         "checklists": [],
         "simulations": [],
         "roleplays": [],
@@ -71,10 +71,11 @@ def test_summary_and_checklists(api, db_session):
     data = _growth(api, user.id).json()
 
     assert data["summary"] == {"checklist_count": 3, "completed_checklist_count": 2, "simulation_count": 1,
-                               "roleplay_count": 0}
+                               "roleplay_count": 0, "practice_count": 0, "month_life_count": 0}
     first = data["checklists"][0]
     assert set(first) == {
-        "checklist_id", "policy", "progress", "document_progress", "next_step", "created_at", "updated_at",
+        "checklist_id", "policy", "due_date", "progress", "document_progress", "next_step", "created_at",
+        "updated_at",
     }
     assert first["checklist_id"] == in_progress
     assert first["progress"] == {"checked_steps": 1, "total_steps": 4, "percent": 25}
@@ -175,12 +176,12 @@ def test_other_users_data_excluded(api, db_session):
     _simulate(api, other)
     data = _growth(api, user.id).json()
     assert data["summary"] == {"checklist_count": 0, "completed_checklist_count": 0, "simulation_count": 0,
-                               "roleplay_count": 0}
+                               "roleplay_count": 0, "practice_count": 0, "month_life_count": 0}
     assert (data["checklists"], data["simulations"], data["roleplays"]) == ([], [], [])
 
 
 def test_nullable_fields(api, db_session):
-    """null 가능: user.d_date·d_day, policy.contact·apply_url, next_step 만"""
+    """null 가능: user.d_date·d_day, policy.contact·apply_url, next_step, due_date 만"""
     user = make_user(db_session)
     _checklist(api, user, make_policy(db_session, contact=None, apply_url=None), checked_steps=ALL_STEPS)
     _simulate(api, user)
@@ -188,7 +189,7 @@ def test_nullable_fields(api, db_session):
 
     assert {k for k, v in data["user"].items() if v is None} == {"d_date", "d_day"}
     c = data["checklists"][0]
-    assert {k for k, v in c.items() if v is None} == {"next_step"}
+    assert {k for k, v in c.items() if v is None} == {"next_step", "due_date"}
     assert {k for k, v in c["policy"].items() if v is None} == {"contact", "apply_url"}
     assert all(v is not None for v in data["simulations"][0].values())
     assert all(v is not None for v in data["summary"].values())

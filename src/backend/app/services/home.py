@@ -3,10 +3,12 @@
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.codes import ALLOCATION_ITEMS
+from app.errors import AppError
+from app.ids import parse_id
 from app.roleplay import get_scenarios
 from app.rules import calc_d_day
 from app.schemas.checklists import DocumentProgress, NextStep, Progress
@@ -19,11 +21,12 @@ from app.schemas.home import (
     GrowthSummary,
     GrowthUser,
     LatestSimulation,
+    RoleplayDetail,
     RoleplaySummary,
     SimulationSummary,
 )
 from app.services.checklists import next_step, policy_object, progress
-from db.models import Checklist, ChecklistItem, Policy, RoleplayResult, Simulation, User
+from db.models import ActivityLog, Checklist, ChecklistItem, Policy, RoleplayResult, Simulation, User
 
 
 @dataclass
@@ -76,7 +79,7 @@ def _roleplays(user: User):
     )
 
 
-def _roleplay_title(scenario_id: str) -> str:
+def roleplay_title(scenario_id: str) -> str:
     # 상황 파일에서 빠진 상황이면 scenario_id 그대로
     s = get_scenarios().get(scenario_id)
     return s.title if s else scenario_id
@@ -105,6 +108,7 @@ def dashboard(db: Session, user: User, today: date) -> DashboardResponse:
             DashboardChecklist(
                 checklist_id=s.checklist.id,
                 policy=policy_object(s.policy),
+                due_date=s.checklist.due_date,
                 progress=s.progress,
                 next_step=s.next_step,
                 updated_at=s.checklist.updated_at,
@@ -123,6 +127,9 @@ def growth(db: Session, user: User, today: date) -> GrowthResponse:
     checklists = user_checklists(db, user)
     simulations = list(db.scalars(_simulations(user)))
     roleplays = list(db.scalars(_roleplays(user)))
+    activity_counts = dict(db.execute(
+        select(ActivityLog.kind, func.count()).where(ActivityLog.user_id == user.id).group_by(ActivityLog.kind)
+    ).all())
     return GrowthResponse(
         user=GrowthUser(**_user_fields(user, today), created_at=user.created_at),
         summary=GrowthSummary(
@@ -130,11 +137,14 @@ def growth(db: Session, user: User, today: date) -> GrowthResponse:
             completed_checklist_count=sum(s.next_step is None for s in checklists),
             simulation_count=len(simulations),
             roleplay_count=len(roleplays),
+            practice_count=activity_counts.get("practice", 0),
+            month_life_count=activity_counts.get("month_life", 0),
         ),
         checklists=[
             GrowthChecklist(
                 checklist_id=s.checklist.id,
                 policy=policy_object(s.policy),
+                due_date=s.checklist.due_date,
                 progress=s.progress,
                 document_progress=s.document_progress,
                 next_step=s.next_step,
@@ -158,11 +168,31 @@ def growth(db: Session, user: User, today: date) -> GrowthResponse:
             RoleplaySummary(
                 roleplay_id=r.id,
                 scenario_id=r.scenario_id,
-                title=_roleplay_title(r.scenario_id),
+                title=roleplay_title(r.scenario_id),
                 good_count=len(r.good),
                 missed_count=len(r.missed),
                 created_at=r.created_at,
             )
             for r in roleplays
         ],
+    )
+
+
+def roleplay_detail(db: Session, user: User, roleplay_id: str) -> RoleplayDetail:
+    """없는 ID, 형식 오류, 다른 사용자 것 → 404 ROLEPLAY_NOT_FOUND"""
+    rid = parse_id(roleplay_id)
+    row = None
+    if rid is not None:
+        row = db.scalars(
+            select(RoleplayResult).where(RoleplayResult.id == rid, RoleplayResult.user_id == user.id)
+        ).one_or_none()
+    if row is None:
+        raise AppError(404, "ROLEPLAY_NOT_FOUND", "연습 기록을 찾을 수 없습니다.")
+    return RoleplayDetail(
+        roleplay_id=row.id,
+        scenario_id=row.scenario_id,
+        title=roleplay_title(row.scenario_id),
+        good=row.good,
+        missed=row.missed,
+        created_at=row.created_at,
     )

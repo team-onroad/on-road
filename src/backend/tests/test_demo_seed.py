@@ -157,6 +157,7 @@ def test_growth_filled(api, db_session):
     data = api.get(f"/api/users/{UID}/growth").json()
     assert data["summary"] == {
         "checklist_count": 3, "completed_checklist_count": 1, "simulation_count": 2, "roleplay_count": 2,
+        "practice_count": 2, "month_life_count": 0,
     }
     assert (len(data["checklists"]), len(data["simulations"]), len(data["roleplays"])) == (3, 2, 2)
 
