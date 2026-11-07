@@ -162,11 +162,11 @@ def get_roleplay(user: ExistingUser, roleplay_id: str, db: DB) -> RoleplayDetail
 @router.get(
     "/{user_id}/readiness",
     response_model=ReadinessResponse,
-    summary="자립 준비도 (6개 영역 점수와 다음 할 일)",
+    summary="자립 준비도 (6개 영역 점수와 다음 할 일, 지난주 점수, 최근 점수)",
     responses={404: ERROR_RESPONSES[404]},
 )
-def get_readiness(user: ExistingUser, db: DB) -> ReadinessResponse:
-    return readiness.readiness(db, user)
+def get_readiness(user: ExistingUser, db: DB, today: Today) -> ReadinessResponse:
+    return readiness.readiness(db, user, today)
 
 
 @router.get(
