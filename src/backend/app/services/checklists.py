@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -120,6 +120,12 @@ def get_owned(db: Session, user: User, checklist_id: str) -> Checklist:
     if checklist is None:
         raise checklist_not_found()
     return checklist
+
+
+def delete_checklist(db: Session, checklist: Checklist) -> None:
+    """항목은 CASCADE 로 삭제. 여기서 시작한 서류는 남고 checklist_item_id 만 null (FK SET NULL)"""
+    db.execute(delete(Checklist).where(Checklist.id == checklist.id))
+    db.commit()
 
 
 def get_item(db: Session, checklist: Checklist, item_id: str) -> ChecklistItem:

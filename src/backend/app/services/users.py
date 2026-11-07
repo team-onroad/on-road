@@ -3,6 +3,7 @@
 import uuid
 from datetime import date
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
@@ -93,3 +94,9 @@ def update_user(db: Session, user: User, data: UserUpdate, today: date) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def delete_user(db: Session, user: User) -> None:
+    """사용자 기록은 FK CASCADE 로 같이 삭제 (정책 데이터는 남음)"""
+    db.execute(delete(User).where(User.id == user.id))
+    db.commit()

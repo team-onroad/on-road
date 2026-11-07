@@ -172,6 +172,9 @@ python -m db.demo_seed
 | GET | `/api/users/{user_id}/activities` | 활동 기록 목록 |
 | GET | `/api/users/{user_id}/roleplays/{roleplay_id}` | 기록에 남긴 연습 결과 |
 | GET | `/api/users/{user_id}/readiness` | 자립 준비도 |
+| DELETE | `/api/users/{user_id}` | 탈퇴 |
+| DELETE | `/api/documents/{document_id}?user_id=` | 서류 삭제 |
+| DELETE | `/api/checklists/{checklist_id}?user_id=` | 체크리스트 삭제 |
 
 명세에 없어서 따로 정한 부분
 - `user_id`가 잘못된 형식이거나 없는 사용자면 항상 404 `USER_NOT_FOUND` (앱은 온보딩으로 이동)
@@ -215,6 +218,14 @@ python -m db.demo_seed
 - 피드백을 부를 때마다 `save`와 상관없이 `activity_logs`에 practice 1줄 (`good`, `missed` 개수, `score`)
 - 앱은 피드백 뒤에 `POST /activities`를 따로 부르지 않음 (부르면 두 번 기록됨)
 - 성장 기록 `summary`: `roleplay_count` 기록에 남긴 연습, `practice_count` 끝낸 연습 전체, `month_life_count` 한 달 살아보기
+
+삭제 (탈퇴, 서류, 체크리스트)
+- 성공 204, 본문 없음. 이미 지웠거나 없는 ID, 형식 오류, 다른 사용자 것은 404 (`USER_NOT_FOUND`, `DOCUMENT_NOT_FOUND`, `CHECKLIST_NOT_FOUND`)
+- 확인 순서: 사용자 404 → 대상 404
+- 탈퇴: 사용자 기록 전부 삭제 (체크리스트, 시뮬레이션, 연습, 서류, 활동, 저장한 정책, 준비도 기록). 정책 데이터는 남음
+- 서류 삭제: 칸까지 삭제
+- 체크리스트 삭제: 항목까지 삭제. 여기서 시작한 서류는 남고 체크리스트 연결만 끊김 (`checklist_item_id` null)
+- 같은 정책으로 다시 만들면 새 체크리스트 (진행 0%)
 
 자립 준비도 기록 (GET /readiness)
 - 조회할 때마다 오늘(한국 시간) 점수를 `readiness_snapshots`에 저장. 같은 날 다시 보면 마지막 값으로 덮어씀

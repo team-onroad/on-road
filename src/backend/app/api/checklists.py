@@ -83,6 +83,17 @@ def update_checklist(
     return service.to_response(db, checklist, user, today)
 
 
+@router.delete(
+    "/{checklist_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="체크리스트 삭제 (여기서 시작한 서류는 남음)",
+    responses={404: {"description": "USER_NOT_FOUND / CHECKLIST_NOT_FOUND"}},
+)
+def delete_checklist(target: Owned, db: DB) -> Response:
+    service.delete_checklist(db, target[1])
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 def _toggle_target(checklist_id: str, item_id: str, user_id: str, db: DB) -> tuple[Checklist, ChecklistItem]:
     # 확인 순서: 사용자 → 체크리스트 → 항목
     user = get_user(db, user_id)
