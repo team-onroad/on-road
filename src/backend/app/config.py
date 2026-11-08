@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     rag_mode: Literal["mock", "real"] = "mock"
     # mock: app/llm_mock.py (기본), real: src/coach/ 실제 AI 상담·롤플레잉 (OPENAI_API_KEY 필요)
     llm_mode: Literal["mock", "real"] = "mock"
+    # 서류 내용 암호화 키 (app/sealing.py). 없으면 평문 저장. 쉼표로 여러 개 = 키 교체
+    doc_secret_key: str | None = None
+    # 오래된 서류의 개인정보 칸 비우기 (services/writer.py clear_stale)
+    doc_keep_exported_days: int = 90  # 내보낸 뒤
+    doc_keep_writing_days: int = 180  # 쓰다가 손대지 않은 채로
 
 
 @lru_cache

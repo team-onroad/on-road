@@ -204,11 +204,14 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 
 ### 3.7 `documents`, `document_fields` — 문서 AI 작성 세션
 
-[document-ai.md](document-ai.md) 참고. 마이그레이션 `0004_documents`.
+[document-ai.md](document-ai.md) 참고. 마이그레이션 `0004_documents`, `0008_document_privacy`.
+
+- **암호화 저장**: `segments`, `previous_segments`, `context` 는 `.env` 의 `DOC_SECRET_KEY` 가 있으면 DB 에 암호화해 넣는다 (`app/sealing.py`, 모델의 `SealedJson`·`SealedText`). 컬럼 형식은 그대로라 키가 없으면 평문, 키를 넣기 전 평문 값도 그대로 읽힌다. 한 번에 암호화: `python -m db.document_privacy seal`
+- **오래된 서류**: 내보낸 지 90일, 쓰다 둔 지 180일이 지나면 서류는 남기고 개인정보 칸(프로필·계좌·전화·주소)만 비운다. 비운 때가 `personal_cleared_at`. 서류 목록·서류를 열 때 자동으로, 또는 `python -m db.document_privacy clear`
 
 | 테이블 | 주요 컬럼 |
 |---|---|
-| documents | `user_id`, `source_type`(template·policy_form), `source_id`, `title`, `policy_id`(SET NULL), `checklist_item_id`(SET NULL), `context`, `spec`(JSONB, 만들 때의 칸 정의 스냅샷), `status`(writing·exported), `exported_at`. UNIQUE (user_id, source_type, source_id) |
+| documents | `user_id`, `source_type`(template·policy_form), `source_id`, `title`, `policy_id`(SET NULL), `checklist_item_id`(SET NULL), `context`, `spec`(JSONB, 만들 때의 칸 정의 스냅샷), `status`(writing·exported), `exported_at`, `personal_cleared_at`. UNIQUE (user_id, source_type, source_id) |
 | document_fields | `document_id`(CASCADE), `field_id`, `sort_order`, `segments`(JSONB [{text, source}]), `previous_segments`(되돌리기 1단계), `tip`, `reused_from`, `is_completed`, `completed_at`. UNIQUE (document_id, field_id) |
 
 <br/>
