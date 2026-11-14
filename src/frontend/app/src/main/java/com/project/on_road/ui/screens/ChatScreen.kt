@@ -1,5 +1,24 @@
 package com.project.on_road.ui.screens
 
+import com.project.on_road.ui.theme.OnRoadMotion
+
+import com.project.on_road.ui.components.copyOnLongPress
+
+import com.project.on_road.ui.components.RevealText
+
+import androidx.compose.ui.semantics.semantics
+
+import androidx.compose.ui.semantics.contentDescription
+
+import androidx.compose.foundation.shape.RoundedCornerShape
+
+import androidx.compose.animation.animateColorAsState
+
+
+import com.project.on_road.ui.components.tap
+import com.project.on_road.ui.components.reveal
+import com.project.on_road.ui.components.TypingDots
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,6 +46,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -51,6 +72,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -191,6 +213,12 @@ class ChatViewModel : ViewModel() {
         ActivityStore.saveChat(chatId, startedAt, messages.filter { it.id != 0L })
     }
 
+    /** 방금 도착해 글자가 흘러나오는 중인 답변 id (끝나면 null) */
+    var revealId by mutableStateOf<Long?>(null)
+    /** 불러오지 못한 답변 id → 다시 보낼 질문 */
+    val retryOf = mutableStateMapOf<Long, String>()
+    private var job: kotlinx.coroutines.Job? = null
+
     fun send(text: String = input) {
         val t = text.trim().take(MESSAGE_LIMIT)
         if (t.isEmpty() || sending) return
@@ -200,19 +228,46 @@ class ChatViewModel : ViewModel() {
         input = ""
         // 관심 분야 신호 (주거·생활비·취업 …) → 관심사·다음 할 일 추천에 쓰인다
         ActivityStore.logQuestion(t, SignalSource.CHAT)
-        viewModelScope.launch {
+        ask(t)
+    }
+
+    private fun ask(t: String) {
+        job = viewModelScope.launch {
             sending = true
+            var failed = false
             val reply = runCatching {
                 AppContainer.chatApi.reply(AppContainer.session.userId.orEmpty(), messages.toList(), t)
             }.getOrElse {
+                if (it is kotlinx.coroutines.CancellationException) throw it
+                failed = true
                 ChatMessage(0L, ChatRole.ASSISTANT, "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.", needsCheck = true, kind = ChatKind.LOCAL)
             }
             val msg = reply.copy(id = nextId++)
             messages.add(msg)
             times[msg.id] = nowLabel()
+            if (failed) retryOf[msg.id] = t else revealId = msg.id
             sending = false
             persist()
         }
+    }
+
+    /** 기다리는 중 멈추기 */
+    fun stop() {
+        if (!sending) return
+        job?.cancel()
+        sending = false
+        val msg = ChatMessage(nextId++, ChatRole.ASSISTANT, "답변을 멈췄어요. 궁금한 걸 다시 보내 주세요.", kind = ChatKind.LOCAL)
+        messages.add(msg)
+        times[msg.id] = nowLabel()
+    }
+
+    /** 불러오지 못한 답변 자리에서 같은 질문을 다시 보낸다 */
+    fun retry(id: Long) {
+        val q = retryOf.remove(id) ?: return
+        if (sending) return
+        messages.removeAll { it.id == id }
+        times.remove(id)
+        ask(q)
     }
 }
 
@@ -246,16 +301,16 @@ fun ChatScreen(
         OnRoadTopBar(
             title = "상담",
             onBack = onBack,
+            onClose = null,
+            divider = false,
+            // '지난 상담' 글씨 대신 기록 아이콘
             trailing = {
-                Text(
-                    "지난 상담",
-                    style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
-                    color = OnRoadColors.TextSecondary,
-                    modifier = Modifier
-                        .clip(OnRoadShapes.Chip)
-                        .clickable { showHistory = true }
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                )
+                Box(
+                    Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).tap(onClickLabel = "지난 상담") { showHistory = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.History, "지난 상담", tint = OnRoadColors.TextSecondary, modifier = Modifier.size(22.dp))
+                }
             },
         )
         HelpStrip { showHelp = true }
@@ -267,12 +322,12 @@ fun ChatScreen(
                     .padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("$day 상담을 이어서 하고 있어요", style = OnRoadType.Micro, color = OnRoadColors.TextSlate, modifier = Modifier.weight(1f))
+                Text("$day 상담을 이어서 하고 있어요", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, modifier = Modifier.weight(1f))
                 Text(
                     "새 상담",
                     style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold),
                     color = OnRoadColors.Primary,
-                    modifier = Modifier.clickable { vm.startNew() },
+                    modifier = Modifier.tap { vm.startNew() },
                 )
             }
         }
@@ -280,11 +335,13 @@ fun ChatScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = OnRoadDimens.ScreenPadding, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(36.dp),
+            contentPadding = PaddingValues(horizontal = OnRoadDimens.ScreenPadding, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(ChatSpace.MessageGap),
         ) {
             items(vm.messages, key = { it.id }) { msg ->
                 val time = vm.times[msg.id].orEmpty()
+                // 새 말풍선은 아래에서 살짝 올라오며 나타난다
+                Box(Modifier.animateItem().reveal()) {
                 if (msg.role == ChatRole.USER) {
                     UserMessage(msg.text, time)
                 } else {
@@ -297,10 +354,14 @@ fun ChatScreen(
                         onPrepare = onPrepare,
                         onAskMore = { runCatching { inputFocus.requestFocus() } },
                         onWriteDocument = { onWriteDocument(it, msg.handoffContext) },
+                        reveal = msg.id == vm.revealId,
+                        onRevealDone = { if (vm.revealId == msg.id) vm.revealId = null },
+                        onRetry = if (msg.id in vm.retryOf) ({ vm.retry(msg.id) }) else null,
                     )
                 }
+                }
             }
-            if (vm.sending) item(key = "typing") { TypingBubble() }
+            if (vm.sending) item(key = "typing") { Box(Modifier.animateItem().reveal()) { TypingBubble() } }
             // 마지막 답 아래: 이야기한 분야로 이어서 해 볼 것 (위기 상담 중에는 띄우지 않는다)
             val lastBot = vm.messages.lastOrNull()?.takeIf { it.role != ChatRole.USER && it.kind != ChatKind.CRISIS }
             val lastQuestion = vm.messages.lastOrNull { it.role == ChatRole.USER }?.text
@@ -314,21 +375,15 @@ fun ChatScreen(
                     )
                 }
             }
-            item(key = "footer") {
-                Text(
-                    "AI 답변은 참고용이에요. 금액과 자격은 기관에서 확인해 주세요.",
-                    style = OnRoadType.Tiny,
-                    color = OnRoadColors.TextQuaternary,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            item(key = "footer") { Spacer(Modifier.height(4.dp)) }
         }
 
-        HorizontalDivider(thickness = 1.dp, color = OnRoadColors.BorderInput)
         ChatInputBar(
             value = vm.input,
             onValueChange = { vm.input = it.take(MESSAGE_LIMIT) },
             enabled = !vm.sending,
+            sending = vm.sending,
+            onStop = vm::stop,
             onSend = { vm.send() },
             onVoice = { vm.input = (vm.input + " " + it).trim().take(MESSAGE_LIMIT) },
             focusRequester = inputFocus,
@@ -347,49 +402,111 @@ fun ChatScreen(
 
 /* ---------------------------- 지난 상담 ---------------------------- */
 
+/** 상담 화면 간격 (숫자만 바꿔서 조절) */
+private object ChatSpace {
+    /** 말 사이 */
+    val MessageGap = 28.dp
+    /** AI 답변 행간 (13sp 글씨 기준, 기본 21.7) */
+    val AnswerLineHeight = 20.sp
+    /** 첫 인사 → 자주 묻는 주제 */
+    val StarterTop = 20.dp
+    /** 모달 양옆 여백 */
+    val DialogSide = 20.dp
+}
+
+/**
+ * 상담 모달 공통 모양 (일정 '정보 수정' 창과 같은 흰 카드).
+ * 위계: 제목(Title3) → 짧은 안내(연한 글씨) → 연회색 목록 카드 → 아래 버튼
+ */
+@Composable
+private fun ChatDialog(
+    title: String,
+    sub: String?,
+    onDismiss: () -> Unit,
+    bottom: (@Composable () -> Unit)? = null,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = ChatSpace.DialogSide)
+                .clip(OnRoadShapes.Card)
+                .background(Color.White)
+                .padding(horizontal = 20.dp, vertical = 22.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = OnRoadType.Title3, color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+                Box(
+                    Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).tap(onClickLabel = "닫기", onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Filled.Close, "닫기", tint = OnRoadColors.TextTertiary, modifier = Modifier.size(18.dp)) }
+            }
+            sub?.let {
+                Spacer(Modifier.height(2.dp))
+                Text(it, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+            }
+            Spacer(Modifier.height(16.dp))
+            content()
+            bottom?.let {
+                Spacer(Modifier.height(16.dp))
+                it()
+            }
+        }
+    }
+}
+
+/** 모달 안 목록 한 줄: 연회색 카드 (앱 목록 카드와 같은 모양) */
+@Composable
+private fun DialogRow(title: String, sub: String?, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+    com.project.on_road.ui.components.OnRoadCard(
+        Modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        onClick = onClick,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1)
+                sub?.let {
+                    Spacer(Modifier.height(2.dp))
+                    Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
+                }
+            }
+            trailing?.let {
+                Spacer(Modifier.width(8.dp))
+                it()
+            }
+        }
+    }
+}
+
 @Composable
 private fun HistoryDialog(onPick: (Long) -> Unit, onNew: () -> Unit, onDismiss: () -> Unit) {
     val chats = remember { ActivityStore.chats() }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color.White,
-        shape = OnRoadShapes.Card,
-        title = { Text("지난 상담", style = OnRoadType.Title3, color = OnRoadColors.TextPrimary) },
-        text = {
-            if (chats.isEmpty()) {
-                Text("아직 저장된 상담이 없어요.\n질문하면 이 휴대폰에 대화가 남아요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
-            } else {
-                LazyColumn(Modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(chats, key = { it.id }) { c ->
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(OnRoadShapes.Inner)
-                                .border(1.dp, OnRoadColors.BorderSlate, OnRoadShapes.Inner)
-                                .clickable { onPick(c.id) }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                        ) {
-                            Text(c.title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1)
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                "${dayLabel(c.updatedAt)} · 질문 ${c.questionCount}개" +
-                                    if (c.topics.isNotEmpty()) " · " + c.topics.joinToString(", ") { it.label } else "",
-                                style = OnRoadType.Micro,
-                                color = OnRoadColors.TextTertiary,
-                                maxLines = 1,
-                            )
-                        }
-                    }
+    ChatDialog(
+        title = "지난 상담",
+        sub = if (chats.isEmpty()) "질문하면 이 휴대폰에 대화가 남아요." else "이어서 할 상담을 골라요",
+        onDismiss = onDismiss,
+        bottom = { OnRoadButton("새 상담 시작", onNew, Modifier.fillMaxWidth()) },
+    ) {
+        if (chats.isNotEmpty()) {
+            LazyColumn(Modifier.heightIn(max = 340.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(chats, key = { it.id }) { c ->
+                    DialogRow(
+                        c.title,
+                        "${dayLabel(c.updatedAt)} · 질문 ${c.questionCount}개" +
+                            if (c.topics.isNotEmpty()) " · " + c.topics.joinToString(", ") { it.label } else "",
+                    ) { onPick(c.id) }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onNew) { Text("새 상담 시작", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("닫기", style = OnRoadType.Caption, color = OnRoadColors.TextSlate) }
-        },
-    )
+        }
+    }
 }
 
 /* ---------------------------- 도움 연락처 ---------------------------- */
@@ -400,13 +517,13 @@ private fun HelpStrip(onClick: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .background(OnRoadColors.SurfaceGuide)
-            .clickable(onClick = onClick)
+            .tap(onClick = onClick)
             .padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Outlined.Call, null, tint = OnRoadColors.Primary, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
-        Text("혼자 고민하지 않아도 괜찮아요", style = OnRoadType.Micro, color = OnRoadColors.TextSlate, modifier = Modifier.weight(1f))
+        Text("혼자 고민하지 않아도 괜찮아요", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, modifier = Modifier.weight(1f))
         Text("도움 연락처", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.Primary, modifier = Modifier.size(14.dp))
     }
@@ -415,38 +532,17 @@ private fun HelpStrip(onClick: () -> Unit) {
 @Composable
 private fun HelpDialog(onDismiss: () -> Unit) {
     val uri = LocalUriHandler.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color.White,
-        shape = OnRoadShapes.Card,
-        title = { Text("도움 연락처", style = OnRoadType.Title3, color = OnRoadColors.TextPrimary) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("누르면 전화 화면으로 연결돼요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
-                Spacer(Modifier.height(4.dp))
-                helpContacts.forEach { c ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(OnRoadShapes.Inner)
-                            .border(1.dp, OnRoadColors.BorderSlate, OnRoadShapes.Inner)
-                            .clickable { runCatching { uri.openUri("tel:${c.number}") } }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(c.name, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-                            Text(c.description, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
-                        }
-                        Text(c.number, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
-                    }
-                }
+    ChatDialog(title = "도움 연락처", sub = "누르면 전화 화면으로 연결돼요.", onDismiss = onDismiss) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            helpContacts.forEach { c ->
+                DialogRow(
+                    c.name,
+                    c.description,
+                    trailing = { Text(c.number, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary) },
+                ) { runCatching { uri.openUri("tel:${c.number}") } }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("닫기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSlate) }
-        },
-    )
+        }
+    }
 }
 
 /* ---------------------------- 말풍선 ---------------------------- */
@@ -458,26 +554,20 @@ private fun BotAvatar() {
     // 캐릭터·로고 이미지 자리
     Box(
         Modifier
-            .size(32.dp)
-            .clip(OnRoadShapes.Field)
-            .background(OnRoadColors.SurfaceMuted)
-            .border(1.dp, BubbleBorder, OnRoadShapes.Field),
+            .size(24.dp)
+            .clip(OnRoadShapes.Chip)
+            .background(OnRoadColors.SurfaceMuted),
         contentAlignment = Alignment.Center,
-    ) { LogoSlot(size = 24.dp) }
+    ) { LogoSlot(size = 18.dp) }
 }
 
 @Composable
 private fun Bubble(content: @Composable () -> Unit) {
-    // 폭은 글 길이만큼 (버튼·카드가 있으면 그것들이 최대 폭까지 넓힌다)
-    Column(
-        Modifier
-            .clip(OnRoadShapes.Inner)
-            .background(Color.White)
-            .border(1.dp, BubbleBorder, OnRoadShapes.Inner)
-            .padding(16.dp),
-    ) { content() }
+    // AI 말은 상자 없이 글만 (버튼 · 근거는 그 아래에 이어서)
+    Column(Modifier.fillMaxWidth()) { content() }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun BotMessage(
     msg: ChatMessage,
@@ -488,25 +578,46 @@ private fun BotMessage(
     onPrepare: (String) -> Unit,
     onAskMore: () -> Unit = {},
     onWriteDocument: (DocCandidate) -> Unit = {},
+    reveal: Boolean = false,
+    onRevealDone: () -> Unit = {},
+    onRetry: (() -> Unit)? = null,
 ) {
-    Row(Modifier.fillMaxWidth()) {
-        BotAvatar()
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("On-road", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary)
-                Spacer(Modifier.width(4.dp))
-                Text(time, style = OnRoadType.Tiny, color = OnRoadColors.TextSlate)
+    // 위: 이름 · 시간 한 줄 / 아래: 답 (로고 · 상자 · 들여쓰기 없이 화면 여백 선에서 바로)
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("On-road", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            Spacer(Modifier.width(6.dp))
+            Text(time, style = OnRoadType.Micro, color = OnRoadColors.TextQuaternary)
                 if (msg.needsCheck) {
                     Spacer(Modifier.width(8.dp))
                     OnRoadTag("확인이 필요해요", style = TagStyle.Danger, textStyle = OnRoadType.Tiny)
                 }
-                Spacer(Modifier.weight(1f))
-                SpeakButton(msg.text, modifier = Modifier.size(28.dp))
-            }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.weight(1f))
+            SpeakButton(msg.text, modifier = Modifier.size(28.dp))
+        }
+        Column(Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(6.dp))
             Bubble {
-                BubbleText(msg.text, color = OnRoadColors.TextPrimary)
+                // 새 답변은 글자가 흘러나오듯 · 길게 누르면 복사
+                RevealText(msg.text, animate = reveal, onDone = onRevealDone) { shown ->
+                    BubbleText(
+                        shown,
+                        color = OnRoadColors.TextPrimary,
+                        modifier = Modifier.copyOnLongPress(msg.text),
+                        style = OnRoadType.Caption.copy(lineHeight = ChatSpace.AnswerLineHeight),
+                    )
+                }
+                if (onRetry != null) {
+                    Spacer(Modifier.height(12.dp))
+                    OnRoadButton(
+                        "다시 보내기",
+                        onRetry,
+                        height = 36.dp,
+                        variant = ButtonVariant.Outline,
+                        textStyle = OnRoadType.Caption,
+                        borderColor = OnRoadColors.BorderChip,
+                    )
+                }
 
                 // 문서 AI 로 넘기기: 쓸 서류 고르기
                 if (msg.kind == ChatKind.DOCUMENT && msg.candidates.isNotEmpty()) {
@@ -535,23 +646,21 @@ private fun BotMessage(
 
                 if (msg.evidence.isNotEmpty()) {
                     Spacer(Modifier.height(16.dp))
-                    HorizontalDivider(thickness = 1.dp, color = OnRoadColors.BorderInput)
-                    Spacer(Modifier.height(16.dp))
-                    Text("[답변 근거]", style = OnRoadType.Caption, color = OnRoadColors.TextPrimary)
-                    Spacer(Modifier.height(12.dp))
+                    Text("답변 근거", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextTertiary)
+                    Spacer(Modifier.height(8.dp))
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .clip(OnRoadShapes.Chip)
-                            .background(OnRoadColors.SurfaceMuted)
-                            .border(1.dp, BubbleBorder, OnRoadShapes.Chip)
-                            .padding(12.dp),
+                            .clip(OnRoadShapes.Item)
+                            .background(OnRoadColors.SurfaceSubtle)
+                            .border(1.dp, OnRoadColors.Border.copy(alpha = 0.7f), OnRoadShapes.Item)
+                            .padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         msg.evidence.forEachIndexed { i, ev ->
                             Column {
                                 NumberedPoint(i + 1, "“${ev.snippet}”")
-                                Text(ev.source, style = OnRoadType.Tiny, color = OnRoadColors.TextSlateMid, modifier = Modifier.padding(start = 34.dp, top = 2.dp))
+                                Text(ev.source, style = OnRoadType.Tiny, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(start = 34.dp, top = 2.dp))
                             }
                         }
                     }
@@ -576,20 +685,17 @@ private fun BotMessage(
                 ProfileChangeCard(msg.profileChanges, key = "chat-${msg.id}")
             }
 
-            // 상담 답변 아래 안내 (1.6)
-            if (msg.kind == ChatKind.COUNSEL) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "AI 답변은 참고용이에요. 금액·자격은 담당 기관에서 꼭 확인해 주세요.",
-                    style = OnRoadType.Tiny,
-                    color = OnRoadColors.TextQuaternary,
-                )
-            }
 
             if (msg.policies.isNotEmpty()) {
                 val first = msg.policies.first()
-                Spacer(Modifier.height(8.dp))
-                Bubble {
+                Spacer(Modifier.height(12.dp))
+                com.project.on_road.ui.components.OnRoadCard(
+                    Modifier.fillMaxWidth(),
+                    background = OnRoadColors.SurfaceSubtle,
+                    borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+                    shape = OnRoadShapes.Item,
+                    contentPadding = PaddingValues(16.dp),
+                ) {
                     Text(
                         "‘${first.name}’ 신청에 필요한 단계와 서류를 체크리스트로 정리해 드릴까요?",
                         style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight),
@@ -610,11 +716,31 @@ private fun BotMessage(
             }
 
             if (starters.isNotEmpty()) {
-                Spacer(Modifier.height(24.dp))
-                Text(if (AppState.stage == UserStage.YOUNG_ADULT) "* 청년들이 자주 묻는 주제" else "* 청소년들이 자주 묻는 주제", style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
-                Spacer(Modifier.height(8.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    starters.forEach { SuggestionChip(it) { onStarter(it) } }
+                Spacer(Modifier.height(ChatSpace.StarterTop))
+                // 자주 묻는 주제: 작은 라벨 + 글 길이만큼만 차지하는 둥근 칩 (여러 개가 줄 바꿔 흐른다)
+                Text(
+                    if (AppState.stage == UserStage.YOUNG_ADULT) "청년들이 자주 묻는 주제" else "청소년들이 자주 묻는 주제",
+                    style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                    color = OnRoadColors.TextTertiary,
+                )
+                Spacer(Modifier.height(10.dp))
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    starters.forEach { q ->
+                        Text(
+                            q,
+                            style = OnRoadType.Caption,
+                            color = OnRoadColors.TextSecondary,
+                            modifier = Modifier
+                                .clip(OnRoadShapes.Chip)
+                                .background(OnRoadColors.SurfaceSubtle)
+                                .border(1.dp, OnRoadColors.Border, OnRoadShapes.Chip)
+                                .tap { onStarter(q) }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                        )
+                    }
                 }
             }
         }
@@ -630,7 +756,7 @@ private fun ContactRow(line: HelpLine) {
             .fillMaxWidth()
             .clip(OnRoadShapes.Inner)
             .border(1.dp, OnRoadColors.BorderSlate, OnRoadShapes.Inner)
-            .clickable { runCatching { uri.openUri("tel:${line.phone}") } }
+            .tap { runCatching { uri.openUri("tel:${line.phone}") } }
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -641,39 +767,29 @@ private fun ContactRow(line: HelpLine) {
 
 @Composable
 private fun TypingBubble() {
-    Row(Modifier.fillMaxWidth()) {
-        BotAvatar()
-        Spacer(Modifier.width(12.dp))
-        Box(
-            Modifier
-                .clip(OnRoadShapes.Inner)
-                .background(Color.White)
-                .border(1.dp, BubbleBorder, OnRoadShapes.Inner)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        ) {
-            Text("답변을 준비하고 있어요…", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
-        }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        TypingDots()
+        Spacer(Modifier.width(10.dp))
+        Text("답변을 준비하고 있어요", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
     }
 }
 
 @Composable
 private fun UserMessage(text: String, time: String) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(time, style = OnRoadType.Tiny, color = OnRoadColors.TextSlate)
-            Spacer(Modifier.width(6.dp))
-            Text("나", style = OnRoadType.Body2, color = OnRoadColors.TextPrimary)
-        }
-        Spacer(Modifier.height(8.dp))
+        // 내 말: 메인 색 말풍선 · 흰 글씨 (서류 작성 · 실전 연습과 같게), 시간은 아래 작게
         Box(
             Modifier
-                .widthIn(max = 260.dp)
+                .widthIn(max = 280.dp)
                 .clip(OnRoadShapes.Inner)
-                .background(Color.White)
-                .border(1.dp, OnRoadColors.Primary, OnRoadShapes.Inner)
-                .padding(horizontal = 15.dp, vertical = 12.dp),
+                .background(OnRoadColors.Primary)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
-            BubbleText(text, color = OnRoadColors.Primary)
+            BubbleText(text, color = Color.White, modifier = Modifier.copyOnLongPress(text))
+        }
+        if (time.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(time, style = OnRoadType.Micro, color = OnRoadColors.TextQuaternary)
         }
     }
 }
@@ -687,6 +803,8 @@ private fun ChatInputBar(
     enabled: Boolean,
     onSend: () -> Unit,
     onVoice: (String) -> Unit,
+    sending: Boolean = false,
+    onStop: () -> Unit = {},
     focusRequester: FocusRequester? = null,
 ) {
     val listen = rememberSpeechInput(onVoice)
@@ -695,49 +813,56 @@ private fun ChatInputBar(
         Modifier
             .fillMaxWidth()
             .background(Color.White)
-            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 16.dp),
+            .padding(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = 8.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // 앱 입력칸과 같은 모양: 흰 바탕 · 회색 테두리 · 8dp 모서리 · 48dp 높이
         Row(
             Modifier
                 .weight(1f)
-                .heightIn(min = 44.dp)
-                .clip(OnRoadShapes.Inner)
-                .background(OnRoadColors.SurfaceMuted)
-                .border(1.dp, OnRoadColors.BorderInput, OnRoadShapes.Inner)
-                .padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                .heightIn(min = OnRoadDimens.FieldHeight)
+                .clip(OnRoadShapes.Field)
+                .background(Color.White)
+                .border(1.dp, OnRoadColors.BorderSlate, OnRoadShapes.Field)
+                .padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 maxLines = 4,
-                textStyle = OnRoadType.Caption.copy(color = OnRoadColors.TextPrimary),
+                textStyle = OnRoadType.Body2.copy(color = OnRoadColors.TextPrimary),
                 cursorBrush = SolidColor(OnRoadColors.Primary),
                 modifier = Modifier.weight(1f).let { m -> if (focusRequester != null) m.focusRequester(focusRequester) else m },
                 decorationBox = { inner ->
-                    if (value.isEmpty()) Text("입력하세요..", style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
+                    if (value.isEmpty()) Text("궁금한 걸 물어보세요", style = OnRoadType.Body2, color = OnRoadColors.TextQuaternary)
                     inner()
                 },
             )
             if (AppState.voiceOn) {
                 Spacer(Modifier.width(6.dp))
                 Icon(
-                    Icons.Outlined.Mic, "말로 입력", tint = OnRoadColors.TextSlate,
-                    modifier = Modifier.size(20.dp).clickable(onClick = listen),
+                    Icons.Outlined.Mic, "말로 입력", tint = OnRoadColors.TextTertiary,
+                    modifier = Modifier.size(20.dp).tap(onClick = listen),
                 )
             }
         }
         Spacer(Modifier.width(8.dp))
+        // 보내기 ↔ 멈추기: 기다리는 동안은 같은 자리가 멈추기 버튼이 된다
+        val on = active || sending
+        val bg by animateColorAsState(if (on) OnRoadColors.PrimaryDeep else OnRoadColors.SurfaceMuted, OnRoadMotion.move(OnRoadMotion.FAST), label = "send-bg")
         Box(
             Modifier
-                .size(40.dp)
+                .size(OnRoadDimens.FieldHeight)
                 .clip(OnRoadShapes.Field)
-                .background(if (active) OnRoadColors.PrimaryDeep else OnRoadColors.SurfaceMuted)
-                .clickable(enabled = active, onClick = onSend),
+                .background(bg)
+                .tap(enabled = on, haptic = sending, onClick = if (sending) onStop else onSend),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.ArrowUpward, "보내기", tint = if (active) Color.White else OnRoadColors.TextQuaternary, modifier = Modifier.size(20.dp))
+            androidx.compose.animation.Crossfade(sending, label = "send-icon") { s ->
+                if (s) Box(Modifier.size(12.dp).clip(RoundedCornerShape(2.dp)).background(Color.White).semantics { contentDescription = "답변 멈추기" })
+                else Icon(Icons.Filled.ArrowUpward, "보내기", tint = if (active) Color.White else OnRoadColors.TextQuaternary, modifier = Modifier.size(20.dp))
+            }
         }
     }
 }

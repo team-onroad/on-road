@@ -31,6 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.ui.draw.drawBehind
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -157,6 +159,29 @@ fun FormHelperScreen(
     onRiskCheck: (() -> Unit)? = null,
     vm: FormHelperViewModel = viewModel(),
 ) {
+    Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
+        OnRoadTopBar(vm.draft?.title ?: "서류 작성 도우미", { if (vm.draft != null) vm.close() else onBack() })
+        FormHelperContent(onOpenDocument, onStartTemplate, onRiskCheck, onBack = onBack, vm = vm, modifier = Modifier.weight(1f))
+    }
+}
+
+/**
+ * 서류 작성 도우미 내용 (제목 줄 없이). 서류 작성 도우미 화면과 신청 관리의 '서류' 칸이 같이 쓴다.
+ * 받은 양식 올리기 → 계약서 위험 찾기 → 활동 기록 초안 → 쓰던 서류 → 자주 쓰는 양식
+ */
+@Composable
+fun FormHelperContent(
+    onOpenDocument: (Long) -> Unit = {},
+    onStartTemplate: ((String) -> Unit)? = null,
+    onRiskCheck: (() -> Unit)? = null,
+    onActivityDraft: (() -> Unit)? = null,
+    /** true: 신청 관리 '서류' 칸 모양 (정책 검색 화면과 같은 작은 연회색 줄로만) */
+    compact: Boolean = false,
+    modifier: Modifier = Modifier,
+    /** 작성 중인 양식이 없을 때 뒤로 가기 (탭 안에서는 null: 시스템 뒤로 가기에 맡긴다) */
+    onBack: (() -> Unit)? = null,
+    vm: FormHelperViewModel = viewModel(),
+) {
     val context = LocalContext.current
     // 작성 화면에서 돌아올 때마다 진행률을 새로 받는다
     LaunchedEffect(Unit) { vm.loadDocuments() }
@@ -167,34 +192,51 @@ fun FormHelperScreen(
             onOpenDocument(id)
         }
     }
-    val back = { if (vm.draft != null) vm.close() else onBack() }
-    BackHandler(onBack = back)
+    // 양식을 쓰는 중이면 뒤로 가기는 목록으로
+    BackHandler(enabled = vm.draft != null || onBack != null) { if (vm.draft != null) vm.close() else onBack?.invoke() }
 
-    Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
-        OnRoadTopBar(vm.draft?.title ?: "서류 작성 도우미", back)
-        val d = vm.draft
-        when {
-            vm.analyzing -> LoadingState("양식에서 쓸 칸을 읽고 있어요")
-            d != null -> DraftEditor(d, vm) {
-                val send = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_SUBJECT, d.title)
-                    putExtra(Intent.EXTRA_TEXT, vm.exportText())
-                }
-                context.startActivity(Intent.createChooser(send, "작성한 내용 보내기"))
-            }
-            else -> TemplateList(
-                vm.templates,
-                vm.error,
-                documents = vm.documents,
-                onOpenDocument = onOpenDocument,
-                onPick = onStartTemplate ?: vm::openTemplate,
-                onTakePhoto = uploader.takePhoto,
-                onPickFile = uploader.pickFile,
-                onRiskCheck = onRiskCheck,
-            )
-        }
+    val d = vm.draft
+    // 목록 ↔ 양식 읽는 중 ↔ 작성 화면이 툭 바뀌지 않고 부드럽게 넘어간다
+    val phase = when {
+        vm.analyzing -> 1
+        d != null -> 2
+        else -> 0
     }
+    FadeSwitch(phase, modifier, label = "form-helper") { p -> when {
+        p == 1 -> LoadingState(
+            "양식을 읽고 있어요",
+            steps = listOf("쓸 칸을 나누고 있어요", "앱에 있는 정보로 미리 채우고 있어요"),
+        )
+        p == 2 && d != null -> DraftEditor(d, vm) {
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, d.title)
+                putExtra(Intent.EXTRA_TEXT, vm.exportText())
+            }
+            context.startActivity(Intent.createChooser(send, "작성한 내용 보내기"))
+        }
+        else -> if (compact) CompactDocList(
+            vm.templates,
+            vm.error,
+            documents = vm.documents,
+            onOpenDocument = onOpenDocument,
+            onPick = onStartTemplate ?: vm::openTemplate,
+            onTakePhoto = uploader.takePhoto,
+            onPickFile = uploader.pickFile,
+            onRiskCheck = onRiskCheck,
+            onActivityDraft = onActivityDraft,
+        ) else TemplateList(
+            vm.templates,
+            vm.error,
+            documents = vm.documents,
+            onOpenDocument = onOpenDocument,
+            onPick = onStartTemplate ?: vm::openTemplate,
+            onTakePhoto = uploader.takePhoto,
+            onPickFile = uploader.pickFile,
+            onRiskCheck = onRiskCheck,
+            onActivityDraft = onActivityDraft,
+        )
+    } }
 }
 
 @Composable
@@ -207,6 +249,7 @@ private fun TemplateList(
     onTakePhoto: () -> Unit,
     onPickFile: () -> Unit,
     onRiskCheck: (() -> Unit)? = null,
+    onActivityDraft: (() -> Unit)? = null,
 ) {
     Column(
         Modifier
@@ -214,10 +257,7 @@ private fun TemplateList(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = OnRoadDimens.ScreenPadding),
     ) {
-        Spacer(Modifier.height(24.dp))
-        ScreenHeadline("양식을 고르거나 올리면", "항목을 쉽게 풀어 드려요.")
-
-        Spacer(Modifier.height(OnRoadDimens.BlockGap))
+        Spacer(Modifier.height(20.dp))
         UploadFormCard(onTakePhoto, onPickFile)
         // 서명하기 전 계약서 위험 찾기: 흰 카드 + 메인 색 작은 버튼
         onRiskCheck?.let { open ->
@@ -226,7 +266,7 @@ private fun TemplateList(
                 Modifier.fillMaxWidth(),
                 borderColor = OnRoadColors.BorderChip,
                 shape = OnRoadShapes.Item,
-                contentPadding = PaddingValues(start = 20.dp, end = 14.dp, top = 18.dp, bottom = 18.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
                 onClick = open,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -246,24 +286,37 @@ private fun TemplateList(
 
         if (documents.isNotEmpty()) {
             Spacer(Modifier.height(OnRoadDimens.SectionGap))
-            SectionHeader("쓰던 서류", trailingText = "이어서 쓸 수 있어요")
+            SectionHeader("쓰던 서류")
             Spacer(Modifier.height(16.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 documents.forEach { d ->
                     val state = if (d.status == "exported") "PDF로 내보냄" else "${d.progress.completed}/${d.progress.total}칸 작성"
-                    GrayRow(d.title, state) { onOpenDocument(d.documentId) }
+                    GrayRow(d.title, state) {
+                        // 서류 화면 제목 바에 바로 보이게
+                        com.project.on_road.data.ScreenCache.put("title:doc:${d.documentId}", d.title)
+                        onOpenDocument(d.documentId)
+                    }
                 }
             }
         }
 
         Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("자주 쓰는 양식", trailingText = "AI와 대화하며 채워요")
+        SectionHeader("자주 쓰는 양식")
         Spacer(Modifier.height(16.dp))
-        if (templates == null) {
-            LoadingState("양식을 불러오고 있어요")
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                templates.forEach { t -> GrayRow(t.name, t.description) { onPick(t.id) } }
+        // 양식 목록 자리를 미리 그려 두었다가 부드럽게 바꾼다 (큰 동그라미 대신)
+        FadeSwitch(templates == null, label = "form-templates") { loading ->
+            if (loading || templates == null) {
+                SkeletonList(rows = 3, header = false)
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    templates.forEach { t ->
+                        GrayRow(t.name, t.description) {
+                            // 서류 작성 화면을 여는 동안에도 제목 바에 양식 이름이 보이게
+                            com.project.on_road.data.ScreenCache.put("title:doc-template:${t.id}", t.name)
+                            onPick(t.id)
+                        }
+                    }
+                }
             }
         }
         Spacer(Modifier.height(32.dp))
@@ -289,9 +342,9 @@ private fun DraftEditor(d: FormDraft, vm: FormHelperViewModel, onExport: () -> U
                 Spacer(Modifier.height(20.dp))
             }
             Row(verticalAlignment = Alignment.Bottom) {
-                Text("작성한 항목", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateMid, modifier = Modifier.weight(1f))
+                Text("작성한 항목", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
                 Text("$filled", style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-                Text("/${d.fields.size}개", style = OnRoadType.Tiny, color = OnRoadColors.TextSlateMid, modifier = Modifier.padding(bottom = 3.dp))
+                Text("/${d.fields.size}개", style = OnRoadType.Tiny, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
             }
             Spacer(Modifier.height(8.dp))
             ProgressBar(filled / d.fields.size.toFloat().coerceAtLeast(1f))
@@ -332,7 +385,7 @@ private fun FieldCard(field: FormField, value: String, onChange: (String) -> Uni
         background = if (done) OnRoadColors.SurfaceFile else OnRoadColors.Surface,
         borderColor = if (done) OnRoadColors.Primary else OnRoadColors.BorderSage.copy(alpha = 0.7f),
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 18.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -360,11 +413,11 @@ private fun FieldCard(field: FormField, value: String, onChange: (String) -> Uni
                 Modifier
                     .clip(OnRoadShapes.Badge)
                     .border(1.dp, OnRoadColors.Primary, OnRoadShapes.Badge)
-                    .clickable { onChange(outline) }
+                    .tap { onChange(outline) }
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("AI가 만든 글의 틀 넣기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.Primary)
+                Text("글의 틀 넣기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.Primary)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -382,10 +435,309 @@ private fun FieldCard(field: FormField, value: String, onChange: (String) -> Uni
 }
 
 
+/**
+ * 신청 관리 '서류' 칸: 정책 검색 화면과 같은 구성.
+ * 입력칸 모양 '양식 올리기' → 키워드 태그(사진 · 도구) → 묶음 제목 → 작은 연회색 카드.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun CompactDocList(
+    templates: List<FormTemplate>?,
+    error: String?,
+    documents: List<DocumentSummaryDto>,
+    onOpenDocument: (Long) -> Unit,
+    onPick: (String) -> Unit,
+    onTakePhoto: () -> Unit,
+    onPickFile: () -> Unit,
+    onRiskCheck: (() -> Unit)?,
+    onActivityDraft: (() -> Unit)?,
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = OnRoadDimens.ScreenPadding),
+    ) {
+        // 맨 처음: 계약서 확인하기 (받은 양식 카드와 같은 메인 색 카드, 한 장으로 넓게)
+        onRiskCheck?.let { open ->
+            // 흰 카드 · 칩 테두리. 진한 버튼 대신 오른쪽에 메인 색 글씨 '올리기 ›' (카드 전체를 눌러도 된다)
+            OnRoadCard(
+                Modifier.fillMaxWidth(),
+                borderColor = OnRoadColors.BorderChip,
+                shape = OnRoadShapes.Item,
+                contentPadding = PaddingValues(start = 16.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
+                onClick = open,
+            ) {
+                // 왼쪽: 제목 · 설명 한 줄, 오른쪽: '올리기 ›' 를 카드 세로 가운데에
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("계약서 위험 찾기", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                        Spacer(Modifier.height(4.dp))
+                        Text("서명 전에 숨은 위험을 찾아요", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 1)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text("올리기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.Primary, modifier = Modifier.size(16.dp))
+                }
+            }
+            Spacer(Modifier.height(28.dp))
+        }
+
+        // 받은 양식 올리기: 메인 색 카드 두 장 (사진으로 찍기 · 파일 고르기)
+        SubHeader("받은 양식 올리기")
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            UploadCard("사진으로 찍기", "양식을 찍어 올려요", Icons.Outlined.PhotoCamera, Modifier.weight(1f), onTakePhoto)
+            UploadCard("파일 고르기", "PDF · JPG · HWP", Icons.Outlined.Description, Modifier.weight(1f), onPickFile)
+        }
+        error?.let {
+            Spacer(Modifier.height(12.dp))
+            NoticeBox(it, title = "읽지 못했어요", tone = NoticeTone.Warning)
+        }
+
+        // 쓰던 서류 (있을 때만)
+        if (documents.isNotEmpty()) {
+            Spacer(Modifier.height(36.dp))
+            SubHeader("쓰던 서류")
+            Spacer(Modifier.height(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                documents.forEach { d ->
+                    val state = if (d.status == "exported") "내보냄" else "${d.progress.completed}/${d.progress.total}칸"
+                    DocCard(d.title, state, null) {
+                        com.project.on_road.data.ScreenCache.put("title:doc:${d.documentId}", d.title)
+                        onOpenDocument(d.documentId)
+                    }
+                }
+            }
+        }
+
+        // 자주 쓰는 양식: 정책 검색 '분야별로 보기' 카드와 같은 모양
+        Spacer(Modifier.height(36.dp))
+        SubHeader("자주 쓰는 양식")
+        Spacer(Modifier.height(12.dp))
+        FadeSwitch(templates == null, label = "form-templates-compact") { loading ->
+            if (loading || templates == null) {
+                SkeletonList(rows = 3, header = false)
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    templates.forEach { t ->
+                        DocCard(t.name, null, t.description) {
+                            com.project.on_road.data.ScreenCache.put("title:doc-template:${t.id}", t.name)
+                            onPick(t.id)
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(32.dp))
+    }
+}
+
+/**
+ * 양식 올리기 점선 상자 (예시: 'Upload your attachments').
+ * 연회색 바탕 · 회색 점선 테두리, 가운데에 올리기 표시 · 올릴 수 있는 형식 · 글씨 버튼 두 개.
+ * 상자 어디를 눌러도 파일 고르기, '사진으로 찍기'만 카메라.
+ */
+@Composable
+private fun UploadDropZone(onPickFile: () -> Unit, onTakePhoto: () -> Unit) {
+    val line = OnRoadColors.BorderChip
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(OnRoadShapes.Item)
+            .background(OnRoadColors.SurfaceSubtle)
+            .drawBehind {
+                val stroke = 1.dp.toPx()
+                drawRoundRect(
+                    color = line,
+                    topLeft = androidx.compose.ui.geometry.Offset(stroke / 2, stroke / 2),
+                    size = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = stroke,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())),
+                    ),
+                )
+            }
+            .tap(onClickLabel = "양식 파일 고르기", onClick = onPickFile)
+            .padding(vertical = 24.dp, horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(Icons.Outlined.UploadFile, null, tint = OnRoadColors.TextTertiary, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.height(10.dp))
+        // 다른 카드와 같은 위계: 굵은 한 줄 → 보조 글씨 → 글씨 버튼
+        Text("눌러서 양식 파일 올리기", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+        Spacer(Modifier.height(4.dp))
+        Text("PDF · JPG · PNG · HWP", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "사진으로 찍기",
+            style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline),
+            color = OnRoadColors.Primary,
+            modifier = Modifier.clip(OnRoadShapes.Chip).tap(onClickLabel = "양식 사진 찍기", onClick = onTakePhoto).padding(horizontal = 6.dp, vertical = 4.dp),
+        )
+    }
+}
+
+/**
+ * 받은 양식 올리기 카드 (사진 · 파일): 메인 색 바탕, 흰 글씨는 왼쪽 위, 큰 아이콘은 오른쪽 아래에 흰색 8% 로 옅게, 카드 밖으로 살짝 잘리게
+ */
+@Composable
+private fun UploadCard(
+    title: String,
+    sub: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier
+            .height(UploadCardHeight)
+            .clip(OnRoadShapes.Item)
+            .background(OnRoadColors.Primary)
+            .tap(onClickLabel = title, onClick = onClick),
+    ) {
+        Icon(
+            icon,
+            null,
+            tint = Color.White.copy(alpha = UploadIconAlpha),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                // 오른쪽 아래, 카드 밖으로 살짝 잘리게
+                .offset(x = 10.dp, y = 16.dp)
+                .size(68.dp),
+        )
+        Column(Modifier.align(Alignment.TopStart).padding(16.dp)) {
+            Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = Color.White)
+            Spacer(Modifier.height(4.dp))
+            Text(sub, style = OnRoadType.Caption2, color = Color.White.copy(alpha = 0.7f))
+        }
+    }
+}
+
+/** 올리기 카드 높이 · 아이콘 투명도(0.07~0.10) */
+private val UploadCardHeight = 88.dp
+private const val UploadIconAlpha = 0.08f
+
+/** 키워드 태그 모양 버튼 (정책 검색 키워드 태그와 같음) */
+@Composable
+private fun DocTag(text: String, onClick: () -> Unit) {
+    OnRoadTag(text, style = TagStyle.Neutral, modifier = Modifier.clip(OnRoadShapes.Tag).tap(onClickLabel = text, onClick = onClick))
+}
+
+/**
+ * 작은 연회색 카드 (정책 검색 '분야별로 보기' 카드와 같은 배치).
+ * 첫 줄: 이름(굵게) · 오른쪽 작은 회색 글씨, 둘째 줄: 설명
+ */
+@Composable
+private fun DocCard(title: String, right: String?, description: String?, onClick: () -> Unit) {
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        onClick = onClick,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            right?.let {
+                Spacer(Modifier.width(8.dp))
+                Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
+            }
+        }
+        description?.takeIf { it.isNotBlank() }?.let {
+            Spacer(Modifier.height(4.dp))
+            Text(it, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** 반반 도구 칸: 다른 카드와 같은 연회색 카드, 굵은 이름 + 설명 */
+@Composable
+private fun ToolTile(title: String, description: String, modifier: Modifier, onClick: () -> Unit) {
+    OnRoadCard(
+        modifier,
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        onClick = onClick,
+    ) {
+        Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1)
+        Spacer(Modifier.height(4.dp))
+        Text(description, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 2)
+    }
+}
+
+/** 목록 카드: 연회색 카드 한 장 안에 줄을 여러 개 (구분선 없이 간격으로만 나눈다) */
+@Composable
+private fun ListCard(content: @Composable ColumnScope.() -> Unit) {
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(vertical = 6.dp),
+        content = content,
+    )
+}
+
+/** 목록 카드 안 한 줄: 이름 · (오른쪽 상태) · › */
+@Composable
+private fun ListLine(title: String, trailing: String?, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .tap(onClick = onClick)
+            .padding(start = 16.dp, end = 10.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        trailing?.let {
+            Spacer(Modifier.width(8.dp))
+            Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
+    }
+}
+
+/** 작은 연회색 줄 (정책 검색 '분야별로 보기' 카드와 같은 모양). trailing 이 있으면 오른쪽에 붙인다 */
+@Composable
+private fun SmallDocRow(
+    title: String,
+    description: String?,
+    onClick: (() -> Unit)? = null,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
+) {
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(start = 16.dp, end = if (trailing != null) 10.dp else 16.dp, top = 14.dp, bottom = 14.dp),
+        onClick = onClick,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                description?.takeIf { it.isNotBlank() }?.let {
+                    Spacer(Modifier.height(4.dp))
+                    Text(it, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            if (trailing != null) {
+                Spacer(Modifier.width(8.dp))
+                trailing()
+            }
+        }
+    }
+}
+
 /** 목록 한 줄: 연회색 카드 (홈 다음 일정과 같은 모양, 아이콘 없음) */
 @Composable
 private fun GrayRow(title: String, description: String?, onClick: () -> Unit) {
-    SubtleCard(Modifier.fillMaxWidth().heightIn(min = 60.dp), onClick = onClick, contentPadding = PaddingValues(15.dp)) {
+    SubtleCard(Modifier.fillMaxWidth().heightIn(min = 60.dp), onClick = onClick, contentPadding = PaddingValues(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)

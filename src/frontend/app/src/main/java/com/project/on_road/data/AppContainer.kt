@@ -9,13 +9,41 @@ import com.project.on_road.data.remote.RemoteOnRoadApi
 
 object AppContainer {
     /** true: 백엔드 연결 / false: 가짜 데이터로 화면 확인 */
-    private const val USE_REMOTE = true
+    private const val USE_REMOTE = false
 
     lateinit var session: SessionStore
         private set
 
     private var cacheDir: java.io.File? = null
-    private val service by lazy { Network.create(BuildConfig.BASE_URL, cacheDir) }
+    private var prefs: android.content.SharedPreferences? = null
+
+    /**
+     * 서버 주소. 설정에서 바꾼 값이 있으면 그걸, 없으면 빌드할 때 넣은 BASE_URL.
+     * PC IP 가 바뀔 때마다 build.gradle 을 고쳐 다시 빌드하지 않아도 되게 한다 (개발 · 시연용).
+     */
+    val serverUrl: String
+        get() = prefs?.getString(KEY_SERVER_URL, null)?.takeIf { it.isNotBlank() } ?: BuildConfig.BASE_URL
+
+    /** 서버 주소 바꾸기. 바꾼 뒤 앱을 다시 켜야 적용된다. 빈 값이면 기본 주소로 */
+    fun setServerUrl(url: String?) {
+        prefs?.edit()?.apply {
+            if (url.isNullOrBlank()) remove(KEY_SERVER_URL) else putString(KEY_SERVER_URL, normalizeServerUrl(url))
+        }?.commit()
+    }
+
+    /** "172.30.1.5" 처럼 IP 만 넣어도 http://172.30.1.5:8000/api/ 로 맞춘다 */
+    fun normalizeServerUrl(raw: String): String {
+        var u = raw.trim()
+        if (!u.startsWith("http://") && !u.startsWith("https://")) u = "http://$u"
+        val hostPart = u.substringAfter("://").substringBefore("/")
+        if (!hostPart.contains(":")) u = u.replaceFirst(hostPart, "$hostPart:8000")
+        if (!u.trimEnd('/').endsWith("/api")) u = u.trimEnd('/') + "/api"
+        return "$u/"
+    }
+
+    private const val KEY_SERVER_URL = "server_url"
+
+    private val service by lazy { Network.create(serverUrl, cacheDir) }
 
     val api: OnRoadApi by lazy {
         if (USE_REMOTE) RemoteOnRoadApi(service) { if (::session.isInitialized) session else null }
@@ -31,6 +59,7 @@ object AppContainer {
 
     fun init(context: Context) {
         if (cacheDir == null) cacheDir = context.applicationContext.cacheDir
+        if (prefs == null) prefs = context.applicationContext.getSharedPreferences("onroad_device", Context.MODE_PRIVATE)
         if (!::session.isInitialized) {
             session = SessionStore(context.applicationContext)
         }

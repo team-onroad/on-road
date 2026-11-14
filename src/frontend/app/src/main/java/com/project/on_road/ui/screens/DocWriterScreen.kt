@@ -1,5 +1,11 @@
 package com.project.on_road.ui.screens
 
+import com.project.on_road.ui.components.ProgressBar
+
+import com.project.on_road.ui.components.flashOn
+
+import androidx.compose.foundation.layout.Box
+
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -8,9 +14,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -43,6 +51,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.offset
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.animateContentSize
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.AppState
@@ -124,9 +136,36 @@ class DocWriterViewModel : ViewModel() {
 
     private var started = false
 
+    /** 다시 열 때 바로 보여 줄 이 서류의 이름표 (서류 번호 · 정책 · 양식) */
+    private var cacheKey: String? = null
+
+    /** 서류를 받기 전에도 제목 바에 보일 이름 (목록에서 누른 양식 · 서류 이름). 제목이 중간에 바뀌지 않게 */
+    var titleHint by mutableStateOf<String?>(null)
+        private set
+
+    override fun onCleared() {
+        val d = doc ?: return
+        com.project.on_road.data.ScreenCache.put("doc:${d.documentId}", d)
+        cacheKey?.let { com.project.on_road.data.ScreenCache.put(it, d) }
+    }
+
     fun start(documentId: Long?, policyId: Long?, templateId: String?, checklistItemId: Long?, context: String?) {
         if (started) return
         started = true
+        // 하다가 나갔다 다시 들어오면: 보던 서류를 바로 보여 주고, 뒤에서 서버 내용으로 바꾼다
+        cacheKey = when {
+            documentId != null -> "doc:$documentId"
+            policyId != null -> "doc-policy:$policyId"
+            else -> templateId?.let { "doc-template:$it" }
+        }
+        titleHint = cacheKey?.let { com.project.on_road.data.ScreenCache.get<String>("title:$it") }
+        val cached = cacheKey?.let { com.project.on_road.data.ScreenCache.get<WriterDocumentDto>(it) }
+        if (cached != null && doc == null) {
+            doc = cached
+            selectedId = cached.nextFieldId ?: cached.fields.firstOrNull { it.writable }?.fieldId
+            if (cached.status == "exported") mode = WriteMode.FIELDS
+            loading = false
+        }
         viewModelScope.launch {
             runCatching {
                 when {
@@ -135,16 +174,27 @@ class DocWriterViewModel : ViewModel() {
                     else -> repo.startTemplate(templateId.orEmpty(), context)
                 }
             }.onSuccess { d ->
+                val wasShown = doc != null
                 doc = d
-                selectedId = d.nextFieldId ?: d.fields.firstOrNull { it.writable }?.fieldId
+                // 이미 보던 칸이 있으면 그대로 둔다 (갑자기 다른 칸으로 튀지 않게)
+                if (!wasShown || selectedId == null) selectedId = d.nextFieldId ?: d.fields.firstOrNull { it.writable }?.fieldId
                 if (d.status == "exported") mode = WriteMode.FIELDS
                 loading = false
                 if (mode == WriteMode.TALK) startTalk()
             }.onFailure {
-                error = message(it, "서류를 열 수 없어요. 잠시 후 다시 시도해 주세요.")
+                // 보던 서류가 있으면 그대로 두고, 처음 열다 실패했을 때만 오류
+                if (doc == null) error = message(it, "서류를 열 수 없어요. 잠시 후 다시 시도해 주세요.")
                 loading = false
             }
         }
+    }
+
+    /** 서류를 열지 못했을 때 '다시 시도' */
+    fun retry(documentId: Long?, policyId: Long?, templateId: String?, checklistItemId: Long?, context: String?) {
+        started = false
+        error = null
+        loading = true
+        start(documentId, policyId, templateId, checklistItemId, context)
     }
 
     fun switchMode(m: WriteMode) {
@@ -397,17 +447,23 @@ fun DocWriterScreen(
     }
 
     Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
-        // 제목 바 아래 구분선은 없애고, 바로 밑 줄(칸 수 · 전환 버튼)과 이어지게
-        OnRoadTopBar(d?.title ?: "서류 작성", onBack, divider = d == null)
+        // 제목 바 아래 구분선은 없애고, 바로 밑 줄(칸 수 · 전환 버튼)과 이어지게.
+        // 서류를 받기 전에도 누른 양식 이름을 보여 줘서 제목이 중간에 바뀌지 않는다
+        OnRoadTopBar(d?.title ?: vm.titleHint ?: "서류 작성", onBack, divider = false)
         when {
-            vm.loading -> LoadingState("서류를 준비하고 있어요")
+            // 가운데 동그라미 대신 실제 화면 모양(칸 수 줄 · 말풍선 · 입력창)을 미리 그려 둔다 → 내용이 같은 자리에 들어찬다
+            vm.loading -> WriterSkeleton()
             d == null -> Column(Modifier.padding(OnRoadDimens.ScreenPadding)) {
-                NoticeBox(vm.error ?: "잠시 후 다시 시도해 주세요.", title = "서류를 열 수 없어요", tone = NoticeTone.Warning)
+                ErrorState(
+                    vm.error,
+                    onRetry = { vm.retry(documentId, policyId, templateId, checklistItemId, context) },
+                    title = "서류를 열 수 없어요",
+                )
             }
             else -> {
                 Header(d, vm)
                 // 대화로 보기 ↔ 칸별로 보기: 부드럽게 겹쳐 바꾼다
-                androidx.compose.animation.Crossfade(vm.mode, Modifier.weight(1f), animationSpec = androidx.compose.animation.core.tween(220), label = "doc-mode") { m ->
+                androidx.compose.animation.Crossfade(vm.mode, Modifier.weight(1f).reveal(), animationSpec = com.project.on_road.ui.theme.OnRoadMotion.move(), label = "doc-mode") { m ->
                     when (m) {
                         WriteMode.TALK -> TalkPane(vm, Modifier.fillMaxSize(), onStep)
                         WriteMode.FIELDS -> FieldsPane(vm, Modifier.fillMaxSize(), onStep)
@@ -435,17 +491,31 @@ private fun Header(d: WriterDocumentDto, vm: DocWriterViewModel) {
                 color = OnRoadColors.TextSecondary,
                 modifier = Modifier.weight(1f),
             )
-            val toFields = vm.mode == WriteMode.TALK
-            Text(
-                if (toFields) "칸별로 보기" else "대화로 보기",
-                style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold),
-                color = Color.White,
-                modifier = Modifier
-                    .clip(OnRoadShapes.Chip)
-                    .background(OnRoadColors.Primary)
-                    .clickable { vm.switchMode(if (toFields) WriteMode.FIELDS else WriteMode.TALK) }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-            )
+            // 보기 전환: 앱 전환 버튼 모양 (고른 쪽만 메인 색 바탕 · 흰 글씨, 나머지는 글씨만)
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                listOf(WriteMode.FIELDS to "칸별로", WriteMode.TALK to "대화로").forEach { (mode, label) ->
+                    val on = vm.mode == mode
+                    // 고른 쪽 바탕 · 글씨 색이 부드럽게 넘어간다
+                    val bg by androidx.compose.animation.animateColorAsState(
+                        if (on) OnRoadColors.Primary else OnRoadColors.Primary.copy(alpha = 0f),
+                        com.project.on_road.ui.theme.OnRoadMotion.move(), label = "mode-bg",
+                    )
+                    val fg by androidx.compose.animation.animateColorAsState(
+                        if (on) Color.White else OnRoadColors.TextTertiary,
+                        com.project.on_road.ui.theme.OnRoadMotion.move(), label = "mode-fg",
+                    )
+                    Text(
+                        label,
+                        style = OnRoadType.Caption2.copy(fontWeight = if (on) FontWeight.Bold else FontWeight.Medium),
+                        color = fg,
+                        modifier = Modifier
+                            .clip(OnRoadShapes.Chip)
+                            .background(bg)
+                            .tap { if (!on) vm.switchMode(mode) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
         }
         // 검사·내보내기·저장 안내(고칠 칸 등)는 칸 수 바로 아래에
         if (vm.mode == WriteMode.FIELDS) {
@@ -455,7 +525,6 @@ private fun Header(d: WriterDocumentDto, vm: DocWriterViewModel) {
                 }
             }
         }
-        HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
     }
 }
 
@@ -476,7 +545,8 @@ private fun TalkPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (NextSt
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             items(vm.bubbles, key = { it.id }) { b ->
-                when (b) {
+                // 새 말풍선은 살짝 올라오며 나타난다
+                Column(Modifier.reveal()) { when (b) {
                     is DocBubble.Me -> MyBubble(b.text)
                     is DocBubble.Ai -> AiBubble(
                         b,
@@ -487,7 +557,7 @@ private fun TalkPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (NextSt
                         checksEnabled = !vm.busy && b.fieldId != null && vm.question?.fieldId == b.fieldId,
                         onConfirmAll = { vm.send("모두 확인했어요") },
                     )
-                }
+                } }
             }
             // 서류를 다 만들면: 내러 가기 전에 해 볼 것
             if (vm.doc?.status == "exported" && vm.bubbles.any { it is DocBubble.Ai && it.exported }) {
@@ -561,12 +631,12 @@ private fun AiBubble(
             b.problems.forEach { p ->
                 Spacer(Modifier.height(8.dp))
                 Row(
-                    Modifier.fillMaxWidth().clip(OnRoadShapes.Field).background(OnRoadColors.DangerTint).clickable { onFix(p.fieldId) }.padding(10.dp),
+                    Modifier.fillMaxWidth().clip(OnRoadShapes.Field).background(OnRoadColors.DangerTint).tap { onFix(p.fieldId) }.padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(p.label, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Danger)
-                        Text(p.message, style = OnRoadType.Micro, color = OnRoadColors.TextSlateDark)
+                        Text(p.message, style = OnRoadType.Micro, color = OnRoadColors.TextSecondary)
                     }
                     Text("고치기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Danger)
                 }
@@ -590,10 +660,10 @@ private fun MyBubble(text: String) {
             Modifier
                 .widthIn(max = 260.dp)
                 .clip(OnRoadShapes.Inner)
-                .background(Color.White)
-                .border(1.dp, OnRoadColors.Primary, OnRoadShapes.Inner)
-                .padding(horizontal = 14.dp, vertical = 11.dp),
-        ) { BubbleText(text, color = OnRoadColors.Primary) }
+                // 내가 보낸 말: 메인 색 바탕 · 흰 글씨 (AI 말풍선 연회색과 구분)
+                .background(OnRoadColors.Primary)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        ) { BubbleText(text, color = Color.White) }
     }
 }
 
@@ -609,9 +679,11 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (Next
     val d = vm.doc ?: return
     val context = LocalContext.current
     // 양식 순서대로: 앱에서 쓰는 칸 + 출력 후 손으로 쓰는 칸 (공무원 기재란은 뺀다)
+    // 쓸 칸이 맨 위, 출력 후 손으로 쓰는 칸, 완료한 칸은 맨 아래 (각 묶음 안에서는 양식 순서 유지)
     val shown = d.fields.filter { it.writable || it.valueSource == "handwrite" }
+        .sortedBy { when { it.writable && !it.isCompleted -> 0; !it.writable -> 1; else -> 2 } }
     // 칸별로 보기로 넘어오면 처음부터 굴러 내려가지 않고, 고른 칸에서 바로 시작한다 (0번은 안내 묶음)
-    val start = shown.indexOfFirst { it.fieldId == vm.selectedId }.takeIf { it >= 0 }?.plus(1) ?: 0
+    val start = shown.indexOfFirst { it.fieldId == vm.selectedId }.takeIf { it >= 0 } ?: 0
     val list = rememberLazyListState(initialFirstVisibleItemIndex = start)
     var first by remember { mutableStateOf(true) }
 
@@ -619,21 +691,33 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (Next
     LaunchedEffect(vm.selectedId) {
         if (first) { first = false; return@LaunchedEffect }
         val i = shown.indexOfFirst { it.fieldId == vm.selectedId }
-        if (i >= 0) list.animateScrollToItem(i + 1)
+        if (i < 0) return@LaunchedEffect
+        // 칸이 접히고 펼쳐지는 게 끝난 뒤에 움직여서 화면이 두 번 튀지 않게
+        kotlinx.coroutines.delay(FieldMotion.SCROLL_DELAY)
+        val info = list.layoutInfo
+        val item = info.visibleItemsInfo.firstOrNull { it.index == i }
+        val fits = item != null && item.offset >= info.viewportStartOffset && item.offset + item.size <= info.viewportEndOffset
+        // 이미 화면 안에 다 보이면 그대로 두고, 가려져 있을 때만 부드럽게 끌어온다
+        if (!fits) list.animateScrollToItem(i)
     }
     Column(modifier) {
         LazyColumn(
             state = list,
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = OnRoadDimens.ScreenPadding, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = FieldSpace.ListTop, bottom = 24.dp),
         ) {
-            item(key = "notices") {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // 칸 사이 간격: 한 줄 카드(완료 · 손으로 쓰는 칸)끼리는 묶어서 DoneGap, 입력 중인 칸 앞뒤는 Gap
+            fun compact(x: DocFieldDto) = !x.writable || (x.isCompleted && x.fieldId != vm.selectedId)
+            itemsIndexed(shown, key = { _, it -> it.fieldId }) { i, f ->
+                val prev = shown.getOrNull(i - 1)
+                val top = when {
+                    prev == null -> 0.dp
+                    compact(prev) && compact(f) -> FieldSpace.DoneGap
+                    else -> FieldSpace.Gap
                 }
-            }
-            items(shown, key = { it.fieldId }) { f ->
-                if (!f.writable) HandwriteCard(f) else FieldCard(
+                // AI 가 채우거나 저장해서 값이 바뀌면 그 칸이 잠깐 빛난다
+                if (!f.writable) Box(Modifier.animateItem(placementSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)).padding(top = top)) { HandwriteCard(f) }
+                else Box(Modifier.animateItem(placementSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)).padding(top = top).flashOn(f.value)) { FieldCard(
                     f = f,
                     text = vm.text(f),
                     selected = f.fieldId == vm.selectedId,
@@ -649,7 +733,7 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (Next
                     prompt = vm.prompt,
                     onPromptChange = { vm.prompt = it },
                     onAsk = vm::ask,
-                )
+                ) }
             }
             if (d.status == "exported") {
                 item(key = "next-steps") {
@@ -660,7 +744,6 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (Next
                 }
             }
         }
-        HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
         Column(Modifier.background(Color.White).padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 12.dp)) {
             if (d.status == "exported") {
                 OnRoadButton(
@@ -683,7 +766,38 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (Next
     }
 }
 
-/** 칸 카드: 기본은 연회색, 고른 칸은 흰 바탕 + 메인 색 테두리. 태그는 모두 같은 모양(Neutral) */
+/** 칸별로 화면 움직임 */
+private object FieldMotion {
+    /** 높이 변화: 튕김 없는 스프링 (tween 보다 손에 붙는 느낌) */
+    fun <T> size() = androidx.compose.animation.core.spring<T>(
+        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
+        stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow,
+    )
+    /** 칸을 고른 뒤 목록을 움직이기까지 기다리는 시간(ms) */
+    const val SCROLL_DELAY = 180L
+}
+
+/** 칸별로 화면 간격 (숫자만 바꿔서 조절) */
+private object FieldSpace {
+    /** 목록 위·아래 여백 (첫 칸 위) */
+    val ListTop = 8.dp
+    /** 입력하는 칸 앞뒤 간격 */
+    val Gap = 32.dp
+    /** 완료한 한 줄 카드끼리 간격 */
+    val DoneGap = 12.dp
+    /** 쓰는 법 → 입력칸 사이 */
+    val InputTop = 10.dp
+    /** 입력칸 · AI 칸 · 완료 카드 '안쪽' 글씨 시작 여백 (바 안 글씨끼리 같은 선) */
+    val TextInset = 16.dp
+    /** 항목 이름 · 쓰는 법 글씨 시작 위치. 0 = 입력칸 · AI 칸 바깥 선과 같은 위치 */
+    val LabelInset = 0.dp
+    /** 완료 · 다시 고치기 버튼 높이 */
+    val ButtonHeight = 40.dp
+    /** 완료 버튼 너비 */
+    val DoneWidth = 72.dp
+}
+
+/** 칸: 입력 양식 모양 (이름 → 쓰는 법 → 입력칸). 지금 쓰는 칸만 연회색 판 + 흰 입력칸 · 메인 색 테두리 */
 @Composable
 private fun FieldCard(
     f: DocFieldDto,
@@ -701,13 +815,46 @@ private fun FieldCard(
     onPromptChange: (String) -> Unit = {},
     onAsk: () -> Unit = {},
 ) {
+    // 입력칸 ↔ 완료 한 줄 카드 바뀔 때: 겹쳐 사라지며 높이도 부드럽게
+    androidx.compose.animation.AnimatedContent(
+        targetState = f.isCompleted && !selected,
+        transitionSpec = {
+            // 새 모양은 옛 모양이 거의 사라진 뒤 나타나고, 높이는 튕김 없는 스프링으로
+            (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(220, delayMillis = 90)) togetherWith
+                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120)))
+                .using(androidx.compose.animation.SizeTransform(clip = true) { _, _ -> FieldMotion.size() })
+        },
+        label = "field-card",
+    ) { compact ->
+        FieldCardBody(f, text, selected, compact, locked, busy, onSelect, onEdit, onChoose, onComplete, onReopen, onUndo, prompt, onPromptChange, onAsk)
+    }
+}
+
+@Composable
+private fun FieldCardBody(
+    f: DocFieldDto,
+    text: String,
+    selected: Boolean,
+    compact: Boolean,
+    locked: Boolean,
+    busy: Boolean,
+    onSelect: () -> Unit,
+    onEdit: (String) -> Unit,
+    onChoose: (String) -> Unit,
+    onComplete: () -> Unit,
+    onReopen: () -> Unit,
+    onUndo: () -> Unit,
+    prompt: String = "",
+    onPromptChange: (String) -> Unit = {},
+    onAsk: () -> Unit = {},
+) {
     val done = f.isCompleted
     // 3. 완료한 칸 (고르지 않았을 때): 한 줄 카드. 항목명은 왼쪽, 값은 오른쪽 끝.
     //    신청 사유처럼 긴 값은 "펼치기"로 아래에 전부 보여 준다. 카드를 누르면 고치기
-    if (done && !selected) {
+    if (compact) {
         var expanded by remember(f.fieldId) { mutableStateOf(false) }
         val long = text.length > 18 || '\n' in text
-        SubtleCard(Modifier.fillMaxWidth(), onClick = onSelect, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
+        SubtleCard(Modifier.fillMaxWidth().animateContentSize(FieldMotion.size()), onClick = onSelect, contentPadding = PaddingValues(horizontal = FieldSpace.TextInset, vertical = 16.dp)) {
             // 항목명은 왼쪽, 항목값은 카드 오른쪽 끝에 붙인다
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -733,7 +880,7 @@ private fun FieldCard(
                         if (expanded) "접기" else "펼치기",
                         style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
                         color = OnRoadColors.TextTertiary,
-                        modifier = Modifier.clip(OnRoadShapes.Field).clickable { expanded = !expanded }.padding(horizontal = 4.dp),
+                        modifier = Modifier.clip(OnRoadShapes.Field).tap { expanded = !expanded }.padding(horizontal = 4.dp),
                     )
                 }
             }
@@ -745,26 +892,31 @@ private fun FieldCard(
         }
         return
     }
-    OnRoadCard(
-        Modifier.fillMaxWidth(),
-        background = if (selected) OnRoadColors.Surface else OnRoadColors.SurfaceSubtle,
-        borderColor = if (selected) OnRoadColors.Primary else OnRoadColors.Border.copy(alpha = 0.7f),
-        borderWidth = if (selected) 1.5.dp else 1.dp,
-        shape = OnRoadShapes.Inner,
-        contentPadding = PaddingValues(16.dp),
-        onClick = onSelect,
+    // 입력 양식 모양: 카드·판 없이 '이름 → 쓰는 법 → 입력칸'. 모든 칸이 화면 여백에 맞춰 같은 선에서 시작한다.
+    // 지금 쓰는 칸은 입력칸 테두리만 메인 색, 그 아래에 AI 칸과 완료 버튼이 붙는다
+    Column(
+        Modifier
+            .fillMaxWidth()
+            // AI 칸 · 완료 버튼이 나타나고 사라질 때 높이가 부드럽게
+            .animateContentSize(FieldMotion.size())
+            .tap(enabled = !selected, pressed = 1f, onClick = onSelect),
     ) {
+        // 항목 이름 · 쓰는 법 · 입력칸 · AI 칸 · 버튼이 모두 같은 선(화면 여백)에서 시작하고 끝난다
+        Column(Modifier.padding(horizontal = FieldSpace.LabelInset)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // 이름 · 필수 · (양식 원래 이름) 한 줄에
+                // 필수는 박스 태그 대신 이름 뒤 작은 빨간 점(*), 양식 원래 이름은 옅은 글씨로 뒤에
+                Row(verticalAlignment = Alignment.Bottom) {
                     Text(f.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                     if (f.required == true && !done) {
-                        Spacer(Modifier.width(6.dp))
-                        OnRoadTag("필수", style = TagStyle.Neutral, textStyle = OnRoadType.Tiny)
+                        Text(" *", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Danger)
                     }
-                }
-                if (f.easyLabel != null && f.easyLabel != f.label) {
-                    Text("양식: ${f.label}", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
+                    if (f.easyLabel != null && f.easyLabel != f.label) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(f.label, style = OnRoadType.Caption2, color = OnRoadColors.TextQuaternary, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(bottom = 1.dp))
+                    }
                 }
             }
             if (done) OnRoadTag("완료", style = TagStyle.Neutral)
@@ -772,32 +924,36 @@ private fun FieldCard(
         }
         // 칸별 안내: 쓰는 법 · 예시 · 주의 (완료한 칸은 고를 때만)
         if (!done || selected) {
-            Spacer(Modifier.height(6.dp))
-            Text(f.guide, style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight), color = OnRoadColors.TextSecondary)
-            f.example?.let {
+            Spacer(Modifier.height(4.dp))
+            Text(f.guide, style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight), color = OnRoadColors.TextTertiary)
+            // 예시는 입력칸 안 안내 글자로 보이므로, 입력칸이 없는 칸(고르기 · 확인 · 긴 글)에만 따로 쓴다
+            val exampleInField = f.items.isNullOrEmpty() && f.options.isNullOrEmpty() && !f.essay
+            f.example?.takeIf { !exampleInField }?.let {
                 Spacer(Modifier.height(2.dp))
                 Text("예) $it", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
             }
             f.outline?.takeIf { it.isNotEmpty() && f.essay }?.let {
                 Spacer(Modifier.height(2.dp))
-                Text("순서: ${it.joinToString(" → ")}", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
+                Text("순서: ${it.joinToString(" → ")}", style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight), color = OnRoadColors.TextTertiary)
             }
+            // 주의는 빨간 박스 대신 빨간 글씨 한 줄 (입력칸보다 튀지 않게)
             f.caution?.let {
-                Spacer(Modifier.height(8.dp))
-                NoticeBox(it, tone = NoticeTone.Warning)
+                Spacer(Modifier.height(4.dp))
+                Text("! $it", style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight), color = OnRoadColors.Danger)
             }
         }
         f.reusedFrom?.let {
             Spacer(Modifier.height(4.dp))
             Text("'$it'에서 가져왔어요", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
         }
+        }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(FieldSpace.InputTop))
         when {
             done && !selected -> Text(
                 text.ifBlank { "(비워 둠)" },
                 style = OnRoadType.Caption,
-                color = if (text.isBlank()) OnRoadColors.TextQuaternary else OnRoadColors.TextSlateDark,
+                color = if (text.isBlank()) OnRoadColors.TextQuaternary else OnRoadColors.TextSecondary,
                 maxLines = 3,
             )
             !f.items.isNullOrEmpty() -> NoticeChecks(
@@ -810,7 +966,7 @@ private fun FieldCard(
                 value = text,
                 onValueChange = onEdit,
                 placeholder = when {
-                    f.essay -> "직접 쓰거나 위 AI 칸에 내용을 말해 주세요"
+                    f.essay -> "직접 쓰거나 아래 AI에게 부탁해요"
                     f.inputType == "date" -> "예) 2026.10.29"
                     f.inputType == "phone" -> "예) 010-1234-5678"
                     else -> f.example?.let { "예) $it" } ?: ""
@@ -818,15 +974,18 @@ private fun FieldCard(
                 singleLine = !(f.multiline || f.essay),
                 minLines = if (f.multiline || f.essay) 4 else 1,
                 enabled = !done && !locked,
-                background = OnRoadColors.SurfaceSubtle,
-                borderColor = OnRoadColors.BorderChip,
-                modifier = Modifier.fillMaxWidth(),
+                // 지금 쓰는 칸은 연회색 판 위라 흰 입력칸 + 메인 색 테두리, 나머지는 연회색 입력칸
+                // 검색창과 같은 흰 입력칸 + 회색 테두리, 지금 쓰는 칸만 메인 색 테두리
+                background = Color.White,
+                borderColor = if (selected) OnRoadColors.Primary else OnRoadColors.BorderSlate,
+                contentStart = FieldSpace.TextInset,
+                modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused && !selected) onSelect() },
             )
         }
 
         // 2. 고른 칸 안의 AI 부탁 입력줄
         if (selected && !done && !locked) {
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             PromptBar(
                 value = prompt,
                 onValueChange = onPromptChange,
@@ -847,17 +1006,22 @@ private fun FieldCard(
         }
 
         if (selected && (!locked || done)) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (f.canUndo && !done) {
-                    OnRoadButton("되돌리기", onUndo, height = 36.dp, variant = ButtonVariant.Outline, textStyle = OnRoadType.Caption, enabled = !busy, borderColor = OnRoadColors.BorderChip)
+                    Text(
+                        "되돌리기", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary,
+                        modifier = Modifier.offset(x = (-4).dp).clip(OnRoadShapes.Field).tap(enabled = !busy, onClick = onUndo).padding(horizontal = 4.dp, vertical = 8.dp),
+                    )
                 }
                 Spacer(Modifier.weight(1f))
                 if (done) {
-                    OnRoadButton("다시 고치기", onReopen, height = 36.dp, variant = ButtonVariant.Outline,
-                        textStyle = OnRoadType.Caption, enabled = !busy, borderColor = OnRoadColors.Border)
+                    // 입력칸과 같은 모서리 · 테두리 색, 오른쪽 끝도 입력칸 끝선에 맞춘다
+                    OnRoadButton("다시 고치기", onReopen, height = FieldSpace.ButtonHeight, variant = ButtonVariant.Outline,
+                        textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), enabled = !busy)
                 } else {
-                    OnRoadButton("완료", onComplete, height = 36.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                    OnRoadButton("완료", onComplete, Modifier.width(FieldSpace.DoneWidth), height = FieldSpace.ButtonHeight,
+                        textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
                         enabled = !busy && (text.isNotBlank() || f.required != true))
                 }
             }
@@ -868,10 +1032,10 @@ private fun FieldCard(
 /** 출력한 뒤 손으로 쓰는 칸 (주민등록번호·서명 등): 앱에 입력하지 않고 쓰는 법만 */
 @Composable
 private fun HandwriteCard(f: DocFieldDto) {
-    SubtleCard(Modifier.fillMaxWidth()) {
+    SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = FieldSpace.TextInset, vertical = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(f.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
-            OnRoadTag("출력 후 직접", style = TagStyle.PrimaryFilled)
+            OnRoadTag("출력 후 직접", style = TagStyle.Neutral)
         }
         Spacer(Modifier.height(6.dp))
         Text(f.guide, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
@@ -910,7 +1074,7 @@ private fun NoticeChecks(
                     .clip(OnRoadShapes.Inner)
                     .background(Color.White)
                     .border(1.dp, if (checked[i]) OnRoadColors.Primary else OnRoadColors.BorderSlate, OnRoadShapes.Inner)
-                    .clickable(enabled = enabled, onClickLabel = if (checked[i]) "확인 풀기" else "확인") { toggle(i) }
+                    .tap(haptic = true, enabled = enabled, onClickLabel = if (checked[i]) "확인 풀기" else "확인") { toggle(i) }
                     .padding(14.dp),
                 verticalAlignment = Alignment.Top,
             ) {
@@ -971,8 +1135,8 @@ private fun NoticeCard(n: DocBubble.Ai, onClose: () -> Unit, onFix: (String) -> 
             .padding(14.dp),
     ) {
         Row {
-            BubbleText(n.text, color = OnRoadColors.TextSlateDark, modifier = Modifier.weight(1f))
-            Icon(Icons.Outlined.Close, "닫기", tint = OnRoadColors.TextMuted, modifier = Modifier.size(18.dp).clickable(onClick = onClose))
+            BubbleText(n.text, color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
+            Icon(Icons.Outlined.Close, "닫기", tint = OnRoadColors.TextMuted, modifier = Modifier.size(18.dp).tap(onClick = onClose))
         }
         n.policies.take(3).forEach { BulletText(it, OnRoadColors.Primary, style = OnRoadType.Caption2) }
         n.contacts.forEach { c ->
@@ -985,7 +1149,7 @@ private fun NoticeCard(n: DocBubble.Ai, onClose: () -> Unit, onFix: (String) -> 
                 "· ${p.label}: ${p.message}",
                 style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
                 color = OnRoadColors.Danger,
-                modifier = Modifier.clickable { onFix(p.fieldId) },
+                modifier = Modifier.tap { onFix(p.fieldId) },
             )
         }
     }
@@ -1014,11 +1178,12 @@ private fun PromptBar(
         Row(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .clip(OnRoadShapes.Inner)
+                .heightIn(min = OnRoadDimens.FieldHeight)
+                // 칸 안에서는 입력칸과 같은 모서리 · 테두리 (바탕만 연회색으로 AI 칸임을 구분)
+                .clip(if (padded) OnRoadShapes.Inner else OnRoadShapes.Field)
                 .background(OnRoadColors.SurfaceSubtle)
-                .border(1.dp, if (padded) OnRoadColors.BorderSlate else OnRoadColors.BorderChip, OnRoadShapes.Inner)
-                .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                .border(1.dp, OnRoadColors.BorderSlate, if (padded) OnRoadShapes.Inner else OnRoadShapes.Field)
+                .padding(start = FieldSpace.TextInset, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BasicTextField(
@@ -1037,7 +1202,7 @@ private fun PromptBar(
             if (AppState.voiceOn && enabled) {
                 Icon(
                     Icons.Outlined.Mic, "말로 입력", tint = OnRoadColors.TextTertiary,
-                    modifier = Modifier.padding(horizontal = 6.dp).size(20.dp).clickable(onClick = listen),
+                    modifier = Modifier.padding(horizontal = 6.dp).size(20.dp).tap(onClick = listen),
                 )
             }
             Box(
@@ -1045,7 +1210,7 @@ private fun PromptBar(
                     .size(36.dp)
                     .clip(OnRoadShapes.Field)
                     .background(if (active) OnRoadColors.Primary else Color.Transparent)
-                    .clickable(enabled = active, onClick = onSend),
+                    .tap(enabled = active, onClick = onSend),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Filled.ArrowUpward, "보내기", tint = if (active) Color.White else OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
@@ -1068,4 +1233,50 @@ private fun openPdf(context: Context, file: File?): Unit? {
         context.startActivity(Intent.createChooser(send, "서류 보내기"))
     }
     return Unit
+}
+
+/** 서류를 여는 동안: 칸 수 줄 · 말풍선 · 입력창 자리를 회색으로 미리 그린다 */
+@Composable
+private fun WriterSkeleton() {
+    val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "writer-skeleton").animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(900),
+            androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "writer-skeleton-pulse",
+    )
+    Column(Modifier.fillMaxSize().reveal()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = OnRoadDimens.ScreenPadding).padding(bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SkeletonBar(Modifier.weight(1f), height = 12.dp, widthFraction = 0.35f, alpha = pulse)
+            SkeletonBar(Modifier.width(76.dp), height = 26.dp, alpha = pulse)
+        }
+        Column(
+            Modifier.weight(1f).fillMaxWidth().padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // AI 말풍선 두 개 (왼쪽)
+            listOf(0.78f, 0.6f).forEach { w ->
+                Column(
+                    Modifier
+                        .fillMaxWidth(w)
+                        .clip(OnRoadShapes.Inner)
+                        .background(OnRoadColors.SurfaceSubtle)
+                        .padding(16.dp),
+                ) {
+                    SkeletonBar(height = 12.dp, widthFraction = 0.9f, alpha = pulse)
+                    Spacer(Modifier.height(8.dp))
+                    SkeletonBar(height = 12.dp, widthFraction = 0.6f, alpha = pulse)
+                }
+            }
+            Text("서류 칸을 준비하고 있어요", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+        }
+        Box(Modifier.fillMaxWidth().padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 12.dp)) {
+            SkeletonBar(height = 44.dp, alpha = pulse)
+        }
+    }
 }

@@ -1,5 +1,7 @@
 package com.project.on_road.ui.screens
 
+import androidx.compose.foundation.layout.Box
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -29,22 +31,29 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.ActionKind
 import com.project.on_road.data.AppContainer
 import com.project.on_road.data.NextAction
+import com.project.on_road.data.remote.userMessage
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
 import kotlinx.coroutines.launch
 
 class NextActionViewModel : ViewModel() {
-    var actions by mutableStateOf<List<NextAction>>(emptyList())
+    var actions by mutableStateOf(com.project.on_road.data.ScreenCache.get<List<NextAction>>("next-actions") ?: emptyList())
         private set
-    var loading by mutableStateOf(true)
+    var loading by mutableStateOf(actions.isEmpty())
+        private set
+
+    override fun onCleared() {
+        com.project.on_road.data.ScreenCache.put("next-actions", actions.ifEmpty { null })
+    }
+    var error by mutableStateOf<String?>(null)
         private set
 
     fun load() {
         viewModelScope.launch {
             loading = actions.isEmpty()
-            actions = runCatching {
-                AppContainer.api.getNextActions(AppContainer.session.userId.orEmpty())
-            }.getOrDefault(emptyList())
+            runCatching { AppContainer.api.getNextActions(AppContainer.session.userId.orEmpty()) }
+                .onSuccess { actions = it; error = null }
+                .onFailure { if (actions.isEmpty()) error = it.userMessage("할 일을 불러오지 못했어요.") }
             loading = false
         }
     }
@@ -94,43 +103,39 @@ fun NextActionScreen(
 ) {
     LaunchedEffect(Unit) { vm.load() }
     OnRoadScreen("다음 할 일", onBack) {
-        when {
-            vm.loading -> LoadingState("할 일을 정리하고 있어요")
-            vm.actions.isEmpty() -> EmptyState(
-                icon = Icons.Outlined.TaskAlt,
-                title = "지금은 추천할 일이 없어요",
-                message = "진행 중인 일을 모두 잘 챙기고 있어요.",
-            )
-            else -> {
-                ScreenHeadline("지금 상황에 맞춰", "먼저 하면 좋은 순서예요.")
-                Spacer(Modifier.height(6.dp))
-                Text("내 기록을 보고 골랐어요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
-                Spacer(Modifier.height(OnRoadDimens.BlockGap))
-
-                val first = vm.actions.first()
-                OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
-                    OnRoadTag("가장 먼저", style = TagStyle.PrimaryFilled)
-                    Spacer(Modifier.height(12.dp))
-                    Text(first.title, style = OnRoadType.Title2, color = OnRoadColors.Primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        FadeSwitch(vm.loading, label = "next-actions") { loading ->
+            when {
+                loading -> SkeletonList(rows = 4)
+                vm.error != null -> ErrorState(vm.error, onRetry = vm::load)
+                vm.actions.isEmpty() -> EmptyState("지금 챙길 일은 모두 끝냈어요. 새 일이 생기면 여기에 알려 드릴게요.")
+                else -> {
                     Spacer(Modifier.height(8.dp))
-                    // 설명은 한 줄: 추천 이유가 있으면 이유, 없으면 설명
-                    first.reason?.let { ReasonLine(it) }
-                        ?: Text(first.description, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.height(16.dp))
-                    OnRoadButton(
-                        first.kind.button(), { onAction(first) }, Modifier.fillMaxWidth(),
-                        height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                        trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
-                    )
-                }
 
-                if (vm.actions.size > 1) {
-                    Spacer(Modifier.height(OnRoadDimens.SectionGap))
-                    SectionHeader("그다음 할 일", trailingText = "${vm.actions.size - 1}개")
-                    Spacer(Modifier.height(16.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        vm.actions.drop(1).forEach { a ->
-                            ListRow(a.title, a.reason ?: a.description, icon = a.kind.icon()) { onAction(a) }
+                    val first = vm.actions.first()
+                    OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
+                        OnRoadTag("가장 먼저", style = TagStyle.Neutral)
+                        Spacer(Modifier.height(12.dp))
+                        Text(first.title, style = OnRoadType.Title2, color = OnRoadColors.Primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(8.dp))
+                        // 설명은 한 줄: 추천 이유가 있으면 이유, 없으면 설명
+                        first.reason?.let { ReasonLine(it) }
+                            ?: Text(first.description, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(16.dp))
+                        OnRoadButton(
+                            first.kind.button(), { onAction(first) }, Modifier.fillMaxWidth(),
+                            height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
+                            trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                        )
+                    }
+
+                    if (vm.actions.size > 1) {
+                        Spacer(Modifier.height(OnRoadDimens.SectionGap))
+                        SectionHeader("그다음 할 일", trailingText = "${vm.actions.size - 1}개")
+                        Spacer(Modifier.height(16.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            vm.actions.drop(1).forEachIndexed { si, a -> Box(Modifier.stagger(si)) {
+                                ListRow(a.title, a.reason ?: a.description, icon = a.kind.icon()) { onAction(a) }
+                            } }
                         }
                     }
                 }

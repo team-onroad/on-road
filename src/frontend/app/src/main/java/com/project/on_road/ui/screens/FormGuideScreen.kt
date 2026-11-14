@@ -1,5 +1,7 @@
 package com.project.on_road.ui.screens
 
+import com.project.on_road.ui.components.ErrorState
+import com.project.on_road.ui.components.FadeSwitch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,14 +49,24 @@ class FormGuideViewModel : ViewModel() {
         private set
     private var loadedId: String? = null
 
+    fun retry(policyId: String) {
+        loadedId = null
+        load(policyId)
+    }
+
     fun load(policyId: String) {
         if (loadedId == policyId) return
         loadedId = policyId
+        val cached = com.project.on_road.data.ScreenCache.get<FormGuideView>("guide:$policyId")
+        if (cached != null) {
+            guide = cached
+            loading = false
+        }
         viewModelScope.launch {
-            loading = true
+            if (cached == null) loading = true
             runCatching { AppContainer.api.getFormGuide(policyId) }
-                .onSuccess { guide = it; error = null }
-                .onFailure { error = "신청서 안내를 불러오지 못했어요. 잠시 후 다시 시도해 주세요." }
+                .onSuccess { guide = it; error = null; com.project.on_road.data.ScreenCache.put("guide:$policyId", it) }
+                .onFailure { if (guide == null) error = "신청서 안내를 불러오지 못했어요. 잠시 후 다시 시도해 주세요." }
             loading = false
         }
     }
@@ -72,35 +84,33 @@ fun FormGuideScreen(
     val error = vm.error
 
     OnRoadScreen("신청서 작성 도우미", onBack) {
-        when {
-            vm.loading -> LoadingState("신청서 안내를 준비하고 있어요")
-            error != null -> NoticeBox(error, title = "안내를 열 수 없어요", tone = NoticeTone.Warning)
-            g == null -> EmptyState(
-                icon = Icons.Filled.Description,
-                title = "아직 준비 중인 신청서예요",
-                message = "이 정책의 신청서 안내는 곧 추가될 예정이에요. 신청 방법은 공식 원문에서 확인해 주세요.",
-            )
-            else -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(g.title, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary)
-                g.notices.forEach { NoticeBox(it, tone = if (g.checked) NoticeTone.Info else NoticeTone.Warning) }
-                if (g.notes.isNotEmpty()) {
-                    NoticeBox(g.notes.joinToString("\n") { "· $it" }, title = "양식 유의사항")
-                }
-
-                var lastSection: String? = "\u0000"
-                g.items.forEach { item ->
-                    if (item.section != lastSection) {
-                        lastSection = item.section
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            item.section ?: "작성 항목",
-                            style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
-                            color = OnRoadColors.TextSlateMid,
-                        )
+        FadeSwitch(vm.loading, label = "form-guide") { loading ->
+            when {
+                loading -> LoadingState("신청서 안내를 준비하고 있어요")
+                error != null -> ErrorState(error, onRetry = { vm.retry(policyId) }, title = "안내를 열 수 없어요")
+                g == null -> EmptyState("이 정책의 신청서 안내는 준비 중이에요. 신청 방법은 공식 원문에서 확인해 주세요.")
+                else -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(g.title, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary)
+                    g.notices.forEach { NoticeBox(it, tone = if (g.checked) NoticeTone.Info else NoticeTone.Warning) }
+                    if (g.notes.isNotEmpty()) {
+                        NoticeBox(g.notes.joinToString("\n") { "· $it" }, title = "양식 유의사항")
                     }
-                    FieldCard(item)
+
+                    var lastSection: String? = "\u0000"
+                    g.items.forEach { item ->
+                        if (item.section != lastSection) {
+                            lastSection = item.section
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                item.section ?: "작성 항목",
+                                style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                                color = OnRoadColors.TextSecondary,
+                            )
+                        }
+                        FieldCard(item)
+                    }
+                    Spacer(Modifier.height(24.dp))
                 }
-                Spacer(Modifier.height(24.dp))
             }
         }
     }
@@ -123,7 +133,7 @@ private fun FieldCard(item: FormGuideItem) {
                     FieldSource.OFFICE -> "비워 두기"
                 },
                 style = when (item.source) {
-                    FieldSource.PROFILE -> TagStyle.PrimarySoft
+                    FieldSource.PROFILE -> TagStyle.Neutral
                     FieldSource.HANDWRITE -> TagStyle.Warning
                     FieldSource.OFFICE -> TagStyle.Gray
                     FieldSource.USER -> TagStyle.Neutral
@@ -131,9 +141,9 @@ private fun FieldCard(item: FormGuideItem) {
             )
         }
         Spacer(Modifier.height(8.dp))
-        Text(item.guide, style = OnRoadType.Caption, color = OnRoadColors.TextSlateDark)
+        Text(item.guide, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
         item.prefill?.let { ValueLine("내 정보", it, OnRoadColors.Primary) }
-        item.example?.let { ValueLine("예시", it, OnRoadColors.TextSlateMid) }
+        item.example?.let { ValueLine("예시", it, OnRoadColors.TextSecondary) }
         if (item.source == FieldSource.HANDWRITE) {
             Spacer(Modifier.height(6.dp))
             Text("개인정보라 앱에 입력하지 않아요. 종이 양식에 직접 적어 주세요.", style = OnRoadType.Tiny, color = OnRoadColors.TextMuted)

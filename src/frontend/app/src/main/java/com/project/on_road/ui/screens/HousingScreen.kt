@@ -69,9 +69,6 @@ fun HousingScreen(
     val maxMonthly = results.maxOf { it.monthly }.coerceAtLeast(1)
 
     OnRoadScreen("주거비 비교", onBack) {
-        ScreenHeadline("월세, 전세, 공공임대", "매달 얼마씩 나갈까요?")
-
-        Spacer(Modifier.height(28.dp))
         FieldLabel("살 기간")
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -88,14 +85,14 @@ fun HousingScreen(
                     Text(r.type.label, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, modifier = Modifier.width(60.dp))
                     ProgressBar(r.monthly / maxMonthly.toFloat(), Modifier.weight(1f), color = r.type.color(), height = 10.dp)
                     Spacer(Modifier.width(10.dp))
-                    Text(manwon(r.monthly), style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.width(64.dp))
+                    AnimatedNumber(r.monthly.toLong(), { manwon(it.toInt()) }, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.width(64.dp), durationMs = 350)
                 }
                 Spacer(Modifier.height(12.dp))
             }
             HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OnRoadTag("가장 적게 나가요", style = TagStyle.PrimarySoft)
+                OnRoadTag("가장 적게 나가요", style = TagStyle.Neutral)
                 Spacer(Modifier.width(8.dp))
                 Text(
                     "${cheapest.type.label}, ${vm.months}개월 ${manwon(cheapest.total)}",
@@ -182,7 +179,7 @@ private fun HousingCard(
                 Text(type.label, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                 Text(type.description, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
             }
-            if (isCheapest) OnRoadTag("최저", style = TagStyle.PrimaryFilled)
+            if (isCheapest) OnRoadTag("최저", style = TagStyle.Neutral)
         }
         Spacer(Modifier.height(18.dp))
         inputs()

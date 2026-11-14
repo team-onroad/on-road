@@ -1,5 +1,7 @@
 package com.project.on_road.ui.screens
 
+import androidx.compose.foundation.layout.Box
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -249,7 +251,10 @@ fun InterestScreen(
                 QuestionPage(q, vm.index, vm.questions.size, vm::answer, onPrev = { vm.stepBack() })
             }
             InterestStep.FREE_TEXT -> FreeTextPage(vm)
-            InterestStep.ANALYZING -> LoadingState("대답을 보고 흥미 유형을 살펴보고 있어요")
+            InterestStep.ANALYZING -> LoadingState(
+                "대답을 살펴보고 있어요",
+                steps = listOf("흥미 유형을 찾고 있어요", "어울리는 직업을 고르고 있어요"),
+            )
             InterestStep.RESULT -> vm.profile?.let { ResultPage(it, vm.notes, vm.loading, vm::loadJobs, vm::start) }
             InterestStep.JOBS -> JobsPage(vm.jobs, vm.profile, vm::openJob)
             InterestStep.JOB_DETAIL -> vm.job?.let { j ->
@@ -396,7 +401,7 @@ private fun IntroPage(questionCount: Int, onStart: () -> Unit, onRoadmap: () -> 
                 Riasec.entries.chunked(2).forEach { pair ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         pair.forEach { r ->
-                            DataCard(Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp)) {
+                            DataCard(Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     TypeBadge(r, on = r in (last?.top.orEmpty()), size = 26)
                                     Spacer(Modifier.width(10.dp))
@@ -476,7 +481,7 @@ private fun QuestionPage(q: InterestQuestion, index: Int, total: Int, onPick: (I
                         .clip(OnRoadShapes.Inner)
                         .background(if (on) OnRoadColors.Primary else Color.White)
                         .border(1.dp, if (on) OnRoadColors.Primary else OnRoadColors.BorderChip, OnRoadShapes.Inner)
-                        .clickable(enabled = picked == null) { picked = o }
+                        .tap(haptic = true, enabled = picked == null) { picked = o }
                         .padding(horizontal = 18.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -496,7 +501,7 @@ private fun QuestionPage(q: InterestQuestion, index: Int, total: Int, onPick: (I
                 "이전 질문",
                 style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
                 color = OnRoadColors.TextTertiary,
-                modifier = Modifier.clickable(onClick = onPrev).padding(vertical = 6.dp),
+                modifier = Modifier.tap(onClick = onPrev).padding(vertical = 6.dp),
             )
         }
     }
@@ -545,7 +550,7 @@ private fun FreeTextPage(vm: InterestViewModel) {
                 style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
                 color = OnRoadColors.TextTertiary,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().clickable { vm.freeText = ""; vm.analyze() }.padding(vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().tap { vm.freeText = ""; vm.analyze() }.padding(vertical = 8.dp),
             )
         }
     }
@@ -624,7 +629,7 @@ private fun ResultPage(
                 style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
                 color = OnRoadColors.TextTertiary,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onRestart).padding(vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().tap(onClick = onRestart).padding(vertical = 8.dp),
             )
         }
     }
@@ -709,7 +714,7 @@ private fun JobsPage(jobs: List<JobRecommendation>, profile: InterestProfile?, o
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             jobs.forEach { j ->
                 val pct = j.match ?: matchPercent(j, profile)
-                DataCard(Modifier.fillMaxWidth(), onClick = { onPick(j) }, contentPadding = PaddingValues(start = 16.dp, end = 14.dp, top = 16.dp, bottom = 16.dp)) {
+                DataCard(Modifier.fillMaxWidth(), onClick = { onPick(j) }, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(j.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -851,7 +856,7 @@ private fun Bullets(lines: List<String>) {
 /** 연회색 줄 카드: 제목 · 설명 · › */
 @Composable
 private fun LinkRow(title: String, sub: String, onClick: () -> Unit) {
-    DataCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = PaddingValues(start = 16.dp, end = 10.dp, top = 14.dp, bottom = 14.dp)) {
+    DataCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = PaddingValues(start = 16.dp, end = 10.dp, top = 16.dp, bottom = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)

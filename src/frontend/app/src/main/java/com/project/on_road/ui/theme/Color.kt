@@ -2,7 +2,11 @@ package com.project.on_road.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-/** 온로드 디자인 컬러 토큰 (디자인 SVG 기준). 새 화면도 이 값만 사용한다. */
+/**
+ * 온로드 디자인 컬러 토큰 (디자인 SVG 기준). 새 화면도 이 값만 사용한다.
+ * 회색은 한 계열(zinc)로 통일했다: 예전에 섞여 있던 푸른 회색(slate) 값은 같은 역할의 zinc 값으로 맞췄고,
+ * 이름은 기존 코드가 깨지지 않게 그대로 둔다 (같은 값을 가리키는 이름은 주석에 = 로 적었다).
+ */
 object OnRoadColors {
     // Brand
     val Primary = Color(0xFF0F172A)
@@ -18,32 +22,32 @@ object OnRoadColors {
     val TextSecondary = Color(0xFF3F3F46)
     val TextTertiary = Color(0xFF71717A)
     val TextQuaternary = Color(0xFFA1A1AA)
-    val TextSlate = Color(0xFF565E74)
-    val TextSlateDark = Color(0xFF334155)
-    val TextSlateMid = Color(0xFF64748B)
-    val TextMuted = Color(0xFF94A3B8)
+    val TextSlate = Color(0xFF52525B)        // 통일: 회색 한 계열(zinc)로
+    val TextSlateDark = Color(0xFF3F3F46)    // = TextSecondary
+    val TextSlateMid = Color(0xFF71717A)     // = TextTertiary
+    val TextMuted = Color(0xFFA1A1AA)        // = TextQuaternary
 
     // Surface
     val Background = Color.White
     val Surface = Color.White
     val SurfaceSubtle = Color(0xFFFAFAFA)
-    val SurfaceGuide = Color(0xFFFBFBFB)
-    val SurfaceMuted = Color(0xFFF2F4F6)
-    val SurfaceSlate = Color(0xFFF1F5F9)
-    val SurfaceCool = Color(0xFFF8FAFC)
+    val SurfaceGuide = Color(0xFFFAFAFA)     // = SurfaceSubtle
+    val SurfaceMuted = Color(0xFFF4F4F5)
+    val SurfaceSlate = Color(0xFFF4F4F5)     // = SurfaceMuted
+    val SurfaceCool = Color(0xFFFAFAFA)      // = SurfaceSubtle
     val SurfaceFile = Color(0xFFECEEF0)
     val SurfaceBadge = Color(0xFFE0E3E5)
-    val SurfaceSlateTag = Color(0xFFE2E8F0)
+    val SurfaceSlateTag = Color(0xFFE4E4E7)  // = Border
 
     // Border
     val Border = Color(0xFFE4E4E7)
-    val BorderSlate = Color(0xFFE2E8F0)
-    val BorderChip = Color(0xFFD6D6D6)
-    val BorderInput = Color(0xFFE6E8EA)
-    val BorderSage = Color(0xFFBFC3C9)
+    val BorderSlate = Color(0xFFE4E4E7)      // = Border
+    val BorderChip = Color(0xFFD4D4D8)       // 진한 테두리 (완료 태그·입력칸)
+    val BorderInput = Color(0xFFE4E4E7)      // = Border
+    val BorderSage = Color(0xFFD4D4D8)       // = BorderChip
     val BorderDark = Color(0xFF707279)
     val BorderSearch = Color(0xB3A1A1AA)
-    val Divider = Color(0xFFF1F5F9)
+    val Divider = Color(0xFFF4F4F5)
 
     // Status
     val Danger = Color(0xFFE85E5E)

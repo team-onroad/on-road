@@ -1,5 +1,15 @@
 package com.project.on_road.ui.screens
 
+
+import com.project.on_road.ui.components.sharedTitle
+import com.project.on_road.ui.components.policyTitleKey
+
+import com.project.on_road.ui.components.tap
+import com.project.on_road.ui.components.stagger
+import com.project.on_road.ui.components.rememberTick
+import com.project.on_road.ui.components.popOn
+import androidx.compose.foundation.lazy.itemsIndexed
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -11,6 +21,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,9 +40,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.QuestionAnswer
+import androidx.compose.material.icons.outlined.SupportAgent
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -51,6 +66,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.remember
@@ -62,6 +79,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.ActivityStore
 import com.project.on_road.data.AppContainer
+import com.project.on_road.ui.components.reveal
+import com.project.on_road.ui.components.ErrorState
 import com.project.on_road.ui.components.EasyTextPanel
 import com.project.on_road.ui.components.NextStepList
 import com.project.on_road.data.AppState
@@ -92,26 +111,56 @@ import com.project.on_road.ui.theme.OnRoadShapes
 import com.project.on_road.ui.theme.OnRoadType
 import kotlinx.coroutines.launch
 
-/** 단계별 자주 묻는 주제 (청소년은 학업·장학금·진로 중심, 자립준비청년은 자립 생활 중심) */
-private fun suggestionsFor(stage: UserStage): List<String> = when (stage) {
-    UserStage.YOUNG_ADULT -> listOf(
-        "혼자 살 집을 구하고 싶어요",
-        "매달 받을 수 있는 지원금이 있나요?",
-        "병원비가 걱정돼요",
-        "취업 준비를 도와주는 제도가 있나요?",
-        "목돈을 모으는 방법이 궁금해요",
-    )
-    else -> listOf(
-        "받을 수 있는 장학금이 있나요?",
-        "디딤씨앗통장이 뭐예요?",
-        "진학 준비를 도와주는 제도가 있나요?",
-        "자격증 시험 비용을 지원받을 수 있나요?",
-        "학원비나 교재비 지원이 있나요?",
-    )
+/**
+ * 정책 검색 화면 여백 조절값. 숫자만 바꾸면 된다 (단위 dp).
+ */
+private object SearchSpace {
+    /** 오른쪽 맨 위 상담 아이콘 위 여백 */
+    val ChatIconTop = 14.dp
+    /** 결과 맨 아래 '찾는 게 없나요?' 카드 위 여백 */
+    val AskChatTop = 24.dp
+    /** 안내 문장 위 여백 (처음 화면 / 검색할 때) */
+    val TitleTop = 52.dp
+    val TitleTopSearching = 20.dp
+    /** 검색창 안 글자 왼쪽 여백 */
+    val FieldTextStart = 20.dp
+    /** '검색 결과 · ○건' 줄 양쪽 안쪽 여백 (0 이면 검색창 바깥 테두리에 맞춤) */
+    val ResultHeaderInset = 0.dp
+    /** '분야별로 보기' 위 여백 */
+    val BrowseTop = 36.dp
+    /** '이어서 해 보기' 위 여백 */
+    val NextStepsTop = 32.dp
 }
 
-private fun topicTitleFor(stage: UserStage): String =
-    if (stage == UserStage.YOUNG_ADULT) "* 청년들이 자주 묻는 주제" else "* 청소년들이 자주 묻는 주제"
+/** 검색창 위 키워드 태그. 누르면 그 말로 바로 찾는다 */
+private fun keywordsFor(stage: UserStage): List<String> = when (stage) {
+    UserStage.YOUNG_ADULT -> listOf("자립수당", "자립정착금", "전세임대", "월세 지원", "의료비", "취업 지원", "장학금", "목돈 모으기", "심리상담")
+    else -> listOf("장학금", "디딤씨앗통장", "진학 지원", "자격증 비용", "학원비", "보호연장")
+}
+
+/** 분야별로 보기: 검색어를 넣지 않아도 분야를 고르면 그 분야 정책을 보여 준다 (서버 검색에 분야 이름으로 묻는다) */
+private data class BrowseCategory(val label: String, val query: String)
+
+private val browseCategories = listOf(
+    BrowseCategory("전체", "자립준비청년 지원 정책"),
+    BrowseCategory("주거", "주거 지원 정책"),
+    BrowseCategory("생활비", "생활비 지원 정책"),
+    BrowseCategory("금융", "자산 형성 금융 지원 정책"),
+    BrowseCategory("취업", "취업 지원 정책"),
+    BrowseCategory("교육", "장학금 교육 지원 정책"),
+    BrowseCategory("의료", "의료비 건강 지원 정책"),
+    BrowseCategory("자립", "자립준비청년 자립 지원 정책"),
+)
+
+/**
+ * 인기 검색어 순위.
+ * 아직 서버에 사람들이 찾은 검색어를 세는 API 가 없어서, 자립준비청년이 많이 찾는 제도로 정해 둔 순서다.
+ * 서버에서 순위를 주면 이 목록 대신 그 값을 쓰면 된다.
+ */
+private val popularSearches = listOf(
+    "자립수당", "자립정착금", "전세임대주택", "청년 월세 지원", "디딤씨앗통장",
+    "자립지원전담기관 상담", "의료비 지원", "국민내일배움카드", "청년도약계좌", "보호연장",
+)
 
 class PolicySearchViewModel : ViewModel() {
     private val api = AppContainer.api
@@ -129,9 +178,53 @@ class PolicySearchViewModel : ViewModel() {
     val originalIds = mutableStateListOf<String>()
     val evidenceIds = mutableStateListOf<String>()
     val compareIds = mutableStateListOf<String>()
-    val savedIds = mutableStateListOf<String>()
+    /** 관심 정책은 상세 화면과 같은 목록을 쓴다 */
+    val savedIds = PolicySaves.ids
 
     private var initialized = false
+
+    /** 분야별로 보기: 고른 분야 · 분야마다 받아 둔 정책 (한 번 받은 분야는 다시 묻지 않는다) */
+    var category by mutableStateOf(browseCategories.first().label)
+        private set
+    val categoryPolicies = androidx.compose.runtime.mutableStateMapOf<String, List<Policy>>()
+    var categoryLoading by mutableStateOf(false)
+        private set
+    var categoryError by mutableStateOf(false)
+        private set
+
+    fun pickCategory(label: String) {
+        category = label
+        if (label in categoryPolicies) return
+        val c = browseCategories.firstOrNull { it.label == label } ?: return
+        viewModelScope.launch {
+            categoryLoading = true
+            categoryError = false
+            runCatching { api.searchPolicies(userId, c.query) }
+                .onSuccess { categoryPolicies[label] = it.policies }
+                .onFailure { if (category == label) categoryError = true }
+            categoryLoading = false
+        }
+    }
+
+    /** 최근 검색어 (계정마다 휴대폰에 저장) */
+    val recent = mutableStateListOf<String>().apply { addAll(AppContainer.session.recentSearches) }
+
+    fun removeRecent(text: String) {
+        recent.remove(text)
+        AppContainer.session.recentSearches = recent.toList()
+    }
+
+    fun clearRecent() {
+        recent.clear()
+        AppContainer.session.recentSearches = emptyList()
+    }
+
+    private fun addRecent(text: String) {
+        recent.remove(text)
+        recent.add(0, text)
+        while (recent.size > 10) recent.removeAt(recent.lastIndex)
+        AppContainer.session.recentSearches = recent.toList()
+    }
 
     fun init(policyId: String?, initialQuery: String?) {
         if (initialized) return
@@ -161,6 +254,7 @@ class PolicySearchViewModel : ViewModel() {
         val q = text.trim()
         if (q.isEmpty() || loading) return
         query = q
+        addRecent(q)
         ActivityStore.logQuestion(q, SignalSource.SEARCH)
         viewModelScope.launch {
             loading = true
@@ -180,16 +274,26 @@ class PolicySearchViewModel : ViewModel() {
         }
     }
 
+    /** 검색어를 지우면 처음 화면(분야별로 보기)으로 돌아간다 */
+    fun reset() {
+        query = ""
+        result = null
+        error = null
+    }
+
     fun toggleOriginal(id: String) = toggle(originalIds, id)
     fun toggleEvidence(id: String) = toggle(evidenceIds, id)
 
     fun toggleCompare(id: String) {
-        if (id in compareIds) compareIds.remove(id) else if (compareIds.size < 3) compareIds.add(id)
+        if (id in compareIds) compareIds.remove(id)
+        else if (compareIds.size < 3) compareIds.add(id)
+        else com.project.on_road.ui.components.OnRoadToast.show("비교는 3개까지 담을 수 있어요")
     }
 
     fun toggleSave(id: String) {
         val save = id !in savedIds
         if (save) savedIds.add(id) else savedIds.remove(id)
+        com.project.on_road.ui.components.OnRoadToast.show(if (save) "관심 정책에 담았어요" else "관심 정책에서 뺐어요")
         if (save) result?.policies?.firstOrNull { it.id == id }?.let { ActivityStore.logPolicySaved(it.category, it.name) }
         viewModelScope.launch { runCatching { api.savePolicy(userId, id, save) } }
     }
@@ -206,6 +310,7 @@ fun PolicySearchScreen(
     onBack: () -> Unit,
     onPrepare: (String) -> Unit,
     onCompare: (List<String>) -> Unit,
+    onOpen: (String) -> Unit = {},
     onNavigate: (String) -> Unit = {},
     vm: PolicySearchViewModel = viewModel(),
 ) {
@@ -216,71 +321,140 @@ fun PolicySearchScreen(
         focus.clearFocus()
     }
 
+    // 검색창을 누르면(키보드가 올라오면) 최근 검색 · 인기 검색어를 보여 준다
+    var searching by remember { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = searching) { focus.clearFocus() }
+    val closeDistance = with(androidx.compose.ui.platform.LocalDensity.current) { 32.dp.toPx() }
+    val swipeDownToClose = remember(focus, closeDistance) {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            private var pulled = 0f
+            // 목록이 맨 위에 닿은 뒤에도 더 끌어내리면 (목록이 쓰고 남은 만큼) 닫는다
+            override fun onPostScroll(
+                consumed: androidx.compose.ui.geometry.Offset,
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
+            ): androidx.compose.ui.geometry.Offset {
+                pulled = if (available.y > 0f) pulled + available.y else 0f
+                if (pulled > closeDistance) {
+                    pulled = 0f
+                    focus.clearFocus()
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+
     Box(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
         Column(Modifier.fillMaxSize()) {
-            OnRoadTopBar("정책 검색", onBack)
-            Spacer(Modifier.height(16.dp))
-            OnRoadSearchBar(
+            // 처음 화면: 안내 문장 → 검색창 → 키워드 태그 (검색 중에는 안내 문장과 태그를 접는다)
+            val start = vm.result == null && !vm.loading && vm.error == null && !searching
+            // 처음 화면의 안내 문장은 홈 인사말과 비슷한 높이에서 시작한다. 검색할 때는 위로 올라간다
+            val topGap by androidx.compose.animation.core.animateDpAsState(
+                if (start) SearchSpace.TitleTop else SearchSpace.TitleTopSearching,
+                com.project.on_road.ui.theme.OnRoadMotion.move(),
+                label = "search-top",
+            )
+            Spacer(Modifier.height(topGap))
+            AnimatedVisibility(
+                visible = start,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
+                    // 홈 인사말과 같은 크기 · 위계 (첫 줄 보통, 둘째 줄 굵게)
+                    Text("궁금한 제도를 물어보면", style = OnRoadType.DisplayRegular, color = OnRoadColors.TextPrimary)
+                    Text("공식 자료에서 찾아볼게요.", style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
+                    Spacer(Modifier.height(20.dp))
+                }
+            }
+            PolicySearchField(
                 value = vm.query,
                 onValueChange = { vm.query = it },
-                placeholder = "무엇이 궁금한가요?",
-                height = 48.dp,
                 onSearch = submit,
-                modifier = Modifier.padding(horizontal = OnRoadDimens.ScreenPadding),
-                trailing = {
-                    val active = vm.query.isNotBlank() && !vm.loading
-                    Box(
-                        Modifier
-                            .size(38.dp)
-                            .clip(OnRoadShapes.Field)
-                            .background(if (active) OnRoadColors.PrimaryDeep else OnRoadColors.SurfaceMuted)
-                            .clickable(enabled = active) { submit(vm.query) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.ArrowUpward, "검색",
-                            tint = if (active) Color.White else OnRoadColors.TextQuaternary,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                },
+                onClear = { vm.reset() },
+                enabled = !vm.loading,
+                modifier = Modifier
+                    .padding(horizontal = OnRoadDimens.ScreenPadding)
+                    .onFocusChanged { searching = it.hasFocus },
             )
+            AnimatedVisibility(
+                visible = start,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding).padding(top = 16.dp)) {
+                    KeywordTags(keywordsFor(AppState.stage)) { submit(it) }
+                }
+            }
             Spacer(Modifier.height(20.dp))
 
             val result = vm.result
             val error = vm.error
             when {
-                vm.loading -> LoadingState("공식 자료에서 근거를 찾고 있어요", Modifier.weight(1f))
-
-                error != null -> Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
-                    NoticeBox(error, title = "검색하지 못했어요", tone = NoticeTone.Warning)
+                searching -> LazyColumn(
+                    // 아래로 끌어내리면 키보드를 닫고 처음 화면(안내 문장 · 태그)으로 돌아간다
+                    modifier = Modifier.weight(1f).nestedScroll(swipeDownToClose),
+                    contentPadding = PaddingValues(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, bottom = 32.dp),
+                ) {
+                    item { SearchSuggestions(vm, onPick = submit) }
                 }
 
-                result == null -> LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 32.dp),
-                    verticalArrangement = Arrangement.spacedBy(5.dp),
-                ) {
-                    item {
-                        Text("궁금한 제도를 물어보면\n공식 자료에서 찾아볼게요.", style = OnRoadType.Title1Regular, color = OnRoadColors.TextPrimary)
-                        Spacer(Modifier.height(24.dp))
-                        Text(topicTitleFor(AppState.stage), style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
-                        Spacer(Modifier.height(3.dp))
+                vm.loading -> LoadingState(
+                    "공식 자료에서 근거를 찾고 있어요",
+                    Modifier.weight(1f),
+                    steps = listOf("내 상황에 맞는 정책을 고르고 있어요", "답변을 정리하고 있어요"),
+                )
+
+                error != null -> Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
+                    ErrorState(error, onRetry = { vm.search() }, title = "검색하지 못했어요")
+                }
+
+                // 분야별로 보기: 제목 · 분야 칩은 고정, 정책 목록만 스크롤
+                result == null -> Column(Modifier.weight(1f)) {
+                    LaunchedEffect(Unit) { vm.pickCategory(vm.category) }
+                    Column(Modifier.padding(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = SearchSpace.BrowseTop, bottom = 12.dp)) {
+                        SubHeader("분야별로 보기")
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            browseCategories.forEach { c ->
+                                com.project.on_road.ui.components.ChoiceChip(c.label, selected = vm.category == c.label) { vm.pickCategory(c.label) }
+                            }
+                        }
                     }
-                    items(suggestionsFor(AppState.stage)) { SuggestionChip(it) { submit(it) } }
-                    item {
-                        Spacer(Modifier.height(20.dp))
-                        NoticeBox(
-                            "근거를 찾지 못하면 추측하지 않고, 확인이 필요하다고 알려 드려요.",
-                            title = "답변은 공식 자료에 근거해요",
-                        )
+                    val list = vm.categoryPolicies[vm.category]
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = 4.dp, bottom = 32.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        when {
+                            list == null && vm.categoryLoading -> item(key = "browse-loading") { com.project.on_road.ui.components.SkeletonList(rows = 4) }
+                            list == null && vm.categoryError -> item(key = "browse-error") {
+                                ErrorState("정책을 불러오지 못했어요.", onRetry = { vm.pickCategory(vm.category) }, title = "불러오지 못했어요")
+                            }
+                            list.isNullOrEmpty() -> item(key = "browse-empty") {
+                                Text("이 분야에서 찾은 정책이 아직 없어요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+                            }
+                            else -> itemsIndexed(list.orEmpty(), key = { _, it -> "browse-${vm.category}-${it.id}" }) { i, p ->
+                                Box(Modifier.animateItem().stagger(i)) {
+                                    SmallPolicyCard(
+                                        policy = p,
+                                        showCategory = vm.category == browseCategories.first().label,
+                                        onOpen = { PolicyCache.put(p); onOpen(p.id) },
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
                 else -> LazyColumn(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).reveal(),
                     contentPadding = PaddingValues(
-                        start = 24.dp, end = 24.dp, top = 0.dp,
+                        start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = 0.dp,
                         bottom = if (vm.compareIds.isNotEmpty()) 120.dp else 32.dp,
                     ),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -295,7 +469,13 @@ fun PolicySearchScreen(
                                     }
                                     Spacer(Modifier.height(20.dp))
                                 }
-                                SubHeader(result.message, trailingText = "${result.policies.size}건")
+                                // 서버 문장("○개를 찾았어요")과 건수가 겹쳐서 제목은 짧게, 건수만 오른쪽에
+                                // 검색창 · 카드 안 글자와 같은 줄에서 시작하고 끝나게 (양쪽 20dp 안쪽)
+                                SubHeader(
+                                    "검색 결과",
+                                    Modifier.padding(horizontal = SearchSpace.ResultHeaderInset),
+                                    trailingText = "${result.policies.size}건",
+                                )
                             }
                         } else {
                             Column {
@@ -306,15 +486,14 @@ fun PolicySearchScreen(
                                     tone = NoticeTone.Warning,
                                 )
                                 Spacer(Modifier.height(20.dp))
-                                Text("* 이렇게 다시 물어볼 수 있어요", style = OnRoadType.Caption, color = OnRoadColors.TextSlate)
-                                Spacer(Modifier.height(8.dp))
-                                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                    suggestionsFor(AppState.stage).take(3).forEach { SuggestionChip(it) { submit(it) } }
-                                }
+                                Text("이 키워드로 다시 찾아볼 수 있어요", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+                                Spacer(Modifier.height(10.dp))
+                                KeywordTags(keywordsFor(AppState.stage).take(6)) { submit(it) }
                             }
                         }
                     }
-                    items(result.policies, key = { it.id }) { p ->
+                    itemsIndexed(result.policies, key = { _, it -> it.id }) { i, p ->
+                        Box(Modifier.animateItem().stagger(i)) {
                         PolicyCard(
                             policy = p,
                             easy = p.id !in vm.originalIds,
@@ -327,7 +506,9 @@ fun PolicySearchScreen(
                             onToggleCompare = { vm.toggleCompare(p.id) },
                             onToggleSave = { vm.toggleSave(p.id) },
                             onPrepare = { onPrepare(p.id) },
+                            onOpen = { PolicyCache.put(p); onOpen(p.id) },
                         )
+                        }
                     }
                     // 찾은 분야로 이어서 해 볼 것 (연습 · 생활비 · 상담)
                     val topic = Topic.classify(result.question).firstOrNull()
@@ -335,10 +516,18 @@ fun PolicySearchScreen(
                     if (topic != null) {
                         item(key = "next-steps") {
                             Column {
-                                Spacer(Modifier.height(16.dp))
-                                NextStepList(Links.forTopic(topic), { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) })
-                                Spacer(Modifier.height(if (vm.compareIds.isNotEmpty()) 88.dp else 24.dp))
+                                Spacer(Modifier.height(SearchSpace.NextStepsTop))
+                                SearchNextSteps(Links.forTopic(topic)) { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) }
                             }
+                        }
+                    }
+                    // 결과 맨 아래: 검색으로 못 찾았으면 바로 상담으로
+                    item(key = "ask-chat") {
+                        Column {
+                            Spacer(Modifier.height(SearchSpace.AskChatTop))
+                            AskChatCard { onNavigate(com.project.on_road.ui.screens.navigation.Routes.chat(question = result.question)) }
+                            // 아래 비교 바에 마지막 줄이 가리지 않게
+                            Spacer(Modifier.height(if (vm.compareIds.isNotEmpty()) 88.dp else 24.dp))
                         }
                     }
                 }
@@ -353,6 +542,282 @@ fun PolicySearchScreen(
         ) {
             CompareBar(count = vm.compareIds.size) { onCompare(vm.compareIds.toList()) }
         }
+
+        // 오른쪽 맨 위 '상담하기': 처음 화면에서만 (검색해서 결과가 나오면 숨기고, 결과 맨 아래 '찾는 게 없나요?' 카드로 대신한다)
+        AnimatedVisibility(
+            visible = vm.result == null && !vm.loading && vm.error == null && !searching,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = SearchSpace.ChatIconTop, end = OnRoadDimens.ScreenPadding),
+        ) {
+            // 흰 테두리 작은 버튼: 아이콘 + '상담하기' (아이콘만 있으면 뜻이 잘 안 보여서)
+            Row(
+                Modifier
+                    .clip(OnRoadShapes.Chip)
+                    .background(Color.White)
+                    .border(1.dp, OnRoadColors.BorderChip, OnRoadShapes.Chip)
+                    .tap(onClickLabel = "상담하러 가기") { onNavigate(com.project.on_road.ui.screens.navigation.Routes.chat()) }
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                /*Icon(Icons.Outlined.SupportAgent, null, tint = OnRoadColors.TextSecondary, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))*/
+                Text("상담하기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary)
+            }
+        }
+    }
+}
+
+/** 결과 맨 아래 '찾는 게 없나요?': 흰 카드 · 칩 테두리 (생활 가이드 진로 카드와 같은 모양), 오른쪽 가운데 '상담하기 ›' */
+@Composable
+private fun AskChatCard(onClick: () -> Unit) {
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        borderColor = OnRoadColors.BorderChip,
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(start = 16.dp, end = 10.dp, top = 16.dp, bottom = 16.dp),
+        onClick = onClick,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("찾는 게 없나요?", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                Spacer(Modifier.height(2.dp))
+                Text("상담에서 내 상황에 맞게 물어봐요", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("상담하기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextTertiary, modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+}
+
+/** 키워드 태그: 앱 기본 태그(연회색 바탕 · 회색 테두리) 모양, 여러 줄로 감싼다 */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun KeywordTags(words: List<String>, onPick: (String) -> Unit) {
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        words.forEach { w ->
+            OnRoadTag(
+                w,
+                style = TagStyle.Neutral,
+                modifier = Modifier.clip(OnRoadShapes.Tag).tap(onClickLabel = "$w 찾기") { onPick(w) },
+            )
+        }
+    }
+}
+
+/**
+ * 정책 검색창: 아래 정책 카드와 같은 톤 (흰 바탕 · 카드 테두리, 누르면 테두리가 메인 색).
+ * 오른쪽 찾기 버튼은 글자를 넣었을 때만 메인 색.
+ */
+@Composable
+private fun PolicySearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSearch: (String) -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClear: () -> Unit = {},
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = OnRoadShapes.Inner
+    val line by androidx.compose.animation.animateColorAsState(
+        if (focused) OnRoadColors.Primary else OnRoadColors.BorderSlate,
+        com.project.on_road.ui.theme.OnRoadMotion.move(),
+        label = "search-line",
+    )
+    val active = value.isNotBlank() && enabled
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(shape)
+            .background(OnRoadColors.Surface)
+            .border(1.dp, line, shape)
+            // 글자 시작 위치를 아래 정책 카드 안쪽 글자와 맞춘다
+            .padding(start = SearchSpace.FieldTextStart, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        androidx.compose.foundation.text.BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = OnRoadType.Body2.copy(color = OnRoadColors.TextPrimary),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(OnRoadColors.Primary),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onSearch(value) }),
+            modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
+            decorationBox = { inner ->
+                if (value.isEmpty()) Text("무엇이 궁금한가요?", style = OnRoadType.Body2, color = OnRoadColors.TextQuaternary, maxLines = 1)
+                inner()
+            },
+        )
+        // 글자가 있으면 지우기 (지우면 검색 결과도 닫고 처음 화면으로)
+        if (value.isNotEmpty()) {
+            Box(
+                Modifier.size(32.dp).clip(OnRoadShapes.Field).tap(onClickLabel = "검색어 지우기", onClick = onClear),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(androidx.compose.material.icons.Icons.Filled.Close, "지우기", tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(2.dp))
+        }
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(OnRoadShapes.Field)
+                .background(if (active) OnRoadColors.Primary else Color.Transparent)
+                .tap(enabled = active) { onSearch(value) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                androidx.compose.material.icons.Icons.Filled.Search, "찾기",
+                tint = if (active) Color.White else OnRoadColors.TextTertiary,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+/**
+ * 작은 정책 카드 (분야별로 보기): 연회색 카드.
+ * 첫 줄: 정책 이름(왼쪽) · 기관(오른쪽 정렬). 둘째 줄: 지원 내용, '전체'에서는 오른쪽에 분야.
+ * 누르면 정책 상세로 간다 (저장은 상세 화면에서)
+ */
+@Composable
+private fun SmallPolicyCard(policy: Policy, showCategory: Boolean, onOpen: () -> Unit) {
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        onClick = onOpen,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                policy.name,
+                style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                color = OnRoadColors.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).sharedTitle(policyTitleKey(policy.id)),
+            )
+            if (policy.agency.isNotBlank()) {
+                Spacer(Modifier.width(8.dp))
+                Text(policy.agency, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
+            }
+        }
+        val category = policy.category.takeIf { showCategory && it.isNotBlank() }
+        if (policy.amount.isNotBlank() || category != null) {
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    policy.amount,
+                    style = OnRoadType.Caption,
+                    color = OnRoadColors.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                category?.let {
+                    Spacer(Modifier.width(8.dp))
+                    Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 검색 결과 아래 '이어서 해 보기': 분야별 작은 카드와 같은 모양 (연회색 카드, 왼쪽 이름 · 오른쪽 종류).
+ * 카드 전체를 누르면 간다 (진한 '바로 가기' 버튼이 검색 버튼 · 정책 카드와 겹쳐 보여서 뺐다)
+ */
+@Composable
+private fun SearchNextSteps(steps: List<com.project.on_road.data.NextStep>, onOpen: (com.project.on_road.data.NextStep) -> Unit) {
+    if (steps.isEmpty()) return
+    Column(Modifier.fillMaxWidth()) {
+        SubHeader("이어서 해 보기")
+        Spacer(Modifier.height(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            steps.forEach { st ->
+                OnRoadCard(
+                    Modifier.fillMaxWidth(),
+                    background = OnRoadColors.SurfaceSubtle,
+                    borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+                    shape = OnRoadShapes.Item,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                    onClick = { onOpen(st) },
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            st.label,
+                            style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                            color = OnRoadColors.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(Links.stepKindLabel(st.kind), style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 검색창을 눌렀을 때: 최근 검색 · 인기 검색어 */
+@Composable
+private fun SearchSuggestions(vm: PolicySearchViewModel, onPick: (String) -> Unit) {
+    Column {
+        if (vm.recent.isNotEmpty()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("최근 검색", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+                Text(
+                    "전체 삭제",
+                    style = OnRoadType.Caption2,
+                    color = OnRoadColors.TextTertiary,
+                    modifier = Modifier.clip(OnRoadShapes.Chip).tap { vm.clearRecent() }.padding(horizontal = 6.dp, vertical = 4.dp),
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            vm.recent.forEach { q ->
+                Row(
+                    Modifier.fillMaxWidth().clip(OnRoadShapes.Chip).tap { onPick(q) }.padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(q, style = OnRoadType.Body2, color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(
+                        "삭제",
+                        style = OnRoadType.Micro,
+                        color = OnRoadColors.TextQuaternary,
+                        modifier = Modifier.clip(OnRoadShapes.Chip).tap { vm.removeRecent(q) }.padding(horizontal = 6.dp, vertical = 4.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(OnRoadDimens.BlockGap))
+        }
+        Text("인기 검색어", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+        Spacer(Modifier.height(4.dp))
+        popularSearches.forEachIndexed { i, q ->
+            Row(
+                Modifier.fillMaxWidth().clip(OnRoadShapes.Chip).tap { onPick(q) }.padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${i + 1}",
+                    style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                    color = if (i < 3) OnRoadColors.Primary else OnRoadColors.TextTertiary,
+                    modifier = Modifier.width(28.dp),
+                )
+                Text(q, style = OnRoadType.Body2, color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 
@@ -366,12 +831,12 @@ internal fun SuggestionChip(text: String, onClick: () -> Unit) {
             .clip(OnRoadShapes.Chip)
             .background(OnRoadColors.SurfaceMuted)
             .border(1.dp, OnRoadColors.BorderSage.copy(alpha = 0.4f), OnRoadShapes.Chip)
-            .clickable(onClick = onClick)
+            .tap(onClick = onClick)
             .padding(start = 14.dp, end = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(text, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, maxLines = 1, modifier = Modifier.weight(1f))
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextSlate, modifier = Modifier.size(16.dp))
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextTertiary, modifier = Modifier.size(16.dp))
     }
 }
 
@@ -390,7 +855,13 @@ fun PolicyCard(
     onToggleSave: () -> Unit,
     onPrepare: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 있으면 핵심만 담은 카드로 그리고, 누르면 정책 상세로 간다 */
+    onOpen: (() -> Unit)? = null,
 ) {
+    if (onOpen != null) {
+        CompactPolicyCard(policy, inCompare, compareEnabled, saved, onToggleCompare, onToggleSave, onOpen, modifier)
+        return
+    }
     OnRoadCard(
         modifier.fillMaxWidth(),
         borderColor = if (inCompare) OnRoadColors.Primary else OnRoadColors.BorderSlate,
@@ -399,26 +870,28 @@ fun PolicyCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             OnRoadTag(
                 policy.category,
-                style = TagStyle.PrimaryOutline,
+                style = TagStyle.Neutral,
                 textStyle = OnRoadType.Caption2,
                 shape = OnRoadShapes.Field,
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
             )
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = onToggleSave, modifier = Modifier.size(32.dp)) {
+            val tick = rememberTick()
+            IconButton(onClick = { tick(); onToggleSave() }, modifier = Modifier.size(32.dp)) {
                 Icon(
                     if (saved) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                     contentDescription = if (saved) "저장 취소" else "저장",
                     tint = if (saved) OnRoadColors.Primary else OnRoadColors.TextMuted,
+                    modifier = Modifier.popOn(saved),
                 )
             }
         }
 
         Spacer(Modifier.height(16.dp))
-        Text(policy.name, style = OnRoadType.Title3, color = OnRoadColors.TextStrong)
+        Text(policy.name, style = OnRoadType.Title3, color = OnRoadColors.TextStrong, modifier = Modifier.sharedTitle(policyTitleKey(policy.id)))
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(policy.agency, style = OnRoadType.Caption2, color = OnRoadColors.TextSlateMid, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+            Text(policy.agency, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
             Text("  ı  ", style = OnRoadType.Tiny, color = OnRoadColors.TextMuted)
             Text("${policy.checkedAt} 기준", style = OnRoadType.Caption2, color = OnRoadColors.TextMuted, maxLines = 1)
         }
@@ -439,7 +912,7 @@ fun PolicyCard(
 
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
-            Text("쉬운말로 보기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateDark)
+            Text("쉬운말로 보기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary)
             OnRoadSwitch(checked = easy, onCheckedChange = { onToggleEasy() })
         }
 
@@ -460,7 +933,7 @@ fun PolicyCard(
                     Text(
                         policy.summary,
                         style = OnRoadType.Body2.copy(lineHeight = OnRoadType.Body2.lineHeight * 1.1f),
-                        color = OnRoadColors.TextSlateDark,
+                        color = OnRoadColors.TextSecondary,
                     )
                 }
             }
@@ -492,11 +965,11 @@ fun PolicyCard(
                 .clip(OnRoadShapes.Field)
                 .background(OnRoadColors.SurfaceCool)
                 .border(1.dp, OnRoadColors.BorderSlate, OnRoadShapes.Field)
-                .clickable(onClick = onToggleEvidence)
+                .tap(onClick = onToggleEvidence)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("근거 원문 보기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateDark, modifier = Modifier.weight(1f))
+                Text("근거 원문 보기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
                 Text("${policy.evidence.size}건", style = OnRoadType.Micro, color = OnRoadColors.TextMuted)
                 Spacer(Modifier.width(4.dp))
                 Icon(Icons.Filled.KeyboardArrowDown, null, tint = OnRoadColors.TextMuted, modifier = Modifier.size(20.dp).rotate(arrow))
@@ -510,7 +983,7 @@ fun PolicyCard(
                             Column {
                                 Text("“${ev.snippet}”", style = OnRoadType.Caption, color = OnRoadColors.TextPrimary)
                                 Spacer(Modifier.height(2.dp))
-                                Text(ev.source, style = OnRoadType.Tiny, color = OnRoadColors.TextSlateMid)
+                                Text(ev.source, style = OnRoadType.Tiny, color = OnRoadColors.TextSecondary)
                             }
                         }
                     }
@@ -526,7 +999,7 @@ fun PolicyCard(
                 Modifier
                     .fillMaxWidth()
                     .clip(OnRoadShapes.Field)
-                    .clickable { runCatching { uri.openUri(policy.sourceUrl) } }
+                    .tap { runCatching { uri.openUri(policy.sourceUrl) } }
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -543,7 +1016,7 @@ fun PolicyCard(
                     .clip(OnRoadShapes.Inner)
                     .background(if (inCompare) OnRoadColors.PrimarySoft else Color.White)
                     .border(1.dp, if (inCompare) OnRoadColors.Primary else OnRoadColors.BorderSlate, OnRoadShapes.Inner)
-                    .clickable(enabled = compareEnabled, onClick = onToggleCompare)
+                    .tap(haptic = true, enabled = compareEnabled, onClick = onToggleCompare)
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -552,7 +1025,7 @@ fun PolicyCard(
                 Text(
                     "비교 담기",
                     style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
-                    color = if (compareEnabled) OnRoadColors.TextSlateDark else OnRoadColors.TextQuaternary,
+                    color = if (compareEnabled) OnRoadColors.TextSecondary else OnRoadColors.TextQuaternary,
                 )
             }
             OnRoadButton(
@@ -591,7 +1064,7 @@ private fun CompareBar(count: Int, onCompare: () -> Unit) {
                 .height(40.dp)
                 .clip(OnRoadShapes.Field)
                 .background(if (count >= 2) Color.White else Color.White.copy(alpha = 0.15f))
-                .clickable(enabled = count >= 2, onClick = onCompare)
+                .tap(enabled = count >= 2, onClick = onCompare)
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -615,7 +1088,7 @@ private fun SummaryRow(label: String, items: List<String>) {
             modifier = Modifier.width(76.dp),
         )
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            items.forEach { Text(if (items.size > 1) "· $it" else it, style = OnRoadType.Micro, color = OnRoadColors.TextSlateDark) }
+            items.forEach { Text(if (items.size > 1) "· $it" else it, style = OnRoadType.Micro, color = OnRoadColors.TextSecondary) }
         }
     }
 }
@@ -632,7 +1105,7 @@ private fun ShortInfoRow(label: String, value: String) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(enabled = cut || open) { open = !open },
+            .tap(enabled = cut || open) { open = !open },
         verticalAlignment = Alignment.Top,
     ) {
         Text(label, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextMuted)
@@ -641,7 +1114,7 @@ private fun ShortInfoRow(label: String, value: String) {
             Text(
                 if (open) value else first,
                 style = OnRoadType.Micro,
-                color = OnRoadColors.TextSlateDark,
+                color = OnRoadColors.TextSecondary,
                 textAlign = TextAlign.End,
                 maxLines = if (open) Int.MAX_VALUE else 2,
                 overflow = TextOverflow.Ellipsis,
@@ -654,6 +1127,87 @@ private fun ShortInfoRow(label: String, value: String) {
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
+        }
+    }
+}
+
+/** 검색 결과 카드: 이름 · 기관 · 조건 · 한두 줄 요약 · 받는 것만. 자세한 내용은 정책 상세에서 */
+@Composable
+private fun CompactPolicyCard(
+    policy: Policy,
+    inCompare: Boolean,
+    compareEnabled: Boolean,
+    saved: Boolean,
+    onToggleCompare: () -> Unit,
+    onToggleSave: () -> Unit,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OnRoadCard(
+        modifier.fillMaxWidth(),
+        borderColor = if (inCompare) OnRoadColors.Primary else OnRoadColors.BorderSlate,
+        borderWidth = if (inCompare) 2.dp else 1.dp,
+        onClick = onOpen,
+    ) {
+        // 하트 · 분야는 빼고, 이름 줄 오른쪽에 기관 (분야별 작은 카드와 같은 배치)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                policy.name,
+                style = OnRoadType.Title3,
+                color = OnRoadColors.TextStrong,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).sharedTitle(policyTitleKey(policy.id)),
+            )
+            if (policy.agency.isNotBlank()) {
+                Spacer(Modifier.width(8.dp))
+                Text(policy.agency, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
+            }
+        }
+        when (policy.eligibility) {
+            "match" -> { Spacer(Modifier.height(10.dp)); OnRoadTag("기본 조건 해당", style = TagStyle.PrimarySoft) }
+            "needs_check" -> { Spacer(Modifier.height(10.dp)); OnRoadTag("조건 확인 필요", style = TagStyle.Warning) }
+        }
+        val line = policy.easySummary.ifBlank { policy.summary }
+        if (line.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(line, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        if (policy.amount.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(OnRoadShapes.Field)
+                    .background(OnRoadColors.SurfaceSubtle)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("지원 내용", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
+                Spacer(Modifier.width(12.dp))
+                Text(policy.amount, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier
+                    .clip(OnRoadShapes.Field)
+                    .tap(haptic = true, enabled = compareEnabled, onClick = onToggleCompare)
+                    .padding(vertical = 6.dp, horizontal = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CheckBoxMark(inCompare, size = 16.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "비교 담기",
+                    style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
+                    color = if (compareEnabled) OnRoadColors.TextSecondary else OnRoadColors.TextQuaternary,
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Text("자세히 보기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.Primary, modifier = Modifier.size(18.dp))
         }
     }
 }

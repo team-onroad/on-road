@@ -117,6 +117,14 @@ data class Readiness(
     val areas: List<ReadinessArea>,
     val weakest: String?,
     val nextSteps: List<NextStep>,
+    /** 일주일 전보다 오른 점수 (내려가면 음수) */
+    val weekDelta: Int = 0,
+    /** 3주 전 → 지금, 일주일 간격 점수 */
+    val history: List<Int> = emptyList(),
+    /** 이번 주에 새로 해낸 것 */
+    val recent: List<String> = emptyList(),
+    /** 다음 단계 이름과 남은 점수 (맨 위면 null) */
+    val nextLevel: Pair<String, Int>? = null,
 )
 
 data class ReadinessArea(
@@ -127,6 +135,10 @@ data class ReadinessArea(
     val total: Int,
     val items: List<Pair<String, Boolean>>,
     val nextStep: NextStep?,
+    /** 항목마다 지금 상태 한 줄 (items 와 같은 순서, 없으면 null) */
+    val details: List<String?> = emptyList(),
+    /** 항목마다 진행도 0~1 (하다 만 것도 점수에 들어간다, 1 = 완료) */
+    val progresses: List<Float> = emptyList(),
 )
 
 /** 피드백 항목 하나. kind: basic | situation | surprise */

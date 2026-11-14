@@ -688,7 +688,17 @@ data class ActivityDto(val kind: String, val ref: String? = null, val data: Map<
 
 data class ActivityCreatedDto(@SerializedName("activity_id") val activityId: Long)
 
-data class ReadinessItemDto(val key: String, val label: String, val done: Boolean)
+data class ReadinessItemDto(
+    val key: String,
+    val label: String,
+    val done: Boolean,
+    val detail: String? = null,
+    val progress: Float? = null,
+)
+
+data class ReadinessPointDto(@SerializedName("weeks_ago") val weeksAgo: Int, val score: Int)
+
+data class ReadinessLevelDto(val label: String, val points: Int)
 
 data class ReadinessAreaDto(
     val key: String,
@@ -706,6 +716,11 @@ data class ReadinessDto(
     val areas: List<ReadinessAreaDto>,
     val weakest: String?,
     @SerializedName("next_steps") val nextSteps: List<FollowUpDto>,
+    // 고도화 (서버가 예전 버전이면 없음 → null)
+    @SerializedName("week_delta") val weekDelta: Int? = null,
+    val history: List<ReadinessPointDto>? = null,
+    val recent: List<String>? = null,
+    @SerializedName("next_level") val nextLevel: ReadinessLevelDto? = null,
 )
 
 data class RoleplayCheckDto(val label: String, val ok: Boolean, val kind: String, val example: String?)

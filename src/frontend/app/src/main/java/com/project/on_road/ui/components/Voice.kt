@@ -142,7 +142,7 @@ fun rememberSpeechInput(onResult: (String) -> Unit): () -> Unit {
             try {
                 launcher.launch(intent)
             } catch (e: ActivityNotFoundException) {
-                Toast.makeText(context, "이 기기에서는 음성 입력을 쓸 수 없어요", Toast.LENGTH_SHORT).show()
+                com.project.on_road.ui.components.OnRoadToast.show("이 기기에서는 음성 입력을 쓸 수 없어요")
             }
         }
     }
@@ -169,7 +169,7 @@ fun MicButton(onResult: (String) -> Unit, modifier: Modifier = Modifier, dim: Dp
             .clip(OnRoadShapes.Field)
             .background(OnRoadColors.PrimarySoft)
             .border(1.dp, OnRoadColors.PrimaryOutlineSoft, OnRoadShapes.Field)
-            .clickable(onClick = listen),
+            .tap(onClick = listen),
         contentAlignment = Alignment.Center
     ) {
         Icon(Icons.Rounded.Mic, contentDescription = "말로 입력", tint = OnRoadColors.Primary)

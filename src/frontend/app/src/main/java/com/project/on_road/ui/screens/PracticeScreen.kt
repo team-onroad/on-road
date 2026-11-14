@@ -1,5 +1,7 @@
 package com.project.on_road.ui.screens
 
+import androidx.compose.foundation.layout.Box
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -10,6 +12,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.QuestionAnswer
@@ -24,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.ChoiceTone
@@ -32,11 +37,32 @@ import com.project.on_road.data.PracticeScenarios
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
 
-private fun ChoiceTone.tint(): Color = when (this) {
-    ChoiceTone.GOOD -> OnRoadColors.Primary
-    ChoiceTone.OKAY -> OnRoadColors.Warning
-    ChoiceTone.RISKY -> OnRoadColors.Danger
+/** 상태별 색: 네이비 톤에 맞춘 차분한 색 (숫자만 바꿔서 조절) */
+private object ToneColor {
+    /** 좋은 선택: 차분한 청록 */
+    val Good = Color(0xFF3B8C7A)
+    /** 나쁘지 않아요: 차분한 황토 */
+    val Okay = Color(0xFFA9824A)
+    /** 다시 생각해 봐요: 차분한 벽돌색 */
+    val Risky = Color(0xFFB4585A)
+    /** 테두리는 글씨 색보다 옅게 */
+    const val LineAlpha = 0.6f
 }
+
+private fun ChoiceTone.tint(): Color = when (this) {
+    ChoiceTone.GOOD -> ToneColor.Good
+    ChoiceTone.OKAY -> ToneColor.Okay
+    ChoiceTone.RISKY -> ToneColor.Risky
+}
+
+/** 풀이 글 행간 (13sp 글씨 기준) */
+private val FeedbackLineHeight = 18.sp
+
+/** 고른 카드 제목 → 풀이 사이 */
+private val FeedbackTop = 10.dp
+
+/** 고른 카드 테두리 색 (좋음은 포인트 색 그대로) */
+private fun ChoiceTone.line(): Color = tint().copy(alpha = ToneColor.LineAlpha)
 
 private fun ChoiceTone.container(): Color = when (this) {
     ChoiceTone.GOOD -> OnRoadColors.PrimarySoft
@@ -61,30 +87,18 @@ private fun ChoiceTone.icon(): ImageVector = when (this) {
 @Composable
 fun PracticeListScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     OnRoadScreen("상황 대처 연습", onBack) {
-        ScreenHeadline("정답을 맞히는 시험이 아니에요.", "고르고, 이유를 읽어 봐요.")
-        Spacer(Modifier.height(OnRoadDimens.BlockGap))
-        SectionHeader("연습할 상황", trailingText = "${PracticeScenarios.all.size}개")
-        Spacer(Modifier.height(16.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            PracticeScenarios.all.forEach { s ->
-                OnRoadCard(
-                    Modifier.fillMaxWidth(),
-                    borderColor = OnRoadColors.BorderSlate,
-                    shape = OnRoadShapes.Inner,
-                    contentPadding = PaddingValues(16.dp),
+        Spacer(Modifier.height(8.dp))
+        // 공통 목록 카드: 이름 왼쪽 · 분야 오른쪽(검색 화면 정책 카드와 같은 배치) / 그 아래 요약
+        Column(Modifier.reveal(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            PracticeScenarios.all.forEachIndexed { si, s -> Box(Modifier.stagger(si)) {
+                DataListCard(
+                    title = s.title,
                     onClick = { onOpen(s.id) },
+                    trailing = { Text(s.category, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1) },
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        OnRoadTag(s.category, style = TagStyle.PrimaryOutline)
-                        Spacer(Modifier.weight(1f))
-                        Text("${s.steps.size}개의 상황", style = OnRoadType.Tiny, color = OnRoadColors.TextQuaternary)
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Text(s.title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-                    Spacer(Modifier.height(2.dp))
-                    Text(s.summary, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+                    Text(s.summary, style = OnRoadType.Caption2.copy(lineHeight = OnRoadType.Caption.lineHeight), color = OnRoadColors.TextTertiary)
                 }
-            }
+            } }
         }
     }
 }
@@ -137,7 +151,17 @@ fun PracticePlayScreen(
     val scenario = vm.scenario
 
     Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
-        OnRoadTopBar(scenario?.title ?: "상황 대처 연습", onBack)
+        // 홈 버튼 자리에 '1/3' (몇 번째 상황인지)
+        val total = scenario?.steps?.size ?: 0
+        OnRoadTopBar(
+            scenario?.title ?: "상황 대처 연습",
+            onBack,
+            onClose = null,
+            divider = false,
+            trailing = if (scenario != null && !vm.finished) {
+                { Text("${vm.stepIndex + 1}/$total", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary, modifier = Modifier.padding(horizontal = 8.dp)) }
+            } else null,
+        )
         if (scenario == null) {
             LoadingState("시나리오를 불러오고 있어요")
             return@Column
@@ -145,7 +169,7 @@ fun PracticePlayScreen(
         AnimatedContent(
             targetState = if (vm.finished) -1 else vm.stepIndex,
             label = "practiceStep",
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).reveal(),
         ) { index ->
             if (index == -1) {
                 PracticeSummary(scenario, vm.picks, onRestart = vm::restart, onDone = onBack, onOpenBudget = onOpenBudget)
@@ -156,6 +180,30 @@ fun PracticePlayScreen(
     }
 }
 
+/** 상황 대처 연습 간격 (숫자만 바꿔서 조절. 실전 연습 화면들과 같은 값) */
+private object PracticeSpace {
+    /** 위 바 → 상황 상자 */
+    val Top = 8.dp
+    /** 상황 상자 → '나라면 어떻게 할까요?' */
+    val AskTop = 28.dp
+    /** 묶음 사이 */
+    val GroupGap = 28.dp
+    /** 묶음 제목 → 첫 카드 */
+    val HeaderGap = 12.dp
+    /** 카드 사이 */
+    val CardGap = 8.dp
+    /** 글머리 점 앞 · 점과 글 사이 · 줄 사이 */
+    val BulletStart = 4.dp
+    val BulletIndent = 14.dp
+    val BulletGap = 8.dp
+}
+
+/**
+ * 상황 한 단계. 위계:
+ * 1. 상황 상자 (연회색 정보 카드) = '지금 상황'(굵게) → 상황 문장(보통)
+ * 2. 질문 '나라면 어떻게 할까요?' (묶음 제목, 가장 굵게) → 연회색 선택 카드
+ * 3. 고르면: 고른 카드만 흰 바탕 · 1dp 메인 색 테두리 + 오른쪽 결과 · 아래 풀이, 나머지는 옅게 / 아래 고정 '다음 상황'
+ */
 @Composable
 private fun PracticeStepView(
     scenario: PracticeScenario,
@@ -165,94 +213,101 @@ private fun PracticeStepView(
     onNext: () -> Unit,
 ) {
     val step = scenario.steps[index]
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = OnRoadDimens.ScreenPadding),
-    ) {
-        Spacer(Modifier.height(24.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("상황", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateMid, modifier = Modifier.weight(1f))
-            Text("${index + 1}", style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-            Text("/${scenario.steps.size}", style = OnRoadType.Tiny, color = OnRoadColors.TextSlateMid, modifier = Modifier.padding(bottom = 3.dp))
-        }
-        Spacer(Modifier.height(8.dp))
-        ProgressBar((index + if (selected != null) 1 else 0) / scenario.steps.size.toFloat())
-
-        Spacer(Modifier.height(24.dp))
-        // 상황 설명 (AI 말풍선 스타일)
+    Column(Modifier.fillMaxSize()) {
         Column(
             Modifier
-                .fillMaxWidth()
-                .clip(OnRoadShapes.Inner)
-                .background(Color.White)
-                .border(1.dp, OnRoadColors.PrimaryOutlineSoft, OnRoadShapes.Inner)
-                .padding(16.dp),
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = OnRoadDimens.ScreenPadding),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ColorDot(OnRoadColors.Primary, 6.dp)
-                Spacer(Modifier.width(6.dp))
-                Text(scenario.category, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
+            Spacer(Modifier.height(PracticeSpace.Top))
+            // 상황 상자 (연회색 정보 카드)
+            OnRoadCard(
+                Modifier.fillMaxWidth(),
+                background = OnRoadColors.SurfaceSubtle,
+                borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+                shape = OnRoadShapes.Item,
+                contentPadding = PaddingValues(16.dp),
+            ) {
+                // 라벨만 굵게, 상황 문장은 보통 굵기 (강조는 아래 질문에)
+                Text("지금 상황", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                Spacer(Modifier.height(6.dp))
+                Text(step.situation, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextSecondary)
             }
-            Spacer(Modifier.height(8.dp))
-            Text(step.situation, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary)
-        }
 
-        Spacer(Modifier.height(OnRoadDimens.BlockGap))
-        SubHeader("나라면 어떻게 할까요?")
-        Spacer(Modifier.height(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            step.choices.forEachIndexed { i, choice ->
-                val picked = selected == i
-                val revealed = selected != null
-                OnRoadCard(
-                    Modifier.fillMaxWidth(),
-                    background = if (picked) choice.tone.container() else OnRoadColors.Surface,
-                    borderColor = if (picked) choice.tone.tint() else OnRoadColors.BorderInput,
-                    shape = OnRoadShapes.Field,
-                    contentPadding = PaddingValues(16.dp),
-                    onClick = if (!revealed) ({ onChoose(i) }) else null,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioMark(picked)
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            choice.text,
-                            style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
-                            color = if (revealed && !picked) OnRoadColors.TextQuaternary else OnRoadColors.TextPrimary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (revealed) {
-                            Spacer(Modifier.width(8.dp))
-                            Icon(choice.tone.icon(), null, tint = choice.tone.tint(), modifier = Modifier.size(18.dp))
+            // 질문: 이 화면의 주인공 (다른 화면 묶음 제목과 같은 17 굵게)
+            Spacer(Modifier.height(PracticeSpace.AskTop))
+            GroupTitle("나라면 어떻게 할까요?")
+            Spacer(Modifier.height(PracticeSpace.HeaderGap))
+            Column(verticalArrangement = Arrangement.spacedBy(PracticeSpace.CardGap)) {
+                step.choices.forEachIndexed { i, choice ->
+                    val picked = selected == i
+                    val revealed = selected != null
+                    // 고른 뒤에는 '좋은 선택'도 함께 알려 준다 (내가 고르지 않았어도)
+                    val showAnswer = revealed && !picked && choice.tone == ChoiceTone.GOOD
+                    val line by androidx.compose.animation.animateColorAsState(
+                        when {
+                            picked -> choice.tone.line()
+                            showAnswer -> ChoiceTone.GOOD.line()
+                            else -> OnRoadColors.Border.copy(alpha = 0.7f)
+                        },
+                        OnRoadMotion.move(), label = "choice-line",
+                    )
+                    // 선택지: 다른 목록과 같은 연회색 카드. 고른 카드만 흰 바탕 · 1dp 메인 색 테두리 (서류 작성 칸과 같게)
+                    OnRoadCard(
+                        Modifier.fillMaxWidth().animateContentSize(OnRoadMotion.move()),
+                        background = if (picked || showAnswer) OnRoadColors.Surface else OnRoadColors.SurfaceSubtle,
+                        borderColor = line,
+                        shape = OnRoadShapes.Item,
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 15.dp),
+                        onClick = if (!revealed) ({ onChoose(i) }) else null,
+                    ) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text(
+                                choice.text,
+                                // 고른 카드 제목은 굵게
+                                style = if (picked || showAnswer) OnRoadType.Body2.copy(fontWeight = FontWeight.Bold) else OnRoadType.Body2,
+                                // 결과 글귀 없이, 고른 카드 · 좋은 선택 카드의 제목을 상태 색으로 (좋음 청록 · 보통 황토 · 위험 벽돌)
+                                color = when {
+                                    picked || showAnswer -> choice.tone.tint()
+                                    revealed -> OnRoadColors.TextQuaternary
+                                    else -> OnRoadColors.TextPrimary
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
                         }
-                    }
-                    AnimatedVisibility(visible = picked, enter = fadeIn() + slideInVertically { -it / 3 }) {
-                        Column(Modifier.padding(start = 30.dp, top = 12.dp)) {
-                            OnRoadTag(choice.tone.label, style = choice.tone.tag())
-                            Spacer(Modifier.height(6.dp))
-                            Text(choice.feedback, style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextSlateDark)
+                        AnimatedVisibility(visible = picked, enter = fadeIn(OnRoadMotion.enter())) {
+                            // 풀이: 행간을 좁히고 한 단계 옅게 (선택지 글보다 뒤로)
+                            Text(
+                                choice.feedback,
+                                style = OnRoadType.Caption.copy(lineHeight = FeedbackLineHeight),
+                                color = OnRoadColors.TextTertiary,
+                                modifier = Modifier.padding(top = FeedbackTop),
+                            )
                         }
                     }
                 }
             }
+            Spacer(Modifier.height(24.dp))
         }
 
-        if (selected != null) {
-            Spacer(Modifier.height(12.dp))
-            Text("다른 선택지의 아이콘도 확인해 보세요.", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
-            Spacer(Modifier.height(20.dp))
-            OnRoadButton(
-                text = if (index == scenario.steps.lastIndex) "정리 보기" else "다음 상황",
-                onClick = onNext,
-                modifier = Modifier.fillMaxWidth(),
-            )
+        // 4. 아래 고정 버튼 (고른 뒤에만)
+        AnimatedVisibility(visible = selected != null, enter = fadeIn(OnRoadMotion.enter())) {
+            Box(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = OnRoadDimens.ScreenPadding).padding(top = 8.dp, bottom = 12.dp)) {
+                OnRoadButton(
+                    text = if (index == scenario.steps.lastIndex) "정리 보기" else "다음 상황",
+                    onClick = onNext,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
-        Spacer(Modifier.height(32.dp))
     }
 }
 
+/**
+ * 연습 정리: 실전 연습 결과 화면과 같은 짜임.
+ * 결과 카드(흰 카드) → '꼭 기억할 것' 글머리 목록 → (있으면) 이어서 할 것 → 큰 버튼 하나 + 글자 버튼
+ */
 @Composable
 private fun PracticeSummary(
     scenario: PracticeScenario,
@@ -261,34 +316,69 @@ private fun PracticeSummary(
     onDone: () -> Unit,
     onOpenBudget: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
-            Spacer(Modifier.height(24.dp))
-            OnRoadTag("연습 끝", style = TagStyle.PrimaryFilled)
-            Spacer(Modifier.height(12.dp))
-            ScreenHeadline("‘${scenario.title}’ 상황을", "미리 겪어 봤어요.")
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = OnRoadDimens.ScreenPadding),
+    ) {
+        Spacer(Modifier.height(OnRoadDimens.ScreenTop))
+        OnRoadCard(
+            Modifier.fillMaxWidth(),
+            borderColor = OnRoadColors.BorderChip,
+            shape = OnRoadShapes.Item,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        ) {
+            Text("연습 끝 · ${scenario.title}", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
+            Spacer(Modifier.height(6.dp))
+            Text("미리 겪어 봤어요", style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
+            Spacer(Modifier.height(10.dp))
+            // 고른 결과 개수: 글씨만, 뜻 있는 색
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ChoiceTone.entries.forEach { tone ->
                     val count = picks.count { it == tone }
-                    if (count > 0) OnRoadTag("${tone.label} $count", style = tone.tag())
+                    if (count > 0) Text("${tone.label} $count", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = tone.tint())
                 }
             }
         }
 
-        Spacer(Modifier.height(OnRoadDimens.BlockGap))
-        GuideBlock("꼭 기억할 것", scenario.tips.mapIndexed { i, t -> "${i + 1}. $t" }.joinToString("\n"))
-
-        Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
-            if (scenario.id == "short-money") {
-                Spacer(Modifier.height(24.dp))
-                ListRow("생활비 배분으로 다음 달 계획 세우기", "부족한 달을 미리 대비해요", onClick = onOpenBudget)
+        Spacer(Modifier.height(PracticeSpace.GroupGap))
+        GroupTitle("꼭 기억할 것")
+        Spacer(Modifier.height(PracticeSpace.HeaderGap))
+        Column(verticalArrangement = Arrangement.spacedBy(PracticeSpace.BulletGap)) {
+            scenario.tips.forEach { t ->
+                Row(Modifier.padding(start = PracticeSpace.BulletStart), verticalAlignment = Alignment.Top) {
+                    Box(Modifier.width(PracticeSpace.BulletIndent).padding(top = 9.dp)) {
+                        Box(Modifier.size(4.dp).clip(androidx.compose.foundation.shape.CircleShape).background(OnRoadColors.TextTertiary))
+                    }
+                    Text(t, style = OnRoadType.Body2.copy(lineHeight = OnRoadType.Body3.lineHeight), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+                }
             }
-            Spacer(Modifier.height(32.dp))
-            OnRoadButton("다른 상황 연습하기", onDone, Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
-            OnRoadButton("처음부터 다시 하기", onRestart, Modifier.fillMaxWidth(), variant = ButtonVariant.Outline)
-            Spacer(Modifier.height(32.dp))
         }
+
+        if (scenario.id == "short-money") {
+            Spacer(Modifier.height(PracticeSpace.GroupGap))
+            GroupTitle("이어서 해 보기")
+            Spacer(Modifier.height(PracticeSpace.HeaderGap))
+            DataListCard(
+                title = "생활비 배분으로 다음 달 계획 세우기",
+                onClick = onOpenBudget,
+                trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(20.dp)) },
+            ) {
+                Text("부족한 달을 미리 대비해요", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+            }
+        }
+
+        Spacer(Modifier.height(32.dp))
+        // 큰 버튼은 하나만, 나머지는 글자 버튼 (실전 연습 결과와 같게)
+        OnRoadButton("다른 상황 연습하기", onDone, Modifier.fillMaxWidth())
+        Text(
+            "처음부터 다시 하기",
+            style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+            color = OnRoadColors.TextTertiary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().clip(OnRoadShapes.Chip).tap(onClick = onRestart).padding(vertical = 12.dp),
+        )
+        Spacer(Modifier.height(20.dp))
     }
 }

@@ -1,5 +1,29 @@
 package com.project.on_road.ui.screens
 
+import com.project.on_road.ui.components.TabSwitch
+
+import com.project.on_road.ui.components.SegmentedTabs
+
+import com.project.on_road.ui.components.SectionHeader
+import com.project.on_road.ui.components.SubHeader
+
+import com.project.on_road.ui.components.StepRail
+
+import com.project.on_road.ui.components.OnRoadToast
+
+import com.project.on_road.ui.components.sharedTitle
+import com.project.on_road.ui.components.policyTitleKey
+import com.project.on_road.ui.components.DrawnCheck
+
+import com.project.on_road.ui.components.tap
+import com.project.on_road.ui.components.stagger
+import com.project.on_road.ui.components.flipWhen
+import com.project.on_road.ui.components.ExpandArea
+
+import com.project.on_road.ui.components.reveal
+import com.project.on_road.ui.components.SkeletonList
+import com.project.on_road.ui.components.ErrorState
+import com.project.on_road.ui.components.FadeSwitch
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.foundation.clickable
@@ -8,8 +32,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.platform.LocalContext
 import com.project.on_road.ui.components.ChoiceChip
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -53,6 +82,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -77,6 +107,7 @@ import com.project.on_road.ui.components.NoticeTone
 import com.project.on_road.ui.components.ButtonVariant
 import com.project.on_road.ui.components.OnRoadButton
 import com.project.on_road.ui.components.OnRoadCard
+import com.project.on_road.ui.components.PrimaryPill
 import com.project.on_road.ui.components.OnRoadScreen
 import com.project.on_road.ui.components.OnRoadTag
 import com.project.on_road.ui.components.OnRoadTopBar
@@ -97,85 +128,216 @@ enum class SaveState { IDLE, SAVING, SAVED, FAILED }
 /* ======================= 목록 ======================= */
 
 class ChecklistListViewModel : ViewModel() {
-    var items by mutableStateOf<List<ChecklistSummary>>(emptyList())
+    // 전에 본 목록이 있으면 바로 보여 주고 뒤에서 새로 받는다
+    var items by mutableStateOf(com.project.on_road.data.ScreenCache.get<List<ChecklistSummary>>("checklists") ?: emptyList())
         private set
-    var loading by mutableStateOf(true)
+    var loading by mutableStateOf(items.isEmpty())
+        private set
+    var error by mutableStateOf<String?>(null)
         private set
 
     fun load() {
         viewModelScope.launch {
             loading = items.isEmpty()
-            items = runCatching {
-                AppContainer.api.getChecklists(AppContainer.session.userId.orEmpty())
-            }.getOrDefault(emptyList())
+            runCatching { AppContainer.api.getChecklists(AppContainer.session.userId.orEmpty()) }
+                .onSuccess { items = it; error = null; com.project.on_road.data.ScreenCache.put("checklists", it) }
+                // 이미 보이는 목록이 있으면 그대로 두고, 처음 불러오다 실패했을 때만 오류를 보여 준다
+                .onFailure { if (items.isEmpty()) error = it.userMessage("체크리스트를 불러오지 못했어요.") }
             loading = false
         }
     }
 }
 
+/** 신청 관리 탭 여백 조절값 (단위 dp). 정책 검색 화면과 같은 값에서 시작한다 */
+private object ApplySpace {
+    /** 맨 위 '신청 관리' 위 여백 (정책 검색 안내 문장과 같은 높이) */
+    val TitleTop = 24.dp
+    /** 오른쪽 고르기 버튼 안 좌우 여백 (화면이 좁으면 줄인다) */
+    val TabPadH = 10.dp
+    /** 칩 아래, 내용 시작 전 여백 (정책 검색 '분야별로 보기' 위 여백과 같음) */
+    val ChipsBottom = 28.dp
+}
+
+/**
+ * 신청 관리 탭 (정책 검색 화면과 같은 톤): 큰 제목 → 고르기 칩(정책 신청 · 일정 · 서류) → 연회색 작은 카드.
+ * 처음엔 정책 신청. 칸마다 따로 스크롤한다
+ */
 @Composable
 fun ChecklistListScreen(
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
     onSearch: () -> Unit,
+    onNavigate: (String) -> Unit = {},
     vm: ChecklistListViewModel = viewModel(),
 ) {
     LaunchedEffect(Unit) { vm.load() }
-    OnRoadScreen("신청 체크리스트", onBack) {
-        when {
-            vm.loading -> LoadingState("불러오는 중이에요")
-            vm.items.isEmpty() -> EmptyState(
-                icon = Icons.Outlined.Checklist,
-                title = "아직 준비 중인 신청이 없어요",
-                message = "정책 검색에서 ‘이 정책 신청 준비하기’를 누르면 여기에 추가돼요.",
-                actionLabel = "정책 찾으러 가기",
-                onAction = onSearch,
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
+    Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
+        Spacer(Modifier.height(ApplySpace.TitleTop))
+        // 제목 줄: 왼쪽 '신청 관리', 같은 줄 오른쪽에 정책 신청 · 일정 · 서류 고르기
+        // (앱 전환 버튼 모양: 고른 것만 메인 색 바탕 · 흰 글씨, 나머지는 글씨만)
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = OnRoadDimens.ScreenPadding),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "신청 관리",
+                style = OnRoadType.Display,
+                color = OnRoadColors.TextPrimary,
+                maxLines = 1,
+                modifier = Modifier.semantics { heading() },
             )
-            else -> {
-                Text("나의 체크리스트", style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
-                Spacer(Modifier.height(4.dp))
-                Text("단계를 하나씩 체크하며 신청을 준비해요.", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
-                Spacer(Modifier.height(24.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    vm.items.forEach { c -> ChecklistSummaryCard(c) { onOpen(c.policyId) } }
+            Spacer(Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                listOf("정책 신청", "일정", "서류").forEachIndexed { i, label ->
+                    val on = tab == i
+                    val bg by androidx.compose.animation.animateColorAsState(
+                        if (on) OnRoadColors.Primary else OnRoadColors.Primary.copy(alpha = 0f),
+                        com.project.on_road.ui.theme.OnRoadMotion.move(),
+                        label = "apply-tab-bg-$i",
+                    )
+                    val fg by androidx.compose.animation.animateColorAsState(
+                        if (on) androidx.compose.ui.graphics.Color.White else OnRoadColors.TextTertiary,
+                        com.project.on_road.ui.theme.OnRoadMotion.move(),
+                        label = "apply-tab-fg-$i",
+                    )
+                    Text(
+                        label,
+                        style = OnRoadType.Caption.copy(fontWeight = if (on) FontWeight.Bold else FontWeight.Medium),
+                        color = fg,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .clip(OnRoadShapes.Chip)
+                            .background(bg)
+                            .semantics { this.selected = on; role = androidx.compose.ui.semantics.Role.Tab }
+                            .tap { tab = i }
+                            .padding(horizontal = ApplySpace.TabPadH, vertical = 7.dp),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(ApplySpace.ChipsBottom))
+        TabSwitch(tab, Modifier.weight(1f), label = "apply-tabs") { t ->
+            when (t) {
+                1 -> {
+                    // 퇴소 전: '퇴소까지' 카드는 고정, 타임라인만 스크롤 / 퇴소 후: 내가 정한 목표 D-day
+                    val goal = com.project.on_road.data.DDate.isGoal(AppContainer.session.status)
+                    Column(Modifier.fillMaxSize()) {
+                        if (!goal) {
+                            TimelineInfoCard(modifier = Modifier.padding(horizontal = OnRoadDimens.ScreenPadding))
+                            Spacer(Modifier.height(12.dp))
+                        }
+                        Box(Modifier.weight(1f)) {
+                            ScrollPane {
+                                if (goal) GoalTimelineBody(onLink = { onNavigate(com.project.on_road.ui.screens.navigation.timelineRoute(it)) })
+                                else TimelineBody(onNavigate, showHeader = false)
+                            }
+                        }
+                    }
+                }
+                // 서류: 서류 작성 도우미의 양식 올리기 · 계약서 위험 찾기 · 활동 기록 초안 · 자주 쓰는 양식을 바로 보여 준다
+                2 -> FormHelperContent(
+                    onOpenDocument = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.docWriter(documentId = it)) },
+                    onStartTemplate = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.docWriter(templateId = it)) },
+                    onRiskCheck = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.RISK) },
+                    onActivityDraft = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.DOCUMENT) },
+                    compact = true,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                else -> ScrollPane {
+                    FadeSwitch(vm.loading, label = "checklists") { loading ->
+                        when {
+                            loading -> SkeletonList(rows = 3)
+                            vm.error != null -> ErrorState(vm.error, onRetry = vm::load)
+                            vm.items.isEmpty() -> EmptyState(
+                                "정책을 골라 신청 준비를 시작하면 여기에 모여요.",
+                                actionLabel = "정책 찾기",
+                                onAction = onSearch,
+                            )
+                            else -> {
+                                // 위계: 묶음 제목(진행 중 · 신청한 정책) → 정책 카드
+                                val (doing, applied) = vm.items.partition { !it.completed }
+                                Column {
+                                    if (doing.isNotEmpty()) {
+                                        SubHeader("진행 중")
+                                        Spacer(Modifier.height(12.dp))
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            doing.forEachIndexed { si, c -> Box(Modifier.stagger(si)) { ChecklistSummaryCard(c) { onOpen(c.policyId) } } }
+                                        }
+                                    }
+                                    if (applied.isNotEmpty()) {
+                                        if (doing.isNotEmpty()) Spacer(Modifier.height(OnRoadDimens.BlockGap))
+                                        SubHeader("신청한 정책")
+                                        Spacer(Modifier.height(12.dp))
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            applied.forEachIndexed { si, c -> Box(Modifier.stagger(si)) { ChecklistSummaryCard(c) { onOpen(c.policyId) } } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+/** 칸 하나: 화면 양옆 여백 + 세로 스크롤 */
+@Composable
+private fun ScrollPane(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = OnRoadDimens.ScreenPadding),
+    ) {
+        content()
+        Spacer(Modifier.height(32.dp))
+    }
+}
+
+
 @Composable
 private fun ChecklistSummaryCard(c: ChecklistSummary, onClick: () -> Unit) {
+    val steps = listOf("대상 확인", "조건 확인", "서류 준비", "신청")
+    val now = c.doneSteps.coerceIn(0, steps.size)
+    // 네 단계를 끝냈으면 신청함 → 사용자가 고른 결과(선정 · 미선정)
+    val status = com.project.on_road.data.ApplyResults.statusOf(c.policyId, c.completed)
+    // 데이터 카드는 연회색 (일정 할 일 · 분야별 정책 카드와 같은 모양)
     OnRoadCard(
         Modifier.fillMaxWidth(),
-        borderColor = if (c.completed) OnRoadColors.Primary else OnRoadColors.BorderSage.copy(alpha = 0.7f),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 18.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         onClick = onClick,
     ) {
+        // 정책 검색 작은 카드와 같은 배치: 첫 줄 정책 이름 · 오른쪽 상태, 둘째 줄 다음 단계
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 c.policyName,
-                style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold),
+                style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
                 color = OnRoadColors.TextPrimary,
-                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).sharedTitle(policyTitleKey(c.policyId)),
             )
             Spacer(Modifier.width(8.dp))
-            // 준비 중: 흰 바탕 + 회색 테두리 / 완료: 메인 색 바탕 + 흰 글씨
-            OnRoadTag(
-                if (c.completed) "완료" else "신청 중",
-                style = if (c.completed) TagStyle.PrimaryFilled else TagStyle.Neutral,
-                textStyle = OnRoadType.Caption2.copy(fontWeight = if (c.completed) FontWeight.Bold else FontWeight.Medium),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-            )
+            Text(status.label, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
         }
-        Spacer(Modifier.height(14.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("진행 단계", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary, modifier = Modifier.weight(1f))
-            ProgressCount(c.doneSteps, c.totalSteps, "단계")
-        }
-        Spacer(Modifier.height(8.dp))
-        ProgressBar(c.progress)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            when (status) {
+                com.project.on_road.data.ApplyStatus.PREPARING -> "다음 · ${steps[now.coerceAtMost(steps.size - 1)]}"
+                com.project.on_road.data.ApplyStatus.APPLIED -> "결과를 기다리는 중"
+                com.project.on_road.data.ApplyStatus.SELECTED -> "선정됐어요"
+                com.project.on_road.data.ApplyStatus.REJECTED -> "선정되지 않았어요"
+            },
+            style = OnRoadType.Caption,
+            color = OnRoadColors.TextSecondary,
+            maxLines = 1,
+        )
     }
 }
 
@@ -281,6 +443,13 @@ class ChecklistViewModel : ViewModel() {
     /** 항목별 보내기 대기 (연속 입력은 0.3초 모아서 마지막 값만 보냄) */
     private val pending = mutableMapOf<Long, Job>()
 
+    /** 화면을 닫을 때 마지막 모습을 남겨 둔다 (다시 열면 바로 보이게) */
+    override fun onCleared() {
+        val id = loadedFor ?: return
+        com.project.on_road.data.ScreenCache.put("checklist:$id", checklist)
+        com.project.on_road.data.ScreenCache.put("policy:$id", policyInfo)
+    }
+
     /** 3.9 이 정책의 체크리스트 열기 (없으면 서버가 새로 만든다) */
     fun load(policyId: String) {
         if (loadedFor == policyId) {
@@ -290,15 +459,30 @@ class ChecklistViewModel : ViewModel() {
             return
         }
         loadedFor = policyId
+        fetch(policyId)
+    }
+
+    /** 처음 불러오다 실패했을 때 '다시 시도' */
+    fun retry(policyId: String) = fetch(policyId)
+
+    private fun fetch(policyId: String) {
+        // 전에 본 체크리스트가 있으면 바로 보여 주고, 뒤에서 새로 받아 바꾼다
+        val cached = com.project.on_road.data.ScreenCache.get<Checklist>("checklist:$policyId")
+        if (cached != null) {
+            checklist = cached
+            applySituations(cached)
+            policyInfo = com.project.on_road.data.ScreenCache.get("policy:$policyId")
+            loading = false
+        }
         viewModelScope.launch {
-            loading = true
+            if (cached == null) loading = true
             error = null
             try {
                 checklist = api.openChecklist(userId, policyId)
                 checklist?.let(::applySituations)
-                policyInfo = runCatching { api.getPolicy(policyId) }.getOrNull()
+                policyInfo = runCatching { api.getPolicy(policyId) }.getOrNull() ?: policyInfo
             } catch (e: Exception) {
-                error = e.userMessage("체크리스트를 불러오지 못했어요.")
+                if (checklist == null) error = e.userMessage("체크리스트를 불러오지 못했어요.")
             } finally {
                 loading = false
             }
@@ -391,6 +575,8 @@ fun ChecklistScreen(
         vm.attach(ctx)
         vm.load(policyId)
     }
+    // 단계를 끝냈을 때 손끝에 '톡' 하고 알려 준다
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     // 신청서 항목이 준비된 정책(자립수당 등)이면 '신청서 쓰기'
     var hasForm by remember { mutableStateOf(false) }
     LaunchedEffect(policyId) {
@@ -401,11 +587,11 @@ fun ChecklistScreen(
     val error = vm.error
 
     Column(Modifier.fillMaxSize()) {
-        OnRoadTopBar("체크리스트", onBack)
+        OnRoadTopBar("체크리스트", onBack, divider = false)
         when {
-            vm.loading -> LoadingState("체크리스트를 준비하고 있어요")
+            vm.loading -> Column(Modifier.padding(OnRoadDimens.ScreenPadding)) { SkeletonList(rows = 4) }
             error != null || c == null -> Column(Modifier.padding(OnRoadDimens.ScreenPadding)) {
-                NoticeBox(error ?: "잠시 후 다시 시도해 주세요.", title = "체크리스트를 열 수 없어요", tone = NoticeTone.Warning)
+                ErrorState(error, onRetry = { vm.retry(policyId) }, title = "체크리스트를 열 수 없어요")
             }
             else -> {
                 // 지금 할 단계 (모두 끝났으면 -1). 처음엔 이 단계만 펼쳐 둔다
@@ -421,23 +607,26 @@ fun ChecklistScreen(
                         onOpenDocument = onOpenDocument,
                     )
                 }
+                // 마지막 단계를 끝낸 그 순간에만 알려 준다 (이미 끝난 체크리스트를 열 때는 조용히)
+                var wasDone by remember(c.policyId) { mutableStateOf(c.completed) }
+                LaunchedEffect(c.completed) {
+                    if (c.completed && !wasDone) OnRoadToast.show("네 단계를 모두 끝냈어요")
+                    wasDone = c.completed
+                }
+                // 신청 관리 · 일정과 같은 모양: 위에 고정된 정보 카드 + 아래 세로 타임라인
+                PolicyInfoCard(c, vm.saveState, Modifier.padding(horizontal = OnRoadDimens.ScreenPadding).padding(top = CheckSpace.CardTop))
+                // 카드 아래로 스크롤될 때 툭 잘리지 않게: 카드 밑 여백 + 위쪽이 흰색으로 서서히 사라지는 띠
+                Box(Modifier.weight(1f).padding(top = CheckSpace.CardBottom)) {
                 Column(
                     Modifier
-                        .weight(1f)
+                        .fillMaxSize()
+                        .reveal()
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = OnRoadDimens.ScreenPadding),
                 ) {
-                    Spacer(Modifier.height(24.dp))
-                    Row(verticalAlignment = Alignment.Top) {
-                        Text(c.policyName, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
-                        Spacer(Modifier.width(8.dp))
-                        Box(Modifier.padding(top = 6.dp)) { SaveIndicator(vm.saveState) }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text("${c.policy.agency} · ${c.policy.checkedAt} 기준", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+                    Spacer(Modifier.height(CheckSpace.TimelineTop))
 
                     if (!c.policy.isActive) {
-                        Spacer(Modifier.height(16.dp))
                         NoticeBox(
                             "지금은 운영되지 않는 정책이에요. 체크리스트는 계속 보고 체크할 수 있어요.",
                             title = "더 이상 운영되지 않는 정책",
@@ -445,18 +634,23 @@ fun ChecklistScreen(
                         )
                     }
 
-                    // 단계: 번호 동그라미 + 제목. 누르면 펼쳐진다
-                    Spacer(Modifier.height(28.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // 단계: 일정 타임라인과 같은 세로 선 · 점. 제목을 누르면 펼쳐진다
+                    if (!c.policy.isActive) Spacer(Modifier.height(CheckSpace.TimelineTop))
+                    Column {
                         c.steps.forEachIndexed { i, step ->
                             val expanded = open[step.itemId] ?: (i == current)
                             StepItem(
                                 index = i + 1,
                                 step = step,
                                 current = i == current,
+                                first = i == 0,
+                                last = i == c.steps.lastIndex,
                                 expanded = expanded,
                                 onExpand = { open[step.itemId] = !expanded },
-                                onToggle = { vm.toggleStep(step) },
+                                onToggle = {
+                                    if (!step.done) haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                    vm.toggleStep(step)
+                                },
                             ) {
                                 when (step.type) {
                                     StepType.TARGET -> TargetSummary(c.policyName, c.policy.agency, vm.policyInfo)
@@ -468,10 +662,20 @@ fun ChecklistScreen(
                         }
                     }
 
+                    // 모든 단계를 끝내면: 이 신청과 이어진 할 일을 끝내고 다음 할 일로 잇는다
+                    androidx.compose.animation.AnimatedVisibility(visible = current == -1) {
+                        Column {
+                            Spacer(Modifier.height(OnRoadDimens.BlockGap))
+                            ApplyResultCard(c, onFindOther = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.policy(query = c.policy.category)) })
+                            Spacer(Modifier.height(12.dp))
+                            NextTaskBlock(onNavigate, finishedPolicy = c.policyId to c.policyName)
+                        }
+                    }
+
                     // 서류 준비 단계가 없는 체크리스트: 서류만 따로
                     if (!hasDocsStep && c.docs.isNotEmpty()) {
                         Spacer(Modifier.height(OnRoadDimens.BlockGap))
-                        Text("준비 서류", style = OnRoadType.Title3, color = OnRoadColors.TextPrimary)
+                        SectionHeader("준비 서류")
                         Spacer(Modifier.height(12.dp))
                         OnRoadCard(
                             Modifier.fillMaxWidth(),
@@ -509,7 +713,7 @@ fun ChecklistScreen(
                                         style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
                                         color = OnRoadColors.TextPrimary,
                                         modifier = Modifier
-                                            .clickable(enabled = tel.isNotEmpty()) { runCatching { uri.openUri("tel:$tel") } }
+                                            .tap(enabled = tel.isNotEmpty()) { runCatching { uri.openUri("tel:$tel") } }
                                             .padding(vertical = 4.dp),
                                     )
                                 }
@@ -520,10 +724,63 @@ fun ChecklistScreen(
                     Spacer(Modifier.height(OnRoadDimens.SectionGap))
                     NextStepList(
                         Links.forPolicy(c.policy.category, c.policyName).filter { it.kind != "forms" },
-                        { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) },
+                        { step ->
+                            // 연습하러 가면 끝난 뒤 '체크리스트로 돌아가기'
+                            val id = step.scenarioId
+                            onNavigate(
+                                if (step.kind == "practice" && id != null) com.project.on_road.ui.screens.navigation.Routes.roleplay(id, from = "checklist")
+                                else com.project.on_road.ui.screens.navigation.stepRoute(step),
+                            )
+                        },
                     )
                     Spacer(Modifier.height(32.dp))
                 }
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(CheckSpace.FadeHeight)
+                        .background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(OnRoadColors.Background, OnRoadColors.Background.copy(alpha = 0f)),
+                            ),
+                        ),
+                )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 신청 결과: 네 단계를 끝내면(신청함) 결과가 나왔을 때 선정 · 미선정을 고른다.
+ * 미선정이면 같은 분야의 다른 정책으로 잇는다
+ */
+@Composable
+private fun ApplyResultCard(c: Checklist, onFindOther: () -> Unit) {
+    val status = com.project.on_road.data.ApplyResults.statusOf(c.policyId, completed = true)
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        borderColor = OnRoadColors.BorderChip,
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("신청 결과", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
+            Text(status.label, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ChoiceChip("선정됐어요", selected = status == com.project.on_road.data.ApplyStatus.SELECTED) {
+                com.project.on_road.data.ApplyResults.pick(c.policyId, com.project.on_road.data.ApplyStatus.SELECTED)
+            }
+            ChoiceChip("안 됐어요", selected = status == com.project.on_road.data.ApplyStatus.REJECTED) {
+                com.project.on_road.data.ApplyResults.pick(c.policyId, com.project.on_road.data.ApplyStatus.REJECTED)
+            }
+        }
+        androidx.compose.animation.AnimatedVisibility(visible = status == com.project.on_road.data.ApplyStatus.REJECTED) {
+            Column {
+                Spacer(Modifier.height(12.dp))
+                PrimaryPill("다른 ${c.policy.category} 정책 찾기", onFindOther)
             }
         }
     }
@@ -568,7 +825,7 @@ private fun DocsBody(
             Modifier.fillMaxWidth(),
             borderColor = OnRoadColors.BorderChip,
             shape = OnRoadShapes.Item,
-            contentPadding = PaddingValues(start = 14.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 10.dp, top = 16.dp, bottom = 16.dp),
             onClick = onOpenDocs,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -576,7 +833,7 @@ private fun DocsBody(
                     Text("서류 작성 도우미", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        if (writtenForm) "신청서를 다 썼어요" else "AI와 같이 신청서를 써요",
+                        if (writtenForm) "신청서를 다 썼어요" else "신청서 쓰기",
                         style = OnRoadType.Caption2,
                         color = OnRoadColors.TextTertiary,
                     )
@@ -599,12 +856,77 @@ private fun SaveIndicator(state: SaveState) {
     if (text.isNotEmpty()) Text(text, style = OnRoadType.Micro, color = color)
 }
 
-/** 단계 한 줄 (번호 동그라미 · 제목 · 안내) + 펼치면 연회색 카드에 본문 */
+/** 체크리스트 화면 간격 (숫자만 바꿔서 조절) */
+private object CheckSpace {
+    /** 위 바 → 정보 카드 */
+    val CardTop = 8.dp
+    /** 정보 카드 아래 고정 여백 (이 아래부터 스크롤 내용이 지나간다) */
+    val CardBottom = 8.dp
+    /** 스크롤 위쪽 흐려지는 띠 높이 */
+    val FadeHeight = 20.dp
+    /** 정보 카드 → 타임라인 첫 단계 (스크롤 안 첫 여백) */
+    val TimelineTop = 16.dp
+    /** 단계와 단계 사이 */
+    val StepGap = 22.dp
+    /** 정보 카드: 정책 이름 → 기관 · 기준일 */
+    val NameGap = 2.dp
+    /** 선 → 단계 글씨 */
+    val LineToText = 12.dp
+}
+
+/**
+ * 위에 고정된 정책 정보 카드 (일정 탭 '퇴소까지' 카드와 같은 모양: 연회색 바탕 · 회색 테두리).
+ * 정책 이름 · 기관 · 기준일, 오른쪽에 몇 단계 끝냈는지
+ */
+@Composable
+private fun PolicyInfoCard(c: Checklist, save: SaveState, modifier: Modifier = Modifier) {
+    val done = if (c.completed) c.steps.size else c.doneCount
+    OnRoadCard(
+        modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(start = 16.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                // 목록에서 누른 정책 이름이 이 자리로 이어진다
+                Text(
+                    c.policyName,
+                    style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                    color = OnRoadColors.TextPrimary,
+                    modifier = Modifier.sharedTitle(policyTitleKey(c.policyId)),
+                )
+                Spacer(Modifier.height(CheckSpace.NameGap))
+                Text(
+                    "${c.policy.agency} · ${c.policy.checkedAt} 기준",
+                    style = OnRoadType.Caption2,
+                    color = OnRoadColors.TextTertiary,
+                    maxLines = 1,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                if (c.completed) DrawnCheck(size = 20.dp, color = OnRoadColors.Point)
+                else Text("$done/${c.steps.size}단계", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
+                SaveIndicator(save)
+            }
+        }
+    }
+}
+
+/**
+ * 단계 한 줄: 일정 타임라인과 같은 왼쪽 세로 선 · 점.
+ * 점 색: 끝냄 = 포인트 색, 지금 할 단계 = 메인 색, 남은 단계 = 회색. 점을 눌러도 끝냄 표시.
+ * 제목 아래 날짜 태그 자리에 'n단계' 태그 + 펼치기(+). 펼치면 본문과 '이 단계 끝냈어요'
+ */
 @Composable
 private fun StepItem(
     index: Int,
     step: ChecklistStep,
     current: Boolean,
+    first: Boolean,
+    last: Boolean,
     expanded: Boolean,
     onExpand: () -> Unit,
     onToggle: () -> Unit,
@@ -612,72 +934,88 @@ private fun StepItem(
 ) {
     val done = step.done
     var showOriginal by remember(step.itemId) { mutableStateOf(false) }
-    Column {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(OnRoadShapes.Item)
-                .clickable(onClick = onExpand)
-                .padding(vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StepMark(index, done, current)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    step.type.title,
-                    style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold),
-                    color = if (done && !expanded) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    stepGuide(step.type),
-                    style = OnRoadType.Caption2,
-                    color = OnRoadColors.TextTertiary,
-                )
+    val dot by androidx.compose.animation.animateColorAsState(
+        when {
+            done -> OnRoadColors.Point
+            current -> OnRoadColors.Primary
+            else -> OnRoadColors.BorderChip
+        },
+        com.project.on_road.ui.theme.OnRoadMotion.move(com.project.on_road.ui.theme.OnRoadMotion.FAST),
+        label = "step-dot",
+    )
+    // 지금 할 단계 · 펼친 단계는 진한 글씨, 끝낸 단계 · 남은 단계는 연한 글씨 (일정과 같은 규칙)
+    val titleColor = if (current || expanded) OnRoadColors.TextPrimary else OnRoadColors.TextTertiary
+    val tag = when {
+        done -> "${index}단계 · 끝냄"
+        current -> "${index}단계 · 지금"
+        else -> "${index}단계"
+    }
+
+    Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
+        // 세로 선 · 점 (점을 누르면 끝냄)
+        Box(Modifier.width(24.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+            Column(Modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (first) Spacer(Modifier.height(6.dp)) else StepLine(Modifier.height(6.dp))
+                Spacer(Modifier.height(10.dp))
+                if (last) Spacer(Modifier.weight(1f)) else StepLine(Modifier.weight(1f))
             }
-            Icon(
-                if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                null,
-                tint = OnRoadColors.TextQuaternary,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-        if (expanded) {
-            Spacer(Modifier.height(4.dp))
-            OnRoadCard(
-                Modifier.fillMaxWidth(),
-                background = OnRoadColors.SurfaceSubtle,
-                borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
-                shape = OnRoadShapes.Item,
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 14.dp),
+            Box(
+                Modifier
+                    .size(24.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .tap(haptic = true, onClickLabel = if (done) "끝냄 취소" else "끝냄", onClick = onToggle),
+                contentAlignment = Alignment.Center,
             ) {
-                body()
-                Spacer(Modifier.height(16.dp))
+                Box(Modifier.size(9.dp).clip(androidx.compose.foundation.shape.CircleShape).background(dot))
+            }
+        }
+        Spacer(Modifier.width(CheckSpace.LineToText))
+        Column(Modifier.weight(1f).padding(bottom = if (last) 0.dp else CheckSpace.StepGap)) {
+            Column(Modifier.fillMaxWidth().clip(OnRoadShapes.Chip).tap(pressed = 1f, onClick = onExpand)) {
+                Text(step.type.title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = titleColor)
+                Spacer(Modifier.height(2.dp))
+                Text(stepGuide(step.type), style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+                Spacer(Modifier.height(6.dp))
+                // 단계 태그 + 펼치기(+) : 일정의 날짜 태그 줄과 같은 모양
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // 원문은 시트로 본다 (서류 준비는 목록이 본문)
-                    if (step.type != StepType.DOCS && step.description.isNotBlank()) {
-                        Text(
-                            "원문 보기",
-                            style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
-                            color = OnRoadColors.TextTertiary,
-                            modifier = Modifier.clickable { showOriginal = true }.padding(vertical = 6.dp),
-                        )
-                    }
-                    Spacer(Modifier.weight(1f))
-                    if (done) {
-                        Text(
-                            "완료 취소",
-                            style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
-                            color = OnRoadColors.TextTertiary,
-                            modifier = Modifier.clickable(onClick = onToggle).padding(vertical = 6.dp, horizontal = 4.dp),
-                        )
-                    } else {
-                        com.project.on_road.ui.components.PrimaryPill("이 단계 끝냈어요", onToggle)
+                    com.project.on_road.ui.components.OnRoadTag(tag)
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        Modifier.size(18.dp).clip(androidx.compose.foundation.shape.CircleShape).background(OnRoadColors.SurfaceSubtle),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(if (expanded) "−" else "+", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
                     }
                 }
             }
-            Spacer(Modifier.height(14.dp))
+            ExpandArea(expanded) {
+                Column(Modifier.padding(top = 14.dp)) {
+                    body()
+                    Spacer(Modifier.height(14.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // 원문은 시트로 본다 (서류 준비는 목록이 본문)
+                        if (step.type != StepType.DOCS && step.description.isNotBlank()) {
+                            Text(
+                                "원문 보기",
+                                style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                                color = OnRoadColors.TextTertiary,
+                                modifier = Modifier.tap { showOriginal = true }.padding(vertical = 6.dp),
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+                        if (done) {
+                            Text(
+                                "끝냄 취소",
+                                style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                                color = OnRoadColors.TextTertiary,
+                                modifier = Modifier.tap(haptic = true, onClick = onToggle).padding(vertical = 6.dp, horizontal = 4.dp),
+                            )
+                        } else {
+                            com.project.on_road.ui.components.PrimaryPill("이 단계 끝냈어요", onToggle)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -686,28 +1024,10 @@ private fun StepItem(
     }
 }
 
-/** 번호 동그라미: 끝낸 단계는 메인 색 + 체크, 지금 단계는 메인 색 테두리, 나머지는 연한 테두리 */
+/** 타임라인 세로 선 (일정 탭과 같은 1dp 회색) */
 @Composable
-private fun StepMark(index: Int, done: Boolean, current: Boolean) {
-    val shape = androidx.compose.foundation.shape.CircleShape
-    Box(
-        Modifier
-            .size(28.dp)
-            .clip(shape)
-            .background(if (done) OnRoadColors.Primary else OnRoadColors.Surface)
-            .border(if (current) 1.5.dp else 1.dp, if (done || current) OnRoadColors.Primary else OnRoadColors.BorderChip, shape),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (done) {
-            Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
-        } else {
-            Text(
-                "$index",
-                style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
-                color = if (current) OnRoadColors.Primary else OnRoadColors.TextQuaternary,
-            )
-        }
-    }
+private fun StepLine(modifier: Modifier = Modifier) {
+    Box(modifier.width(1.dp).background(OnRoadColors.BorderChip))
 }
 
 private fun stepGuide(type: StepType): String = when (type) {
@@ -923,7 +1243,7 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
     val label = remember(doc.name, short) { docLabel(short ?: doc.name) }
     var more by remember(doc.itemId) { mutableStateOf(false) }
     Row(
-        Modifier.fillMaxWidth().clip(OnRoadShapes.Chip).clickable(onClick = onClick),
+        Modifier.fillMaxWidth().clip(OnRoadShapes.Chip).tap(onClick = onClick),
         verticalAlignment = Alignment.Top,
     ) {
         CheckBoxMark(checked, Modifier.padding(top = 2.dp), size = 20.dp)
@@ -936,6 +1256,10 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
             )
             if (!doc.notApplicable) {
                 DocLabelParts(label)
+                // 무엇인지 · 어디서 떼는지 (모르는 서류면 없음)
+                remember(doc.name) { com.project.on_road.data.DocGuide.explain(doc.name) }?.let {
+                    Text(it, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(top = 2.dp))
+                }
                 if (short == null) {
                     DocCondition(doc.condition)
                 } else {
@@ -943,9 +1267,9 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
                         if (more) "접기" else "자세히 보기",
                         style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
                         color = OnRoadColors.TextTertiary,
-                        modifier = Modifier.clickable { more = !more }.padding(top = 4.dp),
+                        modifier = Modifier.tap { more = !more }.padding(top = 4.dp),
                     )
-                    if (more) {
+                    ExpandArea(more) {
                         val full = remember(doc.name) { docLabel(doc.name) }
                         Spacer(Modifier.height(2.dp))
                         Text(full.title, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary)
@@ -971,7 +1295,7 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
                     if (doc.notApplicable) "되돌리기" else "해당 없음",
                     style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
                     color = OnRoadColors.TextTertiary,
-                    modifier = Modifier.clickable(onClick = onNotApplicable).padding(top = 2.dp, bottom = 2.dp, start = 6.dp),
+                    modifier = Modifier.tap(haptic = true, onClick = onNotApplicable).padding(top = 2.dp, bottom = 2.dp, start = 6.dp),
                 )
             }
         }

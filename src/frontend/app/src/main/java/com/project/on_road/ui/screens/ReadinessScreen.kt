@@ -1,11 +1,19 @@
 package com.project.on_road.ui.screens
 
+import androidx.compose.foundation.layout.Box
+
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.Icons
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -23,17 +31,22 @@ import com.project.on_road.ui.theme.*
 import kotlinx.coroutines.launch
 
 class ReadinessViewModel : ViewModel() {
-    var readiness by mutableStateOf<Readiness?>(null)
+    var readiness by mutableStateOf(com.project.on_road.data.ScreenCache.get<Readiness>("readiness"))
         private set
     var error by mutableStateOf<String?>(null)
         private set
 
     fun load() {
         val id = AppContainer.session.userId ?: return
+        // 다시 시도할 때는 오류를 지우고 불러오는 중으로 돌아간다
+        if (readiness == null) error = null
         viewModelScope.launch {
             runCatching { AppContainer.api.getReadiness(id) }
-                .onSuccess { readiness = it; error = if (it == null) "자립 준비도를 계산하지 못했어요." else null }
-                .onFailure { error = it.userMessage("자립 준비도를 불러오지 못했어요.") }
+                .onSuccess {
+                    if (it != null) { readiness = it; com.project.on_road.data.ScreenCache.put("readiness", it) }
+                    error = if (readiness == null) "자립 준비도를 계산하지 못했어요." else null
+                }
+                .onFailure { if (readiness == null) error = it.userMessage("자립 준비도를 불러오지 못했어요.") }
         }
     }
 }
@@ -46,50 +59,157 @@ fun ReadinessScreen(onBack: () -> Unit, onNavigate: (String) -> Unit, vm: Readin
     val r = vm.readiness
     OnRoadScreen("자립 준비도", onBack) {
         if (r == null) {
-            vm.error?.let { NoticeBox(it, title = "불러오지 못했어요", tone = NoticeTone.Warning) } ?: LoadingState("점수를 계산하고 있어요")
+            FadeSwitch(vm.error != null, label = "readiness") { failed ->
+                if (failed) ErrorState(vm.error, onRetry = vm::load, title = "자립 준비도를 불러오지 못했어요")
+                else LoadingState("점수를 계산하고 있어요", steps = listOf("한 일을 영역별로 모으고 있어요"))
+            }
             return@OnRoadScreen
         }
+        // 점수가 오면 살짝 올라오며 나타난다 (툭 바뀌지 않게)
+        Column(Modifier.reveal()) {
+        // ── 1. 점수 · 단계 · 이번 주 변화 · 다음 단계까지 ──
         ScoreHeader(r)
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "앱에서 한 실전 연습 · 한 달 살아보기 · 생활비 계획 · 서류 · 신청 준비로 계산해요. 할수록 올라가요.",
-            style = OnRoadType.Caption,
-            color = OnRoadColors.TextTertiary,
-        )
 
+        // ── 2. 영역 6개 한눈에 (육각형) ──
+        Spacer(Modifier.height(OnRoadDimens.BlockGap))
+        SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(vertical = 8.dp)) {
+            ReadinessRadar(r, Modifier.fillMaxWidth().height(240.dp))
+        }
+
+        // ── 3. 지난 4주 흐름 + 이번 주에 해낸 것 ──
+        if (r.history.size >= 2) {
+            Spacer(Modifier.height(OnRoadDimens.SectionGap))
+            SectionHeader("지난 4주")
+            Spacer(Modifier.height(12.dp))
+            TrendBars(r.history)
+        }
+        if (r.recent.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(16.dp)) {
+                Text("이번 주에 해낸 것", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                Spacer(Modifier.height(8.dp))
+                r.recent.forEach { label ->
+                    Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CheckBoxMark(true, size = 16.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(label, style = OnRoadType.Caption, color = OnRoadColors.TextPrimary)
+                    }
+                }
+            }
+        }
+
+        // ── 4. 점수를 올리려면 (약한 영역부터) ──
         if (r.nextSteps.isNotEmpty()) {
-            Spacer(Modifier.height(OnRoadDimens.BlockGap))
+            Spacer(Modifier.height(OnRoadDimens.SectionGap))
             NextStepList(r.nextSteps, { onNavigate(stepRoute(it)) }, title = "점수를 올리려면")
         }
 
+        // ── 5. 영역별: 가장 약한 곳만 펼쳐 두고, 나머지는 눌러서 펼치기 ──
         Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("영역별", titleStyle = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold))
+        SectionHeader("영역별")
         Spacer(Modifier.height(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             r.areas.forEach { a -> AreaCard(a, weakest = a.key == r.weakest) { s -> onNavigate(stepRoute(s)) } }
         }
         Spacer(Modifier.height(24.dp))
-        Footnote("점수는 연습과 준비 정도를 보여 주는 참고용이에요.")
+        Footnote("점수는 준비 정도를 보여 주는 참고용이에요.")
+        }
     }
 }
 
 @Composable
 private fun ScoreHeader(r: Readiness) {
+    // 점수가 0 에서 올라가며 보인다
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val shownScore by androidx.compose.animation.core.animateIntAsState(
+        if (shown) r.score else 0,
+        androidx.compose.animation.core.tween(700, easing = com.project.on_road.ui.theme.OnRoadMotion.EmphasizedDecelerate),
+        label = "readiness-score",
+    )
     Row(verticalAlignment = Alignment.Bottom) {
-        Text("${r.score}", style = OnRoadType.Display.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
+        Text("$shownScore", style = OnRoadType.Display.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
         Spacer(Modifier.width(4.dp))
-        Text("점", style = OnRoadType.Headline, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 3.dp))
+        Text("점", style = OnRoadType.Headline, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
+        Spacer(Modifier.width(10.dp))
+        OnRoadTag(r.level, style = TagStyle.Neutral, modifier = Modifier.padding(bottom = 6.dp))
+        if (r.weekDelta != 0) {
+            Spacer(Modifier.width(6.dp))
+            OnRoadTag(
+                if (r.weekDelta > 0) "이번 주 +${r.weekDelta}점" else "이번 주 ${r.weekDelta}점",
+                style = TagStyle.Neutral,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+        }
+    }
+    r.nextLevel?.let { (label, points) ->
+        Spacer(Modifier.height(10.dp))
+        ProgressBar(r.score / 100f)
+        Spacer(Modifier.height(6.dp))
+        Text("‘$label’까지 ${points}점 남았어요", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+    } ?: run {
+        Spacer(Modifier.height(6.dp))
+        Text("모든 영역을 잘 챙기고 있어요", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+    }
+}
+
+/** 지난 4주 점수 막대 (지금 막대만 포인트 색) */
+@Composable
+private fun TrendBars(history: List<Int>) {
+    val labels = history.indices.map { i ->
+        when (val ago = history.lastIndex - i) {
+            0 -> "지금"
+            1 -> "지난주"
+            else -> "${ago}주 전"
+        }
+    }
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    Row(
+        Modifier.fillMaxWidth().height(132.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        history.forEachIndexed { i, score ->
+            val now = i == history.lastIndex
+            val h by androidx.compose.animation.core.animateFloatAsState(
+                if (shown) score.coerceIn(0, 100) / 100f else 0f,
+                androidx.compose.animation.core.tween(600, delayMillis = 80 * i, easing = com.project.on_road.ui.theme.OnRoadMotion.EmphasizedDecelerate),
+                label = "trend-$i",
+            )
+            Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                Text(
+                    "$score",
+                    style = OnRoadType.Caption2.copy(fontWeight = if (now) FontWeight.Bold else FontWeight.Medium),
+                    color = if (now) OnRoadColors.TextPrimary else OnRoadColors.TextTertiary,
+                )
+                Spacer(Modifier.height(4.dp))
+                Box(
+                    Modifier
+                        .fillMaxWidth(0.62f)
+                        .weight(1f, fill = false)
+                        .fillMaxHeight(h.coerceAtLeast(0.02f))
+                        .clip(OnRoadShapes.Badge)
+                        .background(if (now) OnRoadColors.Point else OnRoadColors.SurfaceMuted),
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(labels[i], style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
+            }
+        }
     }
 }
 
 @Composable
 private fun AreaCard(a: ReadinessArea, weakest: Boolean, onStep: (com.project.on_road.data.NextStep) -> Unit) {
+    // 가장 약한 곳만 펼쳐 둔다 (영역 6개가 모두 펼쳐져 있으면 길고 복잡해서)
+    var open by androidx.compose.runtime.saveable.rememberSaveable(a.key) { mutableStateOf(weakest) }
     OnRoadCard(
-        Modifier.fillMaxWidth(),
+        Modifier.fillMaxWidth().animateContentSize(com.project.on_road.ui.theme.OnRoadMotion.move()),
         borderColor = if (weakest) OnRoadColors.Primary else OnRoadColors.BorderChip,
         borderWidth = if (weakest) 1.5.dp else 1.dp,
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        onClick = { open = !open },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(a.label, style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
@@ -98,19 +218,44 @@ private fun AreaCard(a: ReadinessArea, weakest: Boolean, onStep: (com.project.on
                 OnRoadTag("가장 약한 곳", style = TagStyle.Neutral, textStyle = OnRoadType.Tiny)
             }
             Spacer(Modifier.weight(1f))
-            Text("${a.score}점", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            Text("${a.doneCount}/${a.total} · ${a.score}점", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            Icon(
+                Icons.Filled.KeyboardArrowDown,
+                null,
+                tint = OnRoadColors.TextQuaternary,
+                modifier = Modifier.size(20.dp).flipWhen(open),
+            )
         }
         Spacer(Modifier.height(10.dp))
-        a.items.forEach { (label, done) ->
-            Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                CheckBoxMark(done)
-                Spacer(Modifier.width(10.dp))
-                Text(label, style = OnRoadType.Caption, color = if (done) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary)
+        ProgressBar(a.score / 100f)
+        ExpandArea(open) {
+            Spacer(Modifier.height(8.dp))
+            a.items.forEachIndexed { i, (label, done) ->
+                val p = a.progresses.getOrNull(i) ?: if (done) 1f else 0f
+                Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
+                    CheckBoxMark(done)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(label, style = OnRoadType.Caption, color = if (done) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary)
+                        a.details.getOrNull(i)?.let { d ->
+                            Text(d, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
+                        }
+                        // 하다 만 항목: 얼마나 했는지 가는 막대로
+                        if (!done && p > 0f) {
+                            Spacer(Modifier.height(4.dp))
+                            ProgressBar(p, Modifier.fillMaxWidth(0.6f), height = 3.dp)
+                        }
+                    }
+                    if (!done && p > 0f) {
+                        Spacer(Modifier.width(8.dp))
+                        AnimatedNumber((p * 100).toLong(), { "$it%" }, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSecondary)
+                    }
+                }
             }
-        }
-        a.nextStep?.let { s ->
-            Spacer(Modifier.height(10.dp))
-            NextStepRow(s) { onStep(s) }
+            a.nextStep?.let { s ->
+                Spacer(Modifier.height(10.dp))
+                NextStepRow(s) { onStep(s) }
+            }
         }
     }
 }
@@ -122,7 +267,7 @@ fun ReadinessSummaryCard(r: Readiness, onOpen: () -> Unit, onStep: (com.project.
         Modifier.fillMaxWidth(),
         borderColor = OnRoadColors.BorderChip,
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         onClick = onOpen,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -131,7 +276,7 @@ fun ReadinessSummaryCard(r: Readiness, onOpen: () -> Unit, onStep: (com.project.
         }
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Bottom) {
-            Text("${r.score}", style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
+            AnimatedNumber(r.score.toLong(), { "$it" }, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
             Text("점", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(start = 2.dp, bottom = 4.dp))
         }
         Spacer(Modifier.height(8.dp))

@@ -1,5 +1,7 @@
 package com.project.on_road.ui.screens
 
+import androidx.compose.foundation.layout.Box
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -72,12 +74,25 @@ class DocPickerViewModel : ViewModel() {
         }
     }
 
+    /** 처음 불러오다 실패했을 때 '다시 시도': 불러오는 중 표시부터 다시 */
+    fun retry(policyId: String) {
+        loadedFor = null
+        load(policyId)
+    }
+
     /** 화면에 돌아올 때마다 다시 받는다 (방금 쓴 서류가 체크됐는지) */
     fun load(policyId: String) {
         val first = loadedFor != policyId
         loadedFor = policyId
+        // 전에 본 서류 목록이 있으면 바로 보여 준다
+        val cached = if (first) com.project.on_road.data.ScreenCache.get<Pair<Checklist, List<DocChoice>>>("docs:$policyId") else null
+        if (cached != null) {
+            checklist = cached.first
+            choices = cached.second
+            loading = false
+        }
         viewModelScope.launch {
-            if (first) loading = true
+            if (first && cached == null) loading = true
             runCatching {
                 val c = AppContainer.api.openChecklist(AppContainer.session.userId.orEmpty(), policyId)
                 val hasForm = policyId.toLongOrNull()?.let { AppContainer.documents.hasPolicyForm(it) } ?: false
@@ -96,7 +111,8 @@ class DocPickerViewModel : ViewModel() {
                 // AI 와 쓸 수 있는 서류를 먼저
                 choices = list.sortedByDescending { it.writable }
                 error = null
-            }.onFailure { error = it.userMessage("준비 서류를 불러오지 못했어요.") }
+                com.project.on_road.data.ScreenCache.put("docs:$policyId", c to choices)
+            }.onFailure { if (checklist == null) error = it.userMessage("준비 서류를 불러오지 못했어요.") }
             loading = false
         }
     }
@@ -128,45 +144,55 @@ fun DocPickerScreen(
     }
 
     OnRoadScreen("서류 작성", onBack) {
-        when {
-            vm.loading -> LoadingState("준비 서류를 불러오고 있어요")
-            c == null -> NoticeBox(vm.error ?: "잠시 후 다시 시도해 주세요.", title = "불러오지 못했어요", tone = NoticeTone.Warning)
-            else -> {
-                ScreenHeadline(c.policyName, "어떤 서류를 준비할까요?")
+        FadeSwitch(vm.loading, label = "doc-picker") { loading ->
+            when {
+                loading -> SkeletonList(rows = 4)
+                c == null -> ErrorState(vm.error, onRetry = { vm.retry(policyId) }, title = "준비 서류를 불러오지 못했어요")
+                else -> {
+                    ScreenHeadline(c.policyName, "어떤 서류를 준비할까요?")
 
-                val writable = vm.choices.filter { it.writable }
-                // 체크리스트에서 꺼 둔 상황(대리 신청 등)의 서류는 빼고 보여 준다
-                val issued = vm.choices.filter { !it.writable && !it.doc.notApplicable }
+                    val writable = vm.choices.filter { it.writable }
+                    // 체크리스트에서 꺼 둔 상황(대리 신청 등)의 서류는 빼고 보여 준다
+                    val issued = vm.choices.filter { !it.writable && !it.doc.notApplicable }
 
-                if (writable.isNotEmpty()) {
-                    Spacer(Modifier.height(OnRoadDimens.BlockGap))
-                    SectionHeader("AI와 함께 쓰는 서류", titleStyle = OnRoadType.Title3)
-                    Spacer(Modifier.height(12.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        writable.forEach { ch ->
-                            WritableDocCard(ch) {
-                                val id = ch.doc.documentId
-                                if (id != null) onOpenDocument(id)
-                                else onWrite(if (ch.policyForm) c.policyId.toLongOrNull() else null, ch.templateId, ch.doc.itemId)
-                            }
+                    if (writable.isNotEmpty()) {
+                        Spacer(Modifier.height(OnRoadDimens.BlockGap))
+                        SectionHeader("앱에서 쓸 수 있는 서류")
+                        Spacer(Modifier.height(12.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            writable.forEachIndexed { si, ch -> Box(Modifier.stagger(si)) {
+                                WritableDocCard(ch) {
+                                    val id = ch.doc.documentId
+                                    val pid = if (ch.policyForm) c.policyId.toLongOrNull() else null
+                                    // 서류 작성 화면 제목 바에 이 서류 이름이 바로 보이게
+                                    val key = when {
+                                        id != null -> "doc:$id"
+                                        pid != null -> "doc-policy:$pid"
+                                        else -> ch.templateId?.let { "doc-template:$it" }
+                                    }
+                                    key?.let { com.project.on_road.data.ScreenCache.put("title:$it", ch.doc.name) }
+                                    if (id != null) onOpenDocument(id)
+                                    else onWrite(pid, ch.templateId, ch.doc.itemId)
+                                }
+                            } }
                         }
                     }
-                }
 
-                if (issued.isNotEmpty()) {
-                    Spacer(Modifier.height(OnRoadDimens.BlockGap))
-                    SectionHeader("발급받아 준비하는 서류", titleStyle = OnRoadType.Title3)
-                    Spacer(Modifier.height(12.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        issued.forEach { ch ->
-                            IssuedDocCard(
-                                ch,
-                                uploading = vm.uploadingItem == ch.doc.itemId,
-                                busy = vm.uploadingItem != null,
-                                error = vm.uploadError?.takeIf { it.first == ch.doc.itemId }?.second,
-                                onTakePhoto = { uploadFor = ch.doc.itemId; uploader.takePhoto() },
-                                onPickFile = { uploadFor = ch.doc.itemId; uploader.pickFile() },
-                            )
+                    if (issued.isNotEmpty()) {
+                        Spacer(Modifier.height(OnRoadDimens.BlockGap))
+                        SectionHeader("발급받아 준비하는 서류")
+                        Spacer(Modifier.height(12.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            issued.forEachIndexed { si, ch -> Box(Modifier.stagger(si)) {
+                                IssuedDocCard(
+                                    ch,
+                                    uploading = vm.uploadingItem == ch.doc.itemId,
+                                    busy = vm.uploadingItem != null,
+                                    error = vm.uploadError?.takeIf { it.first == ch.doc.itemId }?.second,
+                                    onTakePhoto = { uploadFor = ch.doc.itemId; uploader.takePhoto() },
+                                    onPickFile = { uploadFor = ch.doc.itemId; uploader.pickFile() },
+                                )
+                            } }
                         }
                     }
                 }
@@ -192,15 +218,15 @@ private fun WritableDocCard(ch: DocChoice, onWrite: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Text(ch.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
             }
-            if (done) OnRoadTag("완료", style = TagStyle.PrimaryFilled, textStyle = OnRoadType.Tiny)
-            else if (writing) OnRoadTag("작성 중", style = TagStyle.PrimaryOutline, textStyle = OnRoadType.Tiny)
+            if (done) OnRoadTag("완료", style = TagStyle.Neutral, textStyle = OnRoadType.Tiny)
+            else if (writing) OnRoadTag("작성 중", style = TagStyle.Neutral, textStyle = OnRoadType.Tiny)
         }
         Spacer(Modifier.height(12.dp))
         OnRoadButton(
             when {
                 done -> "다시 보기"
                 writing -> "이어서 쓰기"
-                else -> "AI와 쓰기"
+                else -> "쓰기"
             }, onWrite, Modifier.fillMaxWidth(),
             variant = if (done) ButtonVariant.Outline else ButtonVariant.Primary,
             height = 38.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
@@ -222,10 +248,10 @@ private fun IssuedDocCard(
     var open by remember { mutableStateOf(false) }
     SubtleCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(ch.name, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateDark, modifier = Modifier.weight(1f))
+            Text(ch.name, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
             when {
                 ch.doc.notApplicable -> OnRoadTag("해당 없음", style = TagStyle.Gray, textStyle = OnRoadType.Tiny)
-                ch.doc.checked -> OnRoadTag("준비 완료", style = TagStyle.PrimarySoft, textStyle = OnRoadType.Tiny)
+                ch.doc.checked -> OnRoadTag("준비 완료", style = TagStyle.Neutral, textStyle = OnRoadType.Tiny)
                 else -> SmallBoxButton(if (open) "닫기" else "양식 올리기", { open = !open }, leadingIcon = Icons.Outlined.Description)
             }
         }

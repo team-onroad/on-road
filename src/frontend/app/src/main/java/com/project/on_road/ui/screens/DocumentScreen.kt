@@ -106,15 +106,17 @@ fun DocumentScreen(onBack: () -> Unit, vm: DocumentViewModel = viewModel()) {
                 Spacer(Modifier.height(24.dp))
             }
             when {
-                vm.types.isEmpty() -> EmptyState(Icons.Outlined.Edit, "지금 단계에서는 쓸 수 없어요", "청소년·자립준비청년 화면에서 쓸 수 있어요.")
-                vm.loading -> LoadingState("앱에 쌓인 기록으로 초안을 만들고 있어요")
+                vm.types.isEmpty() -> EmptyState("지금 단계에서는 쓸 수 없어요. 청소년·자립준비청년 화면에서 쓸 수 있어요.")
+                vm.loading -> LoadingState(
+                    "앱에 쌓인 기록을 모으고 있어요",
+                    steps = listOf("기록에서 쓸 만한 경험을 고르고 있어요", "문장으로 다듬고 있어요"),
+                )
                 d == null -> {
                     vm.error?.let {
                         NoticeBox(it, title = "초안을 만들지 못했어요", tone = NoticeTone.Warning)
                         Spacer(Modifier.height(16.dp))
                     }
-                    ScreenHeadline("앱에 쌓인 기록으로", "${vm.type?.label} 초안을 만들어요.")
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(8.dp))
                     OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
                         Text("${vm.type?.label} 초안 만들기", style = OnRoadType.Title3, color = OnRoadColors.Primary)
                         Spacer(Modifier.height(8.dp))

@@ -39,7 +39,7 @@ fun RoadmapProgressCard(
         background = OnRoadColors.SurfaceSubtle,
         borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(18.dp),
+        contentPadding = PaddingValues(16.dp),
     ) {
         Text(
             "${roadmap.jobName}까지",
@@ -63,7 +63,7 @@ fun RoadmapProgressCard(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clickable { ActivityStore.toggleRoadmapStep(i) }
+                        .tap(haptic = true) { ActivityStore.toggleRoadmapStep(i) }
                         .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
@@ -95,7 +95,7 @@ fun RoadmapProgressCard(
                 "다른 직업 다시 찾아보기",
                 style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
                 color = OnRoadColors.TextTertiary,
-                modifier = Modifier.clickable(onClick = onMore).padding(vertical = 4.dp),
+                modifier = Modifier.tap(onClick = onMore).padding(vertical = 4.dp),
             )
         }
     }

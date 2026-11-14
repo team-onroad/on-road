@@ -1,5 +1,7 @@
 package com.project.on_road.ui.screens
 
+import androidx.compose.foundation.layout.Box
+
 import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -118,6 +120,7 @@ class RiskCheckViewModel : ViewModel() {
 fun RiskCheckScreen(
     onBack: () -> Unit,
     onPractice: (String) -> Unit,
+    onNavigate: (String) -> Unit = {},
     vm: RiskCheckViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -129,14 +132,32 @@ fun RiskCheckScreen(
         OnRoadTopBar("서류 위험 찾기", back)
         val d = vm.doc
         val r = vm.result
-        when {
-            vm.loading -> LoadingState("서류를 읽고 위험한 부분을 찾고 있어요")
-            r != null -> ResultPage(r, onPractice, onAgain = vm::again)
-            d == null -> PickPage(vm::pick)
-            else -> UploadPage(d, vm, uploader)
+        // 서류 고르기 → 올리기 → 읽는 중 → 결과, 단계가 바뀔 때마다 부드럽게 넘어간다
+        val page = when {
+            vm.loading -> RiskPage.LOADING
+            r != null -> RiskPage.RESULT
+            d == null -> RiskPage.PICK
+            else -> RiskPage.UPLOAD
+        }
+        FadeSwitch(page, Modifier.weight(1f), label = "risk-page") { p ->
+            when (p) {
+                RiskPage.LOADING -> LoadingState(
+                    "서류를 읽고 있어요",
+                    steps = listOf("조항을 하나씩 살펴보고 있어요", "위험한 부분을 정리하고 있어요"),
+                )
+                RiskPage.RESULT -> vm.result?.let {
+                    ResultPage(it, onPractice, onAgain = vm::again) {
+                        NextTaskBlock(onNavigate, finished = com.project.on_road.data.PlanGo.RiskCheck)
+                    }
+                }
+                RiskPage.PICK -> PickPage(vm::pick)
+                RiskPage.UPLOAD -> vm.doc?.let { UploadPage(it, vm, uploader) }
+            }
         }
     }
 }
+
+private enum class RiskPage { LOADING, RESULT, PICK, UPLOAD }
 
 /* ---------------------------- 서류 고르기 ---------------------------- */
 
@@ -148,13 +169,9 @@ private fun PickPage(onPick: (RiskDoc) -> Unit) {
             .verticalScroll(rememberScrollState())
             .padding(horizontal = OnRoadDimens.ScreenPadding),
     ) {
-        Spacer(Modifier.height(24.dp))
-        ScreenHeadline("서명하기 전에", "숨은 위험을 찾아봐요.")
-        Spacer(Modifier.height(6.dp))
-        Text("서류를 찍어 올리면 정해 둔 기준으로 하나씩 살펴봐요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
-        Spacer(Modifier.height(OnRoadDimens.BlockGap))
+        Spacer(Modifier.height(20.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            RiskDoc.entries.forEach { d -> RowCard(d.title, d.sub) { onPick(d) } }
+            RiskDoc.entries.forEachIndexed { si, d -> Box(Modifier.stagger(si)) { RowCard(d.title, d.sub) { onPick(d) } } }
         }
     }
 }
@@ -235,7 +252,7 @@ private fun LabeledField(
 /* ---------------------------- 결과 ---------------------------- */
 
 @Composable
-private fun ResultPage(r: RiskCheckDto, onPractice: (String) -> Unit, onAgain: () -> Unit) {
+private fun ResultPage(r: RiskCheckDto, onPractice: (String) -> Unit, onAgain: () -> Unit, next: @Composable () -> Unit = {}) {
     val danger = r.findings.filter { it.status == "danger" }
     val check = r.findings.filter { it.status == "check" || it.status == "unknown" }
     val ok = r.findings.filter { it.status == "ok" }
@@ -254,21 +271,21 @@ private fun ResultPage(r: RiskCheckDto, onPractice: (String) -> Unit, onAgain: (
             Text(r.summary.headline, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
 
             if (danger.isNotEmpty()) {
-                Group("계약 전에 꼭 해결해요") { danger.forEach { FindingCard(it, onPractice) } }
+                Group("계약 전에 꼭 해결해요") { danger.forEachIndexed { si, it -> Box(Modifier.stagger(si)) { FindingCard(it, onPractice) } } }
             }
             if (check.isNotEmpty()) {
-                Group("물어보거나 더 확인해요") { check.forEach { FindingCard(it, onPractice) } }
+                Group("물어보거나 더 확인해요") { check.forEachIndexed { si, it -> Box(Modifier.stagger(si)) { FindingCard(it, onPractice) } } }
             }
             if (ok.isNotEmpty()) {
                 Spacer(Modifier.height(OnRoadDimens.BlockGap))
                 Row(
-                    Modifier.fillMaxWidth().clip(OnRoadShapes.Item).clickable { showOk = !showOk }.padding(vertical = 6.dp),
+                    Modifier.fillMaxWidth().clip(OnRoadShapes.Item).tap { showOk = !showOk }.padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("괜찮은 부분", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
                     Text(if (showOk) "접기" else "보기", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
                 }
-                if (showOk) {
+                ExpandArea(showOk) {
                     Spacer(Modifier.height(8.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         ok.forEach { f -> RowCard(f.title, f.explain, onClick = null) }
@@ -276,6 +293,8 @@ private fun ResultPage(r: RiskCheckDto, onPractice: (String) -> Unit, onAgain: (
                 }
             }
 
+            Spacer(Modifier.height(OnRoadDimens.BlockGap))
+            next()
             Spacer(Modifier.height(24.dp))
             Text(r.notice, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
             Spacer(Modifier.height(24.dp))

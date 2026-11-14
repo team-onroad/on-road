@@ -196,6 +196,18 @@ class SessionStore(private val context: Context) {
         get() = prefs.getStringSet(KEY_SAVED_POLICIES, emptySet()).orEmpty().toSet()
         set(value) = prefs.edit().putStringSet(KEY_SAVED_POLICIES, value).apply()
 
+    /** 신청 결과 (정책 id → ApplyStatus 이름). 서버 API 가 없어서 앱에 저장한다 */
+    var applyResults: Map<String, String>
+        get() = prefs.getStringSet(KEY_APPLY_RESULTS, emptySet()).orEmpty()
+            .mapNotNull { line -> line.split("=", limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }
+            .toMap()
+        set(value) = prefs.edit().putStringSet(KEY_APPLY_RESULTS, value.map { (k, v) -> "$k=$v" }.toSet()).apply()
+
+    /** 정책 검색 기록 (최근 것이 앞, 최대 10개). 줄바꿈으로 이어 저장한다 */
+    var recentSearches: List<String>
+        get() = prefs.getString(KEY_RECENT_SEARCHES, null)?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
+        set(value) = prefs.edit().putString(KEY_RECENT_SEARCHES, value.take(10).joinToString("\n")).apply()
+
     /** 아동: 스티커를 사느라 쓴 별 (가진 별 = missionCount - starsSpent) */
     var starsSpent: Int
         get() = prefs.getInt(KEY_STARS_SPENT, 0)
@@ -247,5 +259,7 @@ class SessionStore(private val context: Context) {
         const val KEY_OWNED_STICKERS = "owned_stickers"
         const val KEY_PLACED_STICKERS = "placed_stickers"
         const val KEY_SAVED_POLICIES = "saved_policies"
+        const val KEY_APPLY_RESULTS = "apply_results"
+        const val KEY_RECENT_SEARCHES = "recent_searches"
     }
 }

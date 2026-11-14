@@ -71,8 +71,8 @@ fun SavingsScreen(
             SavingsChart(plan.balances, vm.goal)
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Stat("매달 모이는 돈", manwon(plan.monthlyTotal))
-                if (plan.matchMonthly > 0) Stat("정부 매칭", "+${manwon(plan.matchMonthly)}")
+                Stat("매달 모이는 돈", plan.monthlyTotal)
+                if (plan.matchMonthly > 0) Stat("정부 매칭", plan.matchMonthly, prefix = "+")
             }
         }
 
@@ -89,7 +89,7 @@ fun SavingsScreen(
         }
 
         Spacer(Modifier.height(20.dp))
-        SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 15.dp, end = 15.dp, top = 15.dp, bottom = 8.dp)) {
+        SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)) {
             SliderRow("내 돈으로 매달", vm.own, 0..100) { vm.own = it }
             Spacer(Modifier.height(8.dp))
             SliderRow("자립수당 중 저축", vm.allowance, 0..50) { vm.allowance = it }
@@ -103,7 +103,7 @@ fun SavingsScreen(
             background = if (vm.didim) OnRoadColors.PrimarySoft else OnRoadColors.Surface,
             borderColor = if (vm.didim) OnRoadColors.Primary else OnRoadColors.BorderSlate,
             shape = OnRoadShapes.Inner,
-            contentPadding = PaddingValues(start = 15.dp, end = 6.dp, top = 12.dp, bottom = 12.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 6.dp, top = 12.dp, bottom = 12.dp),
             onClick = { vm.didim = !vm.didim },
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -130,7 +130,7 @@ fun SavingsScreen(
                     ListRow(
                         "$pct% 지점",
                         "${m}개월 뒤, 약 ${manwon(vm.goal * pct / 100)}",
-                        trailing = { if (pct == 100) OnRoadTag("목표", style = TagStyle.PrimaryFilled) },
+                        trailing = { if (pct == 100) OnRoadTag("목표", style = TagStyle.Neutral) },
                     )
                 }
             }
@@ -154,9 +154,10 @@ fun SavingsScreen(
 }
 
 @Composable
-private fun Stat(label: String, value: String) {
+private fun Stat(label: String, value: Int, prefix: String = "") {
     Column {
-        Text(value, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
+        // 값을 바꾸면 숫자가 올라가거나 내려가며 바뀐다
+        AnimatedNumber(value.toLong(), { prefix + manwon(it.toInt()) }, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary, durationMs = 350)
         Text(label, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
     }
 }

@@ -109,7 +109,7 @@ fun EasyTextPanel(policyId: String, fallback: String, modifier: Modifier = Modif
                                 Row {
                                     Text(t.term, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.Primary)
                                     Spacer(Modifier.width(8.dp))
-                                    Text(t.gloss, style = OnRoadType.Caption, color = OnRoadColors.TextSlateDark)
+                                    Text(t.gloss, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
                                 }
                             }
                         }
@@ -142,13 +142,13 @@ private fun LevelChips(v: EasyTextView, onPick: (String) -> Unit) {
                     .clip(OnRoadShapes.Tag)
                     .background(if (selected) OnRoadColors.Primary else OnRoadColors.Surface)
                     .border(1.dp, if (selected) OnRoadColors.Primary else OnRoadColors.BorderSlate, OnRoadShapes.Tag)
-                    .clickable(enabled = !selected) { onPick(lv.code) }
-                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                    .tap(enabled = !selected) { onPick(lv.code) }
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
             ) {
                 Text(
                     label,
                     style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium),
-                    color = if (selected) OnRoadColors.Surface else OnRoadColors.TextSlateDark,
+                    color = if (selected) OnRoadColors.Surface else OnRoadColors.TextSecondary,
                     maxLines = 1,
                 )
             }
@@ -162,10 +162,10 @@ private fun Expandable(title: String, content: @Composable () -> Unit) {
     val arrow by animateFloatAsState(if (open) 180f else 0f, label = "expand")
     Column {
         Row(
-            Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 4.dp),
+            Modifier.fillMaxWidth().tap { open = !open }.padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(title, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlateMid, modifier = Modifier.weight(1f))
+            Text(title, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
             Icon(Icons.Filled.KeyboardArrowDown, null, tint = OnRoadColors.TextMuted, modifier = Modifier.size(18.dp).rotate(arrow))
         }
         AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
@@ -179,7 +179,7 @@ private fun BodyText(text: AnnotatedString) {
     Text(
         text,
         style = OnRoadType.Body2.copy(lineHeight = OnRoadType.Body2.lineHeight * 1.1f),
-        color = OnRoadColors.TextSlateDark,
+        color = OnRoadColors.TextSecondary,
     )
 }
 

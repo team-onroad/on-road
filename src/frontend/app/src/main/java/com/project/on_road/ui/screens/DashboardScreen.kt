@@ -1,5 +1,19 @@
 package com.project.on_road.ui.screens
 
+import com.project.on_road.ui.components.tap
+
+import com.project.on_road.data.TimelinePlanner
+import androidx.compose.animation.animateContentSize
+import androidx.compose.runtime.key
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.project.on_road.data.PlanData
+import com.project.on_road.data.PlanKind
+import com.project.on_road.data.PlanTask
+import com.project.on_road.ui.components.EmptyState
+import com.project.on_road.ui.components.ProgressBar
+import com.project.on_road.ui.components.RadioMark
+import com.project.on_road.ui.theme.OnRoadMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -98,11 +112,6 @@ import java.time.temporal.ChronoUnit
 class DashboardViewModel : ViewModel() {
     private val userId get() = AppContainer.session.userId
 
-    /** 전체 체크리스트 수, 완료 수 (3.4 checklists) */
-    var checklistCount by mutableStateOf(0)
-        private set
-    var completedCount by mutableStateOf(0)
-        private set
     /** 자립까지 D-day (3.4 user.d_day). null 이면 숨김 */
     var dDay by mutableStateOf<Int?>(null)
         private set
@@ -110,18 +119,8 @@ class DashboardViewModel : ViewModel() {
         private set
     var latestSimulation by mutableStateOf<LatestSimulation?>(null)
         private set
-    var action by mutableStateOf<NextAction?>(null)
-        private set
-    /** 지금 할 일에 연결된 정책 (저장한 정책으로 시작할 때만) */
-    var policy by mutableStateOf<Policy?>(null)
-        private set
-    /** 지금 할 일 카드의 진행 중 체크리스트 (3.4 checklists[0]) */
-    var checklist by mutableStateOf<ChecklistSummary?>(null)
-        private set
-    /** 실전 연습 대표 시나리오와 상대역의 첫 마디 */
-    var practice by mutableStateOf<RoleplayScenario?>(null)
-        private set
-    var practiceLine by mutableStateOf<String?>(null)
+    /** 진행 중 체크리스트 (이번 주 할 일 카드의 진행 막대) */
+    var checklists by mutableStateOf<List<ChecklistSummary>>(emptyList())
         private set
 
     fun load() {
@@ -132,36 +131,14 @@ class DashboardViewModel : ViewModel() {
                 dash.user?.let { AppContainer.applyDashboardUser(it) }
                 dDay = dash.user?.dDay
                 loaded = true
-                checklistCount = dash.checklists.size
-                completedCount = dash.checklists.count { it.completed }
+                checklists = dash.checklists
                 latestSimulation = dash.latestSimulation
             }
-            // 지금 할 일: 진행 중 체크리스트(checklists[0])가 있으면 그것, 없으면 추천 첫 번째
-            val current = dash?.checklists?.firstOrNull()?.takeIf { !it.completed }
-            checklist = current
-            val first = runCatching { AppContainer.api.getNextActions(id, dash) }.getOrDefault(emptyList())
-                .let { list -> if (current != null) list.firstOrNull { it.policyId == current.policyId } ?: list.firstOrNull() else list.firstOrNull() }
-            action = first
-            policy = if (current == null && first?.kind == ActionKind.START_CHECKLIST) {
-                first.policyId?.let { pid -> runCatching { AppContainer.api.getPolicy(pid) }.getOrNull() }
-            } else null
+            // 할 일은 타임라인과 같은 목록(PlanData)에서 → 홈 · 타임라인 · 알림이 같은 일을 말한다.
+            // (예전 서버 추천 '다음 할 일' 요청과 정책 상세 요청은 빼서 홈 요청이 줄었다)
+            PlanData.refresh(dash?.checklists)
         }
-        // (예전 홈의 실전 연습 카드용 시나리오·첫 대사 요청은 화면에서 안 써서 뺐다 → 홈 열 때 요청 2개 줄임)
     }
-}
-
-/** 타임라인에서 오늘 이후 아직 안 한 첫 할 일 */
-private data class UpcomingTask(val task: TimelineTask, val daysLeft: Long)
-
-private fun upcomingTask(leaveDate: LocalDate?): UpcomingTask? {
-    leaveDate ?: return null
-    val done = AppContainer.session.timelineDone
-    val today = LocalDate.now()
-    return TimelineRules.tasks
-        .sortedBy { it.offsetDays }
-        .map { it to ChronoUnit.DAYS.between(today, leaveDate.plusDays(it.offsetDays.toLong())) }
-        .firstOrNull { (t, d) -> t.id !in done && d >= 0 }
-        ?.let { (t, d) -> UpcomingTask(t, d) }
 }
 
 private fun dLabel(days: Long): String = when {
@@ -175,7 +152,7 @@ private val HomeGap = 28.dp
 
 /**
  * 자립준비청년 홈 (디자인: 자립준비청년 - 홈).
- * 순서: 인사·검색 → 지금 할 일 → 다음 일정(1개) → 바로가기 8칸 → 필수 자립 지식.
+ * 순서: 인사·검색 → 이번 주 할 일 → 바로가기 6칸 → 필수 자립 지식.
  * 색은 메인(Primary #0F172A)과 포인트(Point #34D399)만 쓴다. 포인트는 진행 막대에만.
  */
 @Composable
@@ -188,7 +165,6 @@ fun DashboardScreen(
     val leaveDate = session.leaveDate
     // 퇴소 전: 퇴소 예정일 기준 / 퇴소 후: 내가 정한 목표일 기준 (같은 d_date, 다른 뜻)
     val goal = DDate.isGoal(session.status)
-    val upcoming = remember(leaveDate, goal) { upcomingFor(goal, leaveDate) }
     var query by remember { mutableStateOf("") }
 
     Column(
@@ -201,7 +177,7 @@ fun DashboardScreen(
             stageLabel = UserStage.YOUNG_ADULT.label,
             onStage = { onNavigate(Routes.SETTINGS) },
             onAlarm = { onNavigate(Routes.NOTIFICATIONS) },
-            onProfile = { onNavigate(Routes.GROWTH) },
+            onProfile = { onNavigate(Routes.SETTINGS) },
         )
 
         Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
@@ -212,7 +188,7 @@ fun DashboardScreen(
                 OnRoadTag(
                     "${DDate.untilText(session.status, session.goalTitle)} ${dLabel(days)}",
                     style = TagStyle.Neutral,
-                    modifier = Modifier.clickable(onClickLabel = "타임라인 보기") { onNavigate(Routes.SIM_TIMELINE) },
+                    modifier = Modifier.tap(onClickLabel = "타임라인 보기") { onNavigate(Routes.SIM_TIMELINE) },
                 )
                 Spacer(Modifier.height(10.dp))
             }
@@ -226,21 +202,24 @@ fun DashboardScreen(
                 onSearch = { q -> onNavigate(Routes.policy(query = q)) },
             )
 
-            // ── 1. 지금 할 일 ──
+            // ── 1. 이번 주 할 일 (타임라인과 같은 목록) ──
             Spacer(Modifier.height(HomeGap))
-            SectionHeader("지금 할 일", actionText = "전체보기", onAction = { onNavigate(Routes.NEXT_ACTIONS) })
+            SectionHeader("이번 주 할 일", actionText = "전체보기", onAction = { onNavigate(Routes.SIM_TIMELINE) })
             Spacer(Modifier.height(12.dp))
-            TodoCard(
-                action = vm.action,
-                policy = vm.policy,
-                checklist = vm.checklist,
-                onStart = { a -> onNavigate(if (a != null) actionRoute(a) else Routes.policy()) },
-            )
-            // ── 2. 다음 일정 (1개) ──
-            Spacer(Modifier.height(8.dp))
-            ScheduleRow(upcoming, if (goal) "목표 D-day" else "퇴소 D-day") { onNavigate(Routes.SIM_TIMELINE) }
+            WeekTasks(goal, leaveDate, vm.checklists, onNavigate)
 
-            // ── 3. 바로가기: 모든 기능을 한 화면에 ──
+            // ── 자립 준비도: 내 기록 안에만 있던 걸 홈에서 바로 (점수가 오면 부드럽게 펼쳐진다) ──
+            val readiness = PlanData.readiness
+            androidx.compose.animation.AnimatedVisibility(visible = readiness != null) {
+                readiness?.let { r ->
+                    Column {
+                        Spacer(Modifier.height(12.dp))
+                        ReadinessRow(r) { onNavigate(Routes.READINESS) }
+                    }
+                }
+            }
+
+            // ── 2. 바로가기: 모든 기능을 한 화면에 ──
             Spacer(Modifier.height(HomeGap))
             SectionHeader("바로가기")
             Spacer(Modifier.height(12.dp))
@@ -254,20 +233,21 @@ fun DashboardScreen(
                         ),
                     ),
                     Shortcut(Icons.Outlined.Checklist, "체크리스트", "신청 단계별 준비") { onNavigate(Routes.CHECKLISTS) },
-                    Shortcut(Icons.Outlined.EditNote, "서류 작성", "AI와 같이 쓰기") { onNavigate(Routes.FORMS) },
+                    Shortcut(Icons.Outlined.EditNote, "서류 작성", "신청서·서류 쓰기") { onNavigate(Routes.DOCS) },
                     Shortcut(
-                        Icons.Outlined.RecordVoiceOver, "연습·계산", "미리 해 보기",
+                        Icons.Outlined.RecordVoiceOver, "연습하기", "미리 해 보기",
                         choices = listOf(
-                            Choice("실전 연습", "은행·주민센터·면접을 AI와 연습해요") { onNavigate(Routes.ROLEPLAY) },
-                            Choice("생활 계산", "생활비·주거·저축을 미리 계산해요") { onNavigate(Routes.SIMULATION) },
+                            Choice("실전 연습", "은행·주민센터·면접") { onNavigate(Routes.ROLEPLAY) },
+                            Choice("한 달 살아보기", "생활비로 한 달 버티기") { onNavigate(Routes.SIM_MONTH) },
+                            Choice("생활 계산", "주거비·저축") { onNavigate(Routes.SIMULATION) },
                         ),
                     ),
-                    Shortcut(Icons.Outlined.Explore, "진로 탐색", "흥미로 직업 찾기") { onNavigate(Routes.INTEREST) },
+                    Shortcut(Icons.Outlined.Event, "타임라인", "퇴소까지 할 일") { onNavigate(Routes.SIM_TIMELINE) },
                     Shortcut(Icons.Outlined.Insights, "내 기록", "지금까지 해 온 것") { onNavigate(Routes.GROWTH) },
                 ),
             )
 
-            // ── 4. 필수 자립 지식 ──
+            // ── 3. 필수 자립 지식 ──
             Spacer(Modifier.height(HomeGap))
             SectionHeader("필수 자립 지식")
             Spacer(Modifier.height(12.dp))
@@ -306,7 +286,7 @@ private fun HomeHeader(
     ) {
         LogoSlot(size = 36.dp)
         Spacer(Modifier.width(6.dp))
-        Row(Modifier.clickable(onClick = onStage), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.tap(onClick = onStage), verticalAlignment = Alignment.CenterVertically) {
             Text(stageLabel, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
             Icon(Icons.Filled.KeyboardArrowDown, "단계·프로필 설정", tint = OnRoadColors.TextTertiary, modifier = Modifier.size(16.dp))
         }
@@ -315,58 +295,92 @@ private fun HomeHeader(
             Icon(Icons.Outlined.Notifications, "알림", tint = OnRoadColors.TextPrimary)
         }
         IconButton(onClick = onProfile) {
-            Icon(Icons.Filled.AccountCircle, "내 기록", tint = OnRoadColors.TextPrimary)
+            Icon(Icons.Filled.AccountCircle, "계정·설정", tint = OnRoadColors.TextPrimary)
         }
     }
 }
 
+/**
+ * 이번 주 할 일: 놓친 일 + 7일 안 (최대 3개). 없으면 가장 가까운 다음 할 일 하나.
+ * 첫 번째는 크게 (바로 하기 버튼 · 신청 진행 막대), 나머지는 한 줄. 동그라미를 누르면 체크되며 목록에서 빠진다.
+ */
 @Composable
-private fun TodoCard(
-    action: NextAction?,
-    policy: Policy?,
-    checklist: ChecklistSummary?,
-    onStart: (NextAction?) -> Unit,
-) {
-    val category = checklist?.policy?.category ?: policy?.category
-    val button = action?.kind?.button() ?: "정책 찾기"
-    val title = action?.title ?: "받을 수 있는 지원, 한 번에 찾아볼까요?"
+private fun WeekTasks(goal: Boolean, leaveDate: LocalDate?, checklists: List<ChecklistSummary>, onNavigate: (String) -> Unit) {
+    val today = remember { LocalDate.now() }
+    if (goal) {
+        GoalWeek(today, onNavigate)
+        return
+    }
+    if (leaveDate == null) {
+        EmptyState("퇴소일을 정하면 할 일을 날짜별로 알려 드려요.", actionLabel = "날짜 정하기", onAction = { onNavigate(Routes.SIM_TIMELINE) })
+        return
+    }
+    val week = PlanData.thisWeek(today)
+    val shown = week.take(3).ifEmpty { listOfNotNull(PlanData.next(today)) }
+    if (shown.isEmpty()) {
+        EmptyState("남은 할 일을 모두 챙겼어요.", actionLabel = "타임라인 보기", onAction = { onNavigate(Routes.SIM_TIMELINE) })
+        return
+    }
+    Column(
+        Modifier.fillMaxWidth().animateContentSize(OnRoadMotion.move()),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        shown.forEachIndexed { i, t ->
+            key(t.id) {
+                if (i == 0) HeroTask(t, today, checklists.firstOrNull { "cl-${it.policyId}" == t.id }, onNavigate)
+                else TaskLine(t, today, onNavigate)
+            }
+        }
+    }
+}
 
+/** 첫 번째 할 일: 흰 카드 · 제목 · 한 줄 설명 · (신청이면 진행 막대) · 바로 하기 */
+@Composable
+private fun HeroTask(t: PlanTask, today: LocalDate, checklist: ChecklistSummary?, onNavigate: (String) -> Unit) {
+    val haptic = LocalHapticFeedback.current
     OnRoadCard(
         Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(20.dp),
-        onClick = { onStart(action) },
+        onClick = { onNavigate(t.route()) },
     ) {
-        category?.let {
-            OnRoadTag(it, style = TagStyle.Neutral)
-            Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OnRoadTag(t.whenText(today), style = TagStyle.Neutral)
+            Spacer(Modifier.weight(1f))
+            // 정책 할 일은 체크리스트에서 끝낸다
+            if (t.kind != PlanKind.POLICY) {
+                Text(
+                    "끝냈어요",
+                    style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
+                    color = OnRoadColors.TextTertiary,
+                    modifier = Modifier
+                        .clip(OnRoadShapes.Chip)
+                        .tap {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            PlanData.toggleDone(t.id)
+                        }
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                )
+            }
         }
-        Text(title, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        val sub = action?.reason ?: action?.description
-        if (sub != null) {
-            Spacer(Modifier.height(6.dp))
-            Text(sub, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        // 진행 중 체크리스트면 진행 막대 + 지금 단계
+        Spacer(Modifier.height(10.dp))
+        Text(t.title, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(6.dp))
+        Text(t.description, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // 진행 중 신청이면 진행 막대 + 지금 단계 (포인트 색은 여기에만)
         if (checklist != null && checklist.totalSteps > 0) {
             Spacer(Modifier.height(14.dp))
-            val ratio = checklist.doneSteps / checklist.totalSteps.toFloat()
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(OnRoadShapes.Field).background(OnRoadColors.SurfaceMuted)) {
-                Box(Modifier.fillMaxWidth(ratio.coerceIn(0f, 1f)).fillMaxHeight().background(OnRoadColors.Point))
-            }
+            ProgressBar(checklist.progress, color = OnRoadColors.Point, track = OnRoadColors.SurfaceMuted, height = 6.dp)
             Spacer(Modifier.height(6.dp))
             Text(
                 "${checklist.doneSteps}/${checklist.totalSteps}단계 · 지금 ${checklist.nextStep?.title ?: "모두 완료"}",
                 style = OnRoadType.Caption2,
                 color = OnRoadColors.TextSecondary,
             )
-        } else if (policy != null) {
-            Spacer(Modifier.height(8.dp))
-            Text(policy.amount, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(16.dp))
         OnRoadButton(
-            text = button,
-            onClick = { onStart(action) },
+            text = t.actions.firstOrNull()?.label ?: "타임라인에서 보기",
+            onClick = { onNavigate(t.route()) },
             modifier = Modifier.fillMaxWidth(),
             height = 44.dp,
             textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
@@ -375,31 +389,60 @@ private fun TodoCard(
     }
 }
 
-/** 다음 일정 한 줄에 보여 줄 것 */
-private data class Upcoming(val title: String, val days: Long?)
-
-private fun upcomingFor(goal: Boolean, leaveDate: LocalDate?): Upcoming {
-    val today = LocalDate.now()
-    if (goal) {
-        val s = AppContainer.session
-        val next = s.goalTasks.filter { !it.done && !it.date.isBefore(today) }.minByOrNull { it.date }
-        return when {
-            next != null -> Upcoming(next.title, ChronoUnit.DAYS.between(today, next.date))
-            leaveDate != null -> Upcoming(s.goalTitle?.takeIf { it.isNotBlank() } ?: "목표일", ChronoUnit.DAYS.between(today, leaveDate))
-            else -> Upcoming("목표일을 정하면 할 일을 날짜별로 챙겨요", null)
+/** 나머지 할 일 한 줄: 동그라미(끝내기) · 날짜 · 제목 · › */
+@Composable
+private fun TaskLine(t: PlanTask, today: LocalDate, onNavigate: (String) -> Unit) {
+    val haptic = LocalHapticFeedback.current
+    // 누르면 체크가 톡 찍히는 걸 잠깐 보여 준 뒤 목록에서 빠진다
+    var checking by remember(t.id) { mutableStateOf(false) }
+    LaunchedEffect(checking) {
+        if (checking) {
+            kotlinx.coroutines.delay(380)
+            PlanData.toggleDone(t.id)
         }
     }
-    val u = upcomingTask(leaveDate)
-    return when {
-        u != null -> Upcoming(u.task.title, u.daysLeft)
-        leaveDate != null -> Upcoming("남은 일정을 모두 챙겼어요", null)
-        else -> Upcoming("퇴소일을 정하면 할 일을 날짜별로 알려 드려요", null)
+    SubtleCard(Modifier.fillMaxWidth().heightIn(min = 64.dp), onClick = { onNavigate(t.route()) }, contentPadding = PaddingValues(15.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (t.kind != PlanKind.POLICY) {
+                Box(
+                    Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .tap(enabled = !checking, onClickLabel = "끝냈어요") {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            checking = true
+                        },
+                    contentAlignment = Alignment.Center,
+                ) { RadioMark(checking) }
+                Spacer(Modifier.width(8.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(t.whenText(today), style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, maxLines = 1)
+                Spacer(Modifier.height(2.dp))
+                Text(t.title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
+/** 퇴소 후 목표 D-day 를 쓰는 사람: 내가 정한 목표 할 일 */
 @Composable
-private fun ScheduleRow(upcoming: Upcoming, sub: String, onClick: () -> Unit) {
-    ContinueRow("다음 일정 · $sub", upcoming.title, upcoming.days?.let { dLabel(it) }, onClick)
+private fun GoalWeek(today: LocalDate, onNavigate: (String) -> Unit) {
+    val s = AppContainer.session
+    val open = s.goalTasks.filter { !it.done && !it.date.isBefore(today) }.sortedBy { it.date }
+    val shown = open.filter { !it.date.isAfter(today.plusDays(7)) }.take(3).ifEmpty { open.take(1) }
+    if (shown.isEmpty()) {
+        EmptyState("목표까지 할 일을 정해 두면 여기에서 챙겨 드려요.", actionLabel = "할 일 정하기", onAction = { onNavigate(Routes.SIM_TIMELINE) })
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        shown.forEach { g ->
+            ContinueRow(s.goalTitle?.takeIf { it.isNotBlank() } ?: "목표 할 일", g.title, dLabel(ChronoUnit.DAYS.between(today, g.date))) {
+                onNavigate(Routes.SIM_TIMELINE)
+            }
+        }
+    }
 }
 
 /** 바로가기 한 칸 */
@@ -513,5 +556,40 @@ private fun KnowledgeCard(category: String, readTime: String, title: String, sum
         Text(title, style = OnRoadType.Headline.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary)
         Spacer(Modifier.height(10.dp))
         Text(summary, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+    }
+}
+
+/** 홈 자립 준비도 한 줄: 점수 · 진행 막대(포인트 색) · 더 챙길 영역 */
+@Composable
+private fun ReadinessRow(r: com.project.on_road.data.Readiness, onClick: () -> Unit) {
+    val weak = r.areas.firstOrNull { it.key == r.weakest }
+    SubtleCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = PaddingValues(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "자립 준비도",
+                style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                color = OnRoadColors.TextSecondary,
+                modifier = Modifier.weight(1f),
+            )
+            if (r.weekDelta > 0) {
+                Text("이번 주 +${r.weekDelta} · ", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
+            }
+            Text("${r.score}점", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        ProgressBar(r.score / 100f, color = OnRoadColors.Point, track = OnRoadColors.SurfaceMuted, height = 6.dp)
+        val next = r.nextLevel
+        if (weak != null || next != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                listOfNotNull(
+                    next?.let { (label, points) -> "‘$label’까지 ${points}점" },
+                    weak?.let { "더 챙길 영역 · ${it.label}" },
+                ).joinToString("  ·  "),
+                style = OnRoadType.Caption2,
+                color = OnRoadColors.TextSecondary,
+            )
+        }
     }
 }

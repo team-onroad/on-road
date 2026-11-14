@@ -1,5 +1,7 @@
 package com.project.on_road.ui.screens
 
+import androidx.compose.foundation.layout.Box
+
 import android.app.Application
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -70,6 +72,7 @@ class GoalViewModel(app: Application) : AndroidViewModel(app) {
     fun saveGoal(title: String, date: LocalDate?) {
         goalTitle = title.trim()
         session.goalTitle = goalTitle
+        com.project.on_road.ui.components.OnRoadToast.show("목표를 저장했어요")
         if (date != goalDate) {
             goalDate = date
             session.leaveDate = date
@@ -84,7 +87,7 @@ class GoalViewModel(app: Application) : AndroidViewModel(app) {
             val update = if (date == null) UserUpdate(clearDDate = true) else UserUpdate(dDate = date)
             runCatching { AppContainer.api.updateUser(userId, update) }
                 .onSuccess { AppContainer.applyProfile(it) }
-                .onFailure { Toast.makeText(getApplication(), "서버에 저장하지 못했어요. 인터넷 연결을 확인해 주세요.", Toast.LENGTH_SHORT).show() }
+                .onFailure { com.project.on_road.ui.components.OnRoadToast.show("서버에 저장하지 못했어요. 인터넷 연결을 확인해 주세요.") }
         }
     }
 
@@ -93,8 +96,10 @@ class GoalViewModel(app: Application) : AndroidViewModel(app) {
         session.goalTasks = list
     }
 
-    fun addTask(title: String, date: LocalDate) =
+    fun addTask(title: String, date: LocalDate) {
         saveTasks(tasks + GoalTask(System.currentTimeMillis().toString(), title.trim(), date, false))
+        com.project.on_road.ui.components.OnRoadToast.show("할 일을 추가했어요")
+    }
 
     fun toggleTask(id: String) = saveTasks(tasks.map { if (it.id == id) it.copy(done = !it.done) else it })
 
@@ -120,12 +125,21 @@ fun GoalTimelineScreen(
     onLink: (TimelineLink) -> Unit,
     vm: GoalViewModel = viewModel(),
 ) {
+    OnRoadScreen("목표 D-day", onBack) { GoalTimelineBody(onLink, vm) }
+}
+
+/** 목표 D-day 내용. 목표 화면과 신청 관리의 '일정' 탭이 같이 쓴다 */
+@Composable
+fun ColumnScope.GoalTimelineBody(
+    onLink: (TimelineLink) -> Unit,
+    vm: GoalViewModel = viewModel(),
+) {
     var editGoal by remember { mutableStateOf(false) }
     var addTask by remember { mutableStateOf(false) }
     val today = LocalDate.now()
     val title = vm.goalTitle.ifBlank { "목표" }
 
-    OnRoadScreen("목표 D-day", onBack) {
+    run {
         // ── 목표 ──
         val date = vm.goalDate
         if (date == null) {
@@ -146,13 +160,13 @@ fun GoalTimelineScreen(
                     Modifier
                         .clip(OnRoadShapes.Field)
                         .border(1.dp, OnRoadColors.BorderInput, OnRoadShapes.Field)
-                        .clickable { editGoal = true }
+                        .tap { editGoal = true }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Outlined.Edit, null, tint = OnRoadColors.TextSlate, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Outlined.Edit, null, tint = OnRoadColors.TextTertiary, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("목표 바꾸기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSlate)
+                    Text("목표 바꾸기", style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -171,14 +185,14 @@ fun GoalTimelineScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconTile(Icons.Outlined.Add)
                     Spacer(Modifier.width(12.dp))
-                    Text("목표까지 할 일을 날짜와 함께 넣어 봐요", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("할 일 추가", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                sorted.forEach { t ->
+                sorted.forEachIndexed { si, t -> Box(Modifier.stagger(si)) {
                     GoalTaskRow(t, ChronoUnit.DAYS.between(today, t.date), onToggle = { vm.toggleTask(t.id) }, onRemove = { vm.removeTask(t.id) })
-                }
+                } }
             }
         }
 
@@ -188,14 +202,14 @@ fun GoalTimelineScreen(
         SectionHeader("퇴소 후 꼭 챙길 일", trailingText = "${basics.count { it.id in vm.done }}/${basics.size}")
         Spacer(Modifier.height(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            basics.forEach { task ->
+            basics.forEachIndexed { si, task -> Box(Modifier.stagger(si)) {
                 val checked = task.id in vm.done
                 OnRoadCard(
                     Modifier.fillMaxWidth(),
                     background = if (checked) OnRoadColors.SurfaceFile else OnRoadColors.Surface,
                     borderColor = if (checked) OnRoadColors.Primary else OnRoadColors.BorderSage.copy(alpha = 0.7f),
                     shape = OnRoadShapes.Item,
-                    contentPadding = PaddingValues(horizontal = 15.dp, vertical = 13.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CheckCircle(checked) { vm.toggleBasic(task.id) }
@@ -215,15 +229,13 @@ fun GoalTimelineScreen(
                             Icon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowRight, task.linkLabel,
                                 tint = OnRoadColors.TextQuaternary,
-                                modifier = Modifier.clip(CircleShape).clickable { onLink(link) }.padding(4.dp),
+                                modifier = Modifier.clip(CircleShape).tap { onLink(link) }.padding(4.dp),
                             )
                         }
                     }
                 }
-            }
+            } }
         }
-        Spacer(Modifier.height(24.dp))
-        Footnote("목표일은 내가 정한 날이에요.\n퇴소일과는 따로 관리돼요.")
     }
 
     if (editGoal) {
@@ -250,7 +262,7 @@ private fun CheckCircle(checked: Boolean, onClick: () -> Unit) {
             .clip(CircleShape)
             .background(if (checked) OnRoadColors.Primary else Color.White)
             .border(1.5.dp, if (checked) OnRoadColors.Primary else OnRoadColors.BorderSage, CircleShape)
-            .clickable(onClick = onClick),
+            .tap(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         if (checked) Icon(Icons.Filled.Check, "완료 취소", tint = Color.White, modifier = Modifier.size(14.dp))
@@ -268,7 +280,7 @@ private fun GoalTaskRow(t: GoalTask, days: Long, onToggle: () -> Unit, onRemove:
             else -> OnRoadColors.BorderSage.copy(alpha = 0.7f)
         },
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 15.dp, vertical = 13.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             CheckCircle(t.done, onToggle)
@@ -288,7 +300,7 @@ private fun GoalTaskRow(t: GoalTask, days: Long, onToggle: () -> Unit, onRemove:
                 "지우기",
                 style = OnRoadType.Micro,
                 color = OnRoadColors.TextQuaternary,
-                modifier = Modifier.clip(OnRoadShapes.Chip).clickable(onClick = onRemove).padding(horizontal = 6.dp, vertical = 4.dp),
+                modifier = Modifier.clip(OnRoadShapes.Chip).tap(onClick = onRemove).padding(horizontal = 6.dp, vertical = 4.dp),
             )
         }
     }
@@ -305,7 +317,7 @@ private fun DateField(date: LocalDate?, placeholder: String, onPick: (LocalDate)
             .height(48.dp)
             .clip(OnRoadShapes.Field)
             .border(1.dp, OnRoadColors.BorderInput, OnRoadShapes.Field)
-            .clickable { picking = true }
+            .tap { picking = true }
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -315,7 +327,7 @@ private fun DateField(date: LocalDate?, placeholder: String, onPick: (LocalDate)
             color = if (date == null) OnRoadColors.TextQuaternary else OnRoadColors.TextPrimary,
             modifier = Modifier.weight(1f),
         )
-        Icon(Icons.Outlined.Edit, null, tint = OnRoadColors.TextSlate, modifier = Modifier.size(14.dp))
+        Icon(Icons.Outlined.Edit, null, tint = OnRoadColors.TextTertiary, modifier = Modifier.size(14.dp))
     }
     if (picking) {
         val state = rememberDatePickerState(
@@ -367,7 +379,7 @@ private fun GoalEditDialog(title: String, date: LocalDate?, onDismiss: () -> Uni
                         "목표일 지우기",
                         style = OnRoadType.Micro,
                         color = OnRoadColors.TextTertiary,
-                        modifier = Modifier.clickable { d = null }.padding(vertical = 4.dp),
+                        modifier = Modifier.tap { d = null }.padding(vertical = 4.dp),
                     )
                 }
             }

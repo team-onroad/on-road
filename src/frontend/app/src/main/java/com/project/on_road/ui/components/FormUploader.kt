@@ -63,7 +63,7 @@ fun UploadFormCard(
     onPickFile: () -> Unit,
     modifier: Modifier = Modifier,
     title: String = "받은 양식 올리기",
-    subtitle: String = "빈 양식을 찍으면 AI가 칸을 읽어요",
+    subtitle: String = "빈 양식을 찍거나 파일로 올리기",
 ) {
     // 연회색 카드 (홈 바로가기·다음 일정과 같은 모양)
     SubtleCard(modifier.fillMaxWidth(), contentPadding = PaddingValues(20.dp)) {

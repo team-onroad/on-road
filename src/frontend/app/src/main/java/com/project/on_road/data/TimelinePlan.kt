@@ -205,6 +205,16 @@ object TimelinePlanner {
     }
 
     /** 내 타임라인. 날짜순 (같은 날이면 정책 → 기본 → 일 순서) */
+    /**
+     * 홈 "다음 일정"·알림용. 서버를 다시 부르지 않고 휴대폰에 저장된 값(퇴소일·하는 일·끝낸/해당 없음 표시)만으로
+     * 타임라인 화면과 같은 규칙의 할 일을 만든다. 그래서 홈·알림·타임라인이 같은 일정을 보여 준다.
+     */
+    fun saved(today: LocalDate): List<PlanTask> {
+        // 지역 · 신청 · 준비도까지 받아 둔 값으로 계산한다 (PlanData). 끝낸 일 · 해당 없음은 뺀다
+        val skip = PlanData.done.toSet() + PlanData.na.toSet()
+        return PlanData.all(today).filter { it.id !in skip }
+    }
+
     fun plan(input: PlanInput): List<PlanTask> {
         val leaveDate = input.leaveDate
         val today = input.today

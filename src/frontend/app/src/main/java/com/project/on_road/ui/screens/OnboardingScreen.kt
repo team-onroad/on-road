@@ -1,5 +1,7 @@
 package com.project.on_road.ui.screens
 
+import com.project.on_road.ui.components.tap
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -66,8 +68,6 @@ import com.project.on_road.data.LivingStatus
 import com.project.on_road.data.REGIONS
 import com.project.on_road.data.UserStage
 import com.project.on_road.data.remote.ApiException
-import com.project.on_road.ui.child.ChildOnboardingScreen
-import com.project.on_road.ui.child.ChildProfile
 import com.project.on_road.ui.components.IconTile
 import com.project.on_road.ui.components.NoticeBox
 import com.project.on_road.ui.components.NoticeTone
@@ -147,19 +147,14 @@ class OnboardingViewModel : ViewModel() {
     var cheer by mutableIntStateOf(0)
         private set
 
-    val isChild: Boolean get() = who == UserStage.CHILD
-
+    // 아동(만 10세 이하) 화면은 뺐다: 청소년 · 자립준비청년만 고를 수 있다
     private val flow: List<OnboardStep>
-        get() = if (isChild) {
-            listOf(OnboardStep.INTRO, OnboardStep.WHO, OnboardStep.NAME, OnboardStep.BIRTH, OnboardStep.REGION, OnboardStep.DONE)
-        } else {
-            listOfNotNull(
-                OnboardStep.INTRO, OnboardStep.WHO, OnboardStep.NAME, OnboardStep.BIRTH, OnboardStep.REGION, OnboardStep.STATUS,
-                // 퇴소 예정 · 퇴소 후일 때만 날짜를 묻는다
-                OnboardStep.DDATE.takeIf { status == LivingStatus.LEAVING_SOON || status == LivingStatus.LEFT },
-                OnboardStep.DONE,
-            )
-        }
+        get() = listOfNotNull(
+            OnboardStep.INTRO, OnboardStep.WHO, OnboardStep.NAME, OnboardStep.BIRTH, OnboardStep.REGION, OnboardStep.STATUS,
+            // 퇴소 예정 · 퇴소 후일 때만 날짜를 묻는다
+            OnboardStep.DDATE.takeIf { status == LivingStatus.LEAVING_SOON || status == LivingStatus.LEFT },
+            OnboardStep.DONE,
+        )
 
     /** 질문 단계만 (진행바용) */
     private val questions: List<OnboardStep> get() = flow.filter { it != OnboardStep.INTRO && it != OnboardStep.DONE }
@@ -358,24 +353,10 @@ class OnboardingViewModel : ViewModel() {
         }
     }
 
-    /** 아동 온보딩에서 받은 값으로 가입 */
-    fun submitChild(p: ChildProfile) {
-        if (loading) return
-        error = null
-        name = p.name
-        birthYear = p.birthDate.year
-        birthMonth = p.birthDate.monthValue
-        birthDay = p.birthDate.dayOfMonth
-        region = p.region
-        phone = p.phone
-        submit()
-    }
-
     private fun submit() {
         val birth = birthDate ?: return
         val reg = region ?: return
-        // 아동은 상황 질문 없이 '시설 생활'로 저장
-        val st = if (isChild) LivingStatus.IN_FACILITY else status ?: return
+        val st = status ?: return
         viewModelScope.launch {
             loading = true
             try {
@@ -385,7 +366,7 @@ class OnboardingViewModel : ViewModel() {
                     region = reg,
                     status = st,
                     phone = phone,
-                    dDate = if (isChild || st == LivingStatus.IN_FACILITY) null else dDate,
+                    dDate = if (st == LivingStatus.IN_FACILITY) null else dDate,
                 )
                 // user_id · 단계 · 상황 · 퇴소일을 앱에 저장 (홈·타임라인 D-day 가 같은 날짜를 씀)
                 AppContainer.applyProfile(profile)
@@ -425,7 +406,6 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = viewModel()) 
         vm.step == OnboardStep.INTRO -> 0
         vm.step == OnboardStep.LOGIN -> 4
         vm.step == OnboardStep.DONE -> 2
-        vm.isChild && vm.step != OnboardStep.WHO -> 3
         else -> 1
     }
     Box(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
@@ -441,15 +421,7 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = viewModel()) 
                 0 -> IntroPage(onStart = vm::next, onLogin = vm::openLogin)
                 4 -> LoginPage(vm)
                 1 -> QuestionPage(vm)
-                // 아동을 고르면 테마가 바뀌고 아동 온보딩으로 (ui/child/ChildOnboardingScreen.kt)
-                3 -> ChildOnboardingScreen(
-                    onDone = vm::submitChild,
-                    onBack = vm::back,
-                    loading = vm.loading,
-                    error = vm.error,
-                )
-                // 아동은 길 소개의 '시작하기'가 끝이라 완료 화면 없이 바로 홈으로
-                else -> if (vm.isChild) LaunchedEffect(Unit) { onDone() } else DonePage(vm, onDone)
+                else -> DonePage(vm, onDone)
             }
         }
     }
@@ -479,7 +451,7 @@ private fun IntroPage(onStart: () -> Unit, onLogin: () -> Unit) {
 
 
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 27.dp),
+        Modifier.fillMaxSize().padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
@@ -523,7 +495,7 @@ private fun IntroPage(onStart: () -> Unit, onLogin: () -> Unit) {
                 color = OnRoadColors.TextSecondary,
                 modifier = Modifier
                     .clip(OnRoadShapes.Chip)
-                    .clickable { if (button.value > 0.5f) onLogin() }
+                    .tap { if (button.value > 0.5f) onLogin() }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             )
         }
@@ -687,7 +659,7 @@ private fun AccountRow(
             .clip(shape)
             .background(Color.White)
             .border(1.dp, OnRoadColors.BorderInput, shape)
-            .clickable(enabled = enabled, onClick = onClick)
+            .tap(enabled = enabled, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -717,7 +689,7 @@ private fun AccountRow(
                 color = OnRoadColors.TextQuaternary,
                 modifier = Modifier
                     .clip(OnRoadShapes.Chip)
-                    .clickable(enabled = enabled, onClick = onDelete)
+                    .tap(enabled = enabled, onClick = onDelete)
                     .padding(horizontal = 8.dp, vertical = 6.dp),
             )
             Spacer(Modifier.width(4.dp))
@@ -837,13 +809,6 @@ private fun QuestionPage(vm: OnboardingViewModel) {
 private fun WhoStep(vm: OnboardingViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         WhoCard(
-            title = "아동",
-            age = "만 10세 이하",
-            description = "큰 글씨와 소리로 쉽게 시작해요",
-            selected = vm.who == UserStage.CHILD,
-            onClick = { vm.selectWho(UserStage.CHILD) },
-        ) { IconTile(Icons.Outlined.ChildCare, size = 52.dp, iconSize = 26.dp, tint = OnRoadColors.Primary) }
-        WhoCard(
             title = "청소년",
             age = "만 11~17세",
             description = "흥미를 찾고 진로를 준비해요",
@@ -877,7 +842,7 @@ private fun WhoCard(
             .clip(shape)
             .background(if (selected) OnRoadColors.SurfaceSubtle else Color.White)
             .border(if (selected) 1.5.dp else 1.dp, border, shape)
-            .clickable(onClick = onClick)
+            .tap(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -974,7 +939,7 @@ private fun DDateStep(vm: OnboardingViewModel) {
             if (vm.dDate == null) "비워 두고 '완료'를 누르면 나중에 정할 수 있어요." else "목표일 지우기",
             style = OnRoadType.Caption,
             color = OnRoadColors.TextTertiary,
-            modifier = if (vm.dDate == null) Modifier else Modifier.clickable { vm.clearDDate() },
+            modifier = if (vm.dDate == null) Modifier else Modifier.tap { vm.clearDDate() },
         )
     }
 }
@@ -1040,7 +1005,7 @@ private fun GridChip(
             .clip(shape)
             .background(bg)
             .border(1.dp, if (selected) OnRoadColors.Primary else OnRoadColors.BorderInput, shape)
-            .clickable(onClick = onClick),
+            .tap(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -1091,7 +1056,7 @@ private fun DonePage(vm: OnboardingViewModel, onDone: () -> Unit) {
             modifier = Modifier
                 .clip(OnRoadShapes.Tag)
                 .background(OnRoadColors.PrimarySoft)
-                .padding(horizontal = 10.dp, vertical = 5.dp),
+                .padding(horizontal = 10.dp, vertical = 4.dp),
         )
         Spacer(Modifier.weight(1.2f))
         OnRoadButton(

@@ -46,7 +46,7 @@ fun ProfileChangeCard(changes: List<ProfileChange>, key: String, modifier: Modif
         Spacer(Modifier.height(8.dp))
         changes.forEach { c ->
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
-                Text(c.label, style = OnRoadType.Caption2, color = OnRoadColors.TextSlateMid, modifier = Modifier.width(76.dp))
+                Text(c.label, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, modifier = Modifier.width(76.dp))
                 Text(
                     "${(if (c.field == "work") com.project.on_road.data.AppContainer.session.workStatus?.label else c.current) ?: "없음"} → ${c.proposedLabel}",
                     style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),

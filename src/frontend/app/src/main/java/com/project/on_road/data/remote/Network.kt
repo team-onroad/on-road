@@ -36,6 +36,18 @@ object Network {
                 else chain.withReadTimeout(seconds, TimeUnit.SECONDS)
                     .proceed(chain.request().newBuilder().removeHeader(TIMEOUT_HEADER).build())
             }
+            // 쓰는 중에 서버에 내 계정이 없다고 하면 알린다 (계정 확인 GET /users/{id} 는 화면에서 따로 처리)
+            .addInterceptor { chain ->
+                val response = chain.proceed(chain.request())
+                if (response.code == 404) {
+                    val req = chain.request()
+                    val isUserLookup = req.method == "GET" && USER_LOOKUP.matches(req.url.encodedPath)
+                    if (!isUserLookup && response.peekBody(2048).string().contains("USER_NOT_FOUND")) {
+                        com.project.on_road.data.AppState.accountMissing = true
+                    }
+                }
+                response
+            }
             .apply {
                 if (BuildConfig.DEBUG) {
                     addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
@@ -82,3 +94,6 @@ fun Throwable.userMessage(fallback: String = "잠시 후 다시 시도해 주세
         "UPLOAD_INVALID", "FORM_UNREADABLE" -> message ?: fallback
         else -> fallback
     }
+
+/** 계정 확인 요청 (GET .../users/{id}) */
+private val USER_LOOKUP = Regex(".*/users/[^/]+/?$")

@@ -131,7 +131,7 @@ fun HomeShortcutGrid(
 
 @Composable
 private fun ShortcutTile(f: HomeFeature, modifier: Modifier, onClick: () -> Unit) {
-    SubtleCard(modifier, onClick = onClick, contentPadding = PaddingValues(start = 14.dp, end = 8.dp, top = 14.dp, bottom = 14.dp)) {
+    SubtleCard(modifier, onClick = onClick, contentPadding = PaddingValues(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 16.dp)) {
         IconTile(f.icon, tint = OnRoadColors.Primary)
         Spacer(Modifier.height(14.dp))
         Text(f.title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -148,7 +148,7 @@ private fun AddTile(modifier: Modifier, onClick: () -> Unit) {
             .clip(OnRoadShapes.Inner)
             .background(Color.White)
             .border(1.dp, OnRoadColors.Border, OnRoadShapes.Inner)
-            .clickable(onClick = onClick),
+            .tap(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -195,7 +195,7 @@ fun HomeShortcutSheet(
                             .clip(OnRoadShapes.Inner)
                             .background(Color.White)
                             .border(1.dp, if (on) OnRoadColors.Primary else OnRoadColors.BorderSlate, OnRoadShapes.Inner)
-                            .clickable(enabled = !full) { if (on) picked.remove(f) else picked.add(f) }
+                            .tap(haptic = true, enabled = !full) { if (on) picked.remove(f) else picked.add(f) }
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

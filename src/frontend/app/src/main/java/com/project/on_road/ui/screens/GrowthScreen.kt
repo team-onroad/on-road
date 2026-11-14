@@ -19,25 +19,46 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.*
+import androidx.compose.animation.animateContentSize
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.screens.navigation.Routes
 import com.project.on_road.ui.screens.navigation.stepRoute
 import com.project.on_road.ui.theme.*
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
+/** 마지막으로 받은 성장 기록. 다시 열면 이걸 바로 보여 주고 뒤에서 새로 받는다 */
+private data class GrowthCache(val userId: String, val record: GrowthRecord, val readiness: Readiness?)
+
+private var growthCache: GrowthCache? = null
+
 class GrowthViewModel : ViewModel() {
-    var record by mutableStateOf<GrowthRecord?>(null)
+    private val userId = AppContainer.session.userId.orEmpty()
+    private val cached = growthCache?.takeIf { it.userId == userId }
+
+    var record by mutableStateOf(cached?.record)
         private set
     /** 자립 준비도 (서버). 못 받으면 카드를 숨긴다 */
-    var readiness by mutableStateOf<Readiness?>(null)
+    var readiness by mutableStateOf(cached?.readiness)
         private set
 
+    /**
+     * 기록과 자립 준비도를 같이 받아 한 번에 보여 준다.
+     * (예전에는 따로 받아서 기록이 먼저 뜨고, 조금 뒤 준비도 카드가 위에 끼어들며 화면이 아래로 밀렸다)
+     * 새로 받다 실패하면 보던 내용을 그대로 둔다.
+     */
     fun load() {
-        val id = AppContainer.session.userId.orEmpty()
         viewModelScope.launch {
-            record = runCatching { AppContainer.api.getGrowth(id) }.getOrDefault(GrowthRecord.EMPTY)
+            val api = AppContainer.api
+            val (r, rd) = kotlinx.coroutines.coroutineScope {
+                val a = async { runCatching { api.getGrowth(userId) }.getOrNull() }
+                val b = async { runCatching { api.getReadiness(userId) }.getOrNull() }
+                a.await() to b.await()
+            }
+            record = r ?: record ?: GrowthRecord.EMPTY
+            readiness = rd ?: readiness
+            record?.let { growthCache = GrowthCache(userId, it, readiness) }
         }
-        viewModelScope.launch { readiness = runCatching { AppContainer.api.getReadiness(id) }.getOrNull() }
     }
 }
 
@@ -66,6 +87,37 @@ fun GrowthScreen(
     onNavigate: (String) -> Unit = {},
     vm: GrowthViewModel = viewModel(),
 ) {
+    Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
+        OnRoadTopBar("성장 기록", onBack, divider = false)
+        GrowthContent(
+            Modifier.weight(1f),
+            onOpenPolicy = onOpenPolicy,
+            onOpenChecklist = onOpenChecklist,
+            onOpenSimulation = onOpenSimulation,
+            onOpenRoleplay = onOpenRoleplay,
+            onOpenChat = onOpenChat,
+            onNavigate = onNavigate,
+            vm = vm,
+        )
+    }
+}
+
+/**
+ * 성장 기록 본문 (자립 준비도 그래프 카드 → 관심사 → 묶음별 기록). 스크롤까지 이 안에서 한다.
+ * 성장 기록 화면과 마이 탭이 함께 쓴다. [header] 는 맨 위에 붙는 내용 (마이 탭의 내 정보 카드)
+ */
+@Composable
+fun GrowthContent(
+    modifier: Modifier = Modifier,
+    header: (@Composable ColumnScope.() -> Unit)? = null,
+    onOpenPolicy: (String) -> Unit,
+    onOpenChecklist: (String) -> Unit,
+    onOpenSimulation: (String) -> Unit = {},
+    onOpenRoleplay: (String) -> Unit = {},
+    onOpenChat: (Long) -> Unit = {},
+    onNavigate: (String) -> Unit = {},
+    vm: GrowthViewModel = viewModel(),
+) {
     LaunchedEffect(Unit) { vm.load() }
     val record = vm.record
 
@@ -84,10 +136,13 @@ fun GrowthScreen(
     val kidLiked = remember(version) { ActivityStore.likedCounts() }
     val months = remember(version) { ActivityStore.monthLives() }
 
-    Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
-        OnRoadTopBar("성장 기록", onBack)
+    Column(modifier.fillMaxWidth()) {
         if (record == null) {
-            LoadingState("기록을 불러오고 있어요")
+            Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
+                header?.invoke(this)
+                Spacer(Modifier.height(OnRoadDimens.BlockGap))
+                SkeletonList(rows = 4)
+            }
             return@Column
         }
         val teen = AppState.stage == UserStage.TEEN
@@ -97,11 +152,12 @@ fun GrowthScreen(
         Column(
             Modifier
                 .weight(1f)
+                .reveal()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = OnRoadDimens.ScreenPadding),
         ) {
-            Spacer(Modifier.height(24.dp))
-            ScreenHeadline("지금까지 쌓아 온 기록이에요.", "작은 걸음이 모여 길이 됐어요.")
+            header?.invoke(this)
+            if (header == null) Spacer(Modifier.height(8.dp))
 
             // ── 자립 준비도 ──
             vm.readiness?.let { r ->
@@ -154,13 +210,6 @@ fun GrowthScreen(
                             Spacer(Modifier.height(8.dp))
                             RoadmapProgressCard(it)
                         }
-                        if (teen || basicsDone > 0) {
-                            Spacer(Modifier.height(8.dp))
-                            RecordRow(
-                                "자립 기초 미션",
-                                "${BasicMissions.all.size}개 중 ${basicsDone}개 완료",
-                            ) { onNavigate(Routes.BASICS) }
-                        }
                         if (kidLiked.isNotEmpty()) {
                             Spacer(Modifier.height(8.dp))
                             KidLikedCard(kidLiked)
@@ -171,7 +220,8 @@ fun GrowthScreen(
             // ── 묶음 전환: 서류 작성의 '대화로 보기' 버튼처럼 (고른 것만 메인 색 · 흰 글씨) ──
             Spacer(Modifier.height(OnRoadDimens.SectionGap))
             ToggleTabs(GROWTH_TABS, tab) { tab = it }
-            sections[tab]()
+            // 묶음을 바꾸면 고른 쪽에서 살짝 밀려 들어온다 (예전에는 툭 바뀌었다)
+            TabSwitch(tab, label = "growth-tab") { t -> sections[t]() }
 
             Spacer(Modifier.height(40.dp))
         }
@@ -197,7 +247,9 @@ private fun ApplySection(
                     "내 일정 ${tasks.size}개 중 ${tasks.count { it.done }}개 완료",
                 ) { onNavigate(Routes.SIM_TIMELINE) }
             } else {
-                RecordRow("퇴소 준비 타임라인", "${TimelineRules.tasks.size}개 중 ${s.timelineDone.size}개 완료") {
+                // 타임라인 화면과 같은 할 일 목록으로 센다
+                val plan = com.project.on_road.data.PlanData.all(java.time.LocalDate.now())
+                RecordRow("퇴소 준비 타임라인", "${plan.size}개 중 ${plan.count { it.id in com.project.on_road.data.PlanData.done }}개 완료") {
                     onNavigate(Routes.SIM_TIMELINE)
                 }
             }
@@ -280,24 +332,38 @@ private fun Section(@Suppress("UNUSED_PARAMETER") title: String, trailing: Strin
     Column(content = content)
 }
 
-/** 전환 버튼 줄: 고른 것은 메인 색 바탕 · 흰 글씨, 나머지는 글씨만 (서류 작성 '대화로 보기'와 같은 모양) */
+/**
+ * 전환 버튼 줄: 고른 것은 메인 색 바탕 · 흰 글씨, 나머지는 글씨만 (서류 작성 '대화로 보기'와 같은 모양).
+ * 성장 기록 · 신청 관리(신청 · 일정 · 서류) · 일정의 '지금 나는'이 같이 쓴다. selected 가 -1 이면 아무것도 안 고른 상태
+ */
 @Composable
-private fun ToggleTabs(tabs: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+internal fun ToggleTabs(tabs: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         tabs.forEachIndexed { i, t ->
             val on = i == selected
+            // 고른 칸 색이 서서히 바뀐다
+            val bg by androidx.compose.animation.animateColorAsState(
+                if (on) OnRoadColors.Primary else OnRoadColors.Primary.copy(alpha = 0f),
+                com.project.on_road.ui.theme.OnRoadMotion.move(),
+                label = "growth-tab-bg",
+            )
+            val fg by androidx.compose.animation.animateColorAsState(
+                if (on) androidx.compose.ui.graphics.Color.White else OnRoadColors.TextSecondary,
+                com.project.on_road.ui.theme.OnRoadMotion.move(),
+                label = "growth-tab-fg",
+            )
             Text(
                 t,
                 style = OnRoadType.Caption.copy(fontWeight = if (on) FontWeight.Bold else FontWeight.Medium),
-                color = if (on) androidx.compose.ui.graphics.Color.White else OnRoadColors.TextSecondary,
+                color = fg,
                 modifier = Modifier
                     .clip(OnRoadShapes.Chip)
-                    .background(if (on) OnRoadColors.Primary else androidx.compose.ui.graphics.Color.Transparent)
-                    .clickable { onSelect(i) }
-                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                    .background(bg)
+                    .tap { onSelect(i) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             )
         }
     }
@@ -315,7 +381,11 @@ private fun SubLabel(text: String, trailing: String? = null) {
 @Composable
 private fun <T> Expandable(items: List<T>, row: @Composable (T) -> Unit) {
     var open by remember(items.size) { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // '더 보기'로 펼칠 때 아래가 툭 늘지 않고 부드럽게 늘어난다
+    Column(
+        Modifier.animateContentSize(com.project.on_road.ui.theme.OnRoadMotion.move()),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         (if (open) items else items.take(PREVIEW)).forEach { row(it) }
         if (items.size > PREVIEW) {
             Text(
@@ -325,7 +395,7 @@ private fun <T> Expandable(items: List<T>, row: @Composable (T) -> Unit) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { open = !open }
+                    .tap { open = !open }
                     .padding(vertical = 8.dp),
             )
         }
@@ -340,7 +410,7 @@ private fun RecordRow(title: String, sub: String, onClick: () -> Unit) {
         background = OnRoadColors.SurfaceSubtle,
         borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -380,7 +450,7 @@ private fun InterestCard(topics: List<TopicStat>) {
         background = OnRoadColors.SurfaceSubtle,
         borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("나의 관심사", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
@@ -466,7 +536,7 @@ private fun KidLikedCard(liked: List<Pair<String, Int>>) {
         background = OnRoadColors.SurfaceSubtle,
         borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
     ) {
         Text("어릴 때 좋아했던 것", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
         Spacer(Modifier.height(2.dp))

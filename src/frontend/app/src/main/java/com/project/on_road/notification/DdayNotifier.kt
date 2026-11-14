@@ -11,8 +11,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.project.on_road.MainActivity
 import com.project.on_road.R
-import com.project.on_road.data.TimelineRules
-import com.project.on_road.data.TimelineTask
+import com.project.on_road.data.PlanData
+import com.project.on_road.data.PlanTask
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -41,8 +41,9 @@ object DdayNotifier {
         cancel(context)
         val alarm = context.getSystemService(AlarmManager::class.java)
         val now = System.currentTimeMillis()
-        TimelineRules.tasks.forEachIndexed { i, task ->
-            val at = leaveDate.plusDays(task.offsetDays.toLong())
+        // 타임라인 · 홈과 같은 할 일 (하는 일 · 지역에 맞춘 것). 끝낸 일 · 해당 없음은 알리지 않는다
+        tasksFor(leaveDate).take(MAX_SLOTS).forEachIndexed { i, task ->
+            val at = task.date
                 .atTime(NOTIFY_HOUR, 0)
                 .atZone(ZoneId.systemDefault())
                 .toInstant()
@@ -61,7 +62,7 @@ object DdayNotifier {
 
     fun cancel(context: Context) {
         val alarm = context.getSystemService(AlarmManager::class.java)
-        TimelineRules.tasks.indices.forEach { i ->
+        (0 until MAX_SLOTS).forEach { i ->
             PendingIntent.getBroadcast(
                 context,
                 BASE_CODE + i,
@@ -77,8 +78,8 @@ object DdayNotifier {
     /** 데모용: 다가오는 할 일 하나를 지금 바로 알림으로 보여 준다. */
     fun preview(context: Context, leaveDate: LocalDate) {
         val today = LocalDate.now()
-        val task = TimelineRules.tasks.firstOrNull { !leaveDate.plusDays(it.offsetDays.toLong()).isBefore(today) }
-            ?: TimelineRules.tasks.last()
+        val tasks = tasksFor(leaveDate)
+        val task = tasks.firstOrNull { !it.date.isBefore(today) } ?: tasks.lastOrNull() ?: return
         show(context, PREVIEW_ID, titleFor(task), task.description, TIMELINE_ROUTE)
     }
 
@@ -109,19 +110,29 @@ object DdayNotifier {
         manager.notify(id, notification)
     }
 
-    private fun receiverIntent(context: Context, index: Int, task: TimelineTask) =
+    /** 날짜가 퇴소일 기준으로 정해진 할 일만 (정책 할 일은 날짜가 '지금'이라 예약하지 않는다) */
+    private fun tasksFor(leaveDate: LocalDate): List<PlanTask> {
+        val skip = PlanData.done.toSet() + PlanData.na.toSet()
+        return PlanData.all(LocalDate.now(), leaveDate).filter { it.offsetDays != null && it.id !in skip }
+    }
+
+    /** 예약해 두는 알림 칸 수 (할 일이 이보다 많아도 앞에서부터) */
+    private const val MAX_SLOTS = 48
+
+    private fun receiverIntent(context: Context, index: Int, task: PlanTask) =
         Intent(context, DdayReceiver::class.java).apply {
             putExtra(EXTRA_ID, BASE_CODE + index)
             putExtra(EXTRA_TITLE, titleFor(task))
             putExtra(EXTRA_BODY, task.description)
         }
 
-    private fun titleFor(task: TimelineTask): String {
+    private fun titleFor(task: PlanTask): String {
+        val offset = task.offsetDays ?: return task.title
         val label = when {
-            task.offsetDays < 0 -> "퇴소 D${task.offsetDays}"
-            task.offsetDays == 0 -> "오늘은 퇴소하는 날"
-            else -> "퇴소 D+${task.offsetDays}"
+            offset < 0 -> "퇴소 D$offset"
+            offset == 0 -> "오늘은 퇴소하는 날"
+            else -> "퇴소 D+$offset"
         }
-        return if (task.offsetDays == 0) label else "$label, ${task.title}"
+        return if (offset == 0) label else "$label, ${task.title}"
     }
 }

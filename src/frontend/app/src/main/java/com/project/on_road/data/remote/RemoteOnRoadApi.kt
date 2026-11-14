@@ -277,10 +277,19 @@ class RemoteOnRoadApi(
             score = res.score,
             level = res.level,
             areas = res.areas.map { a ->
-                ReadinessArea(a.key, a.label, a.score, a.doneCount, a.total, a.items.map { it.label to it.done }, a.nextStep?.toStep())
+                ReadinessArea(
+                    a.key, a.label, a.score, a.doneCount, a.total,
+                    a.items.map { it.label to it.done }, a.nextStep?.toStep(),
+                    details = a.items.map { it.detail },
+                    progresses = a.items.map { it.progress ?: if (it.done) 1f else 0f },
+                )
             },
             weakest = res.weakest,
             nextSteps = res.nextSteps.map { it.toStep() },
+            weekDelta = res.weekDelta ?: 0,
+            history = res.history.orEmpty().sortedByDescending { it.weeksAgo }.map { it.score },
+            recent = res.recent.orEmpty(),
+            nextLevel = res.nextLevel?.let { it.label to it.points },
         )
     }
 

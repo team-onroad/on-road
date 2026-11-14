@@ -54,6 +54,8 @@ fun WheelPicker(
     itemHeight: Dp = 56.dp,
     visibleCount: Int = 5,
     textStyle: TextStyle = OnRoadType.Title1,
+    /** false 면 가운데 선택 띠를 그리지 않는다 (휠 여러 개를 나란히 둘 때 띠를 밖에서 하나로 그린다) */
+    showBand: Boolean = true,
 ) {
     val start = selectedIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
     val state = rememberLazyListState(initialFirstVisibleItemIndex = start)
@@ -84,14 +86,16 @@ fun WheelPicker(
 
     Box(modifier.height(itemHeight * visibleCount)) {
         // 가운데 선택 띠
-        Box(
-            Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth()
-                .height(itemHeight)
-                .clip(RoundedCornerShape(14.dp))
-                .background(OnRoadColors.SurfaceMuted),
-        )
+        if (showBand) {
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .height(itemHeight)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(OnRoadColors.SurfaceMuted),
+            )
+        }
         LazyColumn(
             state = state,
             flingBehavior = fling,

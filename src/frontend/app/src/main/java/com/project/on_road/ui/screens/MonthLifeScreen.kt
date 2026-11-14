@@ -154,9 +154,11 @@ fun MonthLifeScreen(
     ) { v ->
         val st = v.state
         when {
-            st == null -> SetupPage(vm, back)
+            st == null -> SetupPage(vm, back) { onNavigate(com.project.on_road.ui.screens.navigation.Routes.SIM_BUDGET) }
             v.pick != null -> ResultPage(vm, st, v.pick, back)
-            st.done -> ReportPage(vm, st, back, { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) }, onBack)
+            st.done -> ReportPage(vm, st, back, { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) }, onBack) {
+                NextTaskBlock(onNavigate, finished = com.project.on_road.data.PlanGo.MonthLife)
+            }
             else -> WeekPage(vm, st, back)
         }
     }
@@ -167,7 +169,7 @@ private data class MonthView(val step: String, val state: MonthLife.State?, val 
 /* ---------------------------- 시작 ---------------------------- */
 
 @Composable
-private fun SetupPage(vm: MonthLifeViewModel, onBack: () -> Unit) {
+private fun SetupPage(vm: MonthLifeViewModel, onBack: () -> Unit, onBudget: () -> Unit = {}) {
     val cash = MonthLife.startingCash(vm.setup)
     OnRoadScreen(
         "한 달 살아보기",
@@ -176,12 +178,7 @@ private fun SetupPage(vm: MonthLifeViewModel, onBack: () -> Unit) {
             OnRoadButton("한 달 시작하기", vm::start, Modifier.fillMaxWidth(), enabled = vm.canStart)
         },
     ) {
-        ScreenHeadline("혼자 사는 한 달,", "미리 살아 봐요.")
-        Spacer(Modifier.height(6.dp))
-        Text("매주 살다 보면 생길 법한 일이 확률대로 랜덤으로 일어나요. 직접 골라 대처하고, 한 달이 끝나면 남은 돈과 잘한 점을 알려 드려요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
-
-        Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("한 달 수입", titleStyle = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold))
+        SubHeader("한 달 수입")
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MonthLife.INCOME_PRESETS.forEach { v -> ChoiceChip("${v}만원", selected = vm.income == v) { vm.setIncomePreset(v) } }
@@ -199,9 +196,12 @@ private fun SetupPage(vm: MonthLifeViewModel, onBack: () -> Unit) {
         )
         Spacer(Modifier.height(6.dp))
         Text("자립수당·알바·월급 등을 합친 금액이에요.", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+        // 생활비 배분과 한 흐름으로: 먼저 나눠 보고 → 그 수입으로 한 달 살아보기 (배분 결과에서 이 화면으로 이어진다)
+        Spacer(Modifier.height(12.dp))
+        EmptyState("수입을 어디에 얼마 쓸지 먼저 나눠 보면 더 실감 나요.", actionLabel = "생활비 나누기", onAction = onBudget)
 
         Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("사는 곳", titleStyle = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold))
+        SubHeader("사는 곳")
         Spacer(Modifier.height(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             MonthLife.Home.entries.forEach { h ->
@@ -210,7 +210,7 @@ private fun SetupPage(vm: MonthLifeViewModel, onBack: () -> Unit) {
         }
 
         Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("비상금 떼어 두기", titleStyle = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold))
+        SubHeader("비상금 떼어 두기")
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MonthLife.EMERGENCY_PRESETS.forEach { v -> ChoiceChip(if (v == 0) "안 함" else "${v}만원", selected = vm.emergency == v) { vm.emergency = v } }
@@ -274,8 +274,6 @@ private fun WeekPage(vm: MonthLifeViewModel, s: MonthLife.State, onBack: () -> U
             }
         }
 
-        Spacer(Modifier.height(24.dp))
-        Footnote("일마다 한 주에 일어날 확률이 있고,\n매주 랜덤으로 생겨요. 몇 개가 생길지는 몰라요.")
     }
 }
 
@@ -283,7 +281,7 @@ private fun WeekPage(vm: MonthLifeViewModel, s: MonthLife.State, onBack: () -> U
 private fun WeekHeader(no: Int, s: MonthLife.State) {
     OnRoadTag("${no}주차 / ${MonthLife.WEEKS}주", style = TagStyle.Neutral)
     Spacer(Modifier.height(12.dp))
-    SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
+    SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)) {
         Row {
             Stat("생활비", "${s.cash}만원", Modifier.weight(1f))
             Stat("비상금", "${s.emergency}만원", Modifier.weight(1f))
@@ -338,8 +336,8 @@ private fun ResultPage(vm: MonthLifeViewModel, s: MonthLife.State, p: MonthLifeV
         }
         Spacer(Modifier.height(12.dp))
         Row {
-            Text("남은 생활비 ${s.cash}만원", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
-            Text("비상금 ${s.emergency}만원", style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+            AnimatedNumber(s.cash.toLong(), { "남은 생활비 ${it}만원" }, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f), startFromZero = false, durationMs = 450)
+            AnimatedNumber(s.emergency.toLong(), { "비상금 ${it}만원" }, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, startFromZero = false, durationMs = 450)
         }
     }
 }
@@ -347,10 +345,17 @@ private fun ResultPage(vm: MonthLifeViewModel, s: MonthLife.State, p: MonthLifeV
 /* ---------------------------- 한 달 결과 ---------------------------- */
 
 @Composable
-private fun ReportPage(vm: MonthLifeViewModel, s: MonthLife.State, onBack: () -> Unit, onStep: (com.project.on_road.data.NextStep) -> Unit, onDone: () -> Unit) {
+private fun ReportPage(
+    vm: MonthLifeViewModel,
+    s: MonthLife.State,
+    onBack: () -> Unit,
+    onStep: (com.project.on_road.data.NextStep) -> Unit,
+    onDone: () -> Unit,
+    next: @Composable () -> Unit = {},
+) {
     val r = remember(s) { MonthLife.report(s) }
     OnRoadScreen("한 달 살아보기", onBack) {
-        OnRoadTag("한 달 끝", style = TagStyle.PrimaryFilled)
+        OnRoadTag("한 달 끝", style = TagStyle.Neutral)
         Spacer(Modifier.height(12.dp))
         Text(r.title, style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
         Spacer(Modifier.height(6.dp))
@@ -366,8 +371,8 @@ private fun ReportPage(vm: MonthLifeViewModel, s: MonthLife.State, onBack: () ->
 
         if (r.good.isNotEmpty() || r.missed.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
-            OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.BorderChip, shape = OnRoadShapes.Item, contentPadding = PaddingValues(horizontal = 17.dp, vertical = 18.dp)) {
-                Text("이번 달 선택", style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.BorderChip, shape = OnRoadShapes.Item, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)) {
+                SubHeader("이번 달 선택")
                 r.good.forEach { ReviewLine(it, ok = true) }
                 r.missed.forEach { ReviewLine(it, ok = false) }
             }
@@ -375,10 +380,10 @@ private fun ReportPage(vm: MonthLifeViewModel, s: MonthLife.State, onBack: () ->
 
         if (r.tips.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
-            OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.BorderChip, shape = OnRoadShapes.Item, contentPadding = PaddingValues(horizontal = 17.dp, vertical = 18.dp)) {
-                Text("다음 달엔 이렇게", style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.BorderChip, shape = OnRoadShapes.Item, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)) {
+                SubHeader("다음 달엔 이렇게")
                 Spacer(Modifier.height(8.dp))
-                r.tips.forEach { BulletText(it, OnRoadColors.TextPrimary.copy(alpha = 0.8f), Modifier.padding(vertical = 3.dp)) }
+                r.tips.forEach { BulletText(it, OnRoadColors.TextPrimary.copy(alpha = 0.8f), Modifier.padding(vertical = 4.dp)) }
             }
         }
 
@@ -387,6 +392,8 @@ private fun ReportPage(vm: MonthLifeViewModel, s: MonthLife.State, onBack: () ->
             NextStepList(r.nextSteps, onStep)
         }
 
+        Spacer(Modifier.height(OnRoadDimens.BlockGap))
+        next()
         Spacer(Modifier.height(24.dp))
         Footnote("금액은 예시 기준이에요.\n실제 지원 조건은 담당 기관에서 확인해 주세요.")
         Spacer(Modifier.height(24.dp))
@@ -408,7 +415,7 @@ private fun PickRow(title: String, hint: String?, trailing: String, selected: Bo
         borderColor = if (selected) OnRoadColors.Primary else OnRoadColors.BorderChip,
         borderWidth = if (selected) 1.5.dp else 1.dp,
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

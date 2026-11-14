@@ -362,6 +362,24 @@ class FakeCoachApi : CoachApi {
         return RoleplayReply(line ?: "네, 오늘은 여기까지 할게요. 수고했어요.", finished = line == null)
     }
 
+    /** 챙길 것 · 힌트 (서버 규칙과 같게: 내가 한 말에 낱말이 나오면 챙김). 연습 전 준비 화면에도 쓴다 */
+    override suspend fun roleplayHint(scenarioId: String, history: List<RoleplayTurn>, plan: RoleplayPlan): RoleplayHint {
+        latency(200)
+        val s = script(scenarioId)
+        val said = history.filter { it.fromUser }.joinToString(" ") { it.text }
+        val checks = s.checkpoints.map { (words, label) -> RoleplayCheck(label, words.any { said.contains(it) }, "check", null) }
+        val next = checks.firstOrNull { !it.ok }
+        val example = s.better.firstOrNull()?.second ?: "${next?.label ?: "궁금한 점"}에 대해 물어봐요"
+        return RoleplayHint(
+            done = next == null,
+            label = next?.label ?: "다 챙겼어요",
+            example = if (next == null) "궁금한 게 더 없으면 인사하고 마무리해요" else example,
+            kind = "check",
+            remaining = checks.count { !it.ok },
+            checks = checks,
+        )
+    }
+
     override suspend fun roleplayFeedback(userId: String, scenarioId: String, history: List<RoleplayTurn>, save: Boolean): RoleplayFeedback {
         latency(1200)
         val s = script(scenarioId)

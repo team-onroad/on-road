@@ -63,7 +63,8 @@ class FakeOnRoadApi(
 
     override suspend fun updateUser(userId: String, update: UserUpdate): UserProfile {
         latency()
-        val old = users[userId] ?: error("가짜 모드: 사용자 없음")
+        // 가짜 모드는 앱을 껐다 켜면 메모리의 사용자가 사라진다. 그때는 휴대폰에 저장된 값으로 다시 만든다
+        val old = users[userId] ?: restoreUser(userId)
         // 서버 규칙과 같음: 퇴소 후로 바뀌면 퇴소일을 비우고, 같이 보낸 날짜가 있으면 목표일로 저장
         var dDate = old.dDate
         if (update.status == LivingStatus.LEFT && old.status != LivingStatus.LEFT) dDate = null
@@ -78,7 +79,25 @@ class FakeOnRoadApi(
     }
 
     /** 메모리 기반이라 재시작하면 null. 가짜 모드에서는 AppContainer가 이 확인을 건너뛴다. */
-    override suspend fun getUser(userId: String): UserProfile? = users[userId]?.let { it.copy(stage = stageOf(it.birthDate)) }
+    override suspend fun getUser(userId: String): UserProfile? =
+        (users[userId] ?: AppContainer.session.userId?.takeIf { it == userId }?.let { restoreUser(it) })
+            ?.let { it.copy(stage = stageOf(it.birthDate)) }
+
+    /** 앱을 다시 켜서 사라진 가짜 사용자를 휴대폰에 저장된 값으로 되살린다 */
+    private fun restoreUser(userId: String): UserProfile {
+        val session = AppContainer.session
+        val user = UserProfile(
+            userId = userId,
+            name = session.nickname.ifBlank { "사용자" },
+            birthDate = LocalDate.now().minusYears(19),
+            region = "서울",
+            status = session.status ?: LivingStatus.LEAVING_SOON,
+            stage = UserStage.YOUNG_ADULT,
+            dDate = session.leaveDate,
+        )
+        users[userId] = user
+        return user
+    }
 
     /** 서버 규칙과 같음: 만 10세 이하 아동, 11~17세 청소년, 18세 이상 자립준비청년 */
     private fun stageOf(birthDate: LocalDate): UserStage {

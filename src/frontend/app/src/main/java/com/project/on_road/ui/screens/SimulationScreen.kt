@@ -157,7 +157,16 @@ fun BudgetSimulationScreen(
         )
         AnimatedContent(targetState = result, label = "simulation", modifier = Modifier.weight(1f)) { r ->
             if (r == null) SimulationInput(vm)
-            else SimulationResultView(r, onApply = vm::applyScenario, onOpenPolicy = onOpenPolicy, onRetry = vm::backToInput, onStep = { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) })
+            else SimulationResultView(
+                r,
+                onApply = vm::applyScenario,
+                onOpenPolicy = onOpenPolicy,
+                onRetry = vm::backToInput,
+                onStep = { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) },
+            ) {
+                // 지난 결과를 다시 볼 때는 할 일을 끝내지 않고 다음 할 일만 보여 준다
+                NextTaskBlock(onNavigate, finished = if (simulationId == null) com.project.on_road.data.PlanGo.Budget else null)
+            }
         }
     }
 }
@@ -175,10 +184,7 @@ private fun SimulationInput(vm: SimulationViewModel) {
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = OnRoadDimens.ScreenPadding),
         ) {
-            Spacer(Modifier.height(24.dp))
-            ScreenHeadline("한 달 수입을 적고", "어디에 쓸지 나눠 보세요.")
-
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(20.dp))
             FieldLabel("한 달 수입", required = true)
             Spacer(Modifier.height(8.dp))
             OnRoadTextField(
@@ -202,7 +208,7 @@ private fun SimulationInput(vm: SimulationViewModel) {
             Row(
                 Modifier
                     .align(Alignment.End)
-                    .clickable(enabled = income > 0, onClick = vm::autoFill)
+                    .tap(enabled = income > 0, onClick = vm::autoFill)
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -274,7 +280,7 @@ private fun BalanceCard(income: Int, total: Int, remaining: Int, allocation: Map
             Column(Modifier.weight(1f)) {
                 Text("나눈 금액", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("$total", style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
+                    AnimatedNumber(total.toLong(), { "$it" }, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary, startFromZero = false, durationMs = 250)
                     Text(" / ${income}만원", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(bottom = 4.dp))
                 }
             }
@@ -293,7 +299,7 @@ private fun CategoryLegend() {
         BudgetCategory.entries.forEach { c ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ColorDot(c.color, 7.dp)
-                Spacer(Modifier.width(5.dp))
+                Spacer(Modifier.width(4.dp))
                 Text(c.label, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
             }
         }
@@ -304,7 +310,7 @@ private fun CategoryLegend() {
 private fun CategorySlider(c: BudgetCategory, value: Int, income: Int, minimum: Int, onChange: (Int) -> Unit) {
     val maxValue = max(income, 1).toFloat()
     val short = income > 0 && value < minimum
-    SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 15.dp, end = 15.dp, top = 15.dp, bottom = 10.dp)) {
+    SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconTile(c.icon, tint = c.color)
             Spacer(Modifier.width(12.dp))
@@ -340,6 +346,7 @@ private fun SimulationResultView(
     onOpenPolicy: (String) -> Unit,
     onRetry: () -> Unit,
     onStep: (NextStep) -> Unit = {},
+    next: @Composable () -> Unit = {},
 ) {
     val shortageMap = result.shortages.associateBy { it.category }
 
@@ -403,6 +410,8 @@ private fun SimulationResultView(
                 },
                 onStep,
             )
+            Spacer(Modifier.height(OnRoadDimens.BlockGap))
+            next()
             Spacer(Modifier.height(32.dp))
             OnRoadButton("처음부터 다시 계산하기", onRetry, Modifier.fillMaxWidth(), variant = ButtonVariant.Outline)
             Spacer(Modifier.height(20.dp))
@@ -419,7 +428,7 @@ private fun ResultItemRow(c: BudgetCategory, amount: Int, shortage: Shortage?) {
         background = if (shortage != null) OnRoadColors.DangerTint else OnRoadColors.Surface,
         borderColor = if (shortage != null) OnRoadColors.Danger.copy(alpha = 0.35f) else OnRoadColors.BorderSlate,
         shape = OnRoadShapes.Inner,
-        contentPadding = PaddingValues(15.dp),
+        contentPadding = PaddingValues(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconTile(c.icon, tint = c.color)
@@ -439,7 +448,7 @@ private fun ResultItemRow(c: BudgetCategory, amount: Int, shortage: Shortage?) {
 
 @Composable
 private fun ScenarioCard(scenario: Scenario, onApply: () -> Unit) {
-    SubtleCard(Modifier.width(264.dp), contentPadding = PaddingValues(18.dp)) {
+    SubtleCard(Modifier.width(264.dp), contentPadding = PaddingValues(16.dp)) {
         Text(scenario.title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
         Spacer(Modifier.height(4.dp))
         Text(scenario.description, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, minLines = 2)

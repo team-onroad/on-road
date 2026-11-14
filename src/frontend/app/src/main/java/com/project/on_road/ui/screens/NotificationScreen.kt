@@ -1,5 +1,10 @@
 package com.project.on_road.ui.screens
 
+import com.project.on_road.ui.components.stagger
+import androidx.compose.foundation.layout.Box
+
+import com.project.on_road.ui.components.SkeletonList
+import com.project.on_road.ui.components.FadeSwitch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,7 +34,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.AppContainer
 import com.project.on_road.data.DDate
-import com.project.on_road.data.TimelineRules
+import com.project.on_road.data.TimelinePlanner
 import com.project.on_road.ui.components.LoadingState
 import com.project.on_road.ui.components.OnRoadScreen
 import com.project.on_road.ui.components.OnRoadTag
@@ -60,8 +65,12 @@ data class NoticeGroup(val title: String, val items: List<NoticeItem>)
  * - 추천: 다음 할 일 상위 2개
  */
 class NotificationViewModel : ViewModel() {
-    var groups by mutableStateOf<List<NoticeGroup>?>(null)
+    var groups by mutableStateOf(com.project.on_road.data.ScreenCache.get<List<NoticeGroup>>("notices"))
         private set
+
+    override fun onCleared() {
+        com.project.on_road.data.ScreenCache.put("notices", groups)
+    }
 
     fun load() {
         val id = AppContainer.session.userId ?: run { groups = emptyList(); return }
@@ -106,11 +115,10 @@ class NotificationViewModel : ViewModel() {
                 .sortedBy { (_, d) -> d }
                 .map { (t, d) -> NoticeItem(dTag(d), t.title, null, Routes.SIM_TIMELINE) }
         }
-        val leave = session.leaveDate ?: return emptyList()
-        val done = session.timelineDone
-        return TimelineRules.tasks
-            .filter { it.id !in done }
-            .map { it to ChronoUnit.DAYS.between(today, leave.plusDays(it.offsetDays.toLong())) }
+        if (session.leaveDate == null) return emptyList()
+        // 타임라인 화면과 같은 계획표에서 끝내지 않은 할 일
+        return TimelinePlanner.saved(today)
+            .map { it to ChronoUnit.DAYS.between(today, it.date) }
             .filter { (_, d) -> d in -14..30 }  // 2주 지난 것 ~ 30일 안
             .sortedBy { (_, d) -> d }
             .map { (t, d) -> NoticeItem(dTag(d), t.title, t.description, Routes.SIM_TIMELINE) }
@@ -127,11 +135,12 @@ class NotificationViewModel : ViewModel() {
 fun NotificationScreen(onBack: () -> Unit, onNavigate: (String) -> Unit, vm: NotificationViewModel = viewModel()) {
     LaunchedEffect(Unit) { vm.load() }
     OnRoadScreen("알림", onBack) {
+        FadeSwitch(vm.groups == null, label = "notifications") { loading ->
         val groups = vm.groups
         when {
-            groups == null -> LoadingState("알림을 모으고 있어요")
+            loading || groups == null -> SkeletonList(rows = 3, header = false)
             groups.isEmpty() -> {
-                Spacer(Modifier.height(40.dp))
+                Spacer(Modifier.height(24.dp))
                 Text("지금 챙길 알림이 없어요.", style = OnRoadType.Body2, color = OnRoadColors.TextSecondary)
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -145,9 +154,10 @@ fun NotificationScreen(onBack: () -> Unit, onNavigate: (String) -> Unit, vm: Not
                 SectionHeader(g.title)
                 Spacer(Modifier.height(12.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    g.items.forEach { n -> NoticeRow(n) { onNavigate(n.route) } }
+                    g.items.forEachIndexed { si, n -> Box(Modifier.stagger(si)) { NoticeRow(n) { onNavigate(n.route) } } }
                 }
             }
+        }
         }
     }
 }
@@ -159,7 +169,7 @@ private fun NoticeRow(n: NoticeItem, onClick: () -> Unit) {
         Modifier.fillMaxWidth().heightIn(min = 64.dp),
         borderColor = OnRoadColors.BorderSlate,
         shape = OnRoadShapes.Inner,
-        contentPadding = PaddingValues(15.dp),
+        contentPadding = PaddingValues(16.dp),
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

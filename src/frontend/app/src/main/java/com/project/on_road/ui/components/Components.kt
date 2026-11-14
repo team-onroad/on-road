@@ -1,6 +1,26 @@
 package com.project.on_road.ui.components
 
+import androidx.compose.ui.semantics.semantics
+
+import androidx.compose.ui.semantics.heading
+
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
+import com.project.on_road.ui.theme.OnRoadMotion
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -47,7 +67,10 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.animation.animateContentSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -87,6 +110,9 @@ import com.project.on_road.ui.theme.OnRoadType
 /** 어느 화면에서든 홈으로 돌아가는 동작 (상단바 X 버튼). NavHost에서 제공한다. */
 val LocalGoHome = compositionLocalOf<(() -> Unit)?> { null }
 
+/** 하단 메뉴 탭의 첫 화면이면 true: 뒤로·홈 버튼 없이 제목만 둔다 (하단 메뉴로 오간다) */
+val LocalTabRoot = compositionLocalOf { false }
+
 /* ------------------------------------------------------------------ */
 /*  로고                                                                */
 /* ------------------------------------------------------------------ */
@@ -110,6 +136,9 @@ fun OnRoadTopBar(
     /** 아래 구분선 (바로 밑에 다른 줄이 붙는 화면은 끈다) */
     divider: Boolean = true,
 ) {
+    val tabRoot = LocalTabRoot.current
+    val onBack = if (tabRoot) null else onBack
+    val onClose = if (tabRoot) null else onClose
     Column(Modifier.fillMaxWidth().background(OnRoadColors.Surface)) {
         Box(
             Modifier
@@ -152,7 +181,7 @@ private fun HomeButton(onClick: () -> Unit) {
     Column(
         Modifier
             .clip(OnRoadShapes.Field)
-            .clickable(onClickLabel = "홈 화면으로 가기", onClick = onClick)
+            .tap(onClickLabel = "홈 화면으로 가기", onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -171,7 +200,8 @@ fun OnRoadScreen(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(modifier.fillMaxSize().background(OnRoadColors.Background)) {
-        OnRoadTopBar(title = title, onBack = onBack, trailing = trailing)
+        // 위 바 아래 구분선 없이 (앱 전체 구분선 쓰지 않기)
+        OnRoadTopBar(title = title, onBack = onBack, trailing = trailing, divider = false)
         Column(
             Modifier
                 .weight(1f)
@@ -179,8 +209,15 @@ fun OnRoadScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = OnRoadDimens.ScreenPadding),
         ) {
-            Spacer(Modifier.height(24.dp))
-            content()
+            Spacer(Modifier.height(OnRoadDimens.ScreenTop))
+            // 내용이 늘거나 줄 때(불러온 뒤, 펼치기·접기) 높이가 툭 바뀌지 않고 부드럽게 따라간다
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .reveal()
+                    .animateContentSize(com.project.on_road.ui.theme.OnRoadMotion.move()),
+                content = content,
+            )
             Spacer(Modifier.height(32.dp))
         }
         if (bottomBar != null) {
@@ -196,6 +233,13 @@ fun OnRoadScreen(
     }
 }
 
+/*
+ * 제목 위계 (앱 전체 통일)
+ *  - ScreenHeadline : 화면 맨 위 큰 안내 문구 (22, 화면당 하나)
+ *  - SectionHeader  : 화면 안 큰 묶음 제목 (20 Bold) · 오른쪽 '전체보기 >' 또는 작은 글씨
+ *  - SubHeader      : 묶음 안 작은 제목 (15 Bold) · 오른쪽 작은 글씨
+ * 그 밖의 크기로 제목을 따로 만들지 않는다.
+ */
 /** 화면 상단 큰 안내 문구 (예: "나에게 더 유리한 조건을 / 한눈에 비교해 보세요.") */
 @Composable
 fun ScreenHeadline(first: String, second: String? = null, modifier: Modifier = Modifier) {
@@ -220,12 +264,17 @@ fun OnRoadCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val press = remember { MutableInteractionSource() }
     Column(
         modifier
+            .pressScale(press, enabled = onClick != null, pressed = 0.985f)
             .clip(shape)
             .background(background)
             .border(borderWidth, borderColor, shape)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                if (onClick != null) Modifier.clickable(interactionSource = press, indication = LocalIndication.current, onClick = onClick)
+                else Modifier,
+            )
             .padding(contentPadding),
         content = content,
     )
@@ -262,7 +311,7 @@ fun ListRow(
         modifier.fillMaxWidth(),
         borderColor = OnRoadColors.BorderSlate,
         shape = OnRoadShapes.Inner,
-        contentPadding = PaddingValues(horizontal = 15.dp, vertical = 15.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -281,10 +330,11 @@ fun ListRow(
                 )
                 if (description != null) {
                     Spacer(Modifier.height(2.dp))
+                    // 설명 글씨: 12 이상 · 흰 바탕에서 대비 4.5:1 이상 (예전 11 · 50% 투명은 읽기 어려웠다)
                     Text(
                         description,
-                        style = OnRoadType.Micro,
-                        color = OnRoadColors.TextPrimary.copy(alpha = 0.5f),
+                        style = OnRoadType.Caption2,
+                        color = OnRoadColors.TextTertiary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -312,38 +362,43 @@ enum class TagStyle { Neutral, Danger, Warning, PrimaryOutline, PrimarySoft, Pri
 
 private data class TagColors(val bg: Color, val border: Color?, val fg: Color)
 
+/**
+ * 태그 (앱 전체 한 가지 모양: 모서리 Tag · 글자 12 · 안쪽 여백 8×4).
+ * 색은 뜻이 있을 때만: 위험(Danger) · 주의(Warning) · 강조(Primary 계열). 분류·상태는 회색 하나(Neutral).
+ * shape · contentPadding · textStyle 인자는 예전 코드 호환용으로 남겨 두었고, 글자 굵기만 따른다.
+ */
 @Composable
 fun OnRoadTag(
     text: String,
     modifier: Modifier = Modifier,
     style: TagStyle = TagStyle.Neutral,
-    textStyle: TextStyle = OnRoadType.Micro,
-    shape: Shape = OnRoadShapes.Tag,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 8.dp, vertical = 3.dp),
+    textStyle: TextStyle = OnRoadType.Caption2,
+    @Suppress("UNUSED_PARAMETER") shape: Shape = OnRoadShapes.Tag,
+    @Suppress("UNUSED_PARAMETER") contentPadding: PaddingValues = TagPadding,
 ) {
+    val neutral = TagColors(Color(0x4DF4F4F5), OnRoadColors.BorderChip, OnRoadColors.TextSecondary)
+    val primary = TagColors(Color.White, OnRoadColors.Primary, OnRoadColors.Primary)
     val c = when (style) {
-        TagStyle.Neutral -> TagColors(Color(0x4DF4F4F5), OnRoadColors.BorderChip, OnRoadColors.TextSecondary)
+        TagStyle.Neutral, TagStyle.Slate, TagStyle.SlateFilled, TagStyle.Gray -> neutral
         TagStyle.Danger -> TagColors(OnRoadColors.DangerSoft, OnRoadColors.Danger, OnRoadColors.Danger)
         TagStyle.Warning -> TagColors(OnRoadColors.WarningSoft, OnRoadColors.Warning, OnRoadColors.Warning)
-        TagStyle.PrimaryOutline -> TagColors(Color.White, OnRoadColors.Primary, OnRoadColors.Primary)
-        TagStyle.PrimarySoft -> TagColors(OnRoadColors.PrimarySoft, OnRoadColors.Primary, OnRoadColors.Primary)
+        TagStyle.PrimaryOutline, TagStyle.PrimarySoft, TagStyle.SlatePrimary -> primary
         TagStyle.PrimaryFilled -> TagColors(OnRoadColors.Primary, null, Color.White)
-        TagStyle.Slate -> TagColors(OnRoadColors.SurfaceSlate, OnRoadColors.BorderSlate, OnRoadColors.TextSlateMid)
-        TagStyle.SlateFilled -> TagColors(OnRoadColors.SurfaceSlateTag, null, OnRoadColors.TextSlateMid)
-        TagStyle.SlatePrimary -> TagColors(OnRoadColors.SurfaceSlate, OnRoadColors.Primary, OnRoadColors.Primary)
-        TagStyle.Gray -> TagColors(OnRoadColors.SurfaceFile, null, OnRoadColors.TextPrimary)
     }
+    val shape = OnRoadShapes.Tag
     Box(
         modifier
             .clip(shape)
             .background(c.bg)
             .then(if (c.border != null) Modifier.border(1.dp, c.border, shape) else Modifier)
-            .padding(contentPadding),
+            .padding(TagPadding),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = textStyle, color = c.fg, maxLines = 1)
+        Text(text, style = OnRoadType.Caption2.copy(fontWeight = textStyle.fontWeight ?: FontWeight.Medium), color = c.fg, maxLines = 1)
     }
 }
+
+private val TagPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
 
 /* ------------------------------------------------------------------ */
 /*  버튼                                                                */
@@ -372,29 +427,39 @@ fun OnRoadButton(
         ButtonVariant.Gray -> Triple(OnRoadColors.SurfaceMuted, OnRoadColors.BorderSage.copy(alpha = 0.6f), OnRoadColors.TextSlate)
     }
     val active = enabled && !loading
-    Row(
+    val press = remember { MutableInteractionSource() }
+    // 켜짐 ↔ 꺼짐이 툭 바뀌지 않게 바탕을 서서히 바꾼다
+    val bgColor by animateColorAsState(if (enabled) bg else bg.copy(alpha = 0.35f), OnRoadMotion.move(), label = "button-bg")
+    Box(
         modifier
             .height(height)
+            .pressScale(press, enabled = active)
             .clip(shape)
-            .background(if (enabled) bg else bg.copy(alpha = 0.35f))
+            .background(bgColor)
             .then((borderColor ?: variantBorder)?.let { Modifier.border(1.dp, it, shape) } ?: Modifier)
-            .clickable(enabled = active, onClick = onClick)
+            .clickable(interactionSource = press, indication = LocalIndication.current, enabled = active, onClick = onClick)
             .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+        contentAlignment = Alignment.Center,
     ) {
-        if (loading) {
-            CircularProgressIndicator(color = fg, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-            return@Row
-        }
-        if (leadingIcon != null) {
-            Icon(leadingIcon, null, tint = fg, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-        }
-        Text(text, style = textStyle, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (trailingIcon != null) {
-            Spacer(Modifier.width(10.dp))
-            Icon(trailingIcon, null, tint = fg, modifier = Modifier.size(18.dp))
+        // 글자 ↔ 도는 표시는 겹쳐서 바꾼다
+        Crossfade(loading, animationSpec = OnRoadMotion.move(OnRoadMotion.FAST), label = "button-loading") { busy ->
+            if (busy) {
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = fg, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    if (leadingIcon != null) {
+                        Icon(leadingIcon, null, tint = fg, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(text, style = textStyle, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (trailingIcon != null) {
+                        Spacer(Modifier.width(10.dp))
+                        Icon(trailingIcon, null, tint = fg, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
         }
     }
 }
@@ -410,13 +475,15 @@ fun SmallBoxButton(
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
 ) {
+    val press = remember { MutableInteractionSource() }
     Row(
         modifier
             .height(28.dp)
+            .pressScale(press, pressed = 0.95f)
             .clip(OnRoadShapes.Badge)
             .background(background)
             .border(1.dp, borderColor, OnRoadShapes.Badge)
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onClick)
             .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -436,20 +503,26 @@ fun SmallBoxButton(
 @Composable
 fun ChoiceChip(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val shape = OnRoadShapes.Field
+    val press = remember { MutableInteractionSource() }
+    val bg by animateColorAsState(if (selected) OnRoadColors.Primary else Color.White, OnRoadMotion.move(), label = "chip-bg")
+    val line by animateColorAsState(if (selected) OnRoadColors.Primary else OnRoadColors.BorderInput, OnRoadMotion.move(), label = "chip-border")
+    val fg by animateColorAsState(if (selected) Color.White else OnRoadColors.TextSecondary, OnRoadMotion.move(), label = "chip-fg")
+    val tick = rememberTick()
     Box(
         modifier
             .height(34.dp)
+            .pressScale(press, pressed = 0.95f)
             .clip(shape)
-            .background(if (selected) OnRoadColors.Primary else Color.White)
-            .border(1.dp, if (selected) OnRoadColors.Primary else OnRoadColors.BorderInput, shape)
-            .clickable(onClick = onClick)
+            .background(bg)
+            .border(1.dp, line, shape)
+            .clickable(interactionSource = press, indication = LocalIndication.current) { if (!selected) tick(); onClick() }
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text,
             style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
-            color = if (selected) Color.White else OnRoadColors.TextSecondary,
+            color = fg,
             maxLines = 1,
         )
     }
@@ -465,32 +538,50 @@ fun SegmentedTabs(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    BoxWithConstraints(
         modifier
             .fillMaxWidth()
             .height(40.dp)
             .clip(OnRoadShapes.Field)
             .background(OnRoadColors.SurfaceMuted)
-            .padding(3.dp),
+            .padding(4.dp),
     ) {
-        options.forEachIndexed { i, label ->
-            val on = i == selected
-            Box(
-                Modifier
-                    .weight(1f)
-                    .height(34.dp)
-                    .clip(SegmentShape)
-                    .background(if (on) Color.White else Color.Transparent)
-                    .then(if (on) Modifier.border(1.dp, OnRoadColors.Border, SegmentShape) else Modifier)
-                    .clickable { onSelect(i) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    label,
-                    style = OnRoadType.Caption.copy(fontWeight = if (on) FontWeight.Bold else FontWeight.Medium),
-                    color = if (on) OnRoadColors.TextPrimary else OnRoadColors.TextTertiary,
-                    maxLines = 1,
+        val count = options.size.coerceAtLeast(1)
+        val tabWidth = maxWidth / count
+        // 흰 선택 칸이 눌린 탭으로 미끄러져 간다
+        val x by animateDpAsState(tabWidth * selected.coerceIn(0, count - 1), OnRoadMotion.move(), label = "segment-x")
+        Box(
+            Modifier
+                .offset(x = x)
+                .width(tabWidth)
+                .height(34.dp)
+                .clip(SegmentShape)
+                .background(Color.White)
+                .border(1.dp, OnRoadColors.Border, SegmentShape),
+        )
+        Row(Modifier.fillMaxWidth()) {
+            options.forEachIndexed { i, label ->
+                val on = i == selected
+                val fg by animateColorAsState(
+                    if (on) OnRoadColors.TextPrimary else OnRoadColors.TextTertiary,
+                    OnRoadMotion.move(),
+                    label = "segment-fg",
                 )
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(34.dp)
+                        .clip(SegmentShape)
+                        .tap { onSelect(i) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label,
+                        style = OnRoadType.Caption.copy(fontWeight = if (on) FontWeight.Bold else FontWeight.Medium),
+                        color = fg,
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
@@ -510,21 +601,23 @@ fun SectionHeader(
     trailingText: String? = null,
 ) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, style = titleStyle, color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
+        // 화면 읽기 프로그램이 제목으로 읽고, 제목 사이를 건너뛸 수 있게
+        Text(title, style = titleStyle, color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f).semantics { heading() })
         if (actionText != null) {
             Row(
-                Modifier.clickable(enabled = onAction != null) { onAction?.invoke() },
+                Modifier.tap(enabled = onAction != null) { onAction?.invoke() },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(actionText, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+                Text(actionText, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
                 Icon(
                     Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
-                    tint = OnRoadColors.TextSecondary, modifier = Modifier.size(16.dp),
+                    tint = OnRoadColors.TextTertiary, modifier = Modifier.size(16.dp),
                 )
             }
         }
         if (trailingText != null) {
-            Text(trailingText, style = OnRoadType.Caption2, color = OnRoadColors.TextQuaternary)
+            // 오른쪽 작은 글씨(개수·단위·보조 설명)는 앱 전체에서 같은 크기·색
+            Text(trailingText, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
         }
     }
 }
@@ -617,6 +710,8 @@ fun OnRoadTextField(
     enabled: Boolean = true,
     background: Color = Color.White,
     borderColor: Color = OnRoadColors.BorderInput,
+    /** 입력칸 안 글씨 시작 여백 */
+    contentStart: androidx.compose.ui.unit.Dp = 15.dp,
 ) {
     val shape = OnRoadShapes.Field
     Row(
@@ -626,7 +721,7 @@ fun OnRoadTextField(
             .background(background)
             .border(1.dp, borderColor, shape)
             .padding(
-                start = 15.dp,
+                start = contentStart,
                 end = 12.dp,
                 top = if (singleLine) 0.dp else 12.dp,
                 bottom = if (singleLine) 0.dp else 12.dp,
@@ -668,7 +763,7 @@ fun OnRoadTextField(
                     .size(20.dp)
                     .clip(CircleShape)
                     .border(1.5.dp, OnRoadColors.TextSecondary, CircleShape)
-                    .clickable { onValueChange("") },
+                    .tap { onValueChange("") },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Filled.Close, "지우기", tint = OnRoadColors.TextSecondary, modifier = Modifier.size(13.dp))
@@ -704,8 +799,8 @@ fun OnRoadSelectBox(
                 .clip(shape)
                 .background(Color.White)
                 .border(1.dp, if (highlighted || expanded) OnRoadColors.Primary else OnRoadColors.BorderInput, shape)
-                .clickable(enabled = options.isNotEmpty()) { expanded = true }
-                .padding(horizontal = 15.dp),
+                .tap(enabled = options.isNotEmpty()) { expanded = true }
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -761,16 +856,21 @@ fun SelectCard(
     tag: String? = null,
 ) {
     val shape = OnRoadShapes.Field
+    val press = remember { MutableInteractionSource() }
+    val bg by animateColorAsState(if (selected) OnRoadColors.SurfaceSubtle else Color.White, OnRoadMotion.move(), label = "select-bg")
+    val line by animateColorAsState(if (selected) OnRoadColors.Primary else OnRoadColors.BorderInput, OnRoadMotion.move(), label = "select-border")
+    val tick = rememberTick()
     Row(
         modifier
             .fillMaxWidth()
+            .pressScale(press, pressed = 0.985f)
             .clip(shape)
-            .background(if (selected) OnRoadColors.SurfaceSubtle else Color.White)
-            .border(1.dp, if (selected) OnRoadColors.Primary else OnRoadColors.BorderInput, shape)
-            .clickable(onClick = onClick)
-            .padding(start = 17.dp, end = 17.dp, top = 16.dp, bottom = 16.dp),
+            .background(bg)
+            .border(1.dp, line, shape)
+            .clickable(interactionSource = press, indication = LocalIndication.current) { if (!selected) tick(); onClick() }
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
     ) {
-        RadioMark(selected, Modifier.padding(top = 3.dp))
+        RadioMark(selected, Modifier.padding(top = 4.dp))
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = OnRoadType.Headline.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary)
@@ -788,30 +888,47 @@ fun SelectCard(
 
 @Composable
 fun RadioMark(selected: Boolean, modifier: Modifier = Modifier) {
+    val bg by animateColorAsState(if (selected) OnRoadColors.Primary else Color.White, OnRoadMotion.move(OnRoadMotion.FAST), label = "radio-bg")
+    val line by animateColorAsState(if (selected) OnRoadColors.Primary else OnRoadColors.BorderInput, OnRoadMotion.move(OnRoadMotion.FAST), label = "radio-border")
     Box(
         modifier
             .size(18.dp)
             .clip(CircleShape)
-            .background(if (selected) OnRoadColors.Primary else Color.White)
-            .then(if (!selected) Modifier.border(1.dp, OnRoadColors.BorderInput, CircleShape) else Modifier),
+            .background(bg)
+            .border(1.dp, line, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        if (selected) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(12.dp))
+        CheckPop(selected, 12.dp)
     }
 }
 
 @Composable
 fun CheckBoxMark(checked: Boolean, modifier: Modifier = Modifier, size: Dp = 18.dp) {
     val shape = OnRoadShapes.Chip
+    val bg by animateColorAsState(if (checked) OnRoadColors.Primary else Color.White, OnRoadMotion.move(OnRoadMotion.FAST), label = "check-bg")
+    val line by animateColorAsState(if (checked) OnRoadColors.Primary else OnRoadColors.BorderDark, OnRoadMotion.move(OnRoadMotion.FAST), label = "check-border")
     Box(
         modifier
             .size(size)
             .clip(shape)
-            .background(if (checked) OnRoadColors.Primary else Color.White)
-            .border(1.dp, if (checked) OnRoadColors.Primary else OnRoadColors.BorderDark, shape),
+            .background(bg)
+            .border(1.dp, line, shape),
         contentAlignment = Alignment.Center,
     ) {
-        if (checked) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(size * 0.7f))
+        CheckPop(checked, size * 0.7f)
+    }
+}
+
+/** 체크 표시가 톡 튀어나오고, 풀면 오므라들며 사라진다 */
+@Composable
+private fun CheckPop(visible: Boolean, size: Dp) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = scaleIn(OnRoadMotion.enter(OnRoadMotion.FAST), initialScale = 0.4f) + fadeIn(OnRoadMotion.enter(OnRoadMotion.FAST)),
+        exit = scaleOut(OnRoadMotion.exit(), targetScale = 0.4f) + fadeOut(OnRoadMotion.exit()),
+        label = "check-pop",
+    ) {
+        Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(size))
     }
 }
 
@@ -842,9 +959,11 @@ fun OnRoadSlider(
     color: Color = OnRoadColors.Primary,
     enabled: Boolean = true,
 ) {
+    // 값이 일정 칸을 넘을 때마다 아주 짧은 진동 (눈금을 손으로 느끼게)
+    val tick = rememberSliderTick(valueRange)
     Slider(
         value = value,
-        onValueChange = onValueChange,
+        onValueChange = { tick(it); onValueChange(it) },
         valueRange = valueRange,
         enabled = enabled,
         modifier = modifier,
@@ -899,7 +1018,7 @@ fun InfoRow(label: String, value: String, modifier: Modifier = Modifier, valueCo
 /** 금액 줄 (라벨 왼쪽, 값 오른쪽) */
 @Composable
 fun ValueLine(label: String, value: String, emphasize: Boolean = false) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(label, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, modifier = Modifier.weight(1f))
         Text(
             value,
@@ -926,7 +1045,7 @@ fun NumberedPoint(index: Int, text: String, modifier: Modifier = Modifier) {
             Modifier
                 .clip(OnRoadShapes.Badge)
                 .background(OnRoadColors.SurfaceBadge)
-                .padding(horizontal = 6.dp, vertical = 3.dp),
+                .padding(horizontal = 6.dp, vertical = 4.dp),
         ) {
             Text("%02d".format(index), style = OnRoadType.Micro.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
         }
@@ -943,7 +1062,14 @@ fun ProgressBar(
     track: Color = OnRoadColors.SurfaceSlate,
     height: Dp = 4.dp,
 ) {
-    val p by animateFloatAsState(progress.coerceIn(0f, 1f), label = "progress")
+    // 처음 보일 때 0 에서 차오르고, 값이 바뀌면 그만큼만 움직인다
+    var started by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { started = true }
+    val p by animateFloatAsState(
+        if (started) progress.coerceIn(0f, 1f) else 0f,
+        OnRoadMotion.move(600),
+        label = "progress",
+    )
     Box(
         modifier
             .fillMaxWidth()
@@ -1046,43 +1172,48 @@ fun Footnote(text: String, modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * 불러오는 중. 금방 끝나는 요청에 동그라미가 깜빡였다 사라지지 않도록 잠깐 기다렸다가 서서히 나타난다.
+ * 자리는 처음부터 잡아 두어 내용이 들어올 때 화면이 덜컹거리지 않게 한다.
+ * AI 처럼 오래 걸리는 일은 [steps] 를 주면 지금 무엇을 하는지 문구가 차례로 바뀐다 (마지막 문구에서 멈춤).
+ * 빈 상태는 States.kt 의 EmptyState.
+ */
 @Composable
-fun LoadingState(message: String, modifier: Modifier = Modifier) {
+fun LoadingState(message: String, modifier: Modifier = Modifier, steps: List<String> = emptyList()) {
+    val fade = rememberDelayedAlpha(LOADING_DELAY_MS)
+    val lines = remember(message, steps) { listOf(message) + steps }
+    var index by remember(lines) { mutableStateOf(0) }
+    LaunchedEffect(lines) {
+        while (index < lines.lastIndex) {
+            kotlinx.coroutines.delay(LOADING_STEP_MS)
+            index++
+        }
+    }
     Column(
-        modifier.fillMaxWidth().padding(vertical = 48.dp),
+        modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp)
+            .graphicsLayer { alpha = fade },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         CircularProgressIndicator(color = OnRoadColors.Primary, strokeWidth = 2.5.dp, modifier = Modifier.size(28.dp))
         Spacer(Modifier.height(14.dp))
-        Text(message, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, textAlign = TextAlign.Center)
-    }
-}
-
-@Composable
-fun EmptyState(
-    icon: ImageVector,
-    title: String,
-    message: String,
-    modifier: Modifier = Modifier,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
-) {
-    Column(
-        modifier.fillMaxWidth().padding(vertical = 40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        IconTile(icon, size = 48.dp, iconSize = 24.dp, tint = OnRoadColors.Primary, background = OnRoadColors.PrimarySoft)
-        Spacer(Modifier.height(16.dp))
-        Text(title, style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(6.dp))
-        Text(message, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, textAlign = TextAlign.Center)
-        if (actionLabel != null && onAction != null) {
-            Spacer(Modifier.height(20.dp))
-            OnRoadButton(actionLabel, onAction, height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold))
+        AnimatedContent(
+            targetState = lines[index],
+            transitionSpec = { fadeIn(OnRoadMotion.enter()) togetherWith fadeOut(OnRoadMotion.exit()) },
+            label = "loading-step",
+        ) { line ->
+            Text(line, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, textAlign = TextAlign.Center)
         }
     }
 }
+
+/** 불러오는 중 표시를 띄우기 전에 기다리는 시간. 이보다 빨리 끝나면 동그라미 없이 바로 내용이 나온다 */
+private const val LOADING_DELAY_MS = 280L
+
+/** 단계 문구를 바꾸는 간격 */
+private const val LOADING_STEP_MS = 2400L
 
 /** "**굵게**" 마크다운 표기를 AnnotatedString으로 변환 */
 fun richText(raw: String): AnnotatedString = buildAnnotatedString {
