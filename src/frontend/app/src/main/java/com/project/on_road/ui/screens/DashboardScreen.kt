@@ -1,26 +1,13 @@
 package com.project.on_road.ui.screens
 
-import com.project.on_road.ui.components.tap
-
-import com.project.on_road.data.TimelinePlanner
-import androidx.compose.animation.animateContentSize
-import androidx.compose.runtime.key
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import com.project.on_road.data.PlanData
-import com.project.on_road.data.PlanKind
-import com.project.on_road.data.PlanTask
-import com.project.on_road.ui.components.EmptyState
-import com.project.on_road.ui.components.ProgressBar
-import com.project.on_road.ui.components.RadioMark
-import com.project.on_road.ui.theme.OnRoadMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,33 +16,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.Event
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.RecordVoiceOver
-import androidx.compose.material.icons.outlined.Forum
-import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.outlined.Checklist
-import androidx.compose.material.icons.outlined.Calculate
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -68,46 +49,46 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.project.on_road.data.ActionKind
-import com.project.on_road.data.ActivityStore
 import com.project.on_road.data.AppContainer
+import com.project.on_road.data.ApplyResults
 import com.project.on_road.data.ChecklistSummary
-import com.project.on_road.data.DDate
 import com.project.on_road.data.LatestSimulation
-import com.project.on_road.data.NextAction
-import com.project.on_road.data.Policy
-import com.project.on_road.data.RoleplayLevel
-import com.project.on_road.data.RoleplayScenario
-import com.project.on_road.data.TimelineRules
-import com.project.on_road.data.TimelineTask
-import com.project.on_road.data.TopicStat
+import com.project.on_road.data.PlanData
+import com.project.on_road.data.UserProfile
 import com.project.on_road.data.UserStage
-import com.project.on_road.ui.components.IconTile
+import com.project.on_road.ui.components.EmptyState
 import com.project.on_road.ui.components.LogoSlot
 import com.project.on_road.ui.components.OnRoadButton
 import com.project.on_road.ui.components.OnRoadCard
-import com.project.on_road.ui.components.OnRoadSearchBar
 import com.project.on_road.ui.components.OnRoadTag
 import com.project.on_road.ui.components.SectionHeader
-import com.project.on_road.ui.components.SubtleCard
 import com.project.on_road.ui.components.TagStyle
+import com.project.on_road.ui.components.stagger
+import com.project.on_road.ui.components.tap
 import com.project.on_road.ui.screens.navigation.Routes
-import com.project.on_road.ui.screens.navigation.actionRoute
 import com.project.on_road.ui.theme.OnRoadColors
 import com.project.on_road.ui.theme.OnRoadDimens
 import com.project.on_road.ui.theme.OnRoadShapes
 import com.project.on_road.ui.theme.OnRoadType
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
+import java.time.Period
 
 class DashboardViewModel : ViewModel() {
     private val userId get() = AppContainer.session.userId
@@ -119,8 +100,11 @@ class DashboardViewModel : ViewModel() {
         private set
     var latestSimulation by mutableStateOf<LatestSimulation?>(null)
         private set
-    /** 진행 중 체크리스트 (이번 주 할 일 카드의 진행 막대) */
+    /** 신청 체크리스트 (진행 중인 신청) */
     var checklists by mutableStateOf<List<ChecklistSummary>>(emptyList())
+        private set
+    /** 나의 자립 조건 (나이 · 지역 · 상태) */
+    var profile by mutableStateOf<UserProfile?>(null)
         private set
 
     fun load() {
@@ -134,26 +118,72 @@ class DashboardViewModel : ViewModel() {
                 checklists = dash.checklists
                 latestSimulation = dash.latestSimulation
             }
-            // 할 일은 타임라인과 같은 목록(PlanData)에서 → 홈 · 타임라인 · 알림이 같은 일을 말한다.
-            // (예전 서버 추천 '다음 할 일' 요청과 정책 상세 요청은 빼서 홈 요청이 줄었다)
+            // 타임라인 · 알림이 쓰는 할 일 목록도 함께 새로 고친다
             PlanData.refresh(dash?.checklists)
         }
+        viewModelScope.launch { profile = runCatching { AppContainer.api.getUser(id) }.getOrNull() }
     }
 }
 
-private fun dLabel(days: Long): String = when {
-    days > 0 -> "D-$days"
-    days == 0L -> "D-DAY"
-    else -> "D+${-days}"
+/**
+ * 나에게 맞는 지원 정책 (목업). 맞춤 추천 기능이 아직 없어서 화면용 값을 둔다.
+ * id 가 있으면 정책 상세로, 없으면 이름으로 정책 검색을 연다.
+ */
+private data class HomePolicy(
+    val id: String?,
+    val category: String,
+    val name: String,
+    val whenText: String,
+    val unit: String,
+    val amount: String,
+)
+
+private val MockPolicies = listOf(
+    HomePolicy("jarip-allowance", "생활·금융", "자립수당", "상시 신청", "매월", "50만 원"),
+    HomePolicy("settlement", "자립", "자립정착금", "퇴소 시 1회", "최대", "2,000만 원"),
+    HomePolicy("jeonse", "주거", "청년 전세임대", "연중 모집", "보증금", "최대 1.2억"),
+    HomePolicy("employment", "취업", "국민취업지원제도", "연중 신청", "월", "50만 원"),
+    HomePolicy(null, "교육", "자립준비청년 장학금", "학기별 모집", "최대", "등록금 전액"),
+    HomePolicy("medical", "건강", "의료비 지원", "상시 신청", "본인부담", "의료급여 2종"),
+    HomePolicy(null, "상담", "전문 심리상담", "상시 신청", "비용", "무료"),
+)
+
+/** 홈 여백 · 크기 (숫자만 바꿔서 조절) */
+private object HomeSpace {
+    /** 헤더 → 인사 */
+    val GreetTop = 26.dp
+    /** 인사 → 검색창 */
+    val SearchTop = 22.dp
+    /** 섹션 사이 (앞 섹션 끝 → 다음 제목) */
+    val SectionTop = 42.dp
+    /** 섹션 제목 → 내용 */
+    val TitleBottom = 14.dp
+    /** 정책 카드 */
+    val PolicyWidth = 298.dp
+    val PolicyHeight = 112.dp
+    val PolicyGap = 10.dp
+    /** 정책 카드 분야 아이콘: 크기 · 돌린 각도 · 바깥으로 나간 정도 · 진하기 (메인 색 카드는 2배) */
+    val ArtSize = 80.dp
+    const val ArtRotate = -25f
+    val ArtOutX = 20.dp
+    val ArtOutY = 28.dp
+    const val ArtAlpha = 0.08f
+    /** 진행 중인 신청: 큰 카드 → 한 줄 카드 사이 */
+    val RowGap = 8.dp
+    val RowHeight = 50.dp
+    /** 자립 준비도 칸 */
+    val TileGap = 8.dp
+    val TileIconBox = 34.dp
+    val TileTitleTop = 12.dp
+    val TileDescTop = 3.dp
+    /** 맨 아래 여백 */
+    val Bottom = 32.dp
 }
 
-/** 홈 섹션 사이 간격 (다른 화면의 SectionGap 48dp 는 홈에서 너무 길어 스크롤만 늘어난다) */
-private val HomeGap = 28.dp
-
 /**
- * 자립준비청년 홈 (디자인: 자립준비청년 - 홈).
- * 순서: 인사·검색 → 이번 주 할 일 → 바로가기 6칸 → 필수 자립 지식.
- * 색은 메인(Primary #0F172A)과 포인트(Point #34D399)만 쓴다. 포인트는 진행 막대에만.
+ * 자립준비청년 홈.
+ * 순서: 인사 · 검색 → 나의 자립 조건 → 나에게 맞는 지원 정책(가로 카드) → 진행 중인 신청 → 자립 준비도 함께해요.
+ * 정책 카드는 첫 장만 메인 색, 나머지는 흰 카드. 오른쪽 위에 분야 아이콘을 크게 비스듬히 옅게 깐다.
  */
 @Composable
 fun DashboardScreen(
@@ -161,11 +191,7 @@ fun DashboardScreen(
     vm: DashboardViewModel = viewModel(),
 ) {
     LaunchedEffect(Unit) { vm.load() }
-    val session = AppContainer.session
-    val leaveDate = session.leaveDate
-    // 퇴소 전: 퇴소 예정일 기준 / 퇴소 후: 내가 정한 목표일 기준 (같은 d_date, 다른 뜻)
-    val goal = DDate.isGoal(session.status)
-    var query by remember { mutableStateOf("") }
+    val pad = Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)
 
     Column(
         Modifier
@@ -180,91 +206,58 @@ fun DashboardScreen(
             onProfile = { onNavigate(Routes.SETTINGS) },
         )
 
-        Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
-            Spacer(Modifier.height(12.dp))
-            // 서버 d_day 를 쓰고, 아직 못 받았으면 저장된 퇴소일로 계산
-            val days: Long? = if (vm.loaded) vm.dDay?.toLong() else leaveDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }
-            if (days != null) {
-                OnRoadTag(
-                    "${DDate.untilText(session.status, session.goalTitle)} ${dLabel(days)}",
-                    style = TagStyle.Neutral,
-                    modifier = Modifier.tap(onClickLabel = "타임라인 보기") { onNavigate(Routes.SIM_TIMELINE) },
-                )
-                Spacer(Modifier.height(10.dp))
-            }
-            Text("${session.nickname.ifBlank { "회원" }}님,", style = OnRoadType.DisplayRegular, color = OnRoadColors.TextPrimary)
-            Text("오늘 할 일부터 챙겨볼까요?", style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
-            Spacer(Modifier.height(18.dp))
-            OnRoadSearchBar(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = "자립정착금, 공공임대, 근로계약 검토",
-                onSearch = { q -> onNavigate(Routes.policy(query = q)) },
+        // 인사 · 검색
+        Column(pad.stagger(0)) {
+            Spacer(Modifier.height(HomeSpace.GreetTop))
+            Text("나에게 맞는 정책 지원,", style = OnRoadType.DisplayRegular, color = OnRoadColors.TextPrimary)
+            Text("지금 확인해 볼까요?", style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
+            Spacer(Modifier.height(HomeSpace.SearchTop))
+            HomeSearchField(onSearch = { q -> onNavigate(Routes.policy(query = q.trim().ifBlank { null })) })
+        }
+
+        // 나의 자립 조건
+        Column(pad.stagger(1)) {
+            Spacer(Modifier.height(HomeSpace.SectionTop))
+            SectionHeader("나의 자립 조건", actionText = "내 정보 수정", onAction = { onNavigate(Routes.SETTINGS) })
+            Spacer(Modifier.height(HomeSpace.TitleBottom))
+            ConditionTags(vm.profile)
+        }
+
+        // 나에게 맞는 지원 정책
+        Column(Modifier.stagger(2)) {
+            Spacer(Modifier.height(HomeSpace.SectionTop))
+            SectionHeader(
+                "나에게 맞는 지원 정책",
+                modifier = pad,
+                actionText = "전체보기",
+                onAction = { onNavigate(Routes.policy()) },
             )
+            Spacer(Modifier.height(HomeSpace.TitleBottom))
+            PolicyRail(MockPolicies) { p -> onNavigate(p.id?.let(Routes::policyDetail) ?: Routes.policy(query = p.name)) }
+        }
 
-            // ── 1. 이번 주 할 일 (타임라인과 같은 목록) ──
-            Spacer(Modifier.height(HomeGap))
-            SectionHeader("이번 주 할 일", actionText = "전체보기", onAction = { onNavigate(Routes.SIM_TIMELINE) })
-            Spacer(Modifier.height(12.dp))
-            WeekTasks(goal, leaveDate, vm.checklists, onNavigate)
+        // 진행 중인 신청
+        Column(pad.stagger(3)) {
+            Spacer(Modifier.height(HomeSpace.SectionTop))
+            SectionHeader("진행 중인 신청", actionText = "전체보기", onAction = { onNavigate(Routes.CHECKLISTS) })
+            Spacer(Modifier.height(HomeSpace.TitleBottom))
+            Applications(vm.checklists, onNavigate)
+        }
 
-            // ── 자립 준비도: 내 기록 안에만 있던 걸 홈에서 바로 (점수가 오면 부드럽게 펼쳐진다) ──
-            val readiness = PlanData.readiness
-            androidx.compose.animation.AnimatedVisibility(visible = readiness != null) {
-                readiness?.let { r ->
-                    Column {
-                        Spacer(Modifier.height(12.dp))
-                        ReadinessRow(r) { onNavigate(Routes.READINESS) }
-                    }
+        // 자립 준비도 함께해요
+        Column(pad.stagger(4)) {
+            Spacer(Modifier.height(HomeSpace.SectionTop))
+            SectionHeader("자립 준비도 함께해요")
+            Spacer(Modifier.height(HomeSpace.TitleBottom))
+            Row(horizontalArrangement = Arrangement.spacedBy(HomeSpace.TileGap)) {
+                ReadyTile(Icons.Outlined.AccountBalanceWallet, "한 달 생활비 계산하기", "미리 계산해 봐요", Modifier.weight(1f)) {
+                    onNavigate(Routes.SIMULATION)
+                }
+                ReadyTile(Icons.Outlined.ChatBubbleOutline, "정책에 대해 물어보기", "쉽게 알려 드려요", Modifier.weight(1f)) {
+                    onNavigate(Routes.chat())
                 }
             }
-
-            // ── 2. 바로가기: 모든 기능을 한 화면에 ──
-            Spacer(Modifier.height(HomeGap))
-            SectionHeader("바로가기")
-            Spacer(Modifier.height(12.dp))
-            ShortcutGrid(
-                listOf(
-                    Shortcut(
-                        Icons.Outlined.Search, "정책 찾기", "상담 · 검색",
-                        choices = listOf(
-                            Choice("AI 상담", "내 상황을 말하면 맞는 정책을 찾아 줘요") { onNavigate(Routes.chat()) },
-                            Choice("정책 검색", "이름·분야로 직접 찾아봐요") { onNavigate(Routes.policy()) },
-                        ),
-                    ),
-                    Shortcut(Icons.Outlined.Checklist, "체크리스트", "신청 단계별 준비") { onNavigate(Routes.CHECKLISTS) },
-                    Shortcut(Icons.Outlined.EditNote, "서류 작성", "신청서·서류 쓰기") { onNavigate(Routes.DOCS) },
-                    Shortcut(
-                        Icons.Outlined.RecordVoiceOver, "연습하기", "미리 해 보기",
-                        choices = listOf(
-                            Choice("실전 연습", "은행·주민센터·면접") { onNavigate(Routes.ROLEPLAY) },
-                            Choice("한 달 살아보기", "생활비로 한 달 버티기") { onNavigate(Routes.SIM_MONTH) },
-                            Choice("생활 계산", "주거비·저축") { onNavigate(Routes.SIMULATION) },
-                        ),
-                    ),
-                    Shortcut(Icons.Outlined.Event, "타임라인", "퇴소까지 할 일") { onNavigate(Routes.SIM_TIMELINE) },
-                    Shortcut(Icons.Outlined.Insights, "내 기록", "지금까지 해 온 것") { onNavigate(Routes.GROWTH) },
-                ),
-            )
-
-            // ── 3. 필수 자립 지식 ──
-            Spacer(Modifier.height(HomeGap))
-            SectionHeader("필수 자립 지식")
-            Spacer(Modifier.height(12.dp))
-            KnowledgeCard(
-                category = "주거 상식",
-                readTime = "AI에게 물어보기",
-                title = "전입신고와 확정일자, 왜 계약 당일 바로 해야 할까요?",
-                summary = "보증금을 지키는 대항력과 우선변제권을 쉽게 알려 드려요.",
-            ) { onNavigate(Routes.chat("전입신고와 확정일자는 왜 계약 당일 바로 해야 해?")) }
-
-            Spacer(Modifier.height(20.dp))
-            Text(
-                "금액·자격·신청 가능 여부는 담당 기관에서 최종 확인해 주세요.",
-                style = OnRoadType.Caption2,
-                color = OnRoadColors.TextTertiary,
-            )
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(HomeSpace.Bottom))
         }
     }
 }
@@ -286,310 +279,333 @@ private fun HomeHeader(
     ) {
         LogoSlot(size = 36.dp)
         Spacer(Modifier.width(6.dp))
-        Row(Modifier.tap(onClick = onStage), verticalAlignment = Alignment.CenterVertically) {
-            Text(stageLabel, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-            Icon(Icons.Filled.KeyboardArrowDown, "단계·프로필 설정", tint = OnRoadColors.TextTertiary, modifier = Modifier.size(16.dp))
-        }
+        Text(
+            stageLabel,
+            style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+            color = OnRoadColors.TextPrimary,
+            modifier = Modifier.tap(onClickLabel = "단계·프로필 설정", onClick = onStage),
+        )
         Spacer(Modifier.weight(1f))
         IconButton(onClick = onAlarm) {
             Icon(Icons.Outlined.Notifications, "알림", tint = OnRoadColors.TextPrimary)
         }
         IconButton(onClick = onProfile) {
-            Icon(Icons.Filled.AccountCircle, "계정·설정", tint = OnRoadColors.TextPrimary)
+            Icon(Icons.Outlined.AccountCircle, "계정·설정", tint = OnRoadColors.TextPrimary)
         }
     }
 }
 
-/**
- * 이번 주 할 일: 놓친 일 + 7일 안 (최대 3개). 없으면 가장 가까운 다음 할 일 하나.
- * 첫 번째는 크게 (바로 하기 버튼 · 신청 진행 막대), 나머지는 한 줄. 동그라미를 누르면 체크되며 목록에서 빠진다.
- */
+/** 홈 검색창: 정책 검색 화면 검색창과 같은 모양 (흰 바탕 · 회색 테두리, 누르면 테두리가 메인 색) */
 @Composable
-private fun WeekTasks(goal: Boolean, leaveDate: LocalDate?, checklists: List<ChecklistSummary>, onNavigate: (String) -> Unit) {
-    val today = remember { LocalDate.now() }
-    if (goal) {
-        GoalWeek(today, onNavigate)
-        return
-    }
-    if (leaveDate == null) {
-        EmptyState("퇴소일을 정하면 할 일을 날짜별로 알려 드려요.", actionLabel = "날짜 정하기", onAction = { onNavigate(Routes.SIM_TIMELINE) })
-        return
-    }
-    val week = PlanData.thisWeek(today)
-    val shown = week.take(3).ifEmpty { listOfNotNull(PlanData.next(today)) }
-    if (shown.isEmpty()) {
-        EmptyState("남은 할 일을 모두 챙겼어요.", actionLabel = "타임라인 보기", onAction = { onNavigate(Routes.SIM_TIMELINE) })
-        return
-    }
-    Column(
-        Modifier.fillMaxWidth().animateContentSize(OnRoadMotion.move()),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+private fun HomeSearchField(onSearch: (String) -> Unit) {
+    var value by remember { mutableStateOf("") }
+    var focused by remember { mutableStateOf(false) }
+    val shape = OnRoadShapes.Inner
+    val line by androidx.compose.animation.animateColorAsState(
+        if (focused) OnRoadColors.Primary else OnRoadColors.BorderSlate,
+        com.project.on_road.ui.theme.OnRoadMotion.move(),
+        label = "home-search-line",
+    )
+    val active = value.isNotBlank()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(shape)
+            .background(OnRoadColors.Surface)
+            .border(1.dp, line, shape)
+            .padding(start = 16.dp, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        shown.forEachIndexed { i, t ->
-            key(t.id) {
-                if (i == 0) HeroTask(t, today, checklists.firstOrNull { "cl-${it.policyId}" == t.id }, onNavigate)
-                else TaskLine(t, today, onNavigate)
+        BasicTextField(
+            value = value,
+            onValueChange = { value = it },
+            singleLine = true,
+            textStyle = OnRoadType.Body2.copy(color = OnRoadColors.TextPrimary),
+            cursorBrush = SolidColor(OnRoadColors.Primary),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch(value) }),
+            modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
+            decorationBox = { inner ->
+                if (value.isEmpty()) Text("필요한 자립 지원을 검색해 보세요", style = OnRoadType.Body2, color = OnRoadColors.TextQuaternary, maxLines = 1)
+                inner()
+            },
+        )
+        if (value.isNotEmpty()) {
+            Box(
+                Modifier.size(32.dp).clip(OnRoadShapes.Field).tap(onClickLabel = "검색어 지우기") { value = "" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Close, "지우기", tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(2.dp))
+        }
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(OnRoadShapes.Field)
+                .background(if (active) OnRoadColors.Primary else Color.Transparent)
+                .tap(onClickLabel = "찾기") { onSearch(value) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Search, "찾기", tint = if (active) Color.White else OnRoadColors.TextTertiary, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+/** 나의 자립 조건: 만 나이 · 지역 · 단계 · 지금 상태 (회색 태그) */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ConditionTags(profile: UserProfile?) {
+    val session = AppContainer.session
+    val tags = buildList {
+        profile?.let { add("만 ${Period.between(it.birthDate, LocalDate.now()).years}세") }
+        profile?.region?.takeIf { it.isNotBlank() }?.let { add("$it 거주") }
+        add((profile?.stage ?: session.stage).label)
+        (profile?.status ?: session.status)?.let { add(it.label.replace(" ", "")) }
+    }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        tags.forEach { OnRoadTag(it, style = TagStyle.Neutral) }
+    }
+}
+
+/** 나에게 맞는 지원 정책: 옆으로 넘기는 카드 (카드 한 장씩 맞춰 멈춘다) */
+@Composable
+private fun PolicyRail(policies: List<HomePolicy>, onOpen: (HomePolicy) -> Unit) {
+    val state = rememberLazyListState()
+    LazyRow(
+        state = state,
+        flingBehavior = rememberSnapFlingBehavior(lazyListState = state),
+        contentPadding = PaddingValues(horizontal = OnRoadDimens.ScreenPadding),
+        horizontalArrangement = Arrangement.spacedBy(HomeSpace.PolicyGap),
+    ) {
+        items(policies, key = { it.name }) { p ->
+            PolicyCard(p, main = p === policies.first()) { onOpen(p) }
+        }
+    }
+}
+
+/** 정책 카드: 왼쪽 분야 · 이름 · 신청 시기, 오른쪽 아래 금액. 오른쪽 위에 분야 아이콘 */
+@Composable
+private fun PolicyCard(p: HomePolicy, main: Boolean, onClick: () -> Unit) {
+    val shape = OnRoadShapes.Card
+    val sub = if (main) OnRoadColors.TextQuaternary else OnRoadColors.TextTertiary
+    val fg = if (main) Color.White else OnRoadColors.TextPrimary
+    Box(
+        Modifier
+            .width(HomeSpace.PolicyWidth)
+            .height(HomeSpace.PolicyHeight)
+            .clip(shape)
+            .background(if (main) OnRoadColors.Primary else OnRoadColors.Surface)
+            .then(if (main) Modifier else Modifier.border(1.dp, OnRoadColors.Border, shape))
+            .tap(onClickLabel = "${p.name} 보기", onClick = onClick),
+    ) {
+        Icon(
+            CategoryArt.of(p.category),
+            null,
+            tint = (if (main) Color.White else OnRoadColors.Primary).copy(alpha = if (main) HomeSpace.ArtAlpha * 2 else HomeSpace.ArtAlpha),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = HomeSpace.ArtOutX, y = -HomeSpace.ArtOutY)
+                .size(HomeSpace.ArtSize)
+                .rotate(HomeSpace.ArtRotate),
+        )
+        Row(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp)) {
+            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+                Text(p.category, style = OnRoadType.Micro, color = sub, maxLines = 1)
+                Text(p.name, style = OnRoadType.Body1.copy(fontWeight = FontWeight.Bold), color = fg, maxLines = 1, overflow = TextOverflow.Clip)
+                Text(p.whenText, style = OnRoadType.Caption2, color = sub, maxLines = 1, overflow = TextOverflow.Clip)
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.fillMaxHeight(), verticalArrangement = Arrangement.Bottom, horizontalAlignment = Alignment.End) {
+                Text(p.unit, style = OnRoadType.Micro, color = sub)
+                Text(p.amount, style = OnRoadType.Title1.copy(fontSize = 22.sp, letterSpacing = (-0.4).sp), color = fg, maxLines = 1)
             }
         }
     }
 }
 
-/** 첫 번째 할 일: 흰 카드 · 제목 · 한 줄 설명 · (신청이면 진행 막대) · 바로 하기 */
+/** 진행 중인 신청: 맨 앞 하나는 큰 카드(다음 단계 버튼), 나머지는 한 줄 */
 @Composable
-private fun HeroTask(t: PlanTask, today: LocalDate, checklist: ChecklistSummary?, onNavigate: (String) -> Unit) {
-    val haptic = LocalHapticFeedback.current
+private fun Applications(checklists: List<ChecklistSummary>, onNavigate: (String) -> Unit) {
+    val ongoing = checklists
+        .filter { ApplyResults.statusOf(it.policyId, it.completed) != com.project.on_road.data.ApplyStatus.REJECTED }
+        .sortedBy { if (it.completed) 1 else 0 }
+    if (ongoing.isEmpty()) {
+        EmptyState("아직 진행 중인 신청이 없어요.", actionLabel = "정책 찾기", onAction = { onNavigate(Routes.policy()) })
+        return
+    }
+    val first = ongoing.first()
     OnRoadCard(
         Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(20.dp),
-        onClick = { onNavigate(t.route()) },
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 20.dp),
+        onClick = { onNavigate(Routes.checklist(first.policyId)) },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OnRoadTag(t.whenText(today), style = TagStyle.Neutral)
-            Spacer(Modifier.weight(1f))
-            // 정책 할 일은 체크리스트에서 끝낸다
-            if (t.kind != PlanKind.POLICY) {
-                Text(
-                    "끝냈어요",
-                    style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
-                    color = OnRoadColors.TextTertiary,
-                    modifier = Modifier
-                        .clip(OnRoadShapes.Chip)
-                        .tap {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            PlanData.toggleDone(t.id)
-                        }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                )
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        Text(t.title, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(6.dp))
-        Text(t.description, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        // 진행 중 신청이면 진행 막대 + 지금 단계 (포인트 색은 여기에만)
-        if (checklist != null && checklist.totalSteps > 0) {
-            Spacer(Modifier.height(14.dp))
-            ProgressBar(checklist.progress, color = OnRoadColors.Point, track = OnRoadColors.SurfaceMuted, height = 6.dp)
-            Spacer(Modifier.height(6.dp))
             Text(
-                "${checklist.doneSteps}/${checklist.totalSteps}단계 · 지금 ${checklist.nextStep?.title ?: "모두 완료"}",
-                style = OnRoadType.Caption2,
-                color = OnRoadColors.TextSecondary,
+                first.policyName,
+                style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold),
+                color = OnRoadColors.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Clip,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                ApplyResults.statusOf(first.policyId, first.completed).label,
+                style = OnRoadType.Caption,
+                color = OnRoadColors.TextTertiary,
             )
         }
+        Spacer(Modifier.height(3.dp))
+        Text(
+            "${first.totalSteps}단계 중 ${first.doneSteps}단계 끝냈어요",
+            style = OnRoadType.Caption,
+            color = OnRoadColors.TextTertiary,
+        )
         Spacer(Modifier.height(16.dp))
         OnRoadButton(
-            text = t.actions.firstOrNull()?.label ?: "타임라인에서 보기",
-            onClick = { onNavigate(t.route()) },
+            text = first.nextStep?.let { "${it.title}하기" } ?: "신청 결과 확인하기",
+            onClick = { onNavigate(Routes.checklist(first.policyId)) },
             modifier = Modifier.fillMaxWidth(),
-            height = 44.dp,
+            height = 46.dp,
             textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
             trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
         )
     }
-}
-
-/** 나머지 할 일 한 줄: 동그라미(끝내기) · 날짜 · 제목 · › */
-@Composable
-private fun TaskLine(t: PlanTask, today: LocalDate, onNavigate: (String) -> Unit) {
-    val haptic = LocalHapticFeedback.current
-    // 누르면 체크가 톡 찍히는 걸 잠깐 보여 준 뒤 목록에서 빠진다
-    var checking by remember(t.id) { mutableStateOf(false) }
-    LaunchedEffect(checking) {
-        if (checking) {
-            kotlinx.coroutines.delay(380)
-            PlanData.toggleDone(t.id)
-        }
-    }
-    SubtleCard(Modifier.fillMaxWidth().heightIn(min = 64.dp), onClick = { onNavigate(t.route()) }, contentPadding = PaddingValues(15.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (t.kind != PlanKind.POLICY) {
-                Box(
-                    Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .tap(enabled = !checking, onClickLabel = "끝냈어요") {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            checking = true
-                        },
-                    contentAlignment = Alignment.Center,
-                ) { RadioMark(checking) }
-                Spacer(Modifier.width(8.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Text(t.whenText(today), style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, maxLines = 1)
-                Spacer(Modifier.height(2.dp))
-                Text(t.title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
-        }
+    ongoing.drop(1).take(2).forEach { c ->
+        Spacer(Modifier.height(HomeSpace.RowGap))
+        ApplicationRow(
+            name = c.policyName,
+            state = c.nextStep?.let { "지금 · ${it.title}" } ?: ApplyResults.statusOf(c.policyId, c.completed).label,
+        ) { onNavigate(Routes.checklist(c.policyId)) }
     }
 }
 
-/** 퇴소 후 목표 D-day 를 쓰는 사람: 내가 정한 목표 할 일 */
+/** 한 줄 신청: 이름(굵게) · 오른쪽 상태 · › */
 @Composable
-private fun GoalWeek(today: LocalDate, onNavigate: (String) -> Unit) {
-    val s = AppContainer.session
-    val open = s.goalTasks.filter { !it.done && !it.date.isBefore(today) }.sortedBy { it.date }
-    val shown = open.filter { !it.date.isAfter(today.plusDays(7)) }.take(3).ifEmpty { open.take(1) }
-    if (shown.isEmpty()) {
-        EmptyState("목표까지 할 일을 정해 두면 여기에서 챙겨 드려요.", actionLabel = "할 일 정하기", onAction = { onNavigate(Routes.SIM_TIMELINE) })
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        shown.forEach { g ->
-            ContinueRow(s.goalTitle?.takeIf { it.isNotBlank() } ?: "목표 할 일", g.title, dLabel(ChronoUnit.DAYS.between(today, g.date))) {
-                onNavigate(Routes.SIM_TIMELINE)
-            }
-        }
-    }
-}
-
-/** 바로가기 한 칸 */
-private class Shortcut(
-    val icon: ImageVector,
-    val label: String,
-    val subtitle: String,
-    /** 묶은 바로가기: 누르면 고르는 시트 (예: 정책 찾기 → AI 상담 / 정책 검색) */
-    val choices: List<Choice> = emptyList(),
-    val onClick: () -> Unit = {},
-)
-
-/** 묶은 바로가기 안의 선택지 */
-private class Choice(val title: String, val subtitle: String, val onClick: () -> Unit)
-
-/** 바로가기: 3칸 × 2줄. 비슷한 기능은 한 칸에 묶고 누르면 고른다 */
-@Composable
-private fun ShortcutGrid(items: List<Shortcut>) {
-    var open by remember { mutableStateOf<Shortcut?>(null) }
-    // 전체 테두리 없이, 칸마다 다음 일정과 같은 연회색 카드
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.chunked(3).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { item ->
-                    ShortcutCell(item, Modifier.weight(1f)) {
-                        if (item.choices.isEmpty()) item.onClick() else open = item
-                    }
-                }
-                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-            }
-        }
-    }
-    open?.let { group -> ChoiceSheet(group, onDismiss = { open = null }) }
-}
-
-/** 묶은 바로가기를 누르면 나오는 시트 */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ChoiceSheet(group: Shortcut, onDismiss: () -> Unit) {
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, containerColor = Color.White, tonalElevation = 0.dp) {
-        Column(Modifier.padding(horizontal = 24.dp).navigationBarsPadding()) {
-            Text(group.label, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary)
-            Spacer(Modifier.height(16.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                group.choices.forEach { c ->
-                    SubtleCard(
-                        Modifier.fillMaxWidth().heightIn(min = 64.dp),
-                        onClick = { onDismiss(); c.onClick() },
-                        contentPadding = PaddingValues(15.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(c.title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-                                Text(c.subtitle, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
-                            }
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(24.dp))
-        }
-    }
-}
-
-@Composable
-private fun ShortcutCell(item: Shortcut, modifier: Modifier, onClick: () -> Unit) {
-    // 연회색 카드 + 왼쪽 위 아이콘 상자 → 이름 → 한 줄 설명
-    SubtleCard(
-        modifier.heightIn(min = 104.dp),
-        onClick = onClick,
-        contentPadding = PaddingValues(start = 14.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
+private fun ApplicationRow(name: String, state: String, onClick: () -> Unit) {
+    val shape = OnRoadShapes.Inner
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(HomeSpace.RowHeight)
+            .clip(shape)
+            .background(OnRoadColors.Surface)
+            .border(1.dp, OnRoadColors.Border, shape)
+            .tap(onClick = onClick)
+            .padding(start = 18.dp, end = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconTile(item.icon)
-        Spacer(Modifier.height(14.dp))
-        Text(item.label, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(2.dp))
-        Text(item.subtitle, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            name,
+            style = OnRoadType.Body3.copy(fontWeight = FontWeight.Bold),
+            color = OnRoadColors.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+            modifier = Modifier.weight(1f),
+        )
+        Text(state, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1)
+        Spacer(Modifier.width(8.dp))
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
     }
 }
 
-/** 한 줄 카드: 작은 이름 · 제목 · 오른쪽 값 (아이콘 없음) */
+/** 자립 준비도 칸: 연회색 바탕 · 회색 테두리. 왼쪽 위 흰 아이콘 상자, 오른쪽 위 ›, 아래 제목 · 짧은 설명 */
 @Composable
-private fun ContinueRow(label: String, title: String, trailing: String? = null, onClick: () -> Unit) {
-    SubtleCard(Modifier.fillMaxWidth().heightIn(min = 64.dp), onClick = onClick, contentPadding = PaddingValues(15.dp)) {
+private fun ReadyTile(icon: ImageVector, title: String, desc: String, modifier: Modifier, onClick: () -> Unit) {
+    val shape = OnRoadShapes.Card
+    Column(
+        modifier
+            .clip(shape)
+            .background(OnRoadColors.SurfaceSubtle)
+            .border(1.dp, OnRoadColors.Border, shape)
+            .tap(onClickLabel = title, onClick = onClick)
+            .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 15.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(label, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(2.dp))
-                Text(title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            trailing?.let {
-                Spacer(Modifier.width(8.dp))
-                Text(it, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary)
-            }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
-
-@Composable
-private fun KnowledgeCard(category: String, readTime: String, title: String, summary: String, onClick: () -> Unit) {
-    OnRoadCard(Modifier.fillMaxWidth(), onClick = onClick) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OnRoadTag(category, style = TagStyle.Neutral)
+            val box = RoundedCornerShape(10.dp)
+            Box(
+                Modifier
+                    .size(HomeSpace.TileIconBox)
+                    .clip(box)
+                    .background(OnRoadColors.Surface)
+                    .border(1.dp, OnRoadColors.Border, box),
+                contentAlignment = Alignment.Center,
+            ) { Icon(icon, null, tint = OnRoadColors.TextPrimary, modifier = Modifier.size(18.dp)) }
             Spacer(Modifier.weight(1f))
-            Text(readTime, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(16.dp))
         }
-        Spacer(Modifier.height(14.dp))
-        Text(title, style = OnRoadType.Headline.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary)
-        Spacer(Modifier.height(10.dp))
-        Text(summary, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
+        Spacer(Modifier.height(HomeSpace.TileTitleTop))
+        Text(title, style = OnRoadType.Body3.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Clip)
+        Spacer(Modifier.height(HomeSpace.TileDescTop))
+        Text(desc, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
     }
 }
 
-/** 홈 자립 준비도 한 줄: 점수 · 진행 막대(포인트 색) · 더 챙길 영역 */
-@Composable
-private fun ReadinessRow(r: com.project.on_road.data.Readiness, onClick: () -> Unit) {
-    val weak = r.areas.firstOrNull { it.key == r.weakest }
-    SubtleCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = PaddingValues(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "자립 준비도",
-                style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
-                color = OnRoadColors.TextSecondary,
-                modifier = Modifier.weight(1f),
+/**
+ * 정책 카드 분야 아이콘 (단색 선). 주거 집 · 생활·금융 원화 · 자립 새싹 · 취업 가방 · 교육 책 · 건강 알약 · 상담 말풍선.
+ * 24 칸 기준 선 그림이라 크기를 키워도 선이 깔끔하다.
+ */
+private object CategoryArt {
+    private class Part(val d: String, val rotate: Float = 0f)
+
+    private fun line(name: String, vararg parts: Part): ImageVector {
+        val b = ImageVector.Builder(name = name, defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f)
+        parts.forEach { part ->
+            if (part.rotate != 0f) b.addGroup(rotate = part.rotate, pivotX = 12f, pivotY = 12f)
+            b.addPath(
+                pathData = addPathNodes(part.d),
+                fill = null,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.5f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
             )
-            if (r.weekDelta > 0) {
-                Text("이번 주 +${r.weekDelta} · ", style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
-            }
-            Text("${r.score}점", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
+            if (part.rotate != 0f) b.clearGroup()
         }
-        Spacer(Modifier.height(10.dp))
-        ProgressBar(r.score / 100f, color = OnRoadColors.Point, track = OnRoadColors.SurfaceMuted, height = 6.dp)
-        val next = r.nextLevel
-        if (weak != null || next != null) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                listOfNotNull(
-                    next?.let { (label, points) -> "‘$label’까지 ${points}점" },
-                    weak?.let { "더 챙길 영역 · ${it.label}" },
-                ).joinToString("  ·  "),
-                style = OnRoadType.Caption2,
-                color = OnRoadColors.TextSecondary,
-            )
-        }
+        return b.build()
+    }
+
+    private fun line(name: String, vararg paths: String): ImageVector = line(name, *paths.map { Part(it) }.toTypedArray())
+
+    private val house by lazy { line("house", "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z") }
+    private val won by lazy {
+        line("won", "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0", "M7.5 8.5l2 7 2.5-6 2.5 6 2-7M7 11.5h10")
+    }
+    private val sprout by lazy {
+        line(
+            "sprout",
+            "M12 21v-9",
+            "M12 12C12 7.5 8.5 5 4 5c0 4.5 3.5 7 8 7z",
+            "M12 14c0-4 3-6.5 8-6.5 0 4-3 6.5-8 6.5z",
+        )
+    }
+    private val bag by lazy {
+        line(
+            "bag",
+            "M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z",
+            "M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 12.5h18M11 12.5v2h2v-2",
+        )
+    }
+    private val book by lazy {
+        line("book", "M3 5c3-1 6-1 9 1 3-2 6-2 9-1v14c-3-1-6-1-9 1-3-2-6-2-9-1z", "M12 6v14")
+    }
+    private val pill by lazy {
+        line(
+            "pill",
+            Part("M6.5 8.5h11a3.5 3.5 0 0 1 0 7h-11a3.5 3.5 0 0 1 0-7z", rotate = -35f),
+            Part("M10 9.2l4 5.6"),
+        )
+    }
+    private val bubble by lazy { line("bubble", "M4 12a8 7 0 1 1 3.5 5.8L4 19l1.2-3.2A6.6 6.6 0 0 1 4 12z") }
+
+    fun of(category: String): ImageVector = when (category) {
+        "주거" -> house
+        "생활·금융", "생활비", "금융" -> won
+        "취업" -> bag
+        "교육" -> book
+        "건강", "의료" -> pill
+        "상담" -> bubble
+        else -> sprout // 자립 · 기타
     }
 }

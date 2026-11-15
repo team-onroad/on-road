@@ -168,7 +168,7 @@ private fun Expandable(title: String, content: @Composable () -> Unit) {
             Text(title, style = OnRoadType.Micro.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
             Icon(Icons.Filled.KeyboardArrowDown, null, tint = OnRoadColors.TextMuted, modifier = Modifier.size(18.dp).rotate(arrow))
         }
-        AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+        AnimatedVisibility(open, enter = expandVertically(com.project.on_road.ui.theme.OnRoadMotion.spatialSize) + fadeIn(com.project.on_road.ui.theme.OnRoadMotion.enter()), exit = shrinkVertically(com.project.on_road.ui.theme.OnRoadMotion.collapse()) + fadeOut(com.project.on_road.ui.theme.OnRoadMotion.exit())) {
             Column(Modifier.padding(top = 6.dp)) { content() }
         }
     }

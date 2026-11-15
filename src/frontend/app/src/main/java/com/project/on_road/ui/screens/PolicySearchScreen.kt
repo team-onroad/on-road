@@ -357,8 +357,8 @@ fun PolicySearchScreen(
             Spacer(Modifier.height(topGap))
             AnimatedVisibility(
                 visible = start,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut(),
+                enter = expandVertically(com.project.on_road.ui.theme.OnRoadMotion.spatialSize) + fadeIn(com.project.on_road.ui.theme.OnRoadMotion.enter()),
+                exit = shrinkVertically(com.project.on_road.ui.theme.OnRoadMotion.collapse()) + fadeOut(com.project.on_road.ui.theme.OnRoadMotion.exit()),
             ) {
                 Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)) {
                     // 홈 인사말과 같은 크기 · 위계 (첫 줄 보통, 둘째 줄 굵게)
@@ -379,8 +379,8 @@ fun PolicySearchScreen(
             )
             AnimatedVisibility(
                 visible = start,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut(),
+                enter = expandVertically(com.project.on_road.ui.theme.OnRoadMotion.spatialSize) + fadeIn(com.project.on_road.ui.theme.OnRoadMotion.enter()),
+                exit = shrinkVertically(com.project.on_road.ui.theme.OnRoadMotion.collapse()) + fadeOut(com.project.on_road.ui.theme.OnRoadMotion.exit()),
             ) {
                 Column(Modifier.padding(horizontal = OnRoadDimens.ScreenPadding).padding(top = 16.dp)) {
                     KeywordTags(keywordsFor(AppState.stage)) { submit(it) }
@@ -534,20 +534,20 @@ fun PolicySearchScreen(
             }
         }
 
-        AnimatedVisibility(
-            visible = vm.compareIds.isNotEmpty(),
-            enter = slideInVertically { it } + fadeIn(),
-            exit = slideOutVertically { it } + fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter),
-        ) {
-            CompareBar(count = vm.compareIds.size) { onCompare(vm.compareIds.toList()) }
+        // 'n개 담았어요' 바: 메뉴 그라데이션 위에 그려야 해서 OnRoadNavHost 가 그린다. 여기서는 값만 넘긴다
+        val trayCount = vm.compareIds.size
+        val latestCompare by androidx.compose.runtime.rememberUpdatedState { onCompare(vm.compareIds.toList()) }
+        androidx.compose.runtime.LaunchedEffect(trayCount) {
+            com.project.on_road.ui.components.CompareTray.onCompare = { latestCompare() }
+            com.project.on_road.ui.components.CompareTray.count = trayCount
         }
+        androidx.compose.runtime.DisposableEffect(Unit) { onDispose { com.project.on_road.ui.components.CompareTray.count = 0 } }
 
         // 오른쪽 맨 위 '상담하기': 처음 화면에서만 (검색해서 결과가 나오면 숨기고, 결과 맨 아래 '찾는 게 없나요?' 카드로 대신한다)
         AnimatedVisibility(
             visible = vm.result == null && !vm.loading && vm.error == null && !searching,
             enter = fadeIn(),
-            exit = fadeOut(),
+            exit = fadeOut(com.project.on_road.ui.theme.OnRoadMotion.exit()),
             modifier = Modifier.align(Alignment.TopEnd).padding(top = SearchSpace.ChatIconTop, end = OnRoadDimens.ScreenPadding),
         ) {
             // 흰 테두리 작은 버튼: 아이콘 + '상담하기' (아이콘만 있으면 뜻이 잘 안 보여서)
@@ -560,8 +560,8 @@ fun PolicySearchScreen(
                     .padding(horizontal = 12.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                /*Icon(Icons.Outlined.SupportAgent, null, tint = OnRoadColors.TextSecondary, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))*/
+                Icon(Icons.Outlined.SupportAgent, null, tint = OnRoadColors.TextSecondary, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
                 Text("상담하기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary)
             }
         }
@@ -974,7 +974,7 @@ fun PolicyCard(
                 Spacer(Modifier.width(4.dp))
                 Icon(Icons.Filled.KeyboardArrowDown, null, tint = OnRoadColors.TextMuted, modifier = Modifier.size(20.dp).rotate(arrow))
             }
-            AnimatedVisibility(evidenceOpen, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            AnimatedVisibility(evidenceOpen, enter = expandVertically(com.project.on_road.ui.theme.OnRoadMotion.spatialSize) + fadeIn(com.project.on_road.ui.theme.OnRoadMotion.enter()), exit = shrinkVertically(com.project.on_road.ui.theme.OnRoadMotion.collapse()) + fadeOut(com.project.on_road.ui.theme.OnRoadMotion.exit())) {
                 Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     policy.evidence.forEach { ev ->
                         Row(Modifier.height(IntrinsicSize.Min)) {
@@ -1041,7 +1041,7 @@ fun PolicyCard(
 }
 
 @Composable
-private fun CompareBar(count: Int, onCompare: () -> Unit) {
+internal fun CompareBar(count: Int, onCompare: () -> Unit) {
     Row(
         Modifier
             .padding(16.dp)

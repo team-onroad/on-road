@@ -9,6 +9,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import com.project.on_road.ui.components.tap
 import androidx.compose.foundation.layout.size
@@ -35,6 +36,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import com.project.on_road.ui.theme.OnRoadMotion
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -339,6 +342,9 @@ fun OnRoadNavHost() {
     val safeBottom = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
     // 키보드가 올라오면 하단 메뉴를 숨긴다 (검색할 때 자리를 차지하지 않게)
     val imeVisible = WindowInsets.isImeVisible
+    // 메뉴가 떠 있는지 화면들에 알려 준다 (화면 아래 그라데이션과 메뉴 그라데이션이 겹치지 않게)
+    val barOn = currentRoute in TAB_ROUTES && !imeVisible
+    androidx.compose.runtime.SideEffect { com.project.on_road.ui.components.BarShown.value = barOn }
 
     ProvideVoice {
         CompositionLocalProvider(LocalGoHome provides goHome, LocalShowHome provides showHomeFor) {
@@ -379,7 +385,8 @@ fun OnRoadNavHost() {
                         .align(Alignment.BottomEnd)
                         .padding(
                             end = com.project.on_road.ui.components.BarSpace.Margin,
-                            bottom = com.project.on_road.ui.components.BarSpace.Margin * 2 - barInset.coerceAtMost(com.project.on_road.ui.components.BarSpace.Margin) +
+                            bottom = com.project.on_road.ui.components.BarSpace.Margin - barInset.coerceAtMost(com.project.on_road.ui.components.BarSpace.Margin) +
+                                com.project.on_road.ui.components.BarSpace.Top +
                                 60.dp + com.project.on_road.ui.components.FloatingAction.Gap,
                         ),
                 ) {
@@ -398,6 +405,25 @@ fun OnRoadNavHost() {
                             modifier = Modifier.size(26.dp),
                         )
                     }
+                }
+                // 검색 탭 'n개 담았어요' 바: 메뉴 · 그라데이션 '위'에 그린다 (흐려지지 않게).
+                // 메뉴가 있으면 메뉴 바로 위에, 메뉴가 숨으면(키보드 등) 화면 맨 아래에
+                val trayCount = com.project.on_road.ui.components.CompareTray.count
+                var lastTray by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+                if (trayCount > 0) lastTray = trayCount
+                val barShown = currentRoute in TAB_ROUTES && !imeVisible
+                val trayBottom by androidx.compose.animation.core.animateDpAsState(
+                    if (barShown) 60.dp + (com.project.on_road.ui.components.BarSpace.Margin - barInset).coerceAtLeast(0.dp) else 0.dp,
+                    OnRoadMotion.move(),
+                    label = "tray-bottom",
+                )
+                AnimatedVisibility(
+                    visible = trayCount > 0,
+                    enter = androidx.compose.animation.slideInVertically(OnRoadMotion.enter()) { it } + fadeIn(OnRoadMotion.enter()),
+                    exit = androidx.compose.animation.slideOutVertically(OnRoadMotion.exit()) { it } + fadeOut(OnRoadMotion.exit()),
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = trayBottom),
+                ) {
+                    com.project.on_road.ui.screens.CompareBar(count = lastTray) { com.project.on_road.ui.components.CompareTray.onCompare() }
                 }
                 // 저장했어요·복사했어요 같은 짧은 메시지가 모든 화면 위에 뜬다
                 ToastHost()
@@ -428,15 +454,19 @@ private fun OnRoadGraph(
         exitTransition = {
             if (isTabSwitch()) fadeOut(tween(OnRoadMotion.FAST))
             // 물러나는 화면은 살짝 어두워지듯 옅어져서 새 화면이 위에 올라오는 느낌
-            else slideOutHorizontally(OnRoadMotion.spatialOffset) { w -> -w / 4 } + fadeOut(tween(OnRoadMotion.SCREEN_OUT), targetAlpha = 0.6f)
+            else slideOutHorizontally(OnRoadMotion.spatialOffset) { w -> -w / OnRoadMotion.BACK_SHIFT } +
+                fadeOut(tween(OnRoadMotion.SCREEN_IN, easing = OnRoadMotion.Emphasized), targetAlpha = OnRoadMotion.BACK_ALPHA)
         },
+        // 뒤로: 두 화면이 같은 시간 · 같은 곡선으로 함께 움직인다 (예전엔 스프링과 시간이 섞여 따로 놀고,
+        // 아래 화면이 많이 어두웠다가 밝아져서 어색했다)
         popEnterTransition = {
             if (isTabSwitch()) fadeIn(tween(OnRoadMotion.CONTENT, easing = OnRoadMotion.EmphasizedDecelerate))
-            else slideInHorizontally(OnRoadMotion.spatialOffset) { w -> -w / 4 } + fadeIn(tween(OnRoadMotion.SCREEN_IN), initialAlpha = 0.6f)
+            else slideInHorizontally(tween(OnRoadMotion.SCREEN_OUT, easing = OnRoadMotion.Emphasized)) { w -> -w / OnRoadMotion.BACK_SHIFT } +
+                fadeIn(tween(OnRoadMotion.SCREEN_OUT, easing = OnRoadMotion.Emphasized), initialAlpha = OnRoadMotion.BACK_ALPHA)
         },
         popExitTransition = {
             if (isTabSwitch()) fadeOut(tween(OnRoadMotion.FAST))
-            else slideOutHorizontally(OnRoadMotion.spatialOffset) { w -> w }
+            else slideOutHorizontally(tween(OnRoadMotion.SCREEN_OUT, easing = OnRoadMotion.Emphasized)) { w -> w }
         },
     ) {
         screen(Routes.ONBOARDING) {

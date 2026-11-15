@@ -175,18 +175,15 @@ fun OnRoadTopBar(
 }
 
 /** 상단바 + 세로 스크롤 본문 (+ 하단 고정 버튼). 대부분의 하위 화면이 이 뼈대를 쓴다. */
-/** 상단 바의 홈 버튼: 집 아이콘 + "홈" 글자 (X 아이콘은 닫기로 오해하기 쉬워 바꿈) */
+/** 상단 바의 홈 버튼: 글자 없이 하단 메뉴와 같은 채운 홈 아이콘 (NavIcons.homeSelected) */
 @Composable
 private fun HomeButton(onClick: () -> Unit) {
-    Column(
-        Modifier
-            .clip(OnRoadShapes.Field)
-            .tap(onClickLabel = "홈 화면으로 가기", onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(Icons.Outlined.Home, contentDescription = null, tint = OnRoadColors.TextSecondary, modifier = Modifier.size(20.dp))
-        Text("홈", style = OnRoadType.Tiny, color = OnRoadColors.TextSecondary)
+    IconButton(onClick = onClick) {
+        Icon(
+            NavIcons.homeSelected,
+            contentDescription = "홈 화면으로 가기",
+            tint = OnRoadColors.TextPrimary.copy(alpha = 0.85f),
+        )
     }
 }
 
@@ -202,33 +199,59 @@ fun OnRoadScreen(
     Column(modifier.fillMaxSize().background(OnRoadColors.Background)) {
         // 위 바 아래 구분선 없이 (앱 전체 구분선 쓰지 않기)
         OnRoadTopBar(title = title, onBack = onBack, trailing = trailing, divider = false)
-        Column(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = OnRoadDimens.ScreenPadding),
-        ) {
-            Spacer(Modifier.height(OnRoadDimens.ScreenTop))
-            // 내용이 늘거나 줄 때(불러온 뒤, 펼치기·접기) 높이가 툭 바뀌지 않고 부드럽게 따라간다
+        Box(Modifier.weight(1f).fillMaxWidth()) {
             Column(
                 Modifier
-                    .fillMaxWidth()
-                    .reveal()
-                    .animateContentSize(com.project.on_road.ui.theme.OnRoadMotion.move()),
-                content = content,
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = OnRoadDimens.ScreenPadding),
+            ) {
+                Spacer(Modifier.height(OnRoadDimens.ScreenTop))
+                // 내용이 늘거나 줄 때(불러온 뒤, 펼치기·접기) 높이가 툭 바뀌지 않고 부드럽게 따라간다
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .reveal()
+                        .animateContentSize(com.project.on_road.ui.theme.OnRoadMotion.move()),
+                    content = content,
+                )
+                Spacer(Modifier.height(32.dp))
+            }
+            // 아래 그라데이션: 버튼이 있으면 버튼 영역 바로 위에서(구분선 대신), 없으면 화면 맨 아래 여백 쪽으로 내용이 사라진다
+            // 하단 메뉴가 떠 있는 탭 화면은 메뉴 그라데이션 하나만 (두 겹 방지)
+            val fadeHeight by androidx.compose.animation.core.animateDpAsState(
+                when {
+                    bottomBar != null -> BarSpace.ActionFade
+                    BarShown.value -> 0.dp
+                    else -> BarSpace.EdgeFade
+                },
+                com.project.on_road.ui.theme.OnRoadMotion.move(),
+                label = "screen-fade",
             )
-            Spacer(Modifier.height(32.dp))
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(fadeHeight)
+                    .background(softFadeBrush(OnRoadColors.Background)),
+            )
         }
-        if (bottomBar != null) {
-            HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
+        // 아래 버튼 영역: 내용을 불러온 뒤 툭 생기지 않고 아래에서 부드럽게 올라온다
+        val lastBar = remember { mutableStateOf(bottomBar) }
+        if (bottomBar != null) lastBar.value = bottomBar
+        AnimatedVisibility(
+            visible = bottomBar != null,
+            enter = androidx.compose.animation.expandVertically(com.project.on_road.ui.theme.OnRoadMotion.spatialSize, expandFrom = Alignment.Top) +
+                fadeIn(com.project.on_road.ui.theme.OnRoadMotion.enter()),
+            exit = androidx.compose.animation.shrinkVertically(com.project.on_road.ui.theme.OnRoadMotion.collapse(), shrinkTowards = Alignment.Top) +
+                fadeOut(com.project.on_road.ui.theme.OnRoadMotion.exit()),
+        ) {
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(OnRoadColors.Background)
                     .padding(horizontal = OnRoadDimens.ScreenPadding, vertical = 12.dp),
-                content = bottomBar,
-            )
+            ) { lastBar.value?.invoke(this) }
         }
     }
 }

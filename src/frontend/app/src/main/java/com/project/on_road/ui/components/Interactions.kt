@@ -86,6 +86,8 @@ fun Modifier.tap(
     onClickLabel: String? = null,
     pressed: Float = 0.98f,
     haptic: Boolean = false,
+    /** false 면 누를 때 회색 물결 강조 없이 살짝 작아지기만 한다 (둥근 하단 메뉴 탭 등) */
+    ripple: Boolean = true,
     onClick: () -> Unit,
 ): Modifier = composed {
     val source = remember { MutableInteractionSource() }
@@ -94,7 +96,7 @@ fun Modifier.tap(
         .pressScale(source, enabled = enabled, pressed = pressed)
         .clickable(
             interactionSource = source,
-            indication = LocalIndication.current,
+            indication = if (ripple) LocalIndication.current else null,
             enabled = enabled,
             onClickLabel = onClickLabel,
         ) {
@@ -200,7 +202,8 @@ fun ExpandArea(visible: Boolean, modifier: Modifier = Modifier, content: @Compos
         // 펼칠 때: 자리가 먼저 열리고 내용은 살짝 늦게 떠오른다 / 접을 때: 내용이 먼저 흐려지고 자리가 닫힌다
         enter = expandVertically(OnRoadMotion.spatialSize, expandFrom = Alignment.Top) +
             fadeIn(tween(OnRoadMotion.CONTENT, delayMillis = 60, easing = OnRoadMotion.EmphasizedDecelerate)),
-        exit = shrinkVertically(OnRoadMotion.spatialSize, shrinkTowards = Alignment.Top) + fadeOut(tween(OnRoadMotion.FAST)),
+        // 접을 때: 내용이 먼저 옅어지고, 자리는 같은 곡선으로 매끄럽게 닫힌다 (스프링 꼬리로 끝이 늘어지지 않게)
+        exit = shrinkVertically(OnRoadMotion.collapse(), shrinkTowards = Alignment.Top) + fadeOut(OnRoadMotion.exit(OnRoadMotion.FAST - 40)),
     ) {
         Column(Modifier.fillMaxWidth(), content = content)
     }
