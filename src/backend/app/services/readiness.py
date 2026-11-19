@@ -1,26 +1,26 @@
-"""자립 준비도: 앱 기능 기록을 6개 영역(주거·돈·일·서류·안전·생활)으로 모아 점수와 다음 할 일을 만든다.
+"""자립 준비도: 앱에서 한 행동 기록을 6개 영역(주거·돈·일·서류·안전·생활)으로 모아 판단한다.
 
-점수 계산 (세분화)
-- 항목마다 0~1 사이 진행도(progress)를 매긴다. 다 하면 1 (완료), 하다 만 것도 그만큼 점수에 들어간다
-  - 실전 연습: 안 함 0 · 해 봄 0.5 · 놓친 것 1개 이하이거나 60점 이상 0.75 · 다 챙김이거나 80점 이상 1
-  - '완벽하게 대처' 항목: 놓친 것이 적을수록 (1개 0.75 · 2개 0.5 · 3개 이상 0.25), 다 챙기면 1
-  - 부족한 곳 없는 생활비: 부족 0곳 1 · 1곳 0.67 · 2곳 0.33
-  - 모자람 없이 한 달: 가장 잘 버틴 달 기준, 모자란 돈이 적을수록 (최대 0.75), 안 모자라면 1
-  - 서류 끝까지 / 신청 준비 끝까지: 가장 많이 한 서류 · 체크리스트 진행률만큼 (최대 0.9), 끝내면 1
-  - 한 달 살아보기 두 번: 한 번 0.5
+'해 봤으면 점수'가 아니라 행동을 따라가며 판단한다
+- 실전 연습: 상황마다 연습 기록을 시간순으로 본다
+  - 최근 3번을 최근일수록 무겁게 평균 (예전 한 번 잘한 것보다 지금 실력)
+  - 최근 2번 연속 잘하면 꾸준함으로 더 쳐 준다
+  - 오래 안 하면 줄어든다 (30일 넘으면 0.85배, 60일 넘으면 0.7배)
+  - '빠짐없이' 항목은 가장 최근 연습에서 다 챙겼는지로 본다 (한 번 다 챙긴 적 있음이 아니라)
+  - 같은 세션의 활동 기록과 저장된 결과는 하나로 친다
+- 생활비 · 한 달 살아보기: 가장 최근 결과로 본다 (예전 최고 기록이 아니라)
+- 서류 · 신청 준비: 실제로 채운 칸 · 끝낸 단계만큼
 - 영역 점수 = 항목 진행도 평균 × 100, 전체 점수 = 영역 점수 평균
 
-함께 주는 것 (고도화)
-- 지난 4주 점수 흐름(history)과 이번 주에 오른 점수(week_delta)
-- 이번 주에 새로 해낸 것(recent)
-- 다음 단계까지 남은 점수(next_level)
-- 항목마다 지금 상태 한 줄(detail): 연습 횟수 · 최고 점수, 생활비 부족 곳 수 등
+판단 근거 (insights): 행동 흐름에서 읽은 것을 한 줄씩
+- 다시 챙겨 볼 것: 같은 항목을 연속으로 놓침 · 오래 연습 안 함 · 비상금을 연속으로 꺼냄 · 문자 사기 · 쓰다 멈춘 서류 · 기록이 끊김
+- 잘하고 있는 것: 점수가 오름 · 연속으로 다 챙김 · 부족했던 생활비를 다시 맞춤 · 모자란 돈이 줄어듦
+다음에 할 것은 다시 챙겨 볼 것이 있는 영역부터, 그다음 점수가 낮은 영역 순서
 
 쓰는 기록 (모두 DB)
-- 실전 연습: activity_logs(practice) + 기록에 남긴 roleplay_results
+- 실전 연습: activity_logs(practice) + 기록에 남긴 roleplay_results (놓친 항목 이름)
 - 한 달 살아보기: activity_logs(month_life)
-- 생활비 배분: simulations (가장 최근 결과의 부족 항목)
-- 서류 작성: documents (작성 시작 · 내보내기)
+- 생활비 배분: simulations (최근 결과와 그 전 결과)
+- 서류 작성: documents (작성 시작 · 내보내기 · 마지막으로 고친 때)
 - 정책 신청 준비: checklists (시작 · 모든 단계 완료)
 """
 
@@ -31,9 +31,11 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.roleplay import get_scenarios
 from app.schemas.readiness import (
     ActivityCreate,
     ReadinessArea,
+    ReadinessInsight,
     ReadinessItem,
     ReadinessLevel,
     ReadinessPoint,
@@ -47,6 +49,16 @@ NEXT_STEPS_MAX = 3
 LEVELS = ((85, "자립 준비 완료"), (60, "거의 다 왔어요"), (30, "준비 중"), (0, "첫걸음"))
 HISTORY_WEEKS = 4  # 점수 흐름: 지금 포함 4개 (3주 전 · 2주 전 · 1주 전 · 지금)
 RECENT_MAX = 5
+INSIGHTS_MAX = 4
+WATCH_MAX = 2  # 다시 챙겨 볼 것은 최대 2개 (잘하는 것도 꼭 보이게)
+MERGE_MINUTES = 10  # 같은 상황의 활동 기록과 저장 결과가 이 안이면 같은 연습
+RECENT_ATTEMPTS = 3  # 실력은 최근 몇 번으로 보나
+GOOD_QUALITY = 0.8  # 이만큼이면 '잘함'
+DONE_COMPETENCY = 0.9  # 연습 항목 완료 기준 (오래 안 해서 줄어든 실력은 완료가 아님)
+FADE = ((30, 1.0), (60, 0.85))  # (일, 배수). 60일 넘으면 FADE_FLOOR
+FADE_FLOOR = 0.7
+STALE_DOC_DAYS = 14  # 쓰다 멈춘 서류
+IDLE_DAYS = 14  # 기록이 끊긴 것으로 보는 날
 
 
 def add_activity(db: Session, user: User, body: ActivityCreate) -> int:
@@ -54,6 +66,49 @@ def add_activity(db: Session, user: User, body: ActivityCreate) -> int:
     db.add(row)
     db.commit()
     return row.id
+
+
+@dataclass(frozen=True)
+class Attempt:
+    """연습 한 번 (활동 기록과 저장 결과를 합친 것)"""
+
+    at: datetime | None
+    score: int | None = None
+    missed: int | None = None
+    missed_labels: tuple[str, ...] = ()
+
+    @property
+    def quality(self) -> float:
+        """0~1. 점수와 놓친 개수가 둘 다 있으면 평균"""
+        parts = []
+        if self.score is not None:
+            parts.append(self.score / 100)
+        if self.missed is not None:
+            parts.append(1.0 if self.missed == 0 else max(0.4, 0.9 - 0.15 * self.missed))
+        return sum(parts) / len(parts) if parts else 0.5
+
+
+def _attempts(practice_logs: list, saved: list) -> dict[str, tuple[Attempt, ...]]:
+    """상황별 연습을 시간순으로. 같은 세션(10분 안)의 활동 기록과 저장 결과는 하나로"""
+    out: dict[str, list[Attempt]] = {}
+    for log in practice_logs:
+        score = log.data.get("score")
+        missed = log.data.get("missed")
+        out.setdefault(log.ref, []).append(Attempt(
+            log.created_at, score if isinstance(score, int) else None, missed if isinstance(missed, int) else None,
+        ))
+    for r in saved:
+        labels = tuple(str(x) for x in r.missed)
+        items = out.setdefault(r.scenario_id, [])
+        twin = next((i for i, a in enumerate(items) if a.at and r.created_at and not a.missed_labels
+                     and abs((a.at - r.created_at).total_seconds()) <= MERGE_MINUTES * 60), None)
+        if twin is not None:
+            a = items[twin]
+            items[twin] = Attempt(a.at, a.score, len(labels), labels)
+        else:
+            items.append(Attempt(r.created_at, None, len(labels), labels))
+    far = datetime.min.replace(tzinfo=UTC)
+    return {k: tuple(sorted(v, key=lambda a: a.at or far)) for k, v in out.items()}
 
 
 @dataclass(frozen=True)
@@ -81,6 +136,12 @@ class Facts:
     doc_count: int = 0
     checklist_count: int = 0
     sim_housing: bool = False  # 가장 최근 생활비 계획에 집세가 들어 있음
+    # 행동 흐름
+    now: datetime | None = None
+    attempts: dict[str, tuple[Attempt, ...]] = field(default_factory=dict)  # 상황별 연습 (시간순)
+    sim_shortages: tuple[int, ...] = ()  # 생활비 계획 부족 곳 수 (최근 순)
+    stale_docs: int = 0  # 2주 넘게 손대지 않은 쓰다 만 서류
+    last_active: datetime | None = None  # 마지막으로 무언가 한 때
 
 
 @dataclass(frozen=True)
@@ -150,8 +211,14 @@ def collect(db: Session, user: User, rows: Rows | None = None, until: datetime |
         min_missed[r.scenario_id] = min(min_missed.get(r.scenario_id, len(r.missed)), len(r.missed))
     months = tuple(log.data for log in logs if log.kind == "month_life")
     latest = next((s for s in rows.simulations if _before(s.created_at, until)), None)
+    sims = [s for s in rows.simulations if _before(s.created_at, until)]
     docs = [d for d in rows.docs if _before(d.created_at, until)]
     checklists = [c for c in rows.checklists if _before(c.checklist.created_at, until)]
+    now = until or datetime.now(UTC)
+    stamps = [t for t in (
+        [log.created_at for log in logs] + [r.created_at for r in saved] + [x.created_at for x in sims]
+        + [d.updated_at for d in docs] + [c.checklist.updated_at for c in checklists]
+    ) if t is not None and t <= now]
     return Facts(
         practiced=frozenset(practiced),
         clean=frozenset(clean),
@@ -177,6 +244,14 @@ def collect(db: Session, user: User, rows: Rows | None = None, until: datetime |
         doc_count=len(docs),
         checklist_count=len(checklists),
         sim_housing=latest is not None and (latest.housing or 0) > 0,
+        now=now,
+        attempts=_attempts(practice, saved),
+        sim_shortages=tuple(shortage_count(x) for x in sims),
+        stale_docs=sum(
+            1 for d in docs
+            if d.status != "exported" and d.updated_at is not None and (now - d.updated_at).days >= STALE_DOC_DAYS
+        ),
+        last_active=max(stamps, default=None),
     )
 
 
@@ -237,34 +312,61 @@ class Item:
         return max(0.0, min(0.99, self.partial(f))) if self.partial else 0.0
 
 
+def _days_since(f: Facts, t: datetime | None) -> int | None:
+    if t is None or f.now is None:
+        return None
+    return max(0, (f.now - t).days)
+
+
+def _fade(days: int | None) -> float:
+    if days is None:
+        return 1.0
+    return next((m for limit, m in FADE if days <= limit), FADE_FLOOR)
+
+
+def competency(f: Facts, sid: str) -> float:
+    """상황 하나의 지금 실력 (0~1): 최근 3번을 최근일수록 무겁게, 연속으로 잘하면 더, 오래 안 하면 덜"""
+    att = f.attempts.get(sid, ())
+    if not att:
+        return 0.0
+    last = att[-RECENT_ATTEMPTS:]
+    weights = range(1, len(last) + 1)
+    value = sum(w * a.quality for w, a in zip(weights, last)) / sum(weights)
+    if len(att) >= 2 and att[-1].quality >= GOOD_QUALITY and att[-2].quality >= GOOD_QUALITY:
+        value += 0.1  # 꾸준함
+    return round(min(1.0, value) * _fade(_days_since(f, att[-1].at)), 3)
+
+
 def _practice_detail(sid: str, clean: bool) -> Callable[[Facts], str | None]:
     def detail(f: Facts) -> str | None:
-        n = f.practice_count.get(sid, 0) + (1 if sid in f.practiced and sid not in f.practice_count else 0)
-        if n == 0:
+        att = f.attempts.get(sid, ())
+        if not att:
             return "아직 안 해 봤어요"
-        best = f.practice_best.get(sid)
-        text = f"{n}번 해 봤어요" + (f" · 최고 {best}점" if best is not None else "")
-        if clean and sid not in f.clean:
-            text += " · 챙길 것을 모두 챙기면 완료"
+        text = f"{len(att)}번 해 봤어요"
+        last = att[-1]
+        if last.score is not None:
+            text += f" · 최근 {last.score}점"
+        elif last.missed is not None:
+            text += " · 최근 다 챙겼어요" if last.missed == 0 else f" · 최근 {last.missed}개 놓쳤어요"
+        days = _days_since(f, last.at)
+        if days is not None and days > FADE[0][0]:
+            text += f" · {days}일 전"
+        if clean and last.missed != 0:
+            text += " · 다음엔 빠짐없이"
         return text
     return detail
 
 
 def _practice(sid: str, label: str, clean: bool = False) -> Item:
     def done(f: Facts) -> bool:
-        if clean:
-            return sid in f.clean
-        return sid in f.clean or f.practice_best.get(sid, 0) >= 80
+        att = f.attempts.get(sid, ())
+        if clean:  # 가장 최근 연습에서 다 챙겼고, 너무 오래되지 않음
+            return bool(att) and att[-1].missed == 0 and _fade(_days_since(f, att[-1].at)) >= FADE[1][1]
+        return competency(f, sid) >= DONE_COMPETENCY
 
     def partial(f: Facts) -> float:
-        if sid not in f.practiced:
-            return 0.0
-        missed = f.practice_min_missed.get(sid)
-        if clean:
-            return 1 - min(missed if missed is not None else 3, 3) / 4
-        if f.practice_best.get(sid, 0) >= 60 or (missed is not None and missed <= 1):
-            return 0.75
-        return 0.5
+        c = competency(f, sid)
+        return 0.9 * c if clean else c
 
     return Item(f"practice-{sid}{'-clean' if clean else ''}", label, done,
                 NextStepOut(kind="practice", label=f"{label} 하러 가기", scenario_id=sid),
@@ -315,13 +417,13 @@ AREAS: tuple[tuple[str, str, tuple[Item, ...]], ...] = (
         _practice("bank", "은행 계좌 개설 연습"),
         _practice("bank", "은행 계좌 개설 빠짐없이 하기", clean=True),
         _month("month-no-shortage", "모자람 없이 한 달 버티기",
-               lambda f: any(m.get("shortage", 1) == 0 for m in f.months), "한 달 살아보기에서 버텨 보기",
-               # 가장 잘 버틴 달: 모자란 돈(만원)이 적을수록, 30만원 이상 모자라면 0
-               lambda f: 0.75 * max(0.0, 1 - min(m.get("shortage", 30) for m in f.months) / 30) if f.months else 0.0),
+               lambda f: bool(f.months) and f.months[0].get("shortage", 1) == 0, "한 달 살아보기에서 버텨 보기",
+               # 가장 최근 달: 모자란 돈(만원)이 적을수록, 30만원 이상 모자라면 0
+               lambda f: 0.75 * max(0.0, 1 - f.months[0].get("shortage", 30) / 30) if f.months else 0.0),
         _month("month-no-emergency", "비상금 안 꺼내고 한 달 버티기",
-               lambda f: any(m.get("used_emergency", 1) == 0 and m.get("shortage", 1) == 0 for m in f.months),
+               lambda f: bool(f.months) and f.months[0].get("used_emergency", 1) == 0 and f.months[0].get("shortage", 1) == 0,
                "한 달 살아보기에서 비상금 지켜 보기",
-               lambda f: 0.5 if any(m.get("used_emergency", 1) == 0 for m in f.months) else 0.0),
+               lambda f: 0.5 if f.months and f.months[0].get("used_emergency", 1) == 0 else 0.0),
         _policy_start("money-policy", "money", "생활 지원 신청 준비 시작", "자립수당 · 정착금 찾아보기",
                       "자립준비청년 자립수당 자립정착금"),
     )),
@@ -394,6 +496,72 @@ def _score(facts: Facts) -> tuple[int, list[ReadinessArea], dict[str, bool]]:
     return round(sum(a.score for a in areas) / len(areas)), areas, marks_all
 
 
+def _area_of_scenario() -> dict[str, str]:
+    out: dict[str, str] = {}
+    for key, _, items in AREAS:
+        for i in items:
+            if i.key.startswith("practice-"):
+                out.setdefault(i.key.removeprefix("practice-").removesuffix("-clean"), key)
+    return out
+
+
+def _scenario_name(sid: str) -> str:
+    s = get_scenarios().get(sid)
+    return s.title if s else sid
+
+
+def insights(f: Facts) -> list[ReadinessInsight]:
+    """행동 흐름에서 읽은 판단 근거. 다시 챙겨 볼 것(최대 2) 먼저, 그다음 잘하고 있는 것"""
+    watch: list[ReadinessInsight] = []
+    good: list[ReadinessInsight] = []
+    area_of = _area_of_scenario()
+
+    def add(bucket: list, area: str, text: str) -> None:
+        bucket.append(ReadinessInsight(area=area, tone="watch" if bucket is watch else "good", text=text))
+
+    # 최근에 한 연습부터
+    far = datetime.min.replace(tzinfo=UTC)
+    for sid, att in sorted(f.attempts.items(), key=lambda kv: kv[1][-1].at or far, reverse=True):
+        area = area_of.get(sid, "life")
+        name = _scenario_name(sid)
+        labeled = [a for a in att if a.missed_labels]
+        repeated = sorted(set(labeled[-1].missed_labels) & set(labeled[-2].missed_labels)) if len(labeled) >= 2 else []
+        if repeated:
+            add(watch, area, f"‘{name}’에서 ‘{repeated[0]}’ 항목을 2번 연속 놓쳤어요")
+        days = _days_since(f, att[-1].at)
+        if days is not None and days > FADE[0][0] and att[-1].quality < 1:
+            add(watch, area, f"‘{name}’ 연습을 한 지 {days}일 지났어요")
+        if len(att) >= 2 and att[-1].missed == 0 and att[-2].missed == 0:
+            add(good, area, f"‘{name}’에서 최근 2번 모두 빠짐없이 챙겼어요")
+        scored = [a for a in att if a.score is not None]
+        if len(scored) >= 2 and scored[-1].score - scored[-2].score >= 10:
+            add(good, area, f"‘{name}’ 점수가 지난번보다 {scored[-1].score - scored[-2].score}점 올랐어요")
+
+    if len(f.sim_shortages) >= 2 and f.sim_shortages[0] < f.sim_shortages[1]:
+        add(good, "money", "생활비 계획에서 부족했던 곳을 다시 맞췄어요")
+    elif f.sim_shortages and f.sim_shortages[0] >= 2:
+        add(watch, "money", f"최근 생활비 계획에 부족한 곳이 {f.sim_shortages[0]}곳 있어요")
+
+    m = f.months
+    if m and "smishing" in m[0].get("bad_events", []):
+        add(watch, "safety", "지난 한 달 살아보기에서 문자 사기를 당했어요")
+    if len(m) >= 2 and m[0].get("used_emergency", 0) > 0 and m[1].get("used_emergency", 0) > 0:
+        add(watch, "money", "한 달 살아보기에서 비상금을 2번 연속 꺼냈어요")
+    if len(m) >= 2 and m[0].get("shortage", 0) < m[1].get("shortage", 0):
+        add(good, "money", "한 달 살아보기에서 모자란 돈이 지난번보다 줄었어요")
+
+    if f.stale_docs:
+        add(watch, "documents", f"{STALE_DOC_DAYS}일 넘게 멈춘 서류가 {f.stale_docs}개 있어요")
+    if f.doc_exported and f.checklist_done:
+        add(good, "documents", "서류와 신청 준비를 끝까지 해냈어요")
+
+    idle = _days_since(f, f.last_active)
+    if idle is not None and idle >= IDLE_DAYS:
+        add(watch, "life", f"{idle}일 동안 준비 기록이 없어요")
+
+    return (watch[:WATCH_MAX] + good)[:INSIGHTS_MAX]
+
+
 def _level(score: int) -> str:
     return next(name for cut, name in LEVELS if score >= cut)
 
@@ -410,7 +578,7 @@ def _next_level(score: int) -> ReadinessLevel | None:
 def readiness(db: Session, user: User, now: datetime | None = None) -> ReadinessResponse:
     now = now or datetime.now(UTC)
     rows = _rows(db, user)
-    score, areas, marks = _score(collect(db, user, rows))
+    score, areas, marks = _score(collect(db, user, rows, now))
 
     # 지난 4주 흐름: 일주일 간격으로 그때까지의 기록만 다시 센다
     history: list[ReadinessPoint] = []
@@ -427,7 +595,10 @@ def readiness(db: Session, user: User, now: datetime | None = None) -> Readiness
     labels = {i.key: i.label for _, _, items in AREAS for i in items}
     recent = [labels[k] for k, d in marks.items() if d and not past_marks.get(k, False)][:RECENT_MAX]
 
-    open_areas = sorted((a for a in areas if a.next_step), key=lambda a: a.score)  # 낮은 순 (같으면 원래 순서)
+    found = insights(collect(db, user, rows, now))
+    watched = {i.area for i in found if i.tone == "watch"}
+    # 다시 챙겨 볼 것이 있는 영역 먼저, 그다음 점수가 낮은 순 (같으면 원래 순서)
+    open_areas = sorted((a for a in areas if a.next_step), key=lambda a: (a.key not in watched, a.score))
     return ReadinessResponse(
         score=score,
         level=_level(score),
@@ -438,4 +609,5 @@ def readiness(db: Session, user: User, now: datetime | None = None) -> Readiness
         history=history,
         recent=recent,
         next_level=_next_level(score),
+        insights=found,
     )

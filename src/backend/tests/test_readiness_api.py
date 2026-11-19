@@ -29,11 +29,11 @@ def test_practice_and_month_raise_score(api, db_session):
     assert _practice(api, user, "phone-store", missed=2).status_code == 201
     assert api.post(f"/api/users/{user.id}/activities", json={"kind": "month_life", "data": MONTH}).status_code == 201
     areas = {a["key"]: a for a in _readiness(api, user)["areas"]}
-    # 수상한 전화(다 챙김) · 완벽 대처 · 사기 안 당함은 완료, 휴대폰(2개 놓침)은 연습 0.5 · 빠짐없이 0.5
+    # 수상한 전화(다 챙김) · 완벽 대처 · 사기 안 당함은 완료, 휴대폰(2개 놓침)은 실력 0.6 · 빠짐없이 0.9 × 0.6
     assert areas["safety"]["done_count"] == 3
     phone = next(i for i in areas["safety"]["items"] if i["key"] == "practice-phone-store")
-    assert (phone["done"], phone["progress"]) == (False, 0.5)
-    assert areas["safety"]["score"] == round(100 * 4 / 5)
+    assert (phone["done"], phone["progress"]) == (False, 0.6)
+    assert areas["safety"]["score"] == round(100 * (3 + 0.6 + 0.54) / 5)
     assert areas["safety"]["next_step"]["scenario_id"] == "phone-store"
     assert areas["money"]["done_count"] == 2  # 모자람 없는 한 달 · 비상금 안 꺼낸 한 달
     assert areas["life"]["done_count"] == 1
@@ -45,8 +45,8 @@ def test_missed_practice_is_not_clean(api, db_session):
     user = make_user(db_session)
     _practice(api, user, "scam-call", missed=1)
     safety = next(a for a in _readiness(api, user)["areas"] if a["key"] == "safety")
-    # 1개 놓침: 연습 0.75 · 완벽 대처 0.75 (둘 다 아직 완료 아님)
-    assert [(i["done"], i["progress"]) for i in safety["items"]][:2] == [(False, 0.75), (False, 0.75)]
+    # 1개 놓침: 실력 0.75 · 완벽 대처 0.9 × 0.75 (둘 다 아직 완료 아님)
+    assert [(i["done"], i["progress"]) for i in safety["items"]][:2] == [(False, 0.75), (False, 0.68)]
     assert safety["next_step"]["scenario_id"] == "scam-call"
 
 
@@ -147,8 +147,8 @@ def test_item_detail_and_next_level(api, db_session):
     api.post(f"/api/users/{user.id}/activities", json={"kind": "practice", "ref": "scam-call", "data": {"good": 3, "missed": 1, "score": 85}})
     r = _readiness(api, user)
     safety = {i["key"]: i for a in r["areas"] if a["key"] == "safety" for i in a["items"]}
-    assert safety["practice-scam-call"]["detail"] == "2번 해 봤어요 · 최고 85점"
-    assert "모두 챙기면 완료" in safety["practice-scam-call-clean"]["detail"]
+    assert safety["practice-scam-call"]["detail"] == "2번 해 봤어요 · 최근 85점"
+    assert "다음엔 빠짐없이" in safety["practice-scam-call-clean"]["detail"]
     assert safety["practice-phone-store"]["detail"] == "아직 안 해 봤어요"
     assert r["next_level"] == {"label": "준비 중", "points": 30 - r["score"]}
 
@@ -166,24 +166,57 @@ def _item(r, area, key):
     return next(i for a in r["areas"] if a["key"] == area for i in a["items"] if i["key"] == key)
 
 
-def test_practice_progress_by_score_and_missed(api, db_session):
+def test_practice_progress_follows_recent_attempts(api, db_session):
+    """실력은 최근 3번을 최근일수록 무겁게. 한 번 잘한 게 아니라 지금 잘하는지"""
     user = make_user(db_session)
     url = f"/api/users/{user.id}/activities"
-    api.post(url, json={"kind": "practice", "ref": "bank", "data": {"good": 1, "missed": 3, "score": 40}})
-    assert _item(_readiness(api, user), "money", "practice-bank")["progress"] == 0.5  # 해 봄
-    api.post(url, json={"kind": "practice", "ref": "bank", "data": {"good": 2, "missed": 2, "score": 65}})
-    assert _item(_readiness(api, user), "money", "practice-bank")["progress"] == 0.75  # 60점 이상
-    api.post(url, json={"kind": "practice", "ref": "bank", "data": {"good": 3, "missed": 1, "score": 85}})
+
+    def post(score, missed):
+        api.post(url, json={"kind": "practice", "ref": "bank", "data": {"good": 2, "missed": missed, "score": score}})
+        return _item(_readiness(api, user), "money", "practice-bank")
+
+    assert post(40, 3)["progress"] == 0.42  # (0.40 + 0.45) / 2
+    assert post(65, 2)["progress"] == 0.56  # (0.425 + 2 × 0.625) / 3
+    item = post(85, 1)
+    assert (item["done"], item["progress"]) == (False, 0.68)  # 85점 한 번으로는 아직 완료 아님
+    item = post(90, 0)
+    assert (item["done"], item["progress"]) == (True, 1.0)  # 최근 2번 연속 잘함 → 꾸준함 더해 완료
+
+
+def test_order_matters_recent_is_heavier(api, db_session):
+    """같은 기록이라도 잘하다 못하면 낮고, 못하다 잘하면 높다"""
+    up, down = make_user(db_session), make_user(db_session)
+    for user, scores in ((up, (50, 90)), (down, (90, 50))):
+        for sc in scores:
+            api.post(f"/api/users/{user.id}/activities",
+                     json={"kind": "practice", "ref": "bank", "data": {"good": 2, "missed": 1, "score": sc}})
+    rise = _item(_readiness(api, up), "money", "practice-bank")["progress"]
+    fall = _item(_readiness(api, down), "money", "practice-bank")["progress"]
+    assert rise > fall
+
+
+def test_old_practice_fades(api, db_session):
+    from sqlalchemy import text
+
+    user = make_user(db_session)
+    _practice(api, user, "bank")
+    assert _item(_readiness(api, user), "money", "practice-bank")["progress"] == 1.0
+    db_session.execute(text("UPDATE activity_logs SET created_at = now() - interval '45 days' WHERE user_id = :u"), {"u": user.id})
+    db_session.commit()
     item = _item(_readiness(api, user), "money", "practice-bank")
-    assert (item["done"], item["progress"]) == (True, 1.0)  # 80점 이상
+    assert (item["done"], item["progress"]) == (False, 0.85)  # 30일 넘으면 0.85배
+    assert "45일 전" in item["detail"]
 
 
-def test_clean_item_scales_with_missed(api, db_session):
+def test_clean_item_follows_latest_attempt(api, db_session):
     user = make_user(db_session)
     _practice(api, user, "scam-call", missed=2)
-    assert _item(_readiness(api, user), "safety", "practice-scam-call-clean")["progress"] == 0.5
+    assert _item(_readiness(api, user), "safety", "practice-scam-call-clean")["progress"] == 0.54
     _practice(api, user, "scam-call", missed=0)
     assert _item(_readiness(api, user), "safety", "practice-scam-call-clean")["progress"] == 1.0
+    # 다음 연습에서 다시 놓치면 '빠짐없이'는 다시 아님 (한 번 해낸 적이 아니라 지금)
+    _practice(api, user, "scam-call", missed=1)
+    assert not _item(_readiness(api, user), "safety", "practice-scam-call-clean")["done"]
 
 
 def test_month_partial_by_shortage(api, db_session):
@@ -239,3 +272,65 @@ def test_one_document_is_half_of_two(api, db_session):
     r = _readiness(api, user)
     two = _item(r, "documents", "checklist-two")
     assert (two["done"], two["progress"], two["detail"]) == (False, 0.5, "1가지 시작했어요")
+
+
+# ------------------------------------------------------------------ 행동으로 본 판단 근거
+
+
+def _saved(db_session, user, sid, missed, minutes_ago=0):
+    from datetime import UTC, datetime, timedelta
+
+    from db.models import RoleplayResult
+
+    db_session.add(RoleplayResult(user_id=user.id, scenario_id=sid, good=["a"], missed=missed,
+                                  created_at=datetime.now(UTC) - timedelta(minutes=minutes_ago)))
+    db_session.commit()
+
+
+def test_insight_repeated_miss_and_priority(api, db_session):
+    """같은 항목을 2번 연속 놓치면 '다시 챙겨 볼 것'이 되고, 그 영역이 다음 할 일 맨 앞"""
+    user = make_user(db_session)
+    _saved(db_session, user, "scam-call", ["개인정보 알려 주지 않기"], minutes_ago=60)
+    _saved(db_session, user, "scam-call", ["개인정보 알려 주지 않기", "은행에 직접 확인하기"])
+    r = _readiness(api, user)
+    watch = [i for i in r["insights"] if i["tone"] == "watch"]
+    assert watch[0]["area"] == "safety"
+    assert watch[0]["text"].endswith("‘개인정보 알려 주지 않기’ 항목을 2번 연속 놓쳤어요")
+    assert r["next_steps"][0]["scenario_id"] == "scam-call"
+
+
+def test_log_and_saved_result_of_same_session_count_once(api, db_session):
+    user = make_user(db_session)
+    _practice(api, user, "scam-call", missed=1)
+    _saved(db_session, user, "scam-call", ["개인정보 알려 주지 않기"])
+    item = _item(_readiness(api, user), "safety", "practice-scam-call")
+    assert item["detail"].startswith("1번 해 봤어요")
+
+
+def test_insight_improvement_and_budget_fix(api, db_session):
+    user = make_user(db_session)
+    url = f"/api/users/{user.id}/activities"
+    for sc in (55, 80):
+        api.post(url, json={"kind": "practice", "ref": "job", "data": {"good": 2, "missed": 1, "score": sc}})
+    low = {"housing": 100000, "food": 100000, "transport": 10000, "telecom": 10000, "other": 10000}
+    ok = {"housing": 400000, "food": 250000, "transport": 60000, "telecom": 40000, "other": 100000}
+    for alloc in (low, ok):
+        res = api.post("/api/simulations", json={"user_id": str(user.id), "total_income": 900000, "allocations": alloc})
+        assert res.status_code == 201, res.text
+    texts = [i["text"] for i in _readiness(api, user)["insights"] if i["tone"] == "good"]
+    assert any(t.endswith("점수가 지난번보다 25점 올랐어요") for t in texts)
+    assert "생활비 계획에서 부족했던 곳을 다시 맞췄어요" in texts
+
+
+def test_insight_idle_and_stale_document(api, db_session):
+    from sqlalchemy import text
+
+    user = make_user(db_session)
+    assert api.post("/api/documents", json={"user_id": str(user.id), "source_type": "template", "source_id": "move-in"}).status_code in (200, 201)
+    _practice(api, user, "bank")
+    for table in ("documents", "activity_logs"):
+        db_session.execute(text(f"UPDATE {table} SET created_at = now() - interval '20 days' WHERE user_id = :u"), {"u": user.id})
+    db_session.execute(text("UPDATE documents SET updated_at = now() - interval '20 days' WHERE user_id = :u"), {"u": user.id})
+    db_session.commit()
+    watch = [i["text"] for i in _readiness(api, user)["insights"] if i["tone"] == "watch"]
+    assert watch == ["14일 넘게 멈춘 서류가 1개 있어요", "20일 동안 준비 기록이 없어요"]

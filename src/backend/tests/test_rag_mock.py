@@ -106,3 +106,20 @@ def test_search_without_answer_returns_cards_only(api, db_session, tmp_path):
     cards = api.post("/api/search", json={**body, "answer": False}).json()
     assert full["answer"] and cards["answer"] is None
     assert [r["policy_key"] for r in cards["results"]] == [r["policy_key"] for r in full["results"]]
+
+
+def test_browse_by_category(api, db_session, tmp_path):
+    """분야별로 보기: 검색 없이 분야 코드로 정확히 나눈다 (서울 사용자는 서울 · 전국 정책만)"""
+    empty = tmp_path / "policies.json"
+    empty.write_text("", encoding="utf-8")
+    seed_policies(db_session, path=empty)
+    db_session.commit()
+    seoul = make_user(db_session, region="서울")
+    all_ = api.get("/api/policies", params={"user_id": str(seoul.id)}).json()
+    keys = {r["policy_key"]: r["category"] for r in all_["results"]}
+    assert "D003" not in keys  # 경기 정책
+    housing = api.get("/api/policies", params={"user_id": str(seoul.id), "category": "housing"}).json()
+    assert [r["category"] for r in housing["results"]] == ["housing"] and housing["answer"] is None
+    none = api.get("/api/policies", params={"user_id": str(seoul.id), "category": "medical"}).json()
+    assert none == {"answer_status": "no_evidence", "answer": None, "results": []}
+    assert api.get("/api/policies", params={"user_id": str(seoul.id), "category": "x"}).status_code == 422

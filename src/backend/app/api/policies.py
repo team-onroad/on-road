@@ -4,13 +4,25 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import DB, BodyUser, Today, openapi_body, validated_body
 from app.rag_client import SearchPolicies, get_search_policies
-from app.schemas.policies import EasyLevelCode, EasyText, FormGuide, PolicyDetail, SearchRequest, SearchResponse
+from app.schemas.policies import Category, EasyLevelCode, EasyText, FormGuide, PolicyDetail, SearchRequest, SearchResponse
 from app.services import policies as service
 from app.services.users import get_user
 
 router = APIRouter(tags=["정책"])
 
 Rag = Annotated[SearchPolicies, Depends(get_search_policies)]
+
+
+@router.get(
+    "/policies",
+    response_model=SearchResponse,
+    summary="분야별로 보기 (정책 목록)",
+    description="내 연령 · 지역에 맞는 노출 정책을 분야(category)로 나눠 준다. 검색 · AI 를 쓰지 않는다. category 를 빼면 전체. "
+    "형식은 /search 와 같고 evidences 는 비어 있다.",
+    responses={404: {"description": "USER_NOT_FOUND"}, 422: {"description": "VALIDATION_ERROR (category 값 오류)"}},
+)
+def list_policies(user_id: str, db: DB, today: Today, category: Category | None = None) -> SearchResponse:
+    return service.browse(db, get_user(db, user_id), today, category)
 
 
 @router.get(

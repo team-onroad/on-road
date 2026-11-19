@@ -140,6 +140,40 @@ def _call_rag_now(rag: SearchPolicies, question: str, keys: list[str], answer: b
     return output
 
 
+def _result(p: Policy, user: User, today: date, evidences: list[Evidence]) -> SearchResult:
+    return SearchResult(
+        policy_id=p.id,
+        policy_key=p.policy_key,
+        name=p.name,
+        agency=p.agency,
+        category=p.category,
+        checked_at=p.checked_at,
+        is_outdated=is_outdated(p.checked_at, today),
+        eligibility=eligibility_for(user, p, today),
+        target_description=p.target_description,
+        support_content=p.support_content,
+        support_amount=p.support_amount,
+        support_period=p.support_period,
+        original_text=p.original_text,
+        easy_text=p.easy_text,
+        source_url=p.source_url,
+        evidences=evidences,
+        summary=ai_content.policy_summary(p.policy_key),
+    )
+
+
+def browse(db: Session, user: User, today: date, category: str | None = None) -> SearchResponse:
+    """분야별로 보기: 내가 볼 수 있는 정책(연령 · 지역)을 분야 코드로 나눈다. 검색(RAG · AI)을 쓰지 않아 빠르고 정확하다.
+    category 가 없으면 전체. 결과 형식은 검색과 같다 (근거는 비어 있음)"""
+    age = calc_age(user.birth_date, today)
+    policies = [p for p in candidate_policies(db, age, user.region) if category is None or p.category == category]
+    if not policies:
+        return NO_EVIDENCE
+    return SearchResponse(
+        answer_status="answered", answer=None, results=[_result(p, user, today, []) for p in policies],
+    )
+
+
 def search(db: Session, user: User, question: str, today: date, rag: SearchPolicies, answer: bool = True) -> SearchResponse:
     """answer=False: 답변 문장 없이 정책 카드만 (분야별로 보기). 답변을 만드는 LLM 을 부르지 않아 빠르다"""
     age = calc_age(user.birth_date, today)
@@ -160,30 +194,7 @@ def search(db: Session, user: User, question: str, today: date, rag: SearchPolic
     if not grouped:
         return NO_EVIDENCE
 
-    results = []
-    for key, evidences in grouped.items():
-        p = by_key[key]
-        results.append(
-            SearchResult(
-                policy_id=p.id,
-                policy_key=p.policy_key,
-                name=p.name,
-                agency=p.agency,
-                category=p.category,
-                checked_at=p.checked_at,
-                is_outdated=is_outdated(p.checked_at, today),
-                eligibility=eligibility_for(user, p, today),
-                target_description=p.target_description,
-                support_content=p.support_content,
-                support_amount=p.support_amount,
-                support_period=p.support_period,
-                original_text=p.original_text,
-                easy_text=p.easy_text,
-                source_url=p.source_url,
-                evidences=evidences,
-                summary=ai_content.policy_summary(p.policy_key),
-            )
-        )
+    results = [_result(by_key[key], user, today, evidences) for key, evidences in grouped.items()]
     return SearchResponse(answer_status="answered", answer=output.answer if answer else None, results=results)
 
 

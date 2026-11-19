@@ -79,6 +79,14 @@ class ReadinessArea(BaseModel):
     next_step: NextStepOut | None  # 이 영역에서 다음에 할 것 (다 했으면 null)
 
 
+class ReadinessInsight(BaseModel):
+    """행동 기록으로 본 판단 근거 한 줄"""
+
+    area: Literal["housing", "money", "job", "documents", "safety", "life"]
+    tone: Literal["good", "watch"]  # good: 잘하고 있는 것 · watch: 다시 챙겨 볼 것
+    text: str
+
+
 class ReadinessPoint(BaseModel):
     weeks_ago: int  # 0 = 지금
     score: int
@@ -99,3 +107,4 @@ class ReadinessResponse(BaseModel):
     history: list[ReadinessPoint] = []  # 3주 전 → 지금 (일주일 간격)
     recent: list[str] = []  # 이번 주에 새로 해낸 것 (최대 5개)
     next_level: ReadinessLevel | None = None  # 다음 단계까지 (맨 위면 null)
+    insights: list[ReadinessInsight] = []  # 행동 기록으로 본 판단 근거 (다시 챙겨 볼 것 먼저, 최대 4개)
