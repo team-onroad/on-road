@@ -113,17 +113,19 @@ def _normalize(question: str) -> str:
     return " ".join(question.split()).lower()
 
 
-def _call_rag(rag: SearchPolicies, question: str, keys: list[str]) -> RagOutput:
+def _call_rag(rag: SearchPolicies, question: str, keys: list[str], answer: bool = True) -> RagOutput:
     # 실제 서버의 RAG 함수만 캐시한다 (테스트에서 바꿔 끼운 함수는 매번 부른다)
     if rag is not get_search_policies():
-        return _call_rag_now(rag, question, keys)
-    return RAG_CACHE.get_or_set((_normalize(question), tuple(sorted(keys))), lambda: _call_rag_now(rag, question, keys))
+        return _call_rag_now(rag, question, keys, answer)
+    return RAG_CACHE.get_or_set(
+        (_normalize(question), tuple(sorted(keys)), answer), lambda: _call_rag_now(rag, question, keys, answer),
+    )
 
 
-def _call_rag_now(rag: SearchPolicies, question: str, keys: list[str]) -> RagOutput:
+def _call_rag_now(rag: SearchPolicies, question: str, keys: list[str], answer: bool = True) -> RagOutput:
     # 질문 내용은 로그에 남기지 않는다. 예외 메시지에 질문이 들어 있을 수 있어 예외 종류만 남긴다.
     try:
-        raw = rag(question, keys)
+        raw = rag(question, keys) if answer else rag(question, keys, answer=False)
     except Exception as e:
         logger.error("RAG 함수 오류: %s", type(e).__name__)
         raise rag_unavailable() from None
@@ -132,20 +134,21 @@ def _call_rag_now(rag: SearchPolicies, question: str, keys: list[str]) -> RagOut
     except ValidationError:
         logger.error("RAG 함수 출력 형식 오류 (api.md 4장 형식과 다름)")
         raise rag_unavailable() from None
-    if output.status == "answered" and not output.answer:
+    if answer and output.status == "answered" and not output.answer:
         logger.error("RAG 함수 출력 형식 오류: answered 인데 answer 가 없음")
         raise rag_unavailable()
     return output
 
 
-def search(db: Session, user: User, question: str, today: date, rag: SearchPolicies) -> SearchResponse:
+def search(db: Session, user: User, question: str, today: date, rag: SearchPolicies, answer: bool = True) -> SearchResponse:
+    """answer=False: 답변 문장 없이 정책 카드만 (분야별로 보기). 답변을 만드는 LLM 을 부르지 않아 빠르다"""
     age = calc_age(user.birth_date, today)
     candidates = candidate_policies(db, age, user.region)
     if not candidates:
         return NO_EVIDENCE  # 후보가 없으면 RAG 를 호출하지 않는다 (api.md 4장)
 
     by_key = {p.policy_key: p for p in candidates}
-    output = _call_rag(rag, question, list(by_key))
+    output = _call_rag(rag, question, list(by_key), answer)
     if output.status == "no_evidence":
         return NO_EVIDENCE
 
@@ -181,7 +184,7 @@ def search(db: Session, user: User, question: str, today: date, rag: SearchPolic
                 summary=ai_content.policy_summary(p.policy_key),
             )
         )
-    return SearchResponse(answer_status="answered", answer=output.answer, results=results)
+    return SearchResponse(answer_status="answered", answer=output.answer if answer else None, results=results)
 
 
 # ---------------- 쉬운 말 단계 (3.23) · 신청서 작성 도우미 (3.24) ----------------

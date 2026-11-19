@@ -83,4 +83,4 @@ def search(
 ) -> SearchResponse:
     # 본문 검증을 통과했으면 user_id 는 문자열이라 BodyUser 에서 이미 조회됐다.
     user = user or get_user(db, body.user_id)
-    return service.search(db, user, body.question, today, rag)
+    return service.search(db, user, body.question, today, rag, body.answer)

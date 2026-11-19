@@ -65,12 +65,13 @@ def test_same_search_reuses_rag(api, db_session, monkeypatch):
     calls = []
     real = policy_service._call_rag_now
 
-    def counting(rag, question, keys):
+    def counting(rag, question, keys, answer=True):
         calls.append(question)
-        return real(rag, question, keys)
+        return real(rag, question, keys, answer)
 
     monkeypatch.setattr(policy_service, "_call_rag_now", counting)
     body = {"user_id": str(user.id), "question": "자립수당   받을 수 있나요?"}
     first = api.post("/api/search", json=body).json()
     second = api.post("/api/search", json={**body, "question": "자립수당 받을 수 있나요?"}).json()
     assert len(calls) == 1 and first == second
+

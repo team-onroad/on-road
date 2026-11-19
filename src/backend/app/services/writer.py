@@ -53,8 +53,8 @@ from app.services.policies import VISIBLE, get_visible_policy, search
 ASSIST_MAX_CHARS = 1000
 OTHER_FIELDS_FOR_AI = 3
 NOT_CHECKED_NOTICE = "아직 사람이 원본 양식과 대조하지 않은 칸 목록이에요. 공식 양식과 함께 확인해 주세요."
-UPLOAD_NOTICE = "올린 양식에서 AI가 읽은 칸이에요. 받은 양식과 칸이 맞는지 확인하고, 다 쓰면 표로 내보내 양식에 옮겨 적어 주세요."
-AI_NOTICE = "AI가 쓴 문장은 색으로 표시돼요. 내 상황에 맞게 고친 뒤 완료를 눌러 주세요."
+UPLOAD_NOTICE = "받은 양식과 칸이 맞는지 확인하고, 다 쓰면 표로 내보내 양식에 옮겨 적어 주세요."
+AI_NOTICE = "색으로 표시된 문장은 내 상황에 맞게 고친 뒤 완료를 눌러 주세요."
 HANDWRITE_NOTICE = "주민등록번호·서명 칸은 앱에 입력하지 않아요. 출력한 양식에 직접 써 주세요."
 ACCOUNT_TIP = "통장에 적힌 계좌번호를 숫자와 -로 적어 주세요. 본인 명의 통장만 돼요. (계좌번호는 AI 에 보내지 않아요)"
 CLEARED_NOTICE = "오래된 서류라 계좌번호·연락처·주소 같은 개인정보 칸은 비웠어요. 다시 쓰려면 그 칸만 채워 주세요."

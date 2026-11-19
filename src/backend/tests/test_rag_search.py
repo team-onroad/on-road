@@ -81,8 +81,9 @@ def make_searcher(collection, answer=None, max_distance=1.0):
 
 def test_signature_matches_spec():
     sig = inspect.signature(policy_search.search_policies)
-    assert list(sig.parameters) == ["question", "candidate_policy_keys", "top_k"]
+    assert list(sig.parameters) == ["question", "candidate_policy_keys", "top_k", "answer"]
     assert sig.parameters["top_k"].default == 5
+    assert sig.parameters["answer"].default is True  # False: 답변 없이 근거만
 
 
 # --- 청크 ---
@@ -360,3 +361,12 @@ def test_real_mode_uses_rag_function(monkeypatch):
 
 def test_policies_json_is_valid_json():
     json.loads(POLICIES_PATH.read_text(encoding="utf-8"))
+
+
+def test_without_answer_skips_llm(collection):
+    """answer=False: 답변 LLM 을 부르지 않고 근거(정책)만 돌려준다 (분야별로 보기)"""
+    answer = FakeAnswer()
+    out = make_searcher(collection, answer)("자립수당 매월 얼마 받나요?", ["P001", "D001"], answer=False)
+    assert answer.calls == []
+    assert out["status"] == "answered" and out["answer"] is None
+    assert {e["policy_key"] for e in out["evidences"]} <= {"P001", "D001"} and out["evidences"]

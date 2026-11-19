@@ -60,7 +60,7 @@ def test_photo_form_becomes_document(api, db_session, doc_llm):
     assert fields["계좌번호"]["input_type"] == "account" and fields["계좌번호"]["value_source"] == "user"
     assert fields["서명"]["value_source"] == "handwrite"
     assert fields["신청 사유"]["essay"] is True
-    assert d["notices"][0].startswith("올린 양식에서 AI가 읽은 칸이에요.")
+    assert d["notices"][0].startswith("받은 양식과 칸이 맞는지 확인하고")
     name, (form_text, images) = doc_llm.calls[-1]
     assert name == "read_form" and form_text is None and images[0].startswith("data:image/jpeg;base64,")
     assert len(images[0]) < 200_000  # 흑백 JPG 로 줄여 보낸다

@@ -42,7 +42,7 @@ def _matched(token: str, text: str) -> str | None:
     return None
 
 
-def search_policies(question: str, candidate_policy_keys: list[str], top_k: int = 5) -> dict:
+def search_policies(question: str, candidate_policy_keys: list[str], top_k: int = 5, answer: bool = True) -> dict:
     policies = _dummy_policies()
     tokens = _tokens(question)
     scored: list[tuple[float, int, str, list[str]]] = []

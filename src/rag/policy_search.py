@@ -91,7 +91,8 @@ class PolicySearcher:
             hits = hits[: top_k - 1]
         return [*hits, {**meta, "id": cid, "content": doc, "distance": None}]
 
-    def __call__(self, question: str, candidate_policy_keys: list[str], top_k: int = 5) -> dict:
+    def __call__(self, question: str, candidate_policy_keys: list[str], top_k: int = 5, answer: bool = True) -> dict:
+        """answer=False: 답변 문장을 만들지 않고 근거(정책)만 (분야별 목록처럼 카드만 보여 줄 때. LLM 호출이 없어 빠르다)"""
         question = question.strip()
         if not question or not candidate_policy_keys:
             return dict(NO_EVIDENCE)
@@ -100,6 +101,8 @@ class PolicySearcher:
         hits = self.retrieve(question, candidate_policy_keys, top_k)
         if not hits:
             return dict(NO_EVIDENCE)
+        if not answer:
+            return {"status": "answered", "answer": None, "evidences": [_evidence(h) for h in hits]}
         hits = self.add_apply_chunk(hits, top_k)
 
         draft = self.answer(question, hits)
@@ -130,5 +133,10 @@ def _default_searcher() -> PolicySearcher:
     return PolicySearcher(open_collection(), embed, generate_answer, s.rag_max_distance, s.rag_keyword_max_distance)
 
 
-def search_policies(question: str, candidate_policy_keys: list[str], top_k: int = 5) -> dict:
-    return _default_searcher()(question, candidate_policy_keys, top_k)
+def search_policies(question: str, candidate_policy_keys: list[str], top_k: int = 5, answer: bool = True) -> dict:
+    return _default_searcher()(question, candidate_policy_keys, top_k, answer)
+
+
+def warm_up() -> None:
+    """서버 시작 때 Chroma · OpenAI 연결을 미리 연다 (첫 검색이 느리지 않게)"""
+    _default_searcher()

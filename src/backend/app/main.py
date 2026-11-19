@@ -1,4 +1,5 @@
 import logging
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -8,10 +9,12 @@ from starlette.requests import Request
 
 from app.body_limit import BodyLimitMiddleware
 from app.api import chat, checklists, forms, health, policies, risk, roleplay, simulations, users, writer
+from app.config import get_settings
 from app.criteria import get_criteria
 from app.errors import register_error_handlers
 from app.doc_risk import get_rules
 from app.forms import get_templates
+from app.rag_client import _real_search_policies
 from app.roleplay import get_scenarios
 
 logger = logging.getLogger(__name__)
@@ -32,7 +35,27 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     get_scenarios()  # 롤플레잉 상황·서류 양식 파일 형식 오류도 시작 시 실패
     get_templates()
     get_rules()  # 서류 위험 규칙 (연습 상황 id 확인 포함)
+    _warm_up_rag()
     yield
+
+
+def _warm_up_rag() -> None:
+    """RAG 를 실제로 쓰면 Chroma · OpenAI 연결을 백그라운드에서 미리 연다.
+    서버가 잠들었다 깬 뒤 첫 검색이 라이브러리를 불러오느라 오래 걸리지 않게 (시작은 막지 않는다)"""
+    if get_settings().rag_mode != "real":
+        return
+
+    def run() -> None:
+        try:
+            _real_search_policies()
+            from rag.policy_search import warm_up
+
+            warm_up()
+            logger.info("RAG 미리 열기 완료")
+        except Exception as e:  # 실패해도 첫 검색 때 다시 연다
+            logger.warning("RAG 미리 열기 실패: %s", type(e).__name__)
+
+    threading.Thread(target=run, name="rag-warm-up", daemon=True).start()
 
 
 def create_app() -> FastAPI:

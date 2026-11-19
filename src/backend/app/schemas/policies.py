@@ -58,6 +58,8 @@ class SearchRequest(BaseModel):
 
     user_id: str
     question: str
+    # false: 답변 문장 없이 정책 목록만 (분야별로 보기처럼 카드만 쓸 때. 훨씬 빠름)
+    answer: bool = True
 
     @field_validator("question")
     @classmethod

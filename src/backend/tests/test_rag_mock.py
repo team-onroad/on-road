@@ -13,8 +13,9 @@ ALL_DUMMY = ["D001", "D002", "D003", "D004"]
 
 def test_signature_matches_spec():
     sig = inspect.signature(search_policies)
-    assert list(sig.parameters) == ["question", "candidate_policy_keys", "top_k"]
+    assert list(sig.parameters) == ["question", "candidate_policy_keys", "top_k", "answer"]
     assert sig.parameters["top_k"].default == 5
+    assert sig.parameters["answer"].default is True  # False: 답변 없이 근거만
 
 
 def test_rag_client_uses_mock_by_default(monkeypatch):
@@ -91,3 +92,17 @@ def test_search_with_mock_and_dummy_seed(api, db_session, tmp_path):
         "/api/search", json={"user_id": str(gyeonggi.id), "question": "월세 지원 받을 수 있나요?"}
     ).json()
     assert "D002" not in [r["policy_key"] for r in data["results"]]
+
+
+def test_search_without_answer_returns_cards_only(api, db_session, tmp_path):
+    """answer=false: 답변 문장 없이 같은 정책 카드만 (분야별로 보기)"""
+    empty = tmp_path / "policies.json"
+    empty.write_text("", encoding="utf-8")
+    seed_policies(db_session, path=empty)
+    db_session.commit()
+    seoul = make_user(db_session, region="서울")
+    body = {"user_id": str(seoul.id), "question": "월세 지원 받을 수 있나요?"}
+    full = api.post("/api/search", json=body).json()
+    cards = api.post("/api/search", json={**body, "answer": False}).json()
+    assert full["answer"] and cards["answer"] is None
+    assert [r["policy_key"] for r in cards["results"]] == [r["policy_key"] for r in full["results"]]
