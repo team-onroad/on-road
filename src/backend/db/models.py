@@ -23,10 +23,43 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator
+
+from app import sealing
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class SealedJson(TypeDecorator):
+    """DB 에는 암호화해 넣고 꺼낼 때 푸는 JSONB (app/sealing.py). 키가 없으면 평문 그대로"""
+
+    impl = JSONB
+    cache_ok = True
+
+    def __init__(self, is_list: bool = False):
+        super().__init__()
+        self.is_list = is_list  # 풀지 못했을 때 [] (아니면 None) 을 돌려준다
+
+    def process_bind_param(self, value, dialect):
+        return sealing.seal_json(value)
+
+    def process_result_value(self, value, dialect):
+        return sealing.open_json(value, [] if self.is_list else None)
+
+
+class SealedText(TypeDecorator):
+    """DB 에는 암호화해 넣고 꺼낼 때 푸는 TEXT"""
+
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        return sealing.seal_text(value)
+
+    def process_result_value(self, value, dialect):
+        return sealing.open_text(value)
 
 
 def _created_at() -> Mapped[datetime]:
@@ -158,12 +191,14 @@ class Document(Base):
     checklist_item_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("checklist_items.id", ondelete="SET NULL")
     )
-    context: Mapped[str | None] = mapped_column(Text)  # 상담 AI 에서 넘어온 요청 요약
+    context: Mapped[str | None] = mapped_column(SealedText)  # 상담 AI 에서 넘어온 요청 요약 (암호화 저장)
     spec: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="writing")
     # 대화형 작성 진행 상태 {"current", "skipped", "pending"} (services/interview.py)
     interview: Mapped[dict | None] = mapped_column(JSONB)
     exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # 오래돼서 개인정보 칸을 비운 때 (services/writer.py clear_stale). 서류 자체는 남긴다
+    personal_cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
 
@@ -179,8 +214,9 @@ class DocumentField(Base):
     field_id: Mapped[str] = mapped_column(String(100), nullable=False)
     sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     # [{"text": ..., "source": "user" | "ai" | "profile" | "reused"}]
-    segments: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'"))
-    previous_segments: Mapped[list[dict] | None] = mapped_column(JSONB)  # 되돌리기 1단계
+    # 계좌번호 · 전화 · 주소 · 문장이 들어 있어 DB 에는 암호화해 둔다 (DOC_SECRET_KEY 가 있을 때)
+    segments: Mapped[list[dict]] = mapped_column(SealedJson(is_list=True), nullable=False, server_default=text("'[]'"))
+    previous_segments: Mapped[list[dict] | None] = mapped_column(SealedJson())  # 되돌리기 1단계
     tip: Mapped[str | None] = mapped_column(Text)  # "어떤 내용을 넣으면 좋을까?" 안내
     reused_from: Mapped[str | None] = mapped_column(String(200))  # 가져온 다른 서류 제목
     is_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))

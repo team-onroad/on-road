@@ -29,13 +29,13 @@ def test_practice_and_month_raise_score(api, db_session):
     assert _practice(api, user, "phone-store", missed=2).status_code == 201
     assert api.post(f"/api/users/{user.id}/activities", json={"kind": "month_life", "data": MONTH}).status_code == 201
     areas = {a["key"]: a for a in _readiness(api, user)["areas"]}
-    # 수상한 전화(다 챙김) · 완벽 대처 · 사기 안 당함은 완료, 휴대폰(2개 놓침)은 해 봄(0.5)
+    # 수상한 전화(다 챙김) · 완벽 대처 · 사기 안 당함은 완료, 휴대폰(2개 놓침)은 연습 0.5 · 빠짐없이 0.5
     assert areas["safety"]["done_count"] == 3
     phone = next(i for i in areas["safety"]["items"] if i["key"] == "practice-phone-store")
     assert (phone["done"], phone["progress"]) == (False, 0.5)
-    assert areas["safety"]["score"] == round(100 * 3.5 / 4)
+    assert areas["safety"]["score"] == round(100 * 4 / 5)
     assert areas["safety"]["next_step"]["scenario_id"] == "phone-store"
-    assert areas["money"]["done_count"] == 1  # 모자람 없는 한 달
+    assert areas["money"]["done_count"] == 2  # 모자람 없는 한 달 · 비상금 안 꺼낸 한 달
     assert areas["life"]["done_count"] == 1
     r = _readiness(api, user)
     assert r["weakest"] != "safety" and r["score"] > 0
@@ -193,7 +193,8 @@ def test_month_partial_by_shortage(api, db_session):
     assert _item(r, "money", "month-no-shortage")["progress"] == round(0.75 * 0.5, 2)
     assert _item(r, "life", "month-twice")["progress"] == 0.5
     money = next(a for a in r["areas"] if a["key"] == "money")
-    assert money["score"] == round(100 * (0.75 * 0.5) / 4)
+    # 모자람 없는 한 달 0.375 + 비상금은 안 꺼냈지만 모자람 0.5
+    assert money["score"] == round(100 * (0.75 * 0.5 + 0.5) / 7)
 
 
 def test_partial_never_counts_as_done(api, db_session):
@@ -201,3 +202,40 @@ def test_partial_never_counts_as_done(api, db_session):
     _practice(api, user, "hospital", missed=5)
     life = next(a for a in _readiness(api, user)["areas"] if a["key"] == "life")
     assert life["done_count"] == 0 and life["score"] > 0
+
+
+# ------------------------------------------------------------------ 세분화 (영역마다 항목 수가 다르다)
+
+
+def test_areas_have_more_than_four_items(api, db_session):
+    user = make_user(db_session)
+    totals = {a["key"]: a["total"] for a in _readiness(api, user)["areas"]}
+    assert totals == {"housing": 7, "money": 7, "job": 6, "documents": 6, "safety": 5, "life": 6}
+    assert all(len(a["items"]) == a["total"] for a in _readiness(api, user)["areas"])
+
+
+def test_policy_category_codes_count(api, db_session):
+    """정책 분야는 DB 에 영문 코드(housing · employment …)로 들어 있다. 예전에는 '주거'와 비교해서 주거 항목이 영영 안 됐다"""
+    from tests.factories import make_policy
+
+    user = make_user(db_session)
+    for category in ("housing", "employment", "medical", "living_cost"):
+        policy = make_policy(db_session, category=category)
+        assert api.post("/api/checklists", json={"user_id": str(user.id), "policy_id": policy.id}).status_code == 201
+    r = _readiness(api, user)
+    assert _item(r, "housing", "housing-policy")["done"]
+    assert _item(r, "job", "job-policy")["done"]
+    assert _item(r, "life", "health-policy")["done"]
+    assert _item(r, "money", "money-policy")["done"]
+    assert _item(r, "documents", "checklist-two")["done"]
+    # 시작만 한 주거 신청은 '끝까지'가 아직 아님
+    assert not _item(r, "housing", "housing-policy-done")["done"]
+
+
+def test_one_document_is_half_of_two(api, db_session):
+    user = make_user(db_session)
+    policy = __import__("tests.factories", fromlist=["make_policy"]).make_policy(db_session)
+    api.post("/api/checklists", json={"user_id": str(user.id), "policy_id": policy.id})
+    r = _readiness(api, user)
+    two = _item(r, "documents", "checklist-two")
+    assert (two["done"], two["progress"], two["detail"]) == (False, 0.5, "1가지 시작했어요")

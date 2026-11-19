@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
 
+from app.body_limit import BodyLimitMiddleware
 from app.api import chat, checklists, forms, health, policies, risk, roleplay, simulations, users, writer
 from app.criteria import get_criteria
 from app.errors import register_error_handlers
@@ -39,6 +40,8 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     # 응답 속도: 1KB 넘는 응답은 gzip 으로 줄여 보낸다 (대시보드 · 정책 · 서류 JSON 이 크다)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
+    # 아주 큰 요청은 본문을 다 받기 전에 413 (사진 · PDF 올리기만 14MB, 나머지 1MB)
+    app.add_middleware(BodyLimitMiddleware)
 
     @app.middleware("http")
     async def cache_headers(request: Request, call_next):

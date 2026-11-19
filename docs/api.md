@@ -42,6 +42,7 @@
 | 404 | `SIMULATION_NOT_FOUND` | 시뮬레이션 기록이 없거나 요청한 사용자의 것이 아님 |
 | 422 | `VALIDATION_ERROR` | 필수값 누락, 코드값 오류, 형식 오류 (예: 미래 생년월일, 휴대폰 번호 형식) |
 | 422 | `SUM_EXCEEDS_INCOME` | 시뮬레이션 배분 합계가 총소득보다 큼 |
+| 413 | `PAYLOAD_TOO_LARGE` | 요청 본문이 너무 큼. 사진·PDF 올리기(`/documents/upload`, `/documents/risk-check`)는 14MB, 나머지는 1MB (본문을 다 받기 전에 막음) |
 | 503 | `RAG_UNAVAILABLE` | 정책 검색(RAG) 처리 중 오류 |
 
 ### 1.2 공통 코드값

@@ -123,7 +123,8 @@ def upload_document(
     responses={404: {"description": NOT_FOUND}},
 )
 def get_document(target: QueryTarget, db: DB, today: Today) -> DocumentResponse:
-    doc = target[1]
+    user, doc = target
+    service.clear_stale(db, user)
     # 칸별로 쓰기에서도 신청 날짜 칸은 오늘 날짜로 미리 채운다 (확인은 사용자가)
     interview_service.fill_today(db, service._rows(db, doc), service._specs(doc), today)
     return service.to_response(db, doc)

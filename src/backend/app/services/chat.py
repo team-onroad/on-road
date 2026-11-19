@@ -1,5 +1,6 @@
 """AI 상담 채팅 (api.md 1.6, 3.15). 대화 내용은 저장·로그 안 함"""
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -54,16 +55,23 @@ def _answer(
     db: Session, user: User, body: ChatRequest, today: date, llm: Llm, rag: SearchPolicies, doc_llm: DocLlm,
 ) -> ChatResponse:
     history = [h.model_dump() for h in body.history]
-    routed = call_llm("route_message", doc_llm.route_message, _check_route, body.message, history, {"screen": "chat"})
-    if routed["route"] == "document":
-        return ChatResponse(
-            type="document", message=HANDOFF_MESSAGE, search=None, contacts=[],
-            handoff=handoff_for(db, user, body.message, routed.get("doc_hint"), today),
+    # 서류 쪽인지(route)와 정책·상담 중 무엇인지(intent)는 서로 상관없는 질문이라 AI 에게 동시에 묻는다.
+    # 예전에는 차례로 물어서 답을 받기까지 AI 왕복이 한 번 더 걸렸다. 결과와 오류 처리는 예전과 같다.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        routed_job = pool.submit(
+            call_llm, "route_message", doc_llm.route_message, _check_route, body.message, history, {"screen": "chat"}
         )
-
-    intent = call_llm(
-        "classify_intent", llm.classify_intent, lambda v: v in ("policy", "counsel"), body.message, history
-    )
+        intent_job = pool.submit(
+            call_llm, "classify_intent", llm.classify_intent, lambda v: v in ("policy", "counsel"), body.message, history
+        )
+        routed = routed_job.result()
+        if routed["route"] == "document":
+            intent_job.cancel()  # 서류로 넘기면 intent 는 쓰지 않는다 (이미 시작했으면 끝나도 결과는 버림)
+            return ChatResponse(
+                type="document", message=HANDOFF_MESSAGE, search=None, contacts=[],
+                handoff=handoff_for(db, user, body.message, routed.get("doc_hint"), today),
+            )
+        intent = intent_job.result()
     if intent == "policy":
         return ChatResponse(
             type="policy", message=None, search=search(db, user, body.message, today, rag), contacts=[]

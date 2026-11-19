@@ -74,6 +74,13 @@ class Facts:
     practice_min_missed: dict[str, int] = field(default_factory=dict)  # 가장 적게 놓친 개수
     doc_best: float = 0.0  # 가장 많이 쓴 서류의 칸 진행률 (0~1)
     checklist_best: float = 0.0  # 가장 많이 한 체크리스트 진행률 (0~1)
+    # 세분화: 분야별 신청 준비 · 서류 개수 · 생활비 계획의 집세
+    checklist_categories: frozenset[str] = frozenset()  # 신청 준비를 시작한 정책 분야
+    checklist_done_categories: frozenset[str] = frozenset()  # 신청 준비를 끝낸 정책 분야
+    category_best: dict[str, float] = field(default_factory=dict)  # 분야별 가장 많이 한 진행률
+    doc_count: int = 0
+    checklist_count: int = 0
+    sim_housing: bool = False  # 가장 최근 생활비 계획에 집세가 들어 있음
 
 
 @dataclass(frozen=True)
@@ -156,13 +163,62 @@ def collect(db: Session, user: User, rows: Rows | None = None, until: datetime |
         checklist_started=bool(checklists),
         # 끝낸 때가 따로 없어서 마지막으로 고친 때로 본다
         checklist_done=any(c.next_step is None and _before(c.checklist.updated_at, until) for c in checklists),
-        housing_checklist=any(c.policy.category == "주거" for c in checklists),
+        housing_checklist=any(c.policy.category in CATEGORY_CODES["housing"] for c in checklists),
         practice_count=count,
         practice_best=best,
         practice_min_missed=min_missed,
         doc_best=max((done / total for done, total in (rows.doc_progress.get(d.id, (0, 0)) for d in docs) if total), default=0.0),
         checklist_best=max((c.progress.checked_steps / max(c.progress.total_steps, 1) for c in checklists), default=0.0),
+        checklist_categories=frozenset(c.policy.category for c in checklists),
+        checklist_done_categories=frozenset(
+            c.policy.category for c in checklists if c.next_step is None and _before(c.checklist.updated_at, until)
+        ),
+        category_best=_category_best(checklists),
+        doc_count=len(docs),
+        checklist_count=len(checklists),
+        sim_housing=latest is not None and (latest.housing or 0) > 0,
     )
+
+
+def _category_best(checklists: list) -> dict[str, float]:
+    best: dict[str, float] = {}
+    for c in checklists:
+        p = c.progress.checked_steps / max(c.progress.total_steps, 1)
+        best[c.policy.category] = max(best.get(c.policy.category, 0.0), p)
+    return best
+
+
+# 정책 분야 코드 (app/codes.py POLICY_CATEGORIES). 예전 한글 값도 같이 받는다
+CATEGORY_CODES: dict[str, tuple[str, ...]] = {
+    "housing": ("housing", "주거"),
+    "money": ("living_cost", "finance", "independence", "생활·금융", "자립"),
+    "job": ("employment", "취업"),
+    "health": ("medical", "건강"),
+}
+
+
+def _in(cats: frozenset[str], group: str) -> bool:
+    return any(c in cats for c in CATEGORY_CODES[group])
+
+
+def _group_best(f: "Facts", group: str) -> float:
+    return max((f.category_best.get(c, 0.0) for c in CATEGORY_CODES[group]), default=0.0)
+
+
+def _policy_start(key: str, group: str, label: str, step_label: str, query: str) -> "Item":
+    return Item(key, label, lambda f: _in(f.checklist_categories, group),
+                NextStepOut(kind="search", label=step_label, query=query))
+
+
+def _policy_done(key: str, group: str, label: str, step_label: str, query: str) -> "Item":
+    return Item(key, label, lambda f: _in(f.checklist_done_categories, group),
+                NextStepOut(kind="search", label=step_label, query=query),
+                lambda f: f"신청 준비 {round(_group_best(f, group) * 100)}%" if _in(f.checklist_categories, group) else None,
+                lambda f: 0.9 * _group_best(f, group))
+
+
+def _count_detail(n: int, unit: str) -> str | None:
+    return f"{n}가지 {unit}" if n else None
 
 
 @dataclass(frozen=True)
@@ -240,10 +296,15 @@ def _month(
 AREAS: tuple[tuple[str, str, tuple[Item, ...]], ...] = (
     ("housing", "주거", (
         _practice("realestate", "원룸 계약 연습"),
+        _practice("realestate", "원룸 계약 빠짐없이 하기", clean=True),
         _practice("community-center", "전입신고 연습"),
         _practice("landlord", "집주인에게 수리 요청 연습"),
         Item("housing-policy", "주거 지원 신청 준비 시작", lambda f: f.housing_checklist,
              NextStepOut(kind="search", label="주거 지원 찾아보기", query="자립준비청년 주거 지원 공공임대 전세임대")),
+        _policy_done("housing-policy-done", "housing", "주거 지원 신청 준비 끝까지 하기", "주거 지원 신청 이어서 하기",
+                     "자립준비청년 주거 지원 공공임대 전세임대"),
+        Item("budget-housing", "생활비 계획에 집세 넣기", lambda f: f.sim_housing,
+             NextStepOut(kind="budget", label="생활비 계획에 집세 넣기")),
     )),
     ("money", "돈", (
         Item("budget", "생활비 계획 세우기", lambda f: f.has_simulation, NextStepOut(kind="budget", label="생활비 계획 세우기"),
@@ -252,43 +313,61 @@ AREAS: tuple[tuple[str, str, tuple[Item, ...]], ...] = (
              NextStepOut(kind="budget", label="부족한 곳 다시 맞춰 보기"), _budget_detail,
              lambda f: {1: 0.67, 2: 0.33}.get(f.latest_shortages or 0, 0.0) if f.latest_shortages else 0.0),
         _practice("bank", "은행 계좌 개설 연습"),
+        _practice("bank", "은행 계좌 개설 빠짐없이 하기", clean=True),
         _month("month-no-shortage", "모자람 없이 한 달 버티기",
                lambda f: any(m.get("shortage", 1) == 0 for m in f.months), "한 달 살아보기에서 버텨 보기",
                # 가장 잘 버틴 달: 모자란 돈(만원)이 적을수록, 30만원 이상 모자라면 0
                lambda f: 0.75 * max(0.0, 1 - min(m.get("shortage", 30) for m in f.months) / 30) if f.months else 0.0),
+        _month("month-no-emergency", "비상금 안 꺼내고 한 달 버티기",
+               lambda f: any(m.get("used_emergency", 1) == 0 and m.get("shortage", 1) == 0 for m in f.months),
+               "한 달 살아보기에서 비상금 지켜 보기",
+               lambda f: 0.5 if any(m.get("used_emergency", 1) == 0 for m in f.months) else 0.0),
+        _policy_start("money-policy", "money", "생활 지원 신청 준비 시작", "자립수당 · 정착금 찾아보기",
+                      "자립준비청년 자립수당 자립정착금"),
     )),
     ("job", "일", (
         _practice("parttime", "아르바이트 면접 연습"),
         _practice("job", "취업 면접 연습"),
+        _practice("job", "취업 면접 빠짐없이 하기", clean=True),
         _practice("wage", "밀린 알바비 받기 연습"),
         _practice("jobcenter", "고용센터 상담 연습"),
+        _policy_start("job-policy", "job", "취업 지원 신청 준비 시작", "취업 지원 찾아보기", "자립준비청년 취업 지원"),
     )),
     ("documents", "서류", (
         Item("doc-start", "서류 하나 써 보기", lambda f: f.doc_started, NextStepOut(kind="forms", label="서류 작성 도우미 열기")),
         Item("doc-export", "서류 끝까지 완성하기", lambda f: f.doc_exported, NextStepOut(kind="forms", label="쓰던 서류 마무리하기"),
              lambda f: f"가장 많이 쓴 서류 {round(f.doc_best * 100)}%" if f.doc_started and not f.doc_exported else None,
              lambda f: 0.9 * f.doc_best),
+        Item("doc-two", "서류 두 가지 써 보기", lambda f: f.doc_count >= 2,
+             NextStepOut(kind="forms", label="다른 서류 써 보기"),
+             lambda f: _count_detail(f.doc_count, "썼어요"), lambda f: 0.5 if f.doc_count == 1 else 0.0),
         Item("checklist-start", "정책 신청 준비 시작하기", lambda f: f.checklist_started,
              NextStepOut(kind="search", label="받을 수 있는 정책 찾아보기", query="자립준비청년 지원")),
         Item("checklist-done", "신청 준비 끝까지 하기", lambda f: f.checklist_done,
              NextStepOut(kind="search", label="신청할 정책 찾아보기", query="자립준비청년 자립수당 자립정착금"),
              lambda f: f"가장 많이 한 신청 준비 {round(f.checklist_best * 100)}%" if f.checklist_started and not f.checklist_done else None,
              lambda f: 0.9 * f.checklist_best),
+        Item("checklist-two", "신청 준비 두 가지 시작하기", lambda f: f.checklist_count >= 2,
+             NextStepOut(kind="search", label="다른 정책 찾아보기", query="자립준비청년 지원"),
+             lambda f: _count_detail(f.checklist_count, "시작했어요"), lambda f: 0.5 if f.checklist_count == 1 else 0.0),
     )),
     ("safety", "안전", (
         _practice("scam-call", "수상한 전화 대처 연습"),
         _practice("scam-call", "수상한 전화 완벽하게 대처하기", clean=True),
         _practice("phone-store", "휴대폰 개통 연습"),
+        _practice("phone-store", "휴대폰 개통 빠짐없이 하기", clean=True),
         _month("month-no-scam", "한 달 살아보기에서 사기 피하기",
                lambda f: bool(f.months) and not any("smishing" in m.get("bad_events", []) for m in f.months[:1]),
                "한 달 살아보기에서 사기 피해 보기"),
     )),
     ("life", "생활", (
         _practice("hospital", "병원 진료 연습"),
+        _practice("store", "가게에서 물건 사기 연습"),
         _practice("neighbor", "층간소음 이야기 연습"),
         _month("month-done", "한 달 살아보기 끝까지 하기", lambda f: bool(f.months), "한 달 살아보기 해 보기"),
         _month("month-twice", "한 달 살아보기 두 번 해 보기", lambda f: len(f.months) >= 2, "다른 한 달 살아보기",
                lambda f: 0.5 if f.months else 0.0),
+        _policy_start("health-policy", "health", "건강 지원 신청 준비 시작", "의료 지원 찾아보기", "자립준비청년 의료 지원"),
     )),
 )
 
