@@ -197,23 +197,61 @@ def extract_answer(message: str, field: dict, generate: Generate | None = None) 
 
 # ---------------- 올린 양식 읽기 ----------------
 
-READ_FORM_MAX_TOKENS = 1500
-READ_FORM_TEXT_CHARS = 8000
+READ_FORM_TEXT_CHARS = 14000  # 글자 + [표 구조]
 READ_FORM_FIELDS = 60
 
+# 출력 한도는 양식 크기를 보고 정한다: 칸이 적은 양식은 빨리 끝나고, 많은 양식은 잘리지 않게
+READ_FORM_TOKENS_BASE = 400       # 제목 · JSON 뼈대
+READ_FORM_TOKENS_PER_FIELD = 60   # 칸 하나 (이름 · 묶음 · 종류 · 안내 15자) ≈ 45토큰 + 여유
+READ_FORM_TOKENS_MIN = 1500
+READ_FORM_TOKENS_MAX = 8000       # 아무리 커도 여기까지 (칸 60개 상한 기준으로 넉넉)
+READ_FORM_FIELDS_PER_IMAGE = 25   # 사진 · 스캔은 글자를 모르니 쪽마다 이만큼 칸이 있다고 본다
+_CELL_SPLIT = re.compile(r"\s*\|\s*")
+_LABEL_BLANK = re.compile(r"[가-힣A-Za-z][^\s_:]*\s*:?\s*_{3,}")  # "성명: ____", "신청인 ______"
 
-def _form_generate(messages: list[dict], max_tokens: int | None = None) -> dict:
+
+def estimate_fields(form_text: str | None, image_count: int = 0) -> int:
+    """양식에 칸이 대략 몇 개인지. 표 구조가 있으면 표의 칸 수, 없으면 짧은 줄(칸 이름처럼 보이는 줄) 수"""
+    if not form_text:
+        return READ_FORM_FIELDS_PER_IMAGE * max(image_count, 1)
+    text, _, table = form_text.partition("[표 구조]")
+    if table.strip():
+        cells = [c for line in table.splitlines() if not line.startswith("[") for c in _CELL_SPLIT.split(line) if c.strip()]
+        n = len(cells)
+    else:
+        # 표 없는 양식: 밑줄 칸 이름("성명: ____")과 짧은 줄(칸 이름만 있는 줄)을 센다
+        n = 0
+        for line in text.splitlines():
+            blanks = len(_LABEL_BLANK.findall(line))
+            n += blanks or (1 if 0 < len(line.strip()) <= 25 else 0)
+    n += text.count("□") // 3  # 선택지 묶음은 칸 하나지만 options 글자가 길다
+    return max(1, min(n, READ_FORM_FIELDS))
+
+
+def read_form_tokens(form_text: str | None, image_count: int = 0) -> int:
+    want = READ_FORM_TOKENS_BASE + READ_FORM_TOKENS_PER_FIELD * estimate_fields(form_text, image_count)
+    return max(READ_FORM_TOKENS_MIN, min(want, READ_FORM_TOKENS_MAX))
+
+
+def _form_generate(messages: list[dict], max_tokens: int = READ_FORM_TOKENS_MIN) -> dict:
+    """답이 한도에 걸려 잘리면 (finish_reason == "length") 한도를 두 배로 늘려 다시 부른다 (최대 READ_FORM_TOKENS_MAX)"""
     from rag.openai_client import _client
     from rag.settings import get_rag_settings
 
     model = get_rag_settings().form_read_model  # .env 의 FORM_READ_MODEL (기본 gpt-4.1-mini)
-    for _ in range(1 + JSON_RETRIES):
-        resp = _client().with_options(timeout=60.0).chat.completions.create(
-            model=model, temperature=0, max_tokens=max_tokens or READ_FORM_MAX_TOKENS,
+    tries = 0
+    while tries <= JSON_RETRIES:
+        resp = _client().with_options(timeout=90.0).chat.completions.create(
+            model=model, temperature=0, max_tokens=max_tokens,
             response_format={"type": "json_object"}, messages=messages,
         )
+        choice = resp.choices[0]
+        if choice.finish_reason == "length" and max_tokens < READ_FORM_TOKENS_MAX:
+            max_tokens = min(max_tokens * 2, READ_FORM_TOKENS_MAX)  # 잘림: 한도만 늘려 다시 (재시도 횟수에 안 셈)
+            continue
+        tries += 1
         try:
-            out = json.loads(resp.choices[0].message.content or "")
+            out = json.loads(choice.message.content or "")
         except json.JSONDecodeError:
             continue
         if isinstance(out, dict):
@@ -229,7 +267,10 @@ def read_form(form_text: str | None, images: list[str], generate: Generate | Non
     else:
         content = [{"type": "image_url", "image_url": {"url": url, "detail": "high"}} for url in images]
     messages = [{"role": "system", "content": READ_FORM_SYSTEM}, {"role": "user", "content": content}]
-    out = (generate or _form_generate)(messages)
+    if generate is None:
+        out = _form_generate(messages, read_form_tokens(form_text and form_text[:READ_FORM_TEXT_CHARS], len(images)))
+    else:
+        out = generate(messages)
     if not isinstance(out, dict):
         raise DocwriterFormatError("양식 읽기 출력 형식이 다릅니다.")
     fields = [f for f in out.get("fields") or [] if isinstance(f, dict) and _text(f.get("label"))]

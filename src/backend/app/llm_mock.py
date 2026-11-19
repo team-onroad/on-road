@@ -36,6 +36,11 @@ def roleplay_reply(scenario: dict, history: list[dict], message: str) -> dict:
     return {"reply": ROLEPLAY_END, "is_finished": True}
 
 
+def judge_checks(checks: list[dict], user_turns: list[str]) -> list[str]:
+    """목: AI 판정 없음 (낱말 규칙만 쓴다)"""
+    return []
+
+
 def polish_sentences(doc_type: str, sentences: list[str]) -> list[str]:
     return list(sentences)
 

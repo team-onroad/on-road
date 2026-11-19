@@ -17,7 +17,7 @@ from pathlib import PurePath
 import pymupdf
 
 from app.doc_llm import DocLlm
-from app.doc_spec import ESSAY_WORDS, _field, _guess_profile_key, _sensitive
+from app.doc_spec import ESSAY_WORDS, _field, _guess_profile_key, _sensitive, is_other_person
 from app.errors import AppError
 from app.llm_client import call_llm
 
@@ -26,7 +26,7 @@ MAX_PAGES = 2
 MIN_PDF_TEXT = 40  # 이보다 글자가 적으면 스캔 PDF 로 보고 쪽 이미지를 보낸다
 IMAGE_MAX_SIDE = 1280  # 사진 긴 변 (픽셀). 칸 이름을 읽기에 충분하고 이미지 토큰이 적다
 JPG_QUALITY = 70
-MAX_FIELDS = 40
+MAX_FIELDS = 60  # 가족사항 · 경력처럼 줄이 반복되는 표가 있는 양식
 # 칸 읽는 규칙 버전. 올리면 같은 파일이어도 이 값이 바뀌었으면 새 문서로 다시 읽는다
 READ_VERSION = "v2"
 
@@ -52,6 +52,10 @@ def unreadable() -> AppError:
 def _kind(data: bytes) -> str:
     if data.startswith(b"%PDF"):
         return "pdf"
+    if data.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+        return "hwp"  # 예전 한글 (OLE 복합 문서)
+    if data.startswith(b"PK\x03\x04"):
+        return "hwpx"  # 한글 hwpx (zip)
     if data.startswith(b"\xff\xd8\xff"):
         return "jpg"
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -60,7 +64,152 @@ def _kind(data: bytes) -> str:
         return "webp"
     if data[4:12] in (b"ftypheic", b"ftypheix", b"ftypmif1", b"ftyphevc"):
         raise bad_file("HEIC 사진은 읽지 못해요. 카메라 설정에서 JPG로 찍거나, 앱에서 바로 찍어 주세요.")
-    raise bad_file("사진(JPG·PNG)이나 PDF 파일만 올릴 수 있어요.")
+    raise bad_file("사진(JPG·PNG), PDF, 한글(hwp·hwpx) 파일만 올릴 수 있어요.")
+
+
+# ---------------- 한글 파일: 글자만 꺼낸다 (칸 찾기는 PDF 글자와 같은 길로) ----------------
+
+_HWP_PARA_TEXT = 67  # HWPTAG_BEGIN(16) + 51
+# 한글 본문 안 제어 문자: 이 코드들은 뒤에 7글자(14바이트)를 더 차지한다
+_HWP_EXTENDED = {1, 2, 3, 11, 12, 14, 15, 16, 17, 18, 21, 22, 23}
+_HWP_INLINE = {4, 5, 6, 7, 8, 9, 19, 20}
+
+
+def _hwp_para(raw: bytes) -> str:
+    out, i, n = [], 0, len(raw) // 2
+    while i < n:
+        code = int.from_bytes(raw[2 * i: 2 * i + 2], "little")
+        if code < 32:
+            if code in _HWP_EXTENDED or code in _HWP_INLINE:
+                i += 8
+                continue
+            if code in (10, 13):
+                out.append("\n")
+            elif code == 24:
+                out.append("-")
+            elif code in (30, 31):
+                out.append(" ")
+            i += 1
+            continue
+        out.append(chr(code))
+        i += 1
+    return "".join(out)
+
+
+def hwp_text(data: bytes) -> str:
+    """예전 한글(.hwp): BodyText/Section* 의 문단 글자 (표 칸 글자도 문단이라 함께 나온다)"""
+    import olefile
+    import zlib
+
+    ole = olefile.OleFileIO(data)
+    try:
+        header = ole.openstream("FileHeader").read()
+        flags = int.from_bytes(header[36:40], "little")
+        if flags & 0x2:
+            raise bad_file("암호가 걸린 한글 파일은 읽지 못해요. 암호를 풀고 다시 올려 주세요.")
+        compressed = bool(flags & 0x1)
+        sections = sorted(
+            (e for e in ole.listdir() if len(e) == 2 and e[0] == "BodyText" and e[1].startswith("Section")),
+            key=lambda e: int(e[1][7:] or 0),
+        )
+        paras: list[str] = []
+        for entry in sections:
+            body = ole.openstream(entry).read()
+            if compressed:
+                body = zlib.decompress(body, -15)
+            pos = 0
+            while pos + 4 <= len(body):
+                head = int.from_bytes(body[pos: pos + 4], "little")
+                tag, size = head & 0x3FF, (head >> 20) & 0xFFF
+                pos += 4
+                if size == 0xFFF:
+                    size = int.from_bytes(body[pos: pos + 4], "little")
+                    pos += 4
+                if tag == _HWP_PARA_TEXT:
+                    text = _hwp_para(body[pos: pos + size]).strip()
+                    if text:
+                        paras.append(text)
+                pos += size
+        return "\n".join(paras)
+    finally:
+        ole.close()
+
+
+def hwpx_text(data: bytes) -> str:
+    """한글 hwpx: Contents/section*.xml 의 글자 (문단 · 표 칸마다 줄을 나눈다)"""
+    import io
+    import zipfile
+    from xml.etree import ElementTree
+
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        names = sorted(
+            (n for n in z.namelist() if re.fullmatch(r"Contents/section\d+\.xml", n)),
+            key=lambda n: int(re.search(r"\d+", n.rsplit("/", 1)[-1]).group()),
+        )
+        lines: list[str] = []
+        rows: list[str] = []
+        for name in names:
+            root = ElementTree.fromstring(z.read(name))
+            for p in root.iter():
+                if p.tag.rsplit("}", 1)[-1] != "p":
+                    continue
+                # 이 문단에 바로 딸린 글자만 (안쪽 표의 문단은 따로 돈다)
+                text = "".join(
+                    t.text or "" for run in p if run.tag.rsplit("}", 1)[-1] == "run"
+                    for t in run if t.tag.rsplit("}", 1)[-1] == "t"
+                ).strip()
+                if text:
+                    lines.append(text)
+            for tbl in root.iter():
+                if _tag(tbl) == "tbl":
+                    rows.extend(_hwpx_rows(tbl))
+                    rows.append("")
+        table = "\n".join(rows).strip()
+        return "\n".join(lines) + (f"\n\n[표 구조]\n{table}" if table else "")
+
+
+def _tag(el) -> str:
+    return el.tag.rsplit("}", 1)[-1]
+
+
+def _hwpx_cell_text(tc) -> str:
+    """칸 하나의 글자. 한 문단 안에서 쪼개진 글자(run)는 붙이고 문단끼리는 줄을 나눈다.
+    칸 안에 또 표가 있으면 그 표는 따로 줄을 만든다 (여기선 뺀다)"""
+    paras: list[str] = []
+
+    def walk(el):
+        for ch in el:
+            tag = _tag(ch)
+            if tag == "tbl":
+                continue
+            if tag == "p":
+                paras.append("".join(t.text or "" for t in _own_texts(ch)))
+            else:
+                walk(ch)
+    walk(tc)
+    return _cell("\n".join(paras))
+
+
+def _own_texts(p):
+    """문단 p 의 글자 (안쪽 표 글자 제외)"""
+    for ch in p:
+        if _tag(ch) == "tbl":
+            continue
+        if _tag(ch) == "t":
+            yield ch
+        else:
+            yield from _own_texts(ch)
+
+
+def _hwpx_rows(tbl) -> list[str]:
+    rows = []
+    for tr in tbl:
+        if _tag(tr) != "tr":
+            continue
+        cells = [x for x in (_hwpx_cell_text(tc) for tc in tr if _tag(tc) == "tc") if x]
+        if cells:
+            rows.append(" | ".join(cells))
+    return rows
 
 
 def _page_image(page: pymupdf.Page) -> str:
@@ -78,6 +227,17 @@ def read_source(data: bytes) -> tuple[str | None, list[str]]:
     if len(data) > MAX_BYTES:
         raise bad_file("파일이 너무 커요. 10MB 이하로 올려 주세요.")
     kind = _kind(data)
+    if kind in ("hwp", "hwpx"):
+        try:
+            text = hwp_text(data) if kind == "hwp" else hwpx_text(data)
+        except AppError:
+            raise
+        except Exception:
+            raise bad_file("한글 파일을 열지 못했어요. 파일이 손상되지 않았는지 확인해 주세요.") from None
+        text = text.strip()
+        if len(_flat(text)) < MIN_PDF_TEXT:
+            raise bad_file("한글 파일에서 글자를 찾지 못했어요. PDF로 저장해서 올려 주세요.")
+        return text, []
     try:
         doc = pymupdf.open(stream=data, filetype=kind)
     except Exception:
@@ -87,10 +247,42 @@ def read_source(data: bytes) -> tuple[str | None, list[str]]:
             pages = list(doc)[:MAX_PAGES]
             text = "\n".join(p.get_text() for p in pages).strip()
             if len(_flat(text)) >= MIN_PDF_TEXT:
-                return text, []
+                tables = "\n".join(filter(None, (_table_lines(p) for p in pages)))
+                return (f"{text}\n\n[표 구조]\n{tables}" if tables else text), []
             return None, [_page_image(p) for p in pages]
         # 사진: 다시 그려서 보낸다 (EXIF·위치 정보 없음, 크기 줄임)
         return None, [_page_image(doc[0])]
+
+
+def _cell(text: str | None) -> str:
+    """칸 글자 한 줄로. 세로로 한 글자씩 쓴 이름(신\n청\n인)은 붙인다"""
+    lines = [x.strip() for x in (text or "").splitlines() if x.strip()]
+    if lines and all(len(x) == 1 for x in lines):
+        return "".join(lines)
+    return " ".join(lines)
+
+
+def _table_lines(page: "pymupdf.Page") -> str:
+    """PDF 표를 줄 단위로 ("성명 | 생년월일 | 년 월 일"). 칸끼리 짝과 묶음(신청인 정보 | 대리인 정보)을 LLM 이 알게.
+    표 전체 폭을 차지하는 한 칸 줄은 묶음 제목이라 [ ]로 감싼다"""
+    try:
+        found = page.find_tables()
+    except Exception:  # 표 찾기가 실패해도 글자만으로 읽는다
+        return ""
+    out: list[str] = []
+    for t in found.tables:
+        width = (t.bbox[2] - t.bbox[0]) or 1
+        for row in t.rows:
+            cells = [(c, _cell(page.get_textbox(c))) for c in row.cells if c]
+            filled = [(c, x) for c, x in cells if x]
+            if not filled:
+                continue
+            if len(filled) == 1 and (filled[0][0][2] - filled[0][0][0]) > width * 0.6:
+                out.append(f"[{filled[0][1]}]")
+            else:
+                out.append(" | ".join(x for _, x in filled))
+        out.append("")
+    return "\n".join(out).strip()
 
 
 def _check_read(v: object) -> bool:
@@ -129,16 +321,25 @@ def to_fields(raw: list[dict], form_text: str | None) -> list[dict]:
     source = _flat(form_text) if form_text else None
     raw = _merge_date_parts(raw)
     fields: list[dict] = []
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     taken: set[str] = set()
+    # 같은 칸 이름이 여러 묶음에 있으면 (신청인 성명 · 대리인 성명 · 가족 1 성명) 묶음 이름을 붙여 부른다
+    label_count: dict[str, int] = {}
+    for f in raw:
+        k = _flat(" ".join(str(f.get("label") or "").split()))
+        label_count[k] = label_count.get(k, 0) + 1
     for f in raw:
         label = " ".join(str(f.get("label") or "").split())[:60]
         flat = _flat(label)
-        if not label or flat in seen or (source is not None and not _in_source(label, source)):
+        section = " ".join(str(f.get("section") or "").split())[:40] or None
+        if not label or (section, flat) in seen or (source is not None and not _in_source(label, source)):
             continue
-        if any(w in flat for w in _OFFICE_WORDS):
+        if any(w in flat for w in _OFFICE_WORDS) or (section and any(w in _flat(section) for w in _OFFICE_WORDS)):
             continue
-        seen.add(flat)
+        if not section and any(sec is None and fl == flat for sec, fl in seen):
+            continue
+        seen.add((section, flat))
+        other_person = is_other_person({"label": label, "section": section})
         kind = f.get("type") or f.get("input_type")
         input_type = kind if kind in _INPUT_TYPES else "text"
         if flat.rstrip(":*") in _DATE_LABELS or (flat.endswith("일") and "년" in flat and "월" in flat):
@@ -157,15 +358,15 @@ def to_fields(raw: list[dict], form_text: str | None) -> list[dict]:
         else:
             source_kind = "user"
         profile_key = None
-        if source_kind == "user" and input_type in ("text", "date", "phone"):
+        if source_kind == "user" and input_type in ("text", "date", "phone") and not other_person:
             profile_key = _guess_profile_key(label, taken)
             if profile_key:
                 taken.add(profile_key)
                 source_kind = "profile"
         essay = source_kind == "user" and input_type == "text" and any(w in label for w in ESSAY_WORDS)
+        easy = f"{section} {label}" if section and label_count.get(flat, 0) > 1 else None
         fields.append(_field(
-            field_id=f"f{len(fields) + 1}", label=label, section=(str(f.get("section")).strip()[:40] or None)
-            if f.get("section") else None,
+            field_id=f"f{len(fields) + 1}", label=label, easy_label=easy, section=section,
             guide=guide, example=example, multiline=essay, essay=essay,
             required=f.get("required") if isinstance(f.get("required"), bool) else None,
             input_type=input_type, value_source=source_kind, profile_key=profile_key, options=options,

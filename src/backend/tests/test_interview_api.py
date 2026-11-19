@@ -151,14 +151,14 @@ def test_question_goes_to_router(api, db_session, doc_llm, rag):
     assert crisis["route"] == "crisis" and crisis["contacts"][0]["phone"] == "109"
 
 
-def test_done_with_problems_returns_check(api, db_session, doc_llm):
+def test_confirm_with_blank_asks_for_blank(api, db_session, doc_llm):
+    """[빈칸]이 남은 초안은 '좋아'로 완료하지 않고 빈칸 내용을 묻는다 (빈칸째 내보내지 않게)"""
     user = make_user(db_session, phone="01012345678")
     doc_id = _start(api, user)
-    for message in ("네", "네", "네", "서울시 OO구 OO로 12", "OO대학교", "[학교 이름]에서 공부해요", "좋아", "계획", "좋아"):
+    for message in ("네", "네", "네", "서울시 OO구 OO로 12", "OO대학교", "[학교 이름]에서 공부해요", "좋아"):
         r = _say(api, user, doc_id, message)
-    assert r["done"] is True and r["export"] is None
-    assert r["check"]["problems"][0]["reason"] == "placeholder_left"
-    assert r["message"].startswith("고칠 칸이") or "고칠 칸이" in r["message"]
+    assert r["done"] is False and "[학교 이름]" in r["message"]
+    assert all(f["field_id"] != r["question"]["field_id"] or not f["is_completed"] for f in [r["field"]] if f) if r.get("field") else True
 
 
 def test_interview_errors(api, db_session, doc_llm):

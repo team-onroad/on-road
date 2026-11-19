@@ -9,11 +9,12 @@
 import base64
 import binascii
 import re
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from db.models import Checklist, ChecklistItem, Document, DocumentField, Policy, User
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import doc_export, doc_spec
@@ -52,10 +53,13 @@ from app.services.policies import VISIBLE, get_visible_policy, search
 ASSIST_MAX_CHARS = 1000
 OTHER_FIELDS_FOR_AI = 3
 NOT_CHECKED_NOTICE = "아직 사람이 원본 양식과 대조하지 않은 칸 목록이에요. 공식 양식과 함께 확인해 주세요."
-UPLOAD_NOTICE = "사진에서 AI가 읽은 칸이에요. 받은 양식과 칸이 맞는지 확인하고, 다 쓰면 표로 내보내 양식에 옮겨 적어 주세요."
+UPLOAD_NOTICE = "올린 양식에서 AI가 읽은 칸이에요. 받은 양식과 칸이 맞는지 확인하고, 다 쓰면 표로 내보내 양식에 옮겨 적어 주세요."
 AI_NOTICE = "AI가 쓴 문장은 색으로 표시돼요. 내 상황에 맞게 고친 뒤 완료를 눌러 주세요."
 HANDWRITE_NOTICE = "주민등록번호·서명 칸은 앱에 입력하지 않아요. 출력한 양식에 직접 써 주세요."
 ACCOUNT_TIP = "통장에 적힌 계좌번호를 숫자와 -로 적어 주세요. 본인 명의 통장만 돼요. (계좌번호는 AI 에 보내지 않아요)"
+CLEARED_NOTICE = "오래된 서류라 계좌번호·연락처·주소 같은 개인정보 칸은 비웠어요. 다시 쓰려면 그 칸만 채워 주세요."
+# 오래되면 비우는 개인정보 칸: 프로필에서 가져온 칸(이름·생년월일·주소·연락처) + 계좌 · 전화 · 주소 칸
+PERSONAL_INPUT_TYPES = {"account", "phone", "address"}
 COUNSEL_MESSAGE = "이 화면에서는 서류 작성과 신청 관련 질문을 도와요. 다른 이야기는 AI 상담에서 편하게 해 주세요."
 HANDOFF_MESSAGE = "서류 작성은 문서 도우미에서 칸마다 함께 써 볼게요."
 
@@ -186,6 +190,8 @@ def _notices(doc: Document) -> list[str]:
         notices.insert(0, UPLOAD_NOTICE)
     if any(f["value_source"] == "handwrite" for f in doc.spec):
         notices.append(HANDWRITE_NOTICE)
+    if doc.personal_cleared_at is not None:
+        notices.insert(0, CLEARED_NOTICE)
     return notices
 
 
@@ -227,6 +233,7 @@ def _uncheck_linked_item(db: Session, doc: Document) -> None:
 
 
 def list_documents(db: Session, user: User) -> DocumentList:
+    clear_stale(db, user)
     docs = db.scalars(
         select(Document).where(Document.user_id == user.id).order_by(Document.updated_at.desc(), Document.id.desc())
     )
@@ -288,9 +295,10 @@ def _reusable(db: Session, user: User, exclude_id: int | None) -> dict[str, tupl
     out: dict[str, tuple[str, list[dict]]] = {}
     for doc, row in db.execute(q).all():
         spec = _specs(doc).get(row.field_id)
-        if spec is None or not _writable(spec) or not _value(row.segments).strip():
+        key = doc_spec.reuse_key(spec) if spec is not None else None
+        if key is None or not _writable(spec) or not _value(row.segments).strip():
             continue
-        out.setdefault(doc_spec.label_key(spec["label"]), (doc.title, row.segments))
+        out.setdefault(key, (doc.title, row.segments))
     return out
 
 
@@ -301,7 +309,8 @@ def _initial(spec: dict, user: User, reusable: dict) -> tuple[list[dict], str | 
         v = doc_spec.profile_value(spec["profile_key"], user.name, user.birth_date, user.region, user.phone)
         if v:
             return [{"text": v, "source": "profile"}], None
-    hit = None if spec.get("input_type") == "date" else reusable.get(doc_spec.label_key(spec["label"]))  # 날짜는 서류마다 다르다
+    key = doc_spec.reuse_key(spec)
+    hit = None if spec.get("input_type") == "date" or key is None else reusable.get(key)  # 날짜는 서류마다 다르다
     if hit:
         title, segments = hit
         return [{"text": _value(segments), "source": "reused"}], title
@@ -310,6 +319,7 @@ def _initial(spec: dict, user: User, reusable: dict) -> tuple[list[dict], str | 
 
 def create(db: Session, user: User, body: DocumentCreate) -> tuple[Document, bool]:
     """같은 양식은 사용자마다 하나 (get-or-create). 기존 문서면 체크리스트 항목·context 만 새 값으로 바꾼다"""
+    clear_stale(db, user)  # 오래된 서류의 개인정보를 새 서류로 가져오지 않게 먼저 비운다
     source_id, title, fields, policy_id = _resolve_source(db, body)
     item = _checklist_item(db, user, body.checklist_item_id)
     return _get_or_create(db, user, body.source_type, source_id, title, fields, policy_id, item, body.context)
@@ -326,22 +336,25 @@ def upload(db: Session, user: User, body: DocumentUpload, doc_llm) -> tuple[Docu
     except (binascii.Error, ValueError):
         raise form_upload.bad_file("파일을 읽지 못했어요. 다시 올려 주세요.") from None
     source_id = form_upload.source_id(data)
-    existing = db.scalars(select(Document).where(
-        Document.user_id == user.id, Document.source_type == "upload", Document.source_id == source_id,
-    )).one_or_none()
+    clear_stale(db, user)
+    existing = _existing(db, user, "upload", source_id)
     if existing is not None:
         return _get_or_create(db, user, "upload", source_id, existing.title, existing.spec, policy_id, item, None)
     title, fields = form_upload.read_form(data, body.file_name, doc_llm)
     return _get_or_create(db, user, "upload", source_id, title, fields, policy_id, item, None)
 
 
-def _get_or_create(
-    db: Session, user: User, source_type: str, source_id: str, title: str, fields: list[dict],
-    policy_id: int | None, item: ChecklistItem | None, context: str | None,
-) -> tuple[Document, bool]:
-    existing = db.scalars(select(Document).where(
+def _existing(db: Session, user: User, source_type: str, source_id: str) -> Document | None:
+    return db.scalars(select(Document).where(
         Document.user_id == user.id, Document.source_type == source_type, Document.source_id == source_id,
     )).one_or_none()
+
+
+def _get_or_create(
+    db: Session, user: User, source_type: str, source_id: str, title: str, fields: list[dict],
+    policy_id: int | None, item: ChecklistItem | None, context: str | None, *, retried: bool = False,
+) -> tuple[Document, bool]:
+    existing = _existing(db, user, source_type, source_id)
     if existing is not None:
         changed = False
         if item is not None and existing.checklist_item_id != item.id:
@@ -359,8 +372,16 @@ def _get_or_create(
         user_id=user.id, source_type=source_type, source_id=source_id, title=title, policy_id=policy_id,
         checklist_item_id=item.id if item else None, context=context, spec=fields,
     )
-    db.add(doc)
-    db.flush()
+    try:
+        with db.begin_nested():  # 이 INSERT 만 되돌릴 수 있게 (SAVEPOINT)
+            db.add(doc)
+            db.flush()
+    except IntegrityError:
+        # 같은 양식을 거의 동시에 두 번 열면 (두 번 누름 · 앱 재시도) 다른 요청이 먼저 만든다.
+        # 예전에는 여기서 500 이 났다 → 먼저 만들어진 문서를 연다
+        if retried:
+            raise
+        return _get_or_create(db, user, source_type, source_id, title, fields, policy_id, item, context, retried=True)
     reusable = _reusable(db, user, doc.id)
     for i, spec in enumerate(fields):
         segments, reused_from = _initial(spec, user, reusable)
@@ -370,6 +391,62 @@ def _get_or_create(
     db.commit()
     db.refresh(doc)
     return doc, True
+
+
+# ---------------- 오래된 서류: 개인정보 칸만 비우기 ----------------
+
+
+def _personal(spec: dict) -> bool:
+    return (
+        spec["value_source"] == "profile"
+        or spec.get("profile_key") is not None
+        or spec.get("input_type") in PERSONAL_INPUT_TYPES
+    )
+
+
+def clear_stale(db: Session, user: User | None = None, now: datetime | None = None) -> int:
+    """내보낸 지 오래됐거나(기본 90일) 쓰다 둔 지 오래된(기본 180일) 서류는 지우지 않고 개인정보 칸만 비운다.
+
+    - 쓴 문장(자기소개 · 사유 등)과 서류 목록 · 체크리스트 체크는 그대로 남는다
+    - 비운 칸은 완료가 풀린다. 서류를 다시 열면 맨 위에 비웠다는 안내가 나온다
+    - user 가 없으면 모든 사용자 (db/clear_old_documents.py). 비운 서류 수를 돌려준다
+    """
+    settings = get_settings()
+    now = now or datetime.now(UTC)
+    exported_before = now - timedelta(days=settings.doc_keep_exported_days)
+    writing_before = now - timedelta(days=settings.doc_keep_writing_days)
+    q = select(Document).where(
+        Document.personal_cleared_at.is_(None),
+        or_(
+            and_(Document.status == "exported", Document.exported_at < exported_before),
+            and_(Document.status == "writing", Document.updated_at < writing_before),
+        ),
+    )
+    if user is not None:
+        q = q.where(Document.user_id == user.id)
+    docs = list(db.scalars(q))
+    for doc in docs:
+        specs = _specs(doc)
+        for row in _rows(db, doc):
+            spec = specs.get(row.field_id)
+            if spec is None or not _personal(spec) or not (row.segments or row.previous_segments):
+                continue
+            row.segments = []
+            row.previous_segments = None
+            row.reused_from = None
+            row.is_completed = False
+            row.completed_at = None
+        # updated_at 은 그대로 둔다 (사용자가 고친 것이 아니라서 목록 순서가 바뀌지 않게)
+        db.execute(
+            update(Document)
+            .where(Document.id == doc.id)
+            .values(personal_cleared_at=func.now(), updated_at=Document.updated_at)
+        )
+    if docs:
+        db.commit()
+        for doc in docs:
+            db.refresh(doc)
+    return len(docs)
 
 
 # ---------------- 칸 수정·완료·되돌리기 ----------------
@@ -570,7 +647,7 @@ def check(db: Session, user: User, doc: Document) -> CheckResponse:
         if not _writable(spec):
             continue
         value = _value(r.segments)
-        label = spec["label"]
+        label = spec.get("easy_label") or spec["label"]  # 같은 이름 칸이 여럿이면 "대리인 성명"처럼
         if not r.is_completed:
             problems.append(Problem(field_id=r.field_id, label=label, reason="not_completed",
                                     message=f"'{label}' 칸을 완료하지 않았어요."))
@@ -591,8 +668,9 @@ def _consistency(db: Session, user: User, doc: Document) -> list[str]:
     specs = _specs(doc)
     for r in _rows(db, doc):
         spec = specs[r.field_id]
-        if _writable(spec) and _value(r.segments).strip():
-            mine[doc_spec.label_key(spec["label"])] = (spec["label"], " ".join(_value(r.segments).split()))
+        key = doc_spec.reuse_key(spec)
+        if key is not None and _writable(spec) and _value(r.segments).strip():
+            mine.setdefault(key, (spec["label"], " ".join(_value(r.segments).split())))
     warnings = []
     for key, (title, segments) in _reusable(db, user, doc.id).items():
         if key in mine and mine[key][1] != " ".join(_value(segments).split()):

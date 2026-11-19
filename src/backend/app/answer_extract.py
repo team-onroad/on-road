@@ -16,13 +16,14 @@ from app.profile_signal import name_in
 _TAIL_RE = re.compile(
     r"\s*(이라고\s*해요|라고\s*해요|이라고\s*합니다|라고\s*합니다|이에요|예요|이요|입니다|이야|이고요|이구요|요|야|임)[.!~]*$"
 )
-_LEAD_RE = re.compile(r"^(제|저는|전|나는|난|내|우리|저희)\s*")
+_LEAD_RE = re.compile(r"^(?:(?:제|저는|전|나는|난|내|우리|저희)\s*|(?:저|나)\s+)")
 _HANGUL_NAME_RE = re.compile(r"^[가-힣]{2,4}$")
 _LATIN_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z .'-]{1,40}$")
 # "이름은 정서현", "성명: 정서현", "정서현이에요", "저는 정서현"
 _NAME_PATTERNS = (
-    re.compile(r"(?:이름|성함|성명)\s*(?:은|는|이|:)?\s*([가-힣]{2,5}?)(?:이에요|예요|입니다|이야|야|이요|요)?(?=$|[\s.,!?~])"),
-    re.compile(r"(?:저는|전|나는|난)\s*([가-힣]{2,5}?)(?:이에요|예요|입니다|이야|야|이요|요)(?=$|[\s.,!?~])"),
+    # "이름은 김민지고 2006년생" 처럼 이어 말해도 이름만 ("고·이고·이구·구·랑·이랑" 떼기)
+    re.compile(r"(?:이름|성함|성명)\s*(?:은|는|이|:)?\s*([가-힣]{2,5}?)(?:이에요|예요|입니다|이야|야|이요|요|이고|고|이구|구|이랑|랑|이라고|라고)?(?=$|[\s.,!?~])"),
+    re.compile(r"(?:저는|전|나는|난|저|나)\s+([가-힣]{2,5}?)(?:이에요|예요|입니다|이야|야|이요|요|이고|고|이라고|라고)(?=$|[\s.,!?~])"),
 )
 _NOT_NAME = {"이름", "성명", "모르", "몰라", "없어", "없음", "비밀", "그거", "뭐야", "누구", "아무거나", "그냥", "글쎄", "싫어"}
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
@@ -77,6 +78,18 @@ def _strip_particle(text: str) -> str:
     return head
 
 
+# 동사·형용사로 끝난 말 ("일했어요", "없어요", "좋아해요"). 서류 문장이라 '요'를 떼면 반말이 된다
+_VERB_END_RE = re.compile(r"(?:어요|아요|여요|해요|워요|와요|네요|게요|래요|대요|세요|셔요|죠|지요|까요|나요|군요|습니다|ㅂ니다)[.!~]*$")
+
+
+def strip_tail_text(text: str) -> str:
+    """일반 글 칸: 부탁 말끝만 떼고, 동사로 끝난 문장은 존댓말 그대로 둔다 ("일했어요" → 일했어요)"""
+    t = _REQUEST_RE.sub("", text.strip()).strip()
+    if _VERB_END_RE.search(t):
+        return t.rstrip(".!~ ") or text.strip()
+    return strip_tail(t)
+
+
 def strip_tail(text: str) -> str:
     """말끝·부탁·조사를 떼고 칸 값만 ("정서현으로 해 줘"→정서현, "OO복지원이에요"→OO복지원)"""
     t = text.strip()
@@ -98,6 +111,8 @@ def _name(message: str) -> str | None:
     plain = re.sub(r"^(?:이름|성함|성명)\s*(?:은|는|이|:)?\s*", "", plain).strip()
     if re.fullmatch(r"[가-힣]{1,2} [가-힣]{1,3}", plain) and len(plain) <= 5:
         plain = plain.replace(" ", "")  # "정 서현" → 정서현
+    if re.fullmatch(r"[가-힣](?: [가-힣]){1,3}", plain):
+        plain = plain.replace(" ", "")  # 한 글자씩 또박또박 "김 민 지" → 김민지
     if _HANGUL_NAME_RE.match(plain) and plain not in _NOT_NAME:
         return plain
     if _LATIN_NAME_RE.match(plain) and len(plain.split()) <= 3:
@@ -209,4 +224,4 @@ def extract(spec: dict, message: str) -> tuple[str | None, str]:
         return (m.group(0) if m else None), kind
     if kind == "bizno":
         return _bizno(message), kind
-    return strip_tail(message), kind
+    return strip_tail_text(message), kind

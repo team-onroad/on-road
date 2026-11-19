@@ -99,7 +99,35 @@ def fill_today(db: Session, rows: list[DocumentField], specs: dict, today: date)
 
 
 def _is_proxy(field_id: str, spec: dict) -> bool:
-    return field_id.startswith("proxy_") or _flat(spec["label"]).startswith("대리인")
+    """대리인 칸: 정책 양식은 proxy_ 아이디, 올린 양식은 칸 이름이나 묶음(section)에 '대리인'"""
+    return (field_id.startswith("proxy_") or _flat(spec["label"]).startswith("대리인")
+            or "대리인" in (spec.get("section") or ""))
+
+
+_REPEAT_RE = re.compile(r"^(.*?)\s*(\d+)$")  # "가족 2" → ("가족", 2)
+
+
+def _skip_repeats(rows: list[DocumentField], specs: dict, current: str, state: dict) -> str | None:
+    """반복 줄(가족 1 · 가족 2 …)의 첫 칸에서 '없어요' → 그 줄과 뒤 줄을 모두 비운다. 비운 묶음 이름, 아니면 None.
+    이미 그 줄에 하나라도 적었으면 이 칸만 비운다 (직업만 없는 경우 등)"""
+    m = _REPEAT_RE.match(specs[current].get("section") or "")
+    if not m:
+        return None
+    base, n = m.group(1), int(m.group(2))
+
+    def nth(fid: str) -> int | None:
+        mm = _REPEAT_RE.match(specs[fid].get("section") or "")
+        return int(mm.group(2)) if mm and mm.group(1) == base else None
+
+    if any(nth(r.field_id) == n and r.is_completed and w._value(r.segments).strip() for r in rows):
+        return None
+    for r in rows:
+        k = nth(r.field_id)
+        if k is not None and k >= n and not r.is_completed and specs[r.field_id].get("required") is not True:
+            _complete(r, [])
+            if r.field_id in state["skipped"]:
+                state["skipped"].remove(r.field_id)
+    return base
 
 
 def _proxy_gate(state: dict, field_id: str, spec: dict) -> bool:
@@ -174,6 +202,80 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
     )
 
 
+# 음성으로 말한 숫자 ("이천육년 삼월 오일", "공일공 일이삼사 …")
+_KO_DIGIT = {"공": 0, "영": 0, "빵": 0, "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "륙": 6, "칠": 7, "팔": 8, "구": 9}
+_KO_UNIT = {"십": 10, "백": 100, "천": 1000}
+
+
+def _ko_number(word: str) -> int | None:
+    """'이천육' → 2006, '십이' → 12, '삼' → 3. 숫자면 그대로"""
+    if word.isdigit():
+        return int(word)
+    total, cur = 0, 0
+    for ch in word:
+        if ch in _KO_DIGIT:
+            cur = _KO_DIGIT[ch]
+        elif ch in _KO_UNIT:
+            total += (cur or 1) * _KO_UNIT[ch]
+            cur = 0
+        else:
+            return None
+    return total + cur if word else None
+
+
+def _spoken_digits(text: str) -> str:
+    """'공일공 일이삼사 오육칠팔' → 01012345678 (한 글자씩 읽은 번호만)"""
+    chars = [c for c in text if not c.isspace() and c not in "-."]
+    run = "".join(str(_KO_DIGIT[c]) for c in chars if c in _KO_DIGIT)
+    return run if len(run) >= 9 and len(run) >= len(chars) - 3 else ""
+
+
+_DATE_PART_RE = re.compile(r"([0-9]+|[공영일이삼사오육륙칠팔구십백천]+)\s*(년|월|일)")
+
+
+def _spoken_date(text: str, today: date) -> str | None:
+    """'2006년 3월 5일', '06년 3월 5일', '3월 5일 2006년', '이천육년 삼월 오일', '06.3.5' → 2006.03.05"""
+    parts: dict[str, int] = {}
+    for num, unit in _DATE_PART_RE.findall(text):
+        n = _ko_number(num)
+        if n is not None and unit not in parts:
+            parts[unit] = n
+    if len(parts) < 3:
+        nums = _DIGITS_RE.findall(text)
+        if len(nums) == 3 and len(nums[0]) == 2:  # 06.3.5
+            parts = {"년": int(nums[0]), "월": int(nums[1]), "일": int(nums[2])}
+        else:
+            return None
+    y = parts["년"]
+    if y < 100:  # 두 자리 연도: 올해 뒤면 1900년대
+        y += 2000 if y <= today.year % 100 else 1900
+    try:
+        return date(y, parts["월"], parts["일"]).strftime("%Y.%m.%d")
+    except (ValueError, KeyError):
+        return None
+
+
+_BLANK_RE = re.compile(r"\[([^\[\]]{1,40})\]")
+# 쓸 내용이 없는 말: 모르겠다 · 알아서 해 달라 (서술형에서 AI 가 사실을 지어내지 않게)
+_NO_CONTENT = ("모르겠", "몰라", "모름", "글쎄", "생각이안", "생각안", "뭐라고써", "뭘써", "뭐써", "알아서", "아무거나", "대충써")
+
+
+def _no_content(message: str) -> bool:
+    flat = _flat(message)
+    return len(flat) <= 16 and any(w in flat for w in _NO_CONTENT)
+
+
+def _essay_guide(spec: dict, value: str) -> str:
+    """서술형 칸을 채울 수 있게 작은 질문 하나로 바꿔 묻는다 (개요 첫 항목 또는 남은 [빈칸])"""
+    blanks = _BLANK_RE.findall(value)
+    if blanks:
+        return f"괜찮아요. 먼저 [{blanks[0]}]부터 같이 채워 봐요. 떠오르는 대로 한두 마디만 말해 주세요."
+    outline = spec.get("outline") or []
+    if outline:
+        return f"괜찮아요. 하나씩 해 봐요. 먼저 '{outline[0]}'부터 떠오르는 대로 한두 마디만 말해 주세요. 제가 문장으로 정리할게요."
+    return "괜찮아요. 떠오르는 사실 한두 가지만 말해 주세요. (예: 언제, 무엇을, 왜) 제가 문장으로 정리할게요."
+
+
 def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | None]:
     """(칸에 넣을 값, 다시 물을 때 안내). 값이 None 이면 다시 묻는다"""
     flat = _flat(answer)
@@ -193,6 +295,9 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
     if kind == "date":
         if "오늘" in flat:
             return today.strftime("%Y.%m.%d"), None
+        spoken = _spoken_date(answer, today)
+        if spoken:
+            return spoken, None
         nums = _DIGITS_RE.findall(answer)
         if len(nums) == 1 and len(nums[0]) == 8:
             nums = [nums[0][:4], nums[0][4:6], nums[0][6:]]
@@ -210,7 +315,7 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
             return (kept if "".join(_DIGITS_RE.findall(kept)) == digits else digits), None
         return None, "계좌번호를 다시 알려 주세요. 숫자 10~16자리예요. (예: 123-456-789012)"
     if kind == "phone":
-        digits = "".join(_DIGITS_RE.findall(answer))
+        digits = "".join(_DIGITS_RE.findall(answer)) or _spoken_digits(answer)
         if 9 <= len(digits) <= 11 and digits.startswith("0"):
             from app.doc_spec import format_phone
 
@@ -429,6 +534,13 @@ def _interview(
         _save(db, doc, state)
         return _response(db, user, doc, state, message="적었어요.", field_row=row)
 
+    # 확인하려는데 [빈칸]이 남은 초안: 완료하지 않고 빈칸 내용을 묻는다 (빈칸째 제출되지 않게)
+    blanks = _BLANK_RE.findall(value)
+    if value and flat in CONFIRM_WORDS and blanks:
+        state["pending"] = current
+        _save(db, doc, state)
+        return _response(db, user, doc, state, message=f"아직 [{blanks[0]}] 부분이 비어 있어요. 이 부분에 들어갈 내용을 말해 주세요.")
+
     # 확인: AI 초안·미리 채운 값을 그대로
     if value and flat in CONFIRM_WORDS and (pending or spec.get("profile_key") != "region"):
         _complete(row)
@@ -465,6 +577,11 @@ def _interview(
     # 해당 없음 (필수가 아닌 칸) / 나중에 (필수 칸)
     if flat in NOT_APPLICABLE_WORDS or any(flat.startswith(x) for x in LATER_WORDS):
         if spec.get("required") is not True and flat in NOT_APPLICABLE_WORDS:
+            base = _skip_repeats(rows, specs, current, state)
+            if base:
+                state["current"], state["pending"] = None, None
+                _save(db, doc, state)
+                return _response(db, user, doc, state, message=f"{base} 칸은 더 비워 둘게요.")
             _complete(row, [])
             state["pending"] = None
             _save(db, doc, state)
@@ -474,6 +591,11 @@ def _interview(
         state["current"], state["pending"] = None, None
         _save(db, doc, state)
         return _response(db, user, doc, state, message="나중에 다시 물어볼게요.")
+
+    # 서술형인데 쓸 내용 없이 "모르겠어요" · "알아서 써 줘": 지어내지 않게 초안 대신 첫 질문으로 이끈다
+    if spec.get("essay") and _no_content(msg):
+        _save(db, doc, state)
+        return _response(db, user, doc, state, message=_essay_guide(spec, value))
 
     # 서술형: AI 가 문장으로 쓰고 확인을 기다린다
     if spec.get("essay"):

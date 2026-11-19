@@ -256,3 +256,36 @@ def polish_sentences(doc_type: str, sentences: list[str], generate: Generate | N
     if not isinstance(polished, list) or len(polished) != len(sentences) or not all(_text(s) for s in polished):
         return list(sentences)
     return [_text(s) for s in polished]
+
+
+JUDGE_SYSTEM = """너는 말하기 연습의 채점자다. 사용자가 통화·면접·창구 상황에서 한 말을 보고,
+아래 '챙길 것' 각각을 사용자가 실제로 말했는지 뜻으로 판단한다.
+
+규칙:
+- 사용자가 한 말에 그 내용이 분명히 들어 있을 때만 챙겼다고 본다. 비슷한 뜻·다른 표현·사투리·구어체도 인정한다.
+- 음성 인식 글이라 띄어쓰기·맞춤법이 틀릴 수 있다. 소리가 비슷한 오타는 뜻으로 읽는다.
+- 상대방(대화 상대)의 말은 주어지지 않는다. 사용자가 말하지 않은 것은 절대 챙겼다고 하지 않는다.
+- 애매하면 챙기지 않은 것으로 본다.
+
+JSON 으로만 답한다: {"done": ["챙긴 항목 label 그대로", ...]}"""
+
+
+def judge_checks(checks: list[dict], user_turns: list[str], generate: Generate | None = None) -> list[str]:
+    """checks: [{"label", "example"}]. 사용자가 뜻으로 챙긴 label 목록 (주어진 label 중에서만)"""
+    labels = [str(c.get("label") or "") for c in checks if c.get("label")]
+    said = [t.strip() for t in user_turns if t and t.strip()]
+    if not labels or not said:
+        return []
+    items = "\n".join(
+        f"- label: {c['label']}" + (f" (예: {c['example']})" if c.get("example") else "") for c in checks if c.get("label")
+    )
+    talk = "\n".join(f"{i}. {t}" for i, t in enumerate(said[-ROLEPLAY_HISTORY_TURNS:], 1))
+    messages = [
+        {"role": "system", "content": JUDGE_SYSTEM},
+        {"role": "user", "content": f"챙길 것:\n{items}\n\n사용자가 한 말:\n{talk}"},
+    ]
+    out = generate(messages) if generate else _openai_generate(messages, temperature=0)
+    done = out.get("done") if isinstance(out, dict) else None
+    if not isinstance(done, list):
+        raise CoachFormatError("판정 형식이 아닙니다.")
+    return [x for x in done if isinstance(x, str) and x in labels]

@@ -210,23 +210,47 @@ def feedback(s: Scenario, user_turns: list[str], plan: Plan | None = None) -> tu
     return good, missed
 
 
-def feedback_items(s: Scenario, user_turns: list[str], plan: Plan | None = None) -> tuple[list[FeedbackItem], int]:
+def feedback_items(
+    s: Scenario, user_turns: list[str], plan: Plan | None = None, judged: frozenset[str] = frozenset(),
+) -> tuple[list[FeedbackItem], int]:
     """체크 항목별 결과와 점수 (0~100). 돌발 상황 대처는 2배로 친다. 끝까지 대화하면 10점 더"""
     # 음성 인식 글은 띄어쓰기가 들쭉날쭉해서 띄어쓰기를 빼고 비교한다 ("필요 없" ↔ "필요없어요")
-    said = re.sub(r"\s+", "", " ".join(user_turns))
+    said = _norm(" ".join(user_turns))
     checks: list[tuple[Checkpoint, str]] = [(c, "basic") for c in s.checkpoints]
     if plan and plan.variant:
         checks += [(c, "situation") for c in plan.variant.checkpoints]
     if plan:
         checks += [(x.checkpoint, "surprise") for x in plan.surprises]
     items = [
-        FeedbackItem(c.label, any(re.sub(r"\s+", "", k) in said for k in c.keywords), kind, c.example) for c, kind in checks
+        FeedbackItem(c.label, c.label in judged or said_any(said, c.keywords), kind, c.example) for c, kind in checks
     ]
     weight = {"basic": 1, "situation": 1, "surprise": 2}
     total = sum(weight[i.kind] for i in items) or 1
     got = sum(weight[i.kind] for i in items if i.ok)
     score = round(90 * got / total) + (10 if len(user_turns) >= FINISHED_MIN_TURNS else 0)
     return items, min(score, 100)
+
+
+def _norm(text: str) -> str:
+    """띄어쓰기 · 문장 부호를 빼고 비교 ("이번 주" = "이번주", "확정 일자" = "확정일자")"""
+    return re.sub(r"[\s.,!?~…·'\"“”‘’]+", "", text).lower()
+
+
+def said_any(said_norm: str, keywords: list[str]) -> bool:
+    """낱말 중 하나라도 말에 들어 있으면 챙긴 것. 낱말 안의 '|'는 둘 다 있어야 함 (예: "집주인|계좌")"""
+    for k in keywords:
+        parts = [_norm(p) for p in k.split("|") if p.strip()]
+        if parts and all(p in said_norm for p in parts):
+            return True
+    return False
+
+
+def unmet_checks(s: Scenario, user_turns: list[str], plan: Plan | None = None) -> list[Checkpoint]:
+    """낱말 규칙으로 아직 못 챙긴 항목 (AI 판정 대상)"""
+    said = _norm(" ".join(user_turns))
+    checks = list(s.checkpoints) + (list(plan.variant.checkpoints) if plan and plan.variant else [])
+    checks += [x.checkpoint for x in (plan.surprises if plan else ())]
+    return [c for c in checks if not said_any(said, c.keywords)]
 
 
 def grade(score: int) -> str:
@@ -278,9 +302,11 @@ def _close_to(a: str, b: str) -> bool:
     return len(set(_WORD.findall(a)) & set(_WORD.findall(b))) >= 2
 
 
-def progress(s: Scenario, user_turns: list[str], partner_turns: list[str], plan: Plan | None = None) -> list[FeedbackItem]:
+def progress(
+    s: Scenario, user_turns: list[str], partner_turns: list[str], plan: Plan | None = None, judged: frozenset[str] = frozenset(),
+) -> list[FeedbackItem]:
     """대화 중 보여 줄 '챙길 것' (기본 · 이번 전개). 돌발 상황 대처는 상대가 그 말을 꺼낸 뒤에만 보인다 (미리 알려 주지 않음)"""
-    items, _ = feedback_items(s, user_turns, plan)
+    items, _ = feedback_items(s, user_turns, plan, judged)
     shown = {
         x.checkpoint.label
         for x in (plan.surprises if plan else ())
@@ -289,9 +315,11 @@ def progress(s: Scenario, user_turns: list[str], partner_turns: list[str], plan:
     return [i for i in items if i.kind != "surprise" or i.ok or i.label in shown]
 
 
-def hint(s: Scenario, user_turns: list[str], last_partner: str, plan: Plan | None = None) -> Hint:
+def hint(
+    s: Scenario, user_turns: list[str], last_partner: str, plan: Plan | None = None, judged: frozenset[str] = frozenset(),
+) -> Hint:
     """아직 안 챙긴 것 하나. 방금 돌발 상황이 나왔으면 그 대처부터, 그다음 이번 전개 → 기본 순서"""
-    items, _ = feedback_items(s, user_turns, plan)
+    items, _ = feedback_items(s, user_turns, plan, judged)
     todo = [i for i in items if not i.ok]
     if not todo:
         return Hint("closing", CLOSING_LABEL, CLOSING_EXAMPLE, 0)

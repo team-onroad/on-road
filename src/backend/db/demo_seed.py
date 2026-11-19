@@ -177,6 +177,10 @@ def main() -> int:
 
     try:
         with Session(get_engine()) as db:
+            # --if-missing: 서버를 켤 때마다 부른다 (Render). 시연 사용자가 이미 있으면 기록을 지우지 않고 넘어간다
+            if "--if-missing" in sys.argv and db.get(User, DEMO_USER_ID) is not None:
+                print("[demo_seed] 시연 사용자가 이미 있어 건너뜀")
+                return 0
             user = seed_demo(db, today_kst())
             # 세션 닫기 전에 출력 (닫힌 뒤에는 속성 못 읽음)
             print(f"[demo_seed] 완료. user_id: {user.id} ({user.name}, {user.stage})")

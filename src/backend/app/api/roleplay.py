@@ -83,9 +83,10 @@ def post_feedback(
     body: Annotated[FeedbackRequest, Depends(validated_body(FeedbackRequest))],
     user: BodyUser,
     db: DB,
+    llm: Annotated[Llm, Depends(get_llm)],
 ) -> FeedbackResponse:
     user = user or get_user(db, body.user_id)
-    return service.give_feedback(db, user, scenario, body)
+    return service.give_feedback(db, user, scenario, body, llm)
 
 
 @router.post(
@@ -94,6 +95,6 @@ def post_feedback(
     summary="대화 중 힌트 (뭐라고 하지?)",
     responses={**NOT_FOUND, 422: {"description": "VALIDATION_ERROR"}},
 )
-def post_hint(scenario: PathScenario, body: HintRequest) -> HintResponse:
+def post_hint(scenario: PathScenario, body: HintRequest, llm: Annotated[Llm, Depends(get_llm)]) -> HintResponse:
     """아직 안 챙긴 것 하나와 예시 문장. 방금 나온 돌발 상황이 있으면 그 대처부터"""
-    return service.give_hint(scenario, body)
+    return service.give_hint(scenario, body, llm)

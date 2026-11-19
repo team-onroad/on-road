@@ -65,6 +65,8 @@ class ReadinessItem(BaseModel):
     key: str
     label: str
     done: bool
+    progress: float = 0.0  # 0~1 (하다 만 것도 그만큼 점수에 들어간다, 1 = 완료)
+    detail: str | None = None  # 지금 상태 한 줄 (예: "2번 해 봤어요 · 최고 85점")
 
 
 class ReadinessArea(BaseModel):
@@ -77,9 +79,23 @@ class ReadinessArea(BaseModel):
     next_step: NextStepOut | None  # 이 영역에서 다음에 할 것 (다 했으면 null)
 
 
+class ReadinessPoint(BaseModel):
+    weeks_ago: int  # 0 = 지금
+    score: int
+
+
+class ReadinessLevel(BaseModel):
+    label: str  # 다음 단계 이름
+    points: int  # 남은 점수
+
+
 class ReadinessResponse(BaseModel):
     score: int  # 0~100 (영역 점수 평균)
     level: str  # 첫걸음 · 준비 중 · 거의 다 왔어요 · 자립 준비 완료
     areas: list[ReadinessArea]
     weakest: str | None  # 가장 낮은 영역 key (다 했으면 null)
     next_steps: list[NextStepOut]  # 약한 영역 순서대로 최대 3개
+    week_delta: int = 0  # 일주일 전보다 오른 점수 (내려가면 음수)
+    history: list[ReadinessPoint] = []  # 3주 전 → 지금 (일주일 간격)
+    recent: list[str] = []  # 이번 주에 새로 해낸 것 (최대 5개)
+    next_level: ReadinessLevel | None = None  # 다음 단계까지 (맨 위면 null)

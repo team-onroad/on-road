@@ -4,7 +4,10 @@ from sqlalchemy.orm import Session
 
 from app.crisis import CRISIS_MESSAGE, is_crisis
 from app.llm_client import Llm, call_llm
-from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, hint, lines_for, next_steps, pick_plan, my_better, plan_of, progress
+import logging
+from collections import OrderedDict
+
+from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, hint, lines_for, next_steps, pick_plan, my_better, plan_of, progress, unmet_checks, _norm
 from app.schemas.roleplay import (
     BetterOut,
     FeedbackItemOut,
@@ -21,6 +24,35 @@ from app.schemas.roleplay import (
     ScenarioOut,
 )
 from db.models import RoleplayResult, User
+
+logger = logging.getLogger(__name__)
+
+# AI 판정 결과를 잠깐 기억한다 (같은 대화로 힌트 · 피드백을 다시 불러도 LLM 을 또 부르지 않게). 대화 내용 대신 해시만 키로 쓴다
+_JUDGE_CACHE: "OrderedDict[int, frozenset[str]]" = OrderedDict()
+_JUDGE_CACHE_MAX = 512
+
+
+def _judged(s: Scenario, plan: Plan, turns: list[str], llm: Llm | None) -> frozenset[str]:
+    """낱말 규칙에 안 걸린 항목만 AI 가 뜻으로 다시 본다. AI 가 안 되면 낱말 규칙 결과 그대로 (오류로 막지 않음)"""
+    if llm is None or not turns:
+        return frozenset()
+    unmet = unmet_checks(s, turns, plan)
+    if not unmet:
+        return frozenset()
+    key = hash((s.scenario_id, tuple(c.label for c in unmet), tuple(_norm(t) for t in turns)))
+    if key in _JUDGE_CACHE:
+        _JUDGE_CACHE.move_to_end(key)
+        return _JUDGE_CACHE[key]
+    try:
+        done = llm.judge_checks([{"label": c.label, "example": c.example or ""} for c in unmet], turns)
+        result = frozenset(x for x in done if isinstance(x, str))
+    except Exception as e:  # 대화 내용은 로그에 남기지 않는다
+        logger.warning("챙길 것 AI 판정 실패: %s", type(e).__name__)
+        return frozenset()
+    _JUDGE_CACHE[key] = result
+    if len(_JUDGE_CACHE) > _JUDGE_CACHE_MAX:
+        _JUDGE_CACHE.popitem(last=False)
+    return result
 
 
 def scenario_list(stage: str | None) -> ScenarioList:
@@ -95,10 +127,10 @@ def reply(s: Scenario, body: ReplyRequest, llm: Llm) -> ReplyResponse:
     return ReplyResponse(reply=result["reply"], is_finished=result["is_finished"])
 
 
-def give_feedback(db: Session, user: User, s: Scenario, body: FeedbackRequest) -> FeedbackResponse:
+def give_feedback(db: Session, user: User, s: Scenario, body: FeedbackRequest, llm: Llm | None = None) -> FeedbackResponse:
     plan = plan_of(s, body.variant_id, body.surprise_ids)
     turns = [h.content for h in body.history if h.role == "user"]
-    items, score = feedback_items(s, turns, plan)
+    items, score = feedback_items(s, turns, plan, _judged(s, plan, turns, llm))
     good = [i.label for i in items if i.ok]
     missed = [i.label for i in items if not i.ok]
     if len(turns) >= FINISHED_MIN_TURNS:
@@ -127,14 +159,15 @@ def give_feedback(db: Session, user: User, s: Scenario, body: FeedbackRequest) -
     )
 
 
-def give_hint(s: Scenario, body: HintRequest) -> HintResponse:
-    """LLM 을 쓰지 않는다 (체크 항목 규칙만)"""
+def give_hint(s: Scenario, body: HintRequest, llm: Llm | None = None) -> HintResponse:
+    """낱말 규칙 + (낱말에 안 걸린 항목만) AI 뜻 판정. 결과 화면과 같은 판정을 쓴다"""
     plan = plan_of(s, body.variant_id, body.surprise_ids)
     turns = [h.content for h in body.history if h.role == "user"]
     last = next((h.content for h in reversed(body.history) if h.role == "assistant"), "")
-    h = hint(s, turns, last, plan)
+    judged = _judged(s, plan, turns, llm)
+    h = hint(s, turns, last, plan, judged)
     partner = [t.content for t in body.history if t.role == "assistant"]
-    checks = [HintCheck(label=i.label, ok=i.ok, kind=i.kind) for i in progress(s, turns, partner, plan)]
+    checks = [HintCheck(label=i.label, ok=i.ok, kind=i.kind) for i in progress(s, turns, partner, plan, judged)]
     return HintResponse(
         done=h.kind == "closing", label=h.label, example=h.example, kind=h.kind, remaining=h.remaining, checks=checks,
     )

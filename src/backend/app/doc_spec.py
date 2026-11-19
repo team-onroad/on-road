@@ -65,8 +65,22 @@ def from_template(t: FormTemplate) -> list[dict]:
 FORM_PROFILE_KEYS = {"성명": "name", "이름": "name", "생년월일": "birth_date", "연락처": "phone"}
 
 
+# 신청인 본인이 아닌 사람의 묶음 (대리인 · 가족 · 보호자 …): 내 정보로 미리 채우거나 다른 서류 값을 가져오지 않는다
+OTHER_PERSON_WORDS = ("대리인", "가족", "보호자", "부모", "추천인", "보증인", "법정대리", "후견", "위탁", "배우자", "세대원")
+
+
+def is_other_person(spec: dict) -> bool:
+    section = spec.get("section") or ""
+    return any(w in section for w in OTHER_PERSON_WORDS) or _NORM_RE.sub("", spec.get("label") or "").startswith("대리인")
+
+
+def reuse_key(spec: dict) -> str | None:
+    """다른 서류와 값을 나누는 열쇠. 다른 사람 칸은 None (내 이름이 대리인 성명에 들어가지 않게)"""
+    return None if is_other_person(spec) else label_key(spec["label"])
+
+
 def _guess_profile_key(label: str, taken: set[str]) -> str | None:
-    key = FORM_PROFILE_KEYS.get(label_key(label.replace(":", "").replace("*", "")))
+    key = FORM_PROFILE_KEYS.get(label_key(label.replace(":", "").replace("*", "").replace("(한글)", "")))
     if key == "phone" and "휴대" not in label and "연락처" not in label and "핸드폰" not in label:
         key = None  # 집 전화일 수 있다
     return key if key and key not in taken else None

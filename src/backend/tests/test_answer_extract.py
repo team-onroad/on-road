@@ -63,3 +63,44 @@ def test_small_talk(message, expected):
 ])
 def test_looks_sentence(message, expected):
     assert looks_sentence(message) is expected
+
+
+# ---- 음성으로 말한 답 (이어 말하기 · 한글 숫자 · 존댓말 문장) ----
+from datetime import date as _date  # noqa: E402
+
+from app.services.interview import _no_content, _normalize  # noqa: E402
+
+_T = _date(2026, 11, 17)
+
+
+@pytest.mark.parametrize("message,expected", [
+    ("제 이름은 김민지고 2006년생이에요", "김민지"),
+    ("저 김민지라고 해요", "김민지"),
+    ("김 민 지", "김민지"),
+])
+def test_spoken_name(message, expected):
+    assert _normalize({"field_id": "name", "label": "성명", "input_type": "text"}, message, _T)[0] == expected
+
+
+@pytest.mark.parametrize("message,expected", [
+    ("2006년 3월 5일이요", "2006.03.05"),
+    ("06년 3월 5일", "2006.03.05"),
+    ("98년 12월 1일", "1998.12.01"),
+    ("이천육년 삼월 오일", "2006.03.05"),
+    ("3월 5일 2006년", "2006.03.05"),
+])
+def test_spoken_date(message, expected):
+    assert _normalize({"field_id": "birth", "label": "생년월일", "input_type": "date"}, message, _T)[0] == expected
+
+
+def test_spoken_phone_digits():
+    assert _normalize({"field_id": "p", "label": "연락처", "input_type": "phone"}, "공일공 일이삼사 오육칠팔", _T)[0] == "010-1234-5678"
+
+
+def test_text_keeps_polite_sentence():
+    assert _normalize({"field_id": "c", "label": "경력사항", "input_type": "text"}, "카페에서 6개월 일했어요", _T)[0] == "카페에서 6개월 일했어요"
+
+
+@pytest.mark.parametrize("message", ["잘 모르겠어요", "알아서 써줘", "글쎄요"])
+def test_no_content(message):
+    assert _no_content(message)

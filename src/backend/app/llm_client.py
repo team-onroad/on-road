@@ -22,6 +22,8 @@ class Llm:
     counsel_reply: Callable[..., str]
     roleplay_reply: Callable[..., dict]
     polish_sentences: Callable[..., list[str]]
+    # 롤플레잉 '챙길 것' 뜻 판정 (낱말 규칙에 안 걸린 항목만). 없으면 낱말 규칙만
+    judge_checks: Callable[..., list[str]] = llm_mock.judge_checks
 
 
 @lru_cache
@@ -32,7 +34,7 @@ def _real_llm() -> Llm:
         sys.path.insert(0, src)
     from coach import llm
 
-    return Llm(llm.classify_intent, llm.counsel_reply, llm.roleplay_reply, llm.polish_sentences)
+    return Llm(llm.classify_intent, llm.counsel_reply, llm.roleplay_reply, llm.polish_sentences, llm.judge_checks)
 
 
 def get_llm() -> Llm:

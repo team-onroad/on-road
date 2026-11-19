@@ -154,3 +154,37 @@ def test_read_risk_photo_and_format_error():
     assert content[0]["type"] == "text" and content[1]["image_url"]["url"] == "data:image/jpeg;base64,AAA"
     with pytest.raises(DocwriterFormatError):
         read_risk(RISK_RULES, "x", [], generate=FakeLLM([]))
+
+
+def test_read_form_tokens_follow_form_size():
+    from docwriter.llm import READ_FORM_TOKENS_MAX, READ_FORM_TOKENS_MIN, estimate_fields, read_form_tokens
+
+    small = "신청서\n성명\n연락처"
+    big = "신청서\n\n[표 구조]\n" + "\n".join(f"관계 | 성명 | 생년월일 | 직업 | 동거여부 {i}" for i in range(12))
+    underline = "1. 성명: ______  2. 학교명: ______\n3. 연락처: ___-___-___"
+    assert read_form_tokens(small) == READ_FORM_TOKENS_MIN
+    assert READ_FORM_TOKENS_MIN < read_form_tokens(big) <= READ_FORM_TOKENS_MAX
+    assert estimate_fields(underline) == 3
+    assert read_form_tokens(None, 3) > read_form_tokens(None, 1)  # 사진은 쪽 수로
+
+
+def test_form_generate_retries_with_bigger_limit_when_cut(monkeypatch):
+    import types
+
+    from docwriter import llm
+
+    calls = []
+
+    def create(**kw):
+        calls.append(kw["max_tokens"])
+        cut = len(calls) == 1
+        msg = types.SimpleNamespace(content='{"title": "신청서", "fie' if cut else '{"title": "신청서", "fields": []}')
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(finish_reason="length" if cut else "stop", message=msg)])
+
+    client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create)))
+    client.with_options = lambda **_: client
+    monkeypatch.setattr("rag.openai_client._client", lambda: client)
+    monkeypatch.setattr("rag.settings.get_rag_settings", lambda: types.SimpleNamespace(form_read_model="m"))
+    out = llm._form_generate([], 2000)
+    assert out == {"title": "신청서", "fields": []}
+    assert calls == [2000, 4000]  # 잘리면 한도를 두 배로

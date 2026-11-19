@@ -107,6 +107,8 @@ def _draw_table(doc: pymupdf.Document, title: str, rows: list[tuple[dict, str]],
                 state["y"] += 6
                 text_at(MARGIN, state["y"], section, 12)
                 state["y"] += 12 + 8
+            elif state["y"] > MARGIN + 60:
+                state["y"] += SECTION_END_GAP  # 묶음이 끝나고 묶음 없는 칸: 앞 묶음에 붙어 보이지 않게 띄운다
         shown, gray = _display(spec, value)
         label_lines = _wrap(spec["label"], LABEL_W - PAD, FONT_SIZE)
         value_lines = _wrap(shown, value_w - PAD * 2, FONT_SIZE)
@@ -143,6 +145,9 @@ def _to_bytes(doc: pymupdf.Document) -> bytes:
     data = doc.tobytes(garbage=3, deflate=True)
     doc.close()
     return data
+
+
+SECTION_END_GAP = 14  # 묶음 표가 끝난 뒤 묶음 없는 칸 앞 여백 (pt)
 
 
 def render_pdf(title: str, rows: list[tuple[dict, str]]) -> bytes:
@@ -307,7 +312,9 @@ def render_docx(title: str, rows: list[tuple[dict, str]]) -> bytes:
                 r.bold = True
                 r.font.size = Pt(12)
                 _korean_font(r)
-                table = None
+            else:
+                d.add_paragraph()  # 묶음이 끝나고 묶음 없는 칸: 앞 표와 떼어 놓는다
+            table = None
         if table is None:
             table = d.add_table(rows=0, cols=2)
             table.style = "Table Grid"
