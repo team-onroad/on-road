@@ -210,19 +210,61 @@ def feedback(s: Scenario, user_turns: list[str], plan: Plan | None = None) -> tu
     return good, missed
 
 
+# '묻기 · 물어보기 · 확인' 항목은 질문해도 챙긴 것. 그 밖(챙기기 · 준비 · 말하기 …)은 질문 · 되묻기로는 안 챙긴 것
+_ASK_LABEL = re.compile(r"묻|물어|확인")
+# 물음표 없이도 질문이 분명한 끝말만 ("있어요 · 돼요"는 대답에도 많이 써서 넣지 않는다)
+_QUESTION_END = re.compile(r"(나요|까요|는지|던가요|어때요|인가요|뭐예요|뭔가요|뭐죠|언제죠|어디죠|얼마죠)$")
+_QUESTION_WORD = re.compile(r"^(뭐|무엇|언제|어디|얼마|몇|왜|어떻게|누구|어느)")
+ECHO_EXTRA = 4  # 되묻기로 보는 길이: 상대가 방금 한 낱말 + 이 글자 수 이하 ("임대차 계약서요")
+
+
+def is_question(text: str) -> bool:
+    """음성 인식 글(물음표가 없을 때가 많음)이 질문인지. 물음표 · 마침표가 있으면 그대로 따른다"""
+    t = text.strip()
+    if t.endswith("?"):
+        return True
+    if t.endswith((".", "!")):
+        return False
+    n = _norm(t)
+    return bool(_QUESTION_END.search(n) or _QUESTION_WORD.search(n))
+
+
+def _counts_for(c: Checkpoint, turn: str, partner_before: str) -> bool:
+    """이 말로 항목을 챙겼다고 볼 수 있는지 (낱말 규칙). 묻기 항목은 다 되고,
+    나머지는 질문이거나 상대가 방금 한 낱말을 짧게 되받은 말(되묻기)이면 안 된다 → AI 판정에 맡긴다"""
+    if _ASK_LABEL.search(c.label):
+        return True
+    if is_question(turn):
+        return False
+    said, before = _norm(turn), _norm(partner_before)
+    for k in c.keywords:
+        parts = [_norm(p) for p in k.split("|") if p.strip()]
+        if parts and all(p in said and p in before for p in parts) and len(said) <= sum(map(len, parts)) + ECHO_EXTRA:
+            return False
+    return True
+
+
+def _said(c: Checkpoint, user_turns: list[str], partner_before: list[str] | None) -> bool:
+    """챙길 수 있는 말만 이어 붙여 찾는다 (음성 인식이 한 말을 둘로 나눠도: "이번" + "주 안에요" → "이번 주")"""
+    before = partner_before or [""] * len(user_turns)
+    return said_any(_norm(" ".join(t for t, b in zip(user_turns, before) if _counts_for(c, t, b))), c.keywords)
+
+
 def feedback_items(
     s: Scenario, user_turns: list[str], plan: Plan | None = None, judged: frozenset[str] = frozenset(),
+    partner_before: list[str] | None = None,
 ) -> tuple[list[FeedbackItem], int]:
-    """체크 항목별 결과와 점수 (0~100). 돌발 상황 대처는 2배로 친다. 끝까지 대화하면 10점 더"""
-    # 음성 인식 글은 띄어쓰기가 들쭉날쭉해서 띄어쓰기를 빼고 비교한다 ("필요 없" ↔ "필요없어요")
-    said = _norm(" ".join(user_turns))
+    """체크 항목별 결과와 점수 (0~100). 돌발 상황 대처는 2배로 친다. 끝까지 대화하면 10점 더.
+    partner_before: 사용자 말마다 바로 앞의 상대 말 (되묻기 판단용)"""
     checks: list[tuple[Checkpoint, str]] = [(c, "basic") for c in s.checkpoints]
     if plan and plan.variant:
         checks += [(c, "situation") for c in plan.variant.checkpoints]
     if plan:
         checks += [(x.checkpoint, "surprise") for x in plan.surprises]
+    # 음성 인식 글은 띄어쓰기가 들쭉날쭉해서 띄어쓰기를 빼고 비교한다 ("필요 없" ↔ "필요없어요")
     items = [
-        FeedbackItem(c.label, c.label in judged or said_any(said, c.keywords), kind, c.example) for c, kind in checks
+        FeedbackItem(c.label, c.label in judged or _said(c, user_turns, partner_before), kind, c.example)
+        for c, kind in checks
     ]
     weight = {"basic": 1, "situation": 1, "surprise": 2}
     total = sum(weight[i.kind] for i in items) or 1
@@ -245,12 +287,14 @@ def said_any(said_norm: str, keywords: list[str]) -> bool:
     return False
 
 
-def unmet_checks(s: Scenario, user_turns: list[str], plan: Plan | None = None) -> list[Checkpoint]:
-    """낱말 규칙으로 아직 못 챙긴 항목 (AI 판정 대상)"""
-    said = _norm(" ".join(user_turns))
+def all_checks(s: Scenario, plan: Plan | None = None) -> list[Checkpoint]:
     checks = list(s.checkpoints) + (list(plan.variant.checkpoints) if plan and plan.variant else [])
-    checks += [x.checkpoint for x in (plan.surprises if plan else ())]
-    return [c for c in checks if not said_any(said, c.keywords)]
+    return checks + [x.checkpoint for x in (plan.surprises if plan else ())]
+
+
+def unmet_checks(s: Scenario, user_turns: list[str], plan: Plan | None = None) -> list[Checkpoint]:
+    """낱말 규칙으로 아직 못 챙긴 항목"""
+    return [c for c in all_checks(s, plan) if not _said(c, user_turns, None)]
 
 
 def grade(score: int) -> str:
@@ -304,9 +348,10 @@ def _close_to(a: str, b: str) -> bool:
 
 def progress(
     s: Scenario, user_turns: list[str], partner_turns: list[str], plan: Plan | None = None, judged: frozenset[str] = frozenset(),
+    partner_before: list[str] | None = None,
 ) -> list[FeedbackItem]:
     """대화 중 보여 줄 '챙길 것' (기본 · 이번 전개). 돌발 상황 대처는 상대가 그 말을 꺼낸 뒤에만 보인다 (미리 알려 주지 않음)"""
-    items, _ = feedback_items(s, user_turns, plan, judged)
+    items, _ = feedback_items(s, user_turns, plan, judged, partner_before)
     shown = {
         x.checkpoint.label
         for x in (plan.surprises if plan else ())
@@ -317,9 +362,10 @@ def progress(
 
 def hint(
     s: Scenario, user_turns: list[str], last_partner: str, plan: Plan | None = None, judged: frozenset[str] = frozenset(),
+    partner_before: list[str] | None = None,
 ) -> Hint:
     """아직 안 챙긴 것 하나. 방금 돌발 상황이 나왔으면 그 대처부터, 그다음 이번 전개 → 기본 순서"""
-    items, _ = feedback_items(s, user_turns, plan, judged)
+    items, _ = feedback_items(s, user_turns, plan, judged, partner_before)
     todo = [i for i in items if not i.ok]
     if not todo:
         return Hint("closing", CLOSING_LABEL, CLOSING_EXAMPLE, 0)

@@ -7,7 +7,7 @@ from app.llm_client import Llm, call_llm
 import logging
 from collections import OrderedDict
 
-from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, hint, lines_for, next_steps, pick_plan, my_better, plan_of, progress, unmet_checks, _norm
+from app.roleplay import FINISHED_GOOD, FINISHED_MIN_TURNS, Plan, Scenario, feedback_items, get_scenarios, grade, level_for, hint, lines_for, next_steps, pick_plan, my_better, plan_of, progress, all_checks, _norm
 from app.schemas.roleplay import (
     BetterOut,
     FeedbackItemOut,
@@ -32,19 +32,34 @@ _JUDGE_CACHE: "OrderedDict[int, frozenset[str]]" = OrderedDict()
 _JUDGE_CACHE_MAX = 512
 
 
-def _judged(s: Scenario, plan: Plan, turns: list[str], llm: Llm | None) -> frozenset[str]:
-    """낱말 규칙에 안 걸린 항목만 AI 가 뜻으로 다시 본다. AI 가 안 되면 낱말 규칙 결과 그대로 (오류로 막지 않음)"""
+def _turns(history) -> tuple[list[str], list[str]]:
+    """사용자 말 목록과, 사용자 말마다 바로 앞의 상대 말 (되묻기 판단용)"""
+    users, before, last = [], [], ""
+    for h in history:
+        if h.role == "assistant":
+            last = h.content
+        elif h.role == "user":
+            users.append(h.content)
+            before.append(last)
+    return users, before
+
+
+def _judged(s: Scenario, plan: Plan, history, llm: Llm | None) -> frozenset[str]:
+    """모든 항목을 AI 가 대화 전체(상대 말 포함)로 뜻을 본다. 낱말 규칙 결과와 합친다.
+    AI 가 안 되면 낱말 규칙 결과 그대로 (오류로 막지 않음)"""
+    turns = [h.content for h in history if h.role == "user"]
     if llm is None or not turns:
         return frozenset()
-    unmet = unmet_checks(s, turns, plan)
-    if not unmet:
-        return frozenset()
-    key = hash((s.scenario_id, tuple(c.label for c in unmet), tuple(_norm(t) for t in turns)))
+    checks = all_checks(s, plan)
+    dialogue = [{"role": h.role, "content": h.content} for h in history if h.role in ("user", "assistant")]
+    key = hash((s.scenario_id, tuple(c.label for c in checks), tuple((d["role"], _norm(d["content"])) for d in dialogue)))
     if key in _JUDGE_CACHE:
         _JUDGE_CACHE.move_to_end(key)
         return _JUDGE_CACHE[key]
     try:
-        done = llm.judge_checks([{"label": c.label, "example": c.example or ""} for c in unmet], turns)
+        done = llm.judge_checks(
+            [{"label": c.label, "example": c.example or ""} for c in checks], turns, history=dialogue,
+        )
         result = frozenset(x for x in done if isinstance(x, str))
     except Exception as e:  # 대화 내용은 로그에 남기지 않는다
         logger.warning("챙길 것 AI 판정 실패: %s", type(e).__name__)
@@ -129,8 +144,8 @@ def reply(s: Scenario, body: ReplyRequest, llm: Llm) -> ReplyResponse:
 
 def give_feedback(db: Session, user: User, s: Scenario, body: FeedbackRequest, llm: Llm | None = None) -> FeedbackResponse:
     plan = plan_of(s, body.variant_id, body.surprise_ids)
-    turns = [h.content for h in body.history if h.role == "user"]
-    items, score = feedback_items(s, turns, plan, _judged(s, plan, turns, llm))
+    turns, before = _turns(body.history)
+    items, score = feedback_items(s, turns, plan, _judged(s, plan, body.history, llm), before)
     good = [i.label for i in items if i.ok]
     missed = [i.label for i in items if not i.ok]
     if len(turns) >= FINISHED_MIN_TURNS:
@@ -162,12 +177,12 @@ def give_feedback(db: Session, user: User, s: Scenario, body: FeedbackRequest, l
 def give_hint(s: Scenario, body: HintRequest, llm: Llm | None = None) -> HintResponse:
     """낱말 규칙 + (낱말에 안 걸린 항목만) AI 뜻 판정. 결과 화면과 같은 판정을 쓴다"""
     plan = plan_of(s, body.variant_id, body.surprise_ids)
-    turns = [h.content for h in body.history if h.role == "user"]
+    turns, before = _turns(body.history)
     last = next((h.content for h in reversed(body.history) if h.role == "assistant"), "")
-    judged = _judged(s, plan, turns, llm)
-    h = hint(s, turns, last, plan, judged)
+    judged = _judged(s, plan, body.history, llm)
+    h = hint(s, turns, last, plan, judged, before)
     partner = [t.content for t in body.history if t.role == "assistant"]
-    checks = [HintCheck(label=i.label, ok=i.ok, kind=i.kind) for i in progress(s, turns, partner, plan, judged)]
+    checks = [HintCheck(label=i.label, ok=i.ok, kind=i.kind) for i in progress(s, turns, partner, plan, judged, before)]
     return HintResponse(
         done=h.kind == "closing", label=h.label, example=h.example, kind=h.kind, remaining=h.remaining, checks=checks,
     )

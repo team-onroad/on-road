@@ -28,8 +28,14 @@ _WORD = re.compile(r"[가-힣A-Za-z0-9]{2,}")
 # 상대 역할이 대사 흐름보다 이만큼 더 말하면 마무리한다 (대화가 끝없이 이어지는 것만 막는다)
 ROLEPLAY_EXTRA_TURNS = 10
 # 사용자가 대화를 끝내려는 말 (이 말이 있을 때만 LLM 의 마무리를 받아들인다)
+# 끝맺는 말. 확실한 말은 언제든, 대답에도 쓰이는 말("알겠습니다")은 대사 흐름을 거의 다 했을 때만 끝으로 본다
 _CLOSING_WORDS = ("감사합니다", "고맙습니다", "감사해요", "고마워요", "안녕히", "수고하세요", "수고하셨", "끊을게", "끊겠습니다",
-                  "들어가세요", "그럼이만", "이만할게", "됐어요", "됐습니다", "알겠습니다", "알겠어요", "그렇게할게요")
+                  "들어가세요", "그럼이만", "이만할게", "이만갈게", "가볼게요", "가보겠습니다")
+_SOFT_CLOSING_WORDS = ("됐어요", "됐습니다", "알겠습니다", "알겠어요", "그렇게할게요", "그럴게요", "네그럼", "좋아요그럼")
+# 상대가 앞 차례에 마무리 인사를 했고 사용자가 짧게 "네"로 받으면 끝 (상대가 혼자 끝내지는 않는다)
+_FAREWELL_WORDS = ("안녕히", "조심히", "좋은하루", "들어가세요", "또오세요", "수고하세요", "다음에뵐게요", "끊을게요")
+_ACK_WORDS = ("네", "넵", "네네", "예", "네알겠습니다", "네감사합니다", "넹")
+ROLEPLAY_NEAR_END = 1  # 대사 흐름이 이만큼 남았을 때부터 '알겠습니다' 같은 말도 끝맺음으로 본다
 
 SAFE_COUNSEL = (
     "이야기해 줘서 고마워요. 지원 제도의 금액이나 받을 수 있는지는 정책 찾기에서 물어보면 공식 자료로 알려 줄게요. "
@@ -237,10 +243,15 @@ def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: 
     if not reply:
         raise CoachFormatError("롤플레잉 답변이 비어 있습니다.")
     # 상대 역할이 혼자 대화를 끝내지 않게: 질문이 아니고, 사용자가 끝맺는 말을 했거나 대사 흐름을 다 했을 때만 받아들인다
-    closing = any(w in re.sub(r"\s+", "", message) for w in _CLOSING_WORDS)
-    # 사용자가 끝맺는 말을 했을 때만 받아들인다 (대사 흐름을 다 했다고 혼자 끝내지 않음)
+    flat = re.sub(r"\s+", "", message)
+    near_end = spoken + 1 >= len(lines) - ROLEPLAY_NEAR_END
+    closing = any(w in flat for w in _CLOSING_WORDS) or (near_end and any(w in flat for w in _SOFT_CLOSING_WORDS))
+    # 질문 중에는 끝내지 않는다. 사용자가 끝맺었을 때만 AI 판단을 받아들인다
     llm_done = out.get("is_finished") is True and closing and not looks_question(message)
-    finished = llm_done or spoken + 1 >= len(lines) + ROLEPLAY_EXTRA_TURNS
+    # 상대가 바로 앞에서 마무리 인사를 했고 사용자가 "네"로 받으면 AI 판단과 상관없이 끝
+    last_partner = re.sub(r"\s+", "", said[-1]) if said else ""
+    acked = any(w in last_partner for w in _FAREWELL_WORDS) and re.sub(r"[\s.!~]+", "", message) in _ACK_WORDS
+    finished = llm_done or acked or spoken + 1 >= len(lines) + ROLEPLAY_EXTRA_TURNS
     return {"reply": reply, "is_finished": finished}
 
 
@@ -263,15 +274,22 @@ JUDGE_SYSTEM = """너는 말하기 연습의 채점자다. 사용자가 통화·
 
 규칙:
 - 사용자가 한 말에 그 내용이 분명히 들어 있을 때만 챙겼다고 본다. 비슷한 뜻·다른 표현·사투리·구어체도 인정한다.
-- 음성 인식 글이라 띄어쓰기·맞춤법이 틀릴 수 있다. 소리가 비슷한 오타는 뜻으로 읽는다.
-- 상대방(대화 상대)의 말은 주어지지 않는다. 사용자가 말하지 않은 것은 절대 챙겼다고 하지 않는다.
+- 음성 인식 글이라 띄어쓰기·맞춤법·물음표가 틀리거나 빠질 수 있다. 소리가 비슷한 오타는 뜻으로 읽는다.
+- 대화에는 상대 말도 있다. 상대가 한 말은 사용자가 챙긴 것이 아니다. 사용자 말만 보고 판단하되, 앞뒤 상대 말로 뜻을 읽는다.
+- 항목 이름이 '묻기 · 물어보기 · 확인'이면 그것을 물어본 것도 챙긴 것이다.
+- 그 밖의 항목(챙기기 · 준비 · 말하기 · 정하기 · 거절하기 …)은 사용자가 실제로 그렇게 말하거나 행동했을 때만 챙긴 것이다.
+  상대가 한 말을 되묻기만 한 것("임대차 계약서요?", "신분증이요?"), 그게 뭔지 물어본 것, "없어요 · 안 가져왔어요"는 챙긴 것이 아니다.
+  예: 상대 "임대차 계약서 가져오셨어요?" → 사용자 "임대차 계약서요?" = 안 챙김 / 사용자 "네 여기 임대차 계약서요" = 챙김
 - 애매하면 챙기지 않은 것으로 본다.
 
 JSON 으로만 답한다: {"done": ["챙긴 항목 label 그대로", ...]}"""
 
 
-def judge_checks(checks: list[dict], user_turns: list[str], generate: Generate | None = None) -> list[str]:
-    """checks: [{"label", "example"}]. 사용자가 뜻으로 챙긴 label 목록 (주어진 label 중에서만)"""
+def judge_checks(
+    checks: list[dict], user_turns: list[str], generate: Generate | None = None, history: list[dict] | None = None,
+) -> list[str]:
+    """checks: [{"label", "example"}]. 사용자가 뜻으로 챙긴 label 목록 (주어진 label 중에서만).
+    history: [{"role": "user"|"assistant", "content"}] 가 있으면 상대 말과 함께 본다 (되묻기 · 질문 구분)"""
     labels = [str(c.get("label") or "") for c in checks if c.get("label")]
     said = [t.strip() for t in user_turns if t and t.strip()]
     if not labels or not said:
@@ -279,11 +297,17 @@ def judge_checks(checks: list[dict], user_turns: list[str], generate: Generate |
     items = "\n".join(
         f"- label: {c['label']}" + (f" (예: {c['example']})" if c.get("example") else "") for c in checks if c.get("label")
     )
-    talk = "\n".join(f"{i}. {t}" for i, t in enumerate(said[-ROLEPLAY_HISTORY_TURNS:], 1))
-    messages = [
-        {"role": "system", "content": JUDGE_SYSTEM},
-        {"role": "user", "content": f"챙길 것:\n{items}\n\n사용자가 한 말:\n{talk}"},
-    ]
+    if history:
+        lines = [h for h in history if h.get("role") in ("user", "assistant") and str(h.get("content") or "").strip()]
+        talk = "\n".join(
+            f"{'사용자' if h['role'] == 'user' else '상대'}: {str(h['content']).strip()}"
+            for h in lines[-ROLEPLAY_HISTORY_TURNS * 2:]
+        )
+        body = f"챙길 것:\n{items}\n\n대화 (사용자 말만 판단):\n{talk}"
+    else:
+        talk = "\n".join(f"{i}. {t}" for i, t in enumerate(said[-ROLEPLAY_HISTORY_TURNS:], 1))
+        body = f"챙길 것:\n{items}\n\n사용자가 한 말:\n{talk}"
+    messages = [{"role": "system", "content": JUDGE_SYSTEM}, {"role": "user", "content": body}]
     out = generate(messages) if generate else _openai_generate(messages, temperature=0)
     done = out.get("done") if isinstance(out, dict) else None
     if not isinstance(done, list):

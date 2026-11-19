@@ -10,10 +10,10 @@ services:
     buildCommand: >-
       pip install -r src/backend/requirements.txt &&
       cd src && python -m rag.index
+    # db.seed 는 넣지 않는다: 시연 정책(P001 · 더미)을 다시 숨긴다. demo_seed 가 정책도 맞춘다
     startCommand: >-
       cd src/backend &&
       alembic upgrade head &&
-      python -m db.seed &&
       python -m db.demo_seed --if-missing &&
       uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health

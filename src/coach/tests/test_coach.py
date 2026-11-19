@@ -222,3 +222,16 @@ def test_roleplay_marks_done_lines_and_retries_repeat():
     system = llm.calls[0][0]["content"]
     assert "1. 신분증 있으세요? (이미 함" in system and "2. 도장이나 서명 해 주세요.\n" in system + "\n"
     assert len(llm.calls) == 2
+
+
+def test_roleplay_ends_when_user_acks_partner_farewell():
+    llm = FakeLLM({"reply": "네.", "is_finished": False})
+    history = [{"role": "assistant", "content": "신분증 있으세요?"}, {"role": "user", "content": "네"},
+               {"role": "assistant", "content": "처리 다 됐어요. 조심히 들어가세요."}]
+    assert roleplay_reply(SCENARIO, history, "네", llm)["is_finished"] is True
+    # 마무리 인사 뒤라도 질문하면 이어 간다
+    assert roleplay_reply(SCENARIO, history, "근데 카드는 언제 나와요", llm)["is_finished"] is False
+    # '알겠습니다'는 대사 흐름 초반엔 끝으로 보지 않는다
+    early = [{"role": "assistant", "content": "어떤 업무 도와드릴까요?"}]
+    assert roleplay_reply({**SCENARIO, "lines": ["a", "b", "c", "d"]}, early, "알겠습니다",
+                          FakeLLM({"reply": "네 그럼", "is_finished": True}))["is_finished"] is False

@@ -682,3 +682,48 @@ def test_surprise_fits_variant():
     for _ in range(40):
         ids = {x.surprise_id for x in pick_plan(s, "HARD", "family").surprises}
         assert not ids & {"sc-arrest", "sc-meet", "sc-app", "sc-card"}
+
+
+def test_echo_question_does_not_count_but_handing_over_does():
+    """'임대차 계약서 챙기기'는 되묻기 · 질문으로는 안 챙김. 묻기 항목은 질문으로 챙김"""
+    from app.roleplay import feedback_items, get_scenario
+
+    s = get_scenario("community-center")
+    ask = "임대차 계약서 가져오셨어요?"
+
+    def ok(turns, before):
+        items, _ = feedback_items(s, turns, None, frozenset(), before)
+        return {i.label: i.ok for i in items}
+
+    assert ok(["임대차 계약서요?"], [ask])["임대차 계약서 챙기기"] is False
+    assert ok(["임대차 계약서요"], [ask])["임대차 계약서 챙기기"] is False  # 물음표 없는 음성 인식 되묻기
+    assert ok(["임대차 계약서가 뭔가요"], [ask])["임대차 계약서 챙기기"] is False
+    assert ok(["네 여기 임대차 계약서 가져왔어요"], [ask])["임대차 계약서 챙기기"] is True
+
+
+def test_judge_gets_partner_lines(api, db_session):
+    """AI 판정에 상대 말까지 넘기고, 모든 항목을 본다"""
+    from app.llm_client import Llm, get_llm
+    from app.main import app as fastapi_app
+
+    seen = {}
+
+    def judge(checks, turns, history=None):
+        seen["labels"], seen["history"] = [c["label"] for c in checks], history
+        return []
+
+    base = get_llm()
+    fastapi_app.dependency_overrides[get_llm] = lambda: Llm(
+        base.classify_intent, base.counsel_reply, base.roleplay_reply, base.polish_sentences, judge,
+    )
+    try:
+        user = make_user(db_session)
+        history = [
+            {"role": "assistant", "content": "임대차 계약서 가져오셨어요?"},
+            {"role": "user", "content": "신분증 여기 있어요 임대차 계약서도요"},
+        ]
+        _feedback(api, user, scenario_id="community-center", history=history)
+    finally:
+        fastapi_app.dependency_overrides.pop(get_llm, None)
+    assert "신분증 준비" in seen["labels"]  # 낱말로 챙긴 항목도 AI 가 다시 본다
+    assert seen["history"][0] == {"role": "assistant", "content": "임대차 계약서 가져오셨어요?"}
