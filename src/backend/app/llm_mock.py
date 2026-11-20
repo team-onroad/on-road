@@ -5,6 +5,7 @@
 """
 
 import re
+from collections.abc import Iterator
 
 _POLICY_WORDS = (
     "지원", "수당", "정책", "제도", "혜택", "신청", "자격", "대상", "금액", "얼마",
@@ -221,3 +222,24 @@ def read_risk(rules: dict, form_text: str | None, images: list[str]) -> dict:
         status, ev = found.get(i, ("unknown", None))
         findings.append({"rule_id": i, "status": status, "evidence": ev})
     return {"values": values, "findings": findings}
+
+
+# ---------------- 스트리밍 (목: 문장마다 나눠서 보낸다) ----------------
+
+
+def _split(text: str) -> list[str]:
+    return [s for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s]
+
+
+def counsel_stream(message: str, history: list[dict], profile: dict) -> Iterator[dict]:
+    parts = _split(counsel_reply(message, history, profile))
+    for s in parts:
+        yield {"delta": s}
+    yield {"final": " ".join(parts), "replace": False}
+
+
+def roleplay_stream(scenario: dict, history: list[dict], message: str) -> Iterator[dict]:
+    out = roleplay_reply(scenario, history, message)
+    for s in _split(out["reply"]):
+        yield {"delta": s}
+    yield {"final": out["reply"], "is_finished": out["is_finished"], "replace": False}

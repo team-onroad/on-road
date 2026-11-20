@@ -38,12 +38,14 @@ class DocwriterFormatError(RuntimeError):
     pass
 
 
-def _openai_generate(messages: list[dict], max_tokens: int = 900) -> dict:
-    from rag.openai_client import _client
+def _openai_generate(messages: list[dict], max_tokens: int = 900, quick: bool = False) -> dict:
+    """quick: 답이 짧은 판단 (라우터 · 칸 답 뽑기). 짧게 기다리고 바로 다시 요청"""
+    from rag.openai_client import _client, quick_client
     from rag.settings import get_rag_settings
 
+    client = quick_client() if quick else _client()
     for _ in range(1 + JSON_RETRIES):
-        resp = _client().chat.completions.create(
+        resp = client.chat.completions.create(
             model=get_rag_settings().coach_model, temperature=0.4, max_tokens=max_tokens,
             response_format={"type": "json_object"}, messages=messages,
         )
@@ -72,7 +74,7 @@ def route_message(message: str, history: list[dict], context: dict, generate: Ge
     """context["screen"] == "chat": {"route": document|other, "doc_hint"}
     context["screen"] == "document": {"route": field|policy|counsel, "doc_hint": None}
     형식이 틀리면 안전한 기본값(other / field)."""
-    gen = generate or _openai_generate
+    gen = generate or (lambda m: _openai_generate(m, max_tokens=200, quick=True))
     if context.get("screen") == "document":
         system = ROUTE_DOCUMENT_SYSTEM.format(
             document_title=context.get("document_title") or "서류",
@@ -187,7 +189,7 @@ def extract_answer(message: str, field: dict, generate: Generate | None = None) 
     """일반 칸(기관명·관계·은행 등)만. 이름·주소·전화·계좌 같은 개인정보 칸은 백엔드가 규칙으로 뽑고 여기 보내지 않는다.
     → {"answer": str | None}"""
     system = EXTRACT_ANSWER_SYSTEM.format(label=field.get("label") or "", guide=field.get("guide") or "")
-    out = (generate or _openai_generate)([
+    out = (generate or (lambda m: _openai_generate(m, max_tokens=200, quick=True)))([
         {"role": "system", "content": system},
         {"role": "user", "content": message},
     ])

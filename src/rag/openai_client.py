@@ -25,6 +25,23 @@ def _client() -> OpenAI:
     return OpenAI(api_key=key, timeout=20.0, max_retries=1)
 
 
+# 답이 짧은 판단(질문 종류 · 서류 쪽인지 · 칸 답 뽑기 · 챙긴 것)은 오래 기다리지 않는다.
+# OpenAI 가 멈춘 듯 느릴 때 20초씩 기다리지 않고 8초에 끊고 한 번 바로 다시 요청한다
+QUICK_TIMEOUT = 8.0
+# 스트리밍: 첫 글자 · 다음 글자를 이만큼 못 받으면 끊는다 (연결은 5초)
+STREAM_TIMEOUT = 15.0
+
+
+def quick_client() -> OpenAI:
+    return _client().with_options(timeout=QUICK_TIMEOUT, max_retries=1)
+
+
+def stream_client() -> OpenAI:
+    import httpx
+
+    return _client().with_options(timeout=httpx.Timeout(STREAM_TIMEOUT, connect=5.0), max_retries=1)
+
+
 def embed(texts: list[str]) -> list[list[float]]:
     resp = _client().embeddings.create(model=get_rag_settings().rag_embedding_model, input=texts)
     return [d.embedding for d in sorted(resp.data, key=lambda d: d.index)]

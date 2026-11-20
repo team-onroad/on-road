@@ -8,7 +8,7 @@
 
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 
 from coach.prompts import (
     COUNSEL_SYSTEM, INTENT_SYSTEM, LEVEL_GUIDE, POLISH_SYSTEM, ROLEPLAY_SYSTEM, STAGE_STYLE,
@@ -17,6 +17,8 @@ from rag.guard import has_assertion
 
 # messages → JSON dict
 Generate = Callable[[list[dict]], dict]
+# messages → 글 조각 (스트리밍)
+TextStream = Callable[[list[dict]], Iterator[str]]
 
 # LLM 에 넘기는 앞 대화 수 (오래된 것부터 버림)
 HISTORY_TURNS = 10
@@ -57,12 +59,14 @@ class CoachFormatError(RuntimeError):
 JSON_RETRIES = 1
 
 
-def _openai_generate(messages: list[dict], temperature: float = 0.4) -> dict:
-    from rag.openai_client import _client
+def _openai_generate(messages: list[dict], temperature: float = 0.4, quick: bool = False) -> dict:
+    """quick: 답이 짧은 판단 (짧게 기다리고 바로 다시 요청)"""
+    from rag.openai_client import _client, quick_client
     from rag.settings import get_rag_settings
 
+    client = quick_client() if quick else _client()
     for _ in range(1 + JSON_RETRIES):
-        resp = _client().chat.completions.create(
+        resp = client.chat.completions.create(
             model=get_rag_settings().coach_model, temperature=temperature, max_tokens=500,
             response_format={"type": "json_object"}, messages=messages,
         )
@@ -105,7 +109,7 @@ def _text(v: object) -> str:
 
 
 def classify_intent(message: str, history: list[dict], generate: Generate | None = None) -> str:
-    out = (generate or _openai_generate)([
+    out = (generate or (lambda m: _openai_generate(m, quick=True)))([
         {"role": "system", "content": INTENT_SYSTEM},
         *_history(history)[-4:],
         {"role": "user", "content": message},
@@ -202,14 +206,40 @@ def voice_message(message: str) -> str:
     return f"{message} (질문)" if looks_question(message) and not message.strip().endswith("?") else message
 
 
-def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: Generate | None = None) -> dict:
-    """history 첫 대사(상대 역할의 첫마디)는 백엔드가 넣어 둔다."""
-    lines = [str(x) for x in scenario.get("lines") or []]
-    spoken = sum(1 for h in history if h.get("role") == "assistant")
-    said = [str(h.get("content") or "") for h in history if h.get("role") == "assistant"]
+class _RoleplayTurn:
+    """롤플레잉 한 턴을 만들 재료 (보통 답변 · 스트리밍 답변이 같이 쓴다)"""
+
+    def __init__(self, scenario: dict, history: list[dict], message: str) -> None:
+        self.message = message
+        self.lines = [str(x) for x in scenario.get("lines") or []]
+        self.spoken = sum(1 for h in history if h.get("role") == "assistant")
+        self.said = [str(h.get("content") or "") for h in history if h.get("role") == "assistant"]
+        # 상대가 너무 오래 말했으면 AI 에게 묻지 않고 끝낸다
+        self.over = self.spoken >= len(self.lines) + ROLEPLAY_EXTRA_TURNS
+        self.messages = [] if self.over else _roleplay_messages(scenario, history, message, self.lines, self.said)
+
+    def retry_messages(self, out: dict) -> list[dict]:
+        return self.messages + [
+            {"role": "assistant", "content": json.dumps(out, ensure_ascii=False)},
+            {"role": "system", "content": "방금 답은 앞에서 이미 한 말과 거의 같다. 같은 말을 되풀이하지 말고, 사용자의 마지막 말에 맞는 새 말로 다시 답한다."},
+        ]
+
+    def finished(self, llm_flag: bool) -> bool:
+        """상대 역할이 혼자 대화를 끝내지 않게: 질문이 아니고, 사용자가 끝맺는 말을 했거나 대사 흐름을 다 했을 때만 받아들인다"""
+        message, said, lines, spoken = self.message, self.said, self.lines, self.spoken
+        flat = re.sub(r"\s+", "", message)
+        near_end = spoken + 1 >= len(lines) - ROLEPLAY_NEAR_END
+        closing = any(w in flat for w in _CLOSING_WORDS) or (near_end and any(w in flat for w in _SOFT_CLOSING_WORDS))
+        # 질문 중에는 끝내지 않는다. 사용자가 끝맺었을 때만 AI 판단을 받아들인다
+        llm_done = llm_flag and closing and not looks_question(message)
+        # 상대가 바로 앞에서 마무리 인사를 했고 사용자가 "네"로 받으면 AI 판단과 상관없이 끝
+        last_partner = re.sub(r"\s+", "", said[-1]) if said else ""
+        acked = any(w in last_partner for w in _FAREWELL_WORDS) and re.sub(r"[\s.!~]+", "", message) in _ACK_WORDS
+        return llm_done or acked or spoken + 1 >= len(lines) + ROLEPLAY_EXTRA_TURNS
+
+
+def _roleplay_messages(scenario: dict, history: list[dict], message: str, lines: list[str], said: list[str]) -> list[dict]:
     done = _done_lines(lines, said)
-    if spoken >= len(lines) + ROLEPLAY_EXTRA_TURNS:
-        return {"reply": ROLEPLAY_END, "is_finished": True}
     system = ROLEPLAY_SYSTEM.format(
         partner=scenario.get("partner") or "상대",
         setting=scenario.get("setting") or "",
@@ -226,33 +256,27 @@ def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: 
         {**h, "content": voice_message(h["content"])} if h["role"] == "user" else h
         for h in _history(history, ROLEPLAY_HISTORY_TURNS)
     ]
-    messages = [{"role": "system", "content": system}, *turns, {"role": "user", "content": voice_message(message)}]
+    return [{"role": "system", "content": system}, *turns, {"role": "user", "content": voice_message(message)}]
+
+
+def roleplay_reply(scenario: dict, history: list[dict], message: str, generate: Generate | None = None) -> dict:
+    """history 첫 대사(상대 역할의 첫마디)는 백엔드가 넣어 둔다."""
+    t = _RoleplayTurn(scenario, history, message)
+    if t.over:
+        return {"reply": ROLEPLAY_END, "is_finished": True}
     # 사람처럼 말하게 하되, 엉뚱한 말은 프롬프트 규칙으로 막는다
-    out = generate(messages) if generate else _openai_generate(messages, temperature=0.5)
+    out = generate(t.messages) if generate else _openai_generate(t.messages, temperature=0.5)
     reply = _text(out.get("reply") if isinstance(out, dict) else None)
     # 앞서 한 말을 되풀이하면 한 번만 다시 요청한다
-    if reply and repeats(reply, said):
-        again = messages + [
-            {"role": "assistant", "content": json.dumps(out, ensure_ascii=False)},
-            {"role": "system", "content": "방금 답은 앞에서 이미 한 말과 거의 같다. 같은 말을 되풀이하지 말고, 사용자의 마지막 말에 맞는 새 말로 다시 답한다."},
-        ]
+    if reply and repeats(reply, t.said):
+        again = t.retry_messages(out)
         retry = generate(again) if generate else _openai_generate(again, temperature=0.5)
         new = _text(retry.get("reply") if isinstance(retry, dict) else None)
-        if new and not repeats(new, said):
+        if new and not repeats(new, t.said):
             out, reply = retry, new
     if not reply:
         raise CoachFormatError("롤플레잉 답변이 비어 있습니다.")
-    # 상대 역할이 혼자 대화를 끝내지 않게: 질문이 아니고, 사용자가 끝맺는 말을 했거나 대사 흐름을 다 했을 때만 받아들인다
-    flat = re.sub(r"\s+", "", message)
-    near_end = spoken + 1 >= len(lines) - ROLEPLAY_NEAR_END
-    closing = any(w in flat for w in _CLOSING_WORDS) or (near_end and any(w in flat for w in _SOFT_CLOSING_WORDS))
-    # 질문 중에는 끝내지 않는다. 사용자가 끝맺었을 때만 AI 판단을 받아들인다
-    llm_done = out.get("is_finished") is True and closing and not looks_question(message)
-    # 상대가 바로 앞에서 마무리 인사를 했고 사용자가 "네"로 받으면 AI 판단과 상관없이 끝
-    last_partner = re.sub(r"\s+", "", said[-1]) if said else ""
-    acked = any(w in last_partner for w in _FAREWELL_WORDS) and re.sub(r"[\s.!~]+", "", message) in _ACK_WORDS
-    finished = llm_done or acked or spoken + 1 >= len(lines) + ROLEPLAY_EXTRA_TURNS
-    return {"reply": reply, "is_finished": finished}
+    return {"reply": reply, "is_finished": t.finished(out.get("is_finished") is True)}
 
 
 def polish_sentences(doc_type: str, sentences: list[str], generate: Generate | None = None) -> list[str]:
@@ -308,8 +332,113 @@ def judge_checks(
         talk = "\n".join(f"{i}. {t}" for i, t in enumerate(said[-ROLEPLAY_HISTORY_TURNS:], 1))
         body = f"챙길 것:\n{items}\n\n사용자가 한 말:\n{talk}"
     messages = [{"role": "system", "content": JUDGE_SYSTEM}, {"role": "user", "content": body}]
-    out = generate(messages) if generate else _openai_generate(messages, temperature=0)
+    out = generate(messages) if generate else _openai_generate(messages, temperature=0, quick=True)
     done = out.get("done") if isinstance(out, dict) else None
     if not isinstance(done, list):
         raise CoachFormatError("판정 형식이 아닙니다.")
     return [x for x in done if isinstance(x, str) and x in labels]
+
+
+# ---------------- 스트리밍 (만들어지는 대로 한 문장씩) ----------------
+# 답을 다 만들 때까지 기다리지 않고 문장이 끝날 때마다 보낸다 → 첫 문장이 1초 안에 보이고, 음성은 바로 읽기 시작한다.
+# 금액·자격 단정 검사와 해요체 고치기는 문장마다 한다.
+
+COUNSEL_TEXT_OUTPUT = "출력: JSON 없이 답변 글만 쓴다. 머리말·따옴표 없이 바로 말한다."
+ROLEPLAY_END_MARK = "[끝]"
+ROLEPLAY_TEXT_OUTPUT = (
+    "출력: JSON 없이 상대 역할이 할 말만 쓴다 (이름·따옴표·설명 없이). "
+    f'6번처럼 대화를 마무리하는 차례면("is_finished": true 인 경우) 말 맨 끝에 {ROLEPLAY_END_MARK} 를 붙인다.'
+)
+# 문장 끝: 마침표·물음표·느낌표(뒤에 따옴표·괄호가 와도) 다음 띄어쓰기, 또는 줄바꿈
+_SENTENCE_END = re.compile(r"[.!?…]+[\"'”’)\]]*\s+|\n+")
+
+
+def _text_output(system: str, line: str) -> str:
+    """JSON 출력 지시(마지막 '출력:' 줄)를 글로 쓰라는 지시로 바꾼다"""
+    i = system.rfind("출력:")
+    return (system[:i] if i >= 0 else system + "\n") + line
+
+
+def _openai_stream(messages: list[dict], temperature: float = 0.4) -> Iterator[str]:
+    from rag.openai_client import stream_client
+    from rag.settings import get_rag_settings
+
+    resp = stream_client().chat.completions.create(
+        model=get_rag_settings().coach_model, temperature=temperature, max_tokens=500, messages=messages, stream=True,
+    )
+    for chunk in resp:
+        if chunk.choices:
+            piece = chunk.choices[0].delta.content
+            if piece:
+                yield piece
+
+
+def sentences(pieces: Iterable[str]) -> Iterator[str]:
+    """글 조각을 문장 단위로 모은다. 소수점(1.5)처럼 뒤에 띄어쓰기가 없는 점에서는 자르지 않는다"""
+    buf = ""
+    for piece in pieces:
+        buf += piece
+        while (m := _SENTENCE_END.search(buf)) is not None:
+            sentence, buf = buf[: m.end()].strip(), buf[m.end():]
+            if sentence:
+                yield sentence
+    if buf.strip():
+        yield buf.strip()
+
+
+def counsel_stream(message: str, history: list[dict], profile: dict, stream: TextStream | None = None) -> Iterator[dict]:
+    """{"delta": 문장} 을 차례로, 마지막에 {"final": 전체 답, "replace": bool}.
+    금액·자격 단정 문장이 나오면 거기서 멈추고 고정 안내로 바꾼다 (replace=True: 앞에 보인 문장도 바꿔야 함)"""
+    stage = profile.get("stage") if profile.get("stage") in STAGE_STYLE else "youth"
+    system = _text_output(COUNSEL_SYSTEM.format(style=STAGE_STYLE[stage], context=_context(profile)), COUNSEL_TEXT_OUTPUT)
+    messages = [{"role": "system", "content": system}, *_history(history), {"role": "user", "content": message}]
+    parts: list[str] = []
+    for s in sentences((stream or _openai_stream)(messages)):
+        if _MONEY_RE.search(s) or has_assertion(s):
+            yield {"final": SAFE_COUNSEL, "replace": True}
+            return
+        s = polite(s)
+        parts.append(s)
+        yield {"delta": s}
+    if not parts:
+        raise CoachFormatError("상담 답변이 비어 있습니다.")
+    yield {"final": " ".join(parts), "replace": False}
+
+
+def roleplay_stream(
+    scenario: dict, history: list[dict], message: str,
+    stream: TextStream | None = None, generate: Generate | None = None,
+) -> Iterator[dict]:
+    """{"delta": 문장} 을 차례로, 마지막에 {"final": 전체 대사, "is_finished": bool, "replace": bool}.
+    앞서 한 말을 되풀이했으면 한 번 다시 받아 replace=True 로 바꾼다 (드묾)"""
+    t = _RoleplayTurn(scenario, history, message)
+    if t.over:
+        yield {"delta": ROLEPLAY_END}
+        yield {"final": ROLEPLAY_END, "is_finished": True, "replace": False}
+        return
+    system = _text_output(t.messages[0]["content"], ROLEPLAY_TEXT_OUTPUT)
+    messages = [{"role": "system", "content": system}, *t.messages[1:]]
+    run = stream or (lambda m: _openai_stream(m, temperature=0.5))
+    parts: list[str] = []
+    flag = False
+    for s in sentences(run(messages)):
+        if ROLEPLAY_END_MARK in s:
+            flag = True
+            s = s.replace(ROLEPLAY_END_MARK, "").strip()
+        if s:
+            parts.append(s)
+            yield {"delta": s}
+    reply = " ".join(parts)
+    if not reply:
+        raise CoachFormatError("롤플레잉 답변이 비어 있습니다.")
+    replace = False
+    if repeats(reply, t.said):
+        again = t.retry_messages({"reply": reply, "is_finished": flag})
+        try:
+            retry = generate(again) if generate else _openai_generate(again, temperature=0.5)
+        except Exception:
+            retry = None  # 다시 받기가 안 되면 처음 답 그대로
+        new = _text(retry.get("reply") if isinstance(retry, dict) else None)
+        if new and not repeats(new, t.said):
+            reply, flag, replace = new, retry.get("is_finished") is True, True
+    yield {"final": reply, "is_finished": t.finished(flag), "replace": replace}

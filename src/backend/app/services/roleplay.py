@@ -3,7 +3,10 @@
 from sqlalchemy.orm import Session
 
 from app.crisis import CRISIS_MESSAGE, is_crisis
-from app.llm_client import Llm, call_llm
+from collections.abc import Iterator
+
+from app import sse
+from app.llm_client import Llm, ai_unavailable, call_llm
 import logging
 from collections import OrderedDict
 
@@ -140,6 +143,38 @@ def reply(s: Scenario, body: ReplyRequest, llm: Llm) -> ReplyResponse:
         body.message,
     )
     return ReplyResponse(reply=result["reply"], is_finished=result["is_finished"])
+
+
+def reply_stream(s: Scenario, body: ReplyRequest, llm: Llm) -> Iterator[str]:
+    """POST /reply 와 같은 답을 문장이 나오는 대로 delta 로, 마지막에 done {reply, is_finished, replace}.
+    음성 연습은 첫 문장이 오자마자 읽기 시작한다"""
+    if is_crisis(body.message):
+        return iter([sse.event("done", ReplyResponse(reply=CRISIS_MESSAGE, is_finished=True), replace=False)])
+    scenario = _llm_scenario(s, body.stage, plan_of(s, body.variant_id, body.surprise_ids))
+    history = [h.model_dump() for h in body.history]
+
+    def events() -> Iterator[str]:
+        try:
+            if llm.roleplay_stream is None:  # 스트리밍 함수가 없으면 보통 답을 한 번에
+                out = llm.roleplay_reply(scenario, history, body.message)
+                if not _is_reply(out):
+                    raise ValueError("형식 오류")
+                yield sse.delta(out["reply"])
+                yield sse.event("done", ReplyResponse(reply=out["reply"], is_finished=out["is_finished"]), replace=False)
+                return
+            for ev in llm.roleplay_stream(scenario, history, body.message):
+                if isinstance(ev.get("delta"), str) and ev["delta"].strip():
+                    yield sse.delta(ev["delta"])
+                elif isinstance(ev.get("final"), str) and ev["final"].strip():
+                    res = ReplyResponse(reply=ev["final"], is_finished=ev.get("is_finished") is True)
+                    yield sse.event("done", res, replace=bool(ev.get("replace")))
+                    return
+            raise ValueError("마지막 답이 없음")
+        except Exception as e:  # 대화 내용은 로그에 남기지 않는다
+            logger.error("LLM 함수 오류: roleplay_stream %s", type(e).__name__)
+            yield sse.error(ai_unavailable())
+
+    return events()
 
 
 def give_feedback(db: Session, user: User, s: Scenario, body: FeedbackRequest, llm: Llm | None = None) -> FeedbackResponse:

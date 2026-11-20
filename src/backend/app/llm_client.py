@@ -5,7 +5,7 @@
 
 import logging
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -24,6 +24,10 @@ class Llm:
     polish_sentences: Callable[..., list[str]]
     # 롤플레잉 '챙길 것' 뜻 판정 (낱말 규칙에 안 걸린 항목만). 없으면 낱말 규칙만
     judge_checks: Callable[..., list[str]] = llm_mock.judge_checks
+    # 스트리밍: {"delta": 문장} … {"final": …} 를 차례로 내는 함수
+    # 없으면 보통 답변(counsel_reply · roleplay_reply)을 한 번에 보낸다
+    counsel_stream: Callable[..., Iterator[dict]] | None = None
+    roleplay_stream: Callable[..., Iterator[dict]] | None = None
 
 
 @lru_cache
@@ -34,14 +38,20 @@ def _real_llm() -> Llm:
         sys.path.insert(0, src)
     from coach import llm
 
-    return Llm(llm.classify_intent, llm.counsel_reply, llm.roleplay_reply, llm.polish_sentences, llm.judge_checks)
+    return Llm(
+        llm.classify_intent, llm.counsel_reply, llm.roleplay_reply, llm.polish_sentences, llm.judge_checks,
+        llm.counsel_stream, llm.roleplay_stream,
+    )
 
 
 def get_llm() -> Llm:
     """FastAPI 의존성. 테스트에서는 dependency_overrides 로 교체"""
     if get_settings().llm_mode == "real":
         return _real_llm()
-    return Llm(llm_mock.classify_intent, llm_mock.counsel_reply, llm_mock.roleplay_reply, llm_mock.polish_sentences)
+    return Llm(
+        llm_mock.classify_intent, llm_mock.counsel_reply, llm_mock.roleplay_reply, llm_mock.polish_sentences,
+        llm_mock.judge_checks, llm_mock.counsel_stream, llm_mock.roleplay_stream,
+    )
 
 
 def ai_unavailable() -> AppError:

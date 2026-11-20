@@ -1,7 +1,9 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
+from app import sse
 from app.api.deps import DB, BodyUser, openapi_body, validated_body
 from app.llm_client import Llm, get_llm
 from app.roleplay import Scenario, Stage, get_scenario
@@ -69,6 +71,25 @@ def post_reply(
     llm: Annotated[Llm, Depends(get_llm)],
 ) -> ReplyResponse:
     return service.reply(scenario, body, llm)
+
+
+@router.post(
+    "/{scenario_id}/reply/stream",
+    summary="대화 한 턴 (스트리밍)",
+    description=(
+        "POST /reply 와 같은 요청. 응답은 text/event-stream: delta {text} 가 문장마다, "
+        "마지막에 done {reply, is_finished, replace}. 실패하면 error {error: {code, message}}."
+    ),
+    response_class=StreamingResponse,
+    responses={200: {"content": {sse.MEDIA_TYPE: {}}}, **BODY_ERRORS},
+    openapi_extra=openapi_body(ReplyRequest),
+)
+def post_reply_stream(
+    scenario: PathScenario,
+    body: Annotated[ReplyRequest, Depends(validated_body(ReplyRequest))],
+    llm: Annotated[Llm, Depends(get_llm)],
+) -> StreamingResponse:
+    return sse.response(service.reply_stream(scenario, body, llm))
 
 
 @router.post(
