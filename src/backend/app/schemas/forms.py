@@ -29,6 +29,7 @@ class TemplateDetail(TemplateSummary):
 class AppRecords(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    # 앱 호환용으로 받기만 함. 저장한 정책 수는 saved_policies 에서 셈
     saved_policy_count: Annotated[StrictInt, Field(ge=0, le=INT_MAX)] = 0
     interest_summary: str | None = None
 

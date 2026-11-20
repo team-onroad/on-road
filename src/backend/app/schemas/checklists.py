@@ -3,11 +3,12 @@
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 
 from app.codes import ITEM_TYPES, POLICY_CATEGORIES, STEP_KEYS
 from app.ids import BIGINT_MAX
 from app.schemas.policies import Eligibility, PolicySummary
+from app.schemas.users import _date_string_only
 
 StepKey = Literal[STEP_KEYS]
 
@@ -17,6 +18,16 @@ class ChecklistCreate(BaseModel):
 
     user_id: str
     policy_id: Annotated[StrictInt, Field(ge=1, le=BIGINT_MAX)]
+
+
+class DueDateUpdate(BaseModel):
+    """null 이면 지움. 필드 자체가 없으면 422"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    due_date: date | None
+
+    _date = field_validator("due_date", mode="before")(_date_string_only)
 
 
 class ItemToggle(BaseModel):
@@ -108,6 +119,7 @@ class Step(BaseModel):
 class ChecklistResponse(BaseModel):
     checklist_id: int
     policy: ChecklistPolicy
+    due_date: date | None
     progress: Progress
     document_progress: DocumentProgress
     steps: list[Step]

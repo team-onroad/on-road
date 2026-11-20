@@ -26,26 +26,32 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.roleplay import get_scenarios
 from app.schemas.readiness import (
     ActivityCreate,
+    ActivityItem,
+    ActivityKind,
+    ActivityList,
     ReadinessArea,
     ReadinessInsight,
     ReadinessItem,
     ReadinessLevel,
     ReadinessPoint,
     ReadinessResponse,
+    RecentScore,
 )
 from app.schemas.roleplay import NextStepOut
-from app.services.home import shortage_count, user_checklists
-from db.models import ActivityLog, Document, DocumentField, RoleplayResult, Simulation, User
+from app.services.home import roleplay_title, shortage_count, user_checklists
+from db.models import ActivityLog, Document, DocumentField, ReadinessSnapshot, RoleplayResult, Simulation, User
 
 NEXT_STEPS_MAX = 3
+RECENT_SCORES_MAX = 7
 LEVELS = ((85, "자립 준비 완료"), (60, "거의 다 왔어요"), (30, "준비 중"), (0, "첫걸음"))
 HISTORY_WEEKS = 4  # 점수 흐름: 지금 포함 4개 (3주 전 · 2주 전 · 1주 전 · 지금)
 RECENT_MAX = 5
@@ -66,6 +72,25 @@ def add_activity(db: Session, user: User, body: ActivityCreate) -> int:
     db.add(row)
     db.commit()
     return row.id
+
+
+def activities(db: Session, user: User, kind: ActivityKind | None) -> ActivityList:
+    """최신순, created_at 같으면 ID 큰 것 먼저"""
+    query = select(ActivityLog).where(ActivityLog.user_id == user.id)
+    if kind is not None:
+        query = query.where(ActivityLog.kind == kind)
+    rows = db.scalars(query.order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc()))
+    return ActivityList(activities=[
+        ActivityItem(
+            activity_id=r.id,
+            kind=r.kind,
+            ref=r.ref,
+            title=roleplay_title(r.ref) if r.kind == "practice" and r.ref else None,
+            data=r.data,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ])
 
 
 @dataclass(frozen=True)
@@ -91,12 +116,17 @@ class Attempt:
 def _attempts(practice_logs: list, saved: list) -> dict[str, tuple[Attempt, ...]]:
     """상황별 연습을 시간순으로. 같은 세션(10분 안)의 활동 기록과 저장 결과는 하나로"""
     out: dict[str, list[Attempt]] = {}
-    for log in practice_logs:
+    for log in sorted(practice_logs, key=lambda x: x.created_at or datetime.min.replace(tzinfo=UTC)):
         score = log.data.get("score")
         missed = log.data.get("missed")
-        out.setdefault(log.ref, []).append(Attempt(
-            log.created_at, score if isinstance(score, int) else None, missed if isinstance(missed, int) else None,
-        ))
+        a = Attempt(log.created_at, score if isinstance(score, int) else None, missed if isinstance(missed, int) else None)
+        items = out.setdefault(log.ref, [])
+        # 같은 대화를 '기록에 남기기'로 다시 보내면 같은 결과가 한 번 더 기록된다 → 10분 안 같은 결과는 한 번으로
+        prev = items[-1] if items else None
+        if (prev and prev.at and a.at and (prev.score, prev.missed) == (a.score, a.missed)
+                and abs((a.at - prev.at).total_seconds()) <= MERGE_MINUTES * 60):
+            continue
+        items.append(a)
     for r in saved:
         labels = tuple(str(x) for x in r.missed)
         items = out.setdefault(r.scenario_id, [])
@@ -474,6 +504,36 @@ AREAS: tuple[tuple[str, str, tuple[Item, ...]], ...] = (
 )
 
 
+def _save_snapshot(db: Session, user: User, today: date, score: int, areas: list[ReadinessArea]) -> None:
+    """하루 1줄. 같은 날 다시 보면 마지막 값으로 덮어씀"""
+    values = {"score": score, "areas": {a.key: a.score for a in areas}}
+    db.execute(
+        insert(ReadinessSnapshot)
+        .values(user_id=user.id, snapshot_date=today, **values)
+        .on_conflict_do_update(index_elements=["user_id", "snapshot_date"], set_=values)
+    )
+    db.commit()
+
+
+def _last_week_score(db: Session, user: User, today: date) -> int | None:
+    return db.scalar(
+        select(ReadinessSnapshot.score)
+        .where(ReadinessSnapshot.user_id == user.id, ReadinessSnapshot.snapshot_date <= today - timedelta(days=7))
+        .order_by(ReadinessSnapshot.snapshot_date.desc())
+        .limit(1)
+    )
+
+
+def _recent_scores(db: Session, user: User) -> list[RecentScore]:
+    rows = db.execute(
+        select(ReadinessSnapshot.snapshot_date, ReadinessSnapshot.score)
+        .where(ReadinessSnapshot.user_id == user.id)
+        .order_by(ReadinessSnapshot.snapshot_date.desc())
+        .limit(RECENT_SCORES_MAX)
+    )
+    return [RecentScore(date=d, score=s) for d, s in rows]
+
+
 def _score(facts: Facts) -> tuple[int, list[ReadinessArea], dict[str, bool]]:
     areas: list[ReadinessArea] = []
     marks_all: dict[str, bool] = {}
@@ -575,8 +635,10 @@ def _next_level(score: int) -> ReadinessLevel | None:
     return ReadinessLevel(label=name, points=cut - score)
 
 
-def readiness(db: Session, user: User, now: datetime | None = None) -> ReadinessResponse:
+def readiness(db: Session, user: User, today: date | None = None, now: datetime | None = None) -> ReadinessResponse:
+    """today: 하루 점수 기록(스냅숏) 날짜 (API 는 KST 오늘). now: 행동 기록을 볼 기준 시각"""
     now = now or datetime.now(UTC)
+    today = today or now.date()
     rows = _rows(db, user)
     score, areas, marks = _score(collect(db, user, rows, now))
 
@@ -599,6 +661,7 @@ def readiness(db: Session, user: User, now: datetime | None = None) -> Readiness
     watched = {i.area for i in found if i.tone == "watch"}
     # 다시 챙겨 볼 것이 있는 영역 먼저, 그다음 점수가 낮은 순 (같으면 원래 순서)
     open_areas = sorted((a for a in areas if a.next_step), key=lambda a: (a.key not in watched, a.score))
+    _save_snapshot(db, user, today, score, areas)
     return ReadinessResponse(
         score=score,
         level=_level(score),
@@ -610,4 +673,6 @@ def readiness(db: Session, user: User, now: datetime | None = None) -> Readiness
         recent=recent,
         next_level=_next_level(score),
         insights=found,
+        last_week_score=_last_week_score(db, user, today),
+        recent_scores=_recent_scores(db, user),
     )

@@ -150,9 +150,8 @@ def detect(message: str, user: User, today: date) -> list[ProfileChange]:
                                  proposed=status, proposed_label=STATUS_LABELS[status]))
     work = _work(message)
     if work:
-        # 서버는 지금 하는 일을 모른다 (current 없음). 앱이 승인받아 기기에 저장한다
-        out.append(ProfileChange(field="work", label="지금 하는 일", current=None, proposed=work,
-                                 proposed_label=WORK_LABELS[work]))
+        out.append(ProfileChange(field="work", label="지금 하는 일", current=WORK_LABELS.get(user.work),
+                                 proposed=work, proposed_label=WORK_LABELS[work]))
     d = _d_date(message)
     new_status = status or user.status
     if d and new_status == "leaving_soon" and d >= today and d != user.d_date:

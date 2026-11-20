@@ -11,7 +11,8 @@ TODAY = date(2026, 10, 27)
 
 
 def user(**kw):
-    base = {"name": "김민지", "region": "서울", "phone": "01012345678", "status": "in_care", "d_date": None}
+    base = {"name": "김민지", "region": "서울", "phone": "01012345678", "status": "in_care", "d_date": None,
+            "work": None}
     base.update(kw)
     return SimpleNamespace(**base)
 
@@ -63,6 +64,17 @@ def test_detect_work(message, expected):
     assert changes(message).get("work") == expected
 
 
-def test_work_change_has_no_current_value():
+def test_work_change_without_saved_work():
     c = next(c for c in detect("취업했어요", user(), TODAY) if c.field == "work")
     assert c.label == "지금 하는 일" and c.current is None and c.proposed_label == "일해요"
+
+
+def test_work_change_shows_saved_work():
+    c = next(c for c in detect("취업했어요", user(work="job_seeking"), TODAY) if c.field == "work")
+    assert (c.current, c.proposed) == ("일 찾는 중", "working")
+
+
+def test_work_change_same_value_still_shown():
+    # 카드 표시 조건은 기존 그대로 (같은 값이어도 띄움)
+    c = next(c for c in detect("취업했어요", user(work="working"), TODAY) if c.field == "work")
+    assert (c.current, c.proposed) == ("일해요", "working")

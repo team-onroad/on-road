@@ -13,7 +13,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from db.models import Checklist, ChecklistItem, Document, DocumentField, Policy, User
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -88,6 +88,12 @@ def get_owned(db: Session, user: User, document_id: str) -> Document:
     if doc is None:
         raise document_not_found()
     return doc
+
+
+def delete_document(db: Session, doc: Document) -> None:
+    """칸(document_fields)은 FK CASCADE 로 같이 삭제"""
+    db.execute(delete(Document).where(Document.id == doc.id))
+    db.commit()
 
 
 def _rows(db: Session, doc: Document) -> list[DocumentField]:

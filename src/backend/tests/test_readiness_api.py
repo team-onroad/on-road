@@ -334,3 +334,12 @@ def test_insight_idle_and_stale_document(api, db_session):
     db_session.commit()
     watch = [i["text"] for i in _readiness(api, user)["insights"] if i["tone"] == "watch"]
     assert watch == ["14일 넘게 멈춘 서류가 1개 있어요", "20일 동안 준비 기록이 없어요"]
+
+
+def test_feedback_then_save_counts_once(api, db_session):
+    """피드백(save=false) 뒤 '기록에 남기기'(save=true)로 같은 대화를 다시 보내도 연습은 1번"""
+    user = make_user(db_session)
+    for _ in range(2):
+        api.post(f"/api/users/{user.id}/activities",
+                 json={"kind": "practice", "ref": "bank", "data": {"good": 2, "missed": 1, "score": 70}})
+    assert _item(_readiness(api, user), "money", "practice-bank")["detail"].startswith("1번 해 봤어요")

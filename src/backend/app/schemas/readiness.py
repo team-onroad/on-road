@@ -1,5 +1,6 @@
 """활동 기록 · 자립 준비도 (docs/readiness.md)"""
 
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, ValidationError, model_validator
@@ -32,13 +33,16 @@ class MonthLifeData(BaseModel):
     bad_events: Annotated[list[EventId], Field(max_length=40)] = []
 
 
+ActivityKind = Literal["practice", "month_life"]
+
+
 class ActivityCreate(BaseModel):
     """practice: ref = 연습 상황 id (scenario_id), data = PracticeData
     month_life: ref 없음, data = MonthLifeData"""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["practice", "month_life"]
+    kind: ActivityKind
     ref: Annotated[StrictStr, Field(min_length=1, max_length=50)] | None = None
     data: dict
 
@@ -59,6 +63,19 @@ class ActivityCreate(BaseModel):
 
 class ActivityCreated(BaseModel):
     activity_id: int
+
+
+class ActivityItem(BaseModel):
+    activity_id: int
+    kind: ActivityKind
+    ref: str | None
+    title: str | None  # practice: 연습 상황 이름 (상황 파일에 없으면 ref 그대로), month_life: null
+    data: dict
+    created_at: datetime
+
+
+class ActivityList(BaseModel):
+    activities: list[ActivityItem]
 
 
 class ReadinessItem(BaseModel):
@@ -97,6 +114,11 @@ class ReadinessLevel(BaseModel):
     points: int  # 남은 점수
 
 
+class RecentScore(BaseModel):
+    date: date
+    score: int
+
+
 class ReadinessResponse(BaseModel):
     score: int  # 0~100 (영역 점수 평균)
     level: str  # 첫걸음 · 준비 중 · 거의 다 왔어요 · 자립 준비 완료
@@ -108,3 +130,5 @@ class ReadinessResponse(BaseModel):
     recent: list[str] = []  # 이번 주에 새로 해낸 것 (최대 5개)
     next_level: ReadinessLevel | None = None  # 다음 단계까지 (맨 위면 null)
     insights: list[ReadinessInsight] = []  # 행동 기록으로 본 판단 근거 (다시 챙겨 볼 것 먼저, 최대 4개)
+    last_week_score: int | None  # 7일 전이나 그 이전 기록 중 가장 최근 점수 (없으면 null)
+    recent_scores: list[RecentScore]  # 기록 있는 날 최근 7개, 최신순 (오늘 포함)

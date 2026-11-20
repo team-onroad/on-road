@@ -87,7 +87,7 @@ def test_checklist_fields(api, db_session):
 
     item = _dashboard(api, user.id).json()["checklists"][0]
 
-    assert set(item) == {"checklist_id", "policy", "progress", "next_step", "updated_at"}
+    assert set(item) == {"checklist_id", "policy", "due_date", "progress", "next_step", "updated_at"}
     assert item["checklist_id"] == cid
     assert item["policy"] == {
         "policy_id": policy.id, "name": "자립수당", "agency": "보건복지부", "category": "living_cost",
@@ -207,6 +207,6 @@ def test_non_nullable_fields_have_values(api, db_session):
     data = _dashboard(api, user.id).json()
 
     assert all(v is not None for v in data["user"].values())
-    assert all(v is not None for v in data["checklists"][0].values())
+    assert all(v is not None for k, v in data["checklists"][0].items() if k != "due_date")
     assert all(v is not None for k, v in data["checklists"][0]["policy"].items())
     assert all(v is not None for v in data["latest_simulation"].values())
