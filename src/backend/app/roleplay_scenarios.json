@@ -5,7 +5,7 @@
     "category": "생활",
     "partner": "가게 점원",
     "setting": "문구점에서 공책을 사려고 해요.",
-    "goal": "원하는 물건을 말하고 계산하기",
+    "goal": "원하는 물건 사고 계산하기",
     "level": "EASY",
     "level_by_stage": {},
     "stages": [
@@ -141,7 +141,7 @@
     "category": "금융",
     "partner": "은행 창구 직원",
     "setting": "처음으로 내 이름의 통장을 만들러 왔어요.",
-    "goal": "필요한 서류를 확인하고 계좌 만들기",
+    "goal": "서류 확인하고 계좌 만들기",
     "level": "EASY",
     "level_by_stage": {
       "youth": "NORMAL"
@@ -409,7 +409,7 @@
     "category": "생활",
     "partner": "주민센터 직원",
     "setting": "새 집으로 이사하고 전입신고를 하러 왔어요.",
-    "goal": "전입신고와 확정일자까지 챙기기",
+    "goal": "전입신고·확정일자 챙기기",
     "level": "NORMAL",
     "level_by_stage": {},
     "stages": [
@@ -683,11 +683,11 @@
   },
   {
     "scenario_id": "landlord",
-    "title": "집주인에게 수리 요청 전화",
+    "title": "집주인에게 수리 요청",
     "category": "주거",
     "partner": "집주인",
     "setting": "보일러가 고장 나서 집주인에게 전화해요.",
-    "goal": "상황을 설명하고 수리 일정 정하기",
+    "goal": "수리 일정 정하기",
     "level": "NORMAL",
     "level_by_stage": {},
     "stages": [
@@ -994,7 +994,7 @@
     "category": "면접",
     "partner": "카페 점장",
     "setting": "동네 카페 아르바이트 면접을 봐요.",
-    "goal": "나를 소개하고 근무 조건 확인하기",
+    "goal": "나를 소개하고 조건 묻기",
     "level": "NORMAL",
     "level_by_stage": {
       "youth": "HARD"
@@ -1308,7 +1308,7 @@
     "category": "면접",
     "partner": "면접관 선생님",
     "setting": "특성화고·대학 입학 면접을 봐요.",
-    "goal": "지원 동기와 활동을 설명하기",
+    "goal": "지원 동기와 활동 말하기",
     "level": "NORMAL",
     "level_by_stage": {},
     "stages": [
@@ -1582,7 +1582,7 @@
     "category": "면접",
     "partner": "회사 면접관",
     "setting": "첫 정규직 면접이에요. 꼬리 질문이 이어져요.",
-    "goal": "경험을 근거로 답하고 압박 질문에 침착하게 대응하기",
+    "goal": "경험으로 침착하게 답하기",
     "level": "HARD",
     "level_by_stage": {},
     "stages": [
@@ -1896,7 +1896,7 @@
     "category": "주거",
     "partner": "공인중개사",
     "setting": "혼자 살 원룸을 보고 계약하러 부동산에 왔어요.",
-    "goal": "등기부등본·관리비·특약을 확인하고 안전하게 계약하기",
+    "goal": "등기·관리비·특약 확인하기",
     "level": "NORMAL",
     "level_by_stage": {},
     "stages": [
@@ -2185,7 +2185,7 @@
     "category": "생활",
     "partner": "휴대폰 대리점 직원",
     "setting": "새 휴대폰을 사서 내 이름으로 개통하러 대리점에 왔어요.",
-    "goal": "할부원금·요금제·부가서비스 조건을 확인하고 필요한 것만 하기",
+    "goal": "필요한 요금제만 개통하기",
     "level": "NORMAL",
     "level_by_stage": {
       "teen": "EASY"
@@ -2459,7 +2459,7 @@
     "category": "생활",
     "partner": "동네 의원 의사",
     "setting": "며칠째 배가 아파서 혼자 병원에 왔어요.",
-    "goal": "증상을 정확히 설명하고 약·비용·다음 진료를 확인하기",
+    "goal": "증상 설명하고 진료 받기",
     "level": "EASY",
     "level_by_stage": {
       "youth": "NORMAL"
@@ -2714,7 +2714,7 @@
     "category": "일",
     "partner": "편의점 사장님",
     "setting": "지난달 알바비가 아직 안 들어와서 사장님께 이야기해요.",
-    "goal": "근무 기록을 근거로 밀린 임금과 지급 날짜를 확실히 받기",
+    "goal": "밀린 알바비 받아 내기",
     "level": "HARD",
     "level_by_stage": {
       "teen": "NORMAL"
@@ -3000,7 +3000,7 @@
     "category": "금융",
     "partner": "검찰 수사관이라고 하는 사람",
     "setting": "모르는 번호로 전화가 왔어요. 내 계좌가 범죄에 쓰였다고 해요.",
-    "goal": "개인정보·돈 요구에 응하지 않고, 끊은 뒤 공식 번호로 확인하기",
+    "goal": "개인정보 지키고 끊기",
     "level": "NORMAL",
     "level_by_stage": {},
     "stages": [
@@ -3288,7 +3288,7 @@
     "category": "주거",
     "partner": "윗집 이웃",
     "setting": "밤마다 윗집 소음 때문에 잠을 못 자서 직접 이야기하러 갔어요.",
-    "goal": "감정 상하지 않게 상황을 설명하고 함께 방법 정하기",
+    "goal": "기분 상하지 않게 말하기",
     "level": "NORMAL",
     "level_by_stage": {},
     "stages": [
@@ -3540,7 +3540,7 @@
     "category": "일",
     "partner": "고용센터 상담사",
     "setting": "일자리와 직업훈련 지원을 알아보려고 고용센터에 왔어요.",
-    "goal": "내 상황을 설명하고 받을 수 있는 지원과 다음 단계 확인하기",
+    "goal": "받을 수 있는 지원 묻기",
     "level": "NORMAL",
     "level_by_stage": {},
     "stages": [

@@ -121,7 +121,7 @@ def test_list_all(client):
     assert first == {
         "scenario_id": "community-center", "title": "주민센터 전입신고", "category": "생활",
         "partner": "주민센터 직원", "setting": "새 집으로 이사하고 전입신고를 하러 왔어요.",
-        "goal": "전입신고와 확정일자까지 챙기기", "level": "NORMAL", "stages": ["youth"],
+        "goal": "전입신고·확정일자 챙기기", "level": "NORMAL", "stages": ["youth"],
     }
     for s in scenarios:  # 체크 항목·준비 서류·대사는 응답에 없음
         assert set(s) == {"scenario_id", "title", "category", "partner", "setting", "goal", "level", "stages"}
@@ -254,7 +254,7 @@ def test_llm_receives_scenario_without_answers(api, db_session, llm):
     scenario, sent_history, message = llm.calls[0]
     assert scenario == {
         "scenario_id": "parttime", "title": "아르바이트 면접", "partner": "카페 점장",
-        "setting": "동네 카페 아르바이트 면접을 봐요.", "goal": "나를 소개하고 근무 조건 확인하기",
+        "setting": "동네 카페 아르바이트 면접을 봐요.", "goal": "나를 소개하고 조건 묻기",
         "level": "HARD", "situation": "", "surprises": [], "lines": lines_for(get_scenarios()["parttime"], "HARD"),
     }
     assert sent_history == [{"role": "assistant", "content": "반가워요"}]
