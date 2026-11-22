@@ -325,6 +325,8 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
     value, kind = answer_extract.extract(spec, answer)
     if value is None:
         return None, answer_extract.RETRY.get(kind, "칸에 쓸 내용만 알려 주세요.")
+    if answer_extract.looks_mash(value):  # "asdf", "가가가가" 같은 글자는 적지 않는다
+        return None, "칸에 맞는 내용을 알려 주세요."
     return value, None
 
 
@@ -459,10 +461,43 @@ def interview(
     db: Session, user: User, doc: Document, body: InterviewRequest, today: date, doc_llm: DocLlm, rag: SearchPolicies,
 ) -> InterviewResponse:
     res = _interview(db, user, doc, body, today, doc_llm, rag)
-    # 답 속 프로필 변경 후보 ("부산으로 이사했어요" 등). 확인 카드는 앱이, 반영은 사용자가 승인할 때만
+    # 답 속 프로필 변경 후보 ("부산으로 이사했어요" 등). 확인 카드는 앱이, 반영은 사용자가 승인할 때만.
+    # 승인하면 PATCH /users 가 내 정보와 그 정보를 쓰는 모든 서류 칸을 함께 바꾼다 (writer.sync_profile)
     if body.message and res.route != "crisis":
-        res.profile_changes = profile_signal.detect(body.message, user, today)
+        changes = profile_signal.detect(body.message, user, today)
+        answered = _answered_profile_change(db, user, doc, res)
+        if answered and all(c.field != answered.field for c in changes):
+            changes.append(answered)
+        res.profile_changes = changes
     return res
+
+
+def _answered_profile_change(db: Session, user: User, doc: Document, res: InterviewResponse):
+    """방금 채운 칸이 내 이름 · 전화 칸인데 내 정보와 다르게 적었으면 내 정보도 바꿀지 묻는다
+    (대리인 등 다른 사람 칸은 profile_key 가 없어 묻지 않는다)"""
+    from app.schemas.chat import ProfileChange
+
+    if res.field is None:
+        return None
+    spec = w._specs(doc).get(res.field.field_id) or {}
+    key = spec.get("profile_key")
+    if key not in ("name", "phone"):
+        return None
+    row = next((r for r in w._rows(db, doc) if r.field_id == res.field.field_id), None)
+    value = w._value(row.segments).strip() if row is not None else ""
+    if not value or any(seg.get("source") == "profile" for seg in row.segments):
+        return None
+    if key == "name":
+        name = "".join(value.split())
+        if not re.fullmatch(r"[가-힣]{2,5}", name) or name == user.name:
+            return None
+        return ProfileChange(field="name", label="이름", current=user.name, proposed=name, proposed_label=name)
+    digits = re.sub(r"\D", "", value)
+    if not re.fullmatch(r"01\d{8,9}", digits) or digits == user.phone:
+        return None
+    label = lambda p: f"{p[:3]}-{p[3:-4]}-{p[-4:]}" if p else None  # noqa: E731
+    return ProfileChange(field="phone", label="휴대폰 번호", current=label(user.phone), proposed=digits,
+                         proposed_label=label(digits))
 
 
 def _interview(

@@ -159,8 +159,11 @@ def render_pdf(title: str, rows: list[tuple[dict, str]]) -> bytes:
 # ---------------- 원본 양식 위에 채우기 ----------------
 
 
-def has_layout(pdf_path: Path | None, rows: list[tuple[dict, str]]) -> bool:
-    return pdf_path is not None and pdf_path.is_file() and any(spec.get("box") for spec, _ in rows)
+def has_layout(pdf: Path | bytes | None, rows: list[tuple[dict, str]]) -> bool:
+    """원본 양식 위에 채울 수 있는지. pdf 는 정책 신청서 파일 경로 또는 올린 양식의 바탕 PDF 바이트"""
+    if not pdf or (isinstance(pdf, Path) and not pdf.is_file()):
+        return False
+    return any(spec.get("box") for spec, _ in rows)
 
 
 def _fill_date(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) -> bool:
@@ -238,8 +241,8 @@ def _fill_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str, align: str = "l
     return False
 
 
-def render_overlay(pdf_path: Path, title: str, rows: list[tuple[dict, str]]) -> bytes:
-    doc = pymupdf.open(pdf_path)
+def render_overlay(pdf: Path | bytes, title: str, rows: list[tuple[dict, str]]) -> bytes:
+    doc = pymupdf.open(stream=pdf, filetype="pdf") if isinstance(pdf, bytes) else pymupdf.open(pdf)
     fonted: set[int] = set()
     leftovers: list[tuple[dict, str]] = []
     for spec, value in rows:

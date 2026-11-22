@@ -85,6 +85,9 @@ def update_user(db: Session, user: User, data: UserUpdate, today: date) -> User:
     if becomes_left_care and "d_date" not in changes:
         changes["d_date"] = None
 
+    from app.services import writer  # 순환 import 방지
+
+    before = writer.profile_snapshot(user)
     for field, value in changes.items():
         setattr(user, field, value)
     # status·birth_date 가 바뀐 경우는 물론, 조회 API 처럼 생일이 지나 단계가 바뀐 경우도 반영
@@ -93,6 +96,9 @@ def update_user(db: Session, user: User, data: UserUpdate, today: date) -> User:
     # 값이 실제로 바뀐 경우에만 UPDATE 가 실행되고 updated_at 이 갱신된다.
     db.commit()
     db.refresh(user)
+    # 이름 · 생년월일 · 지역 · 전화가 바뀌면 그 정보를 쓰는 서류 칸에도 반영한다 (상담 · 문서 AI 확인 카드, 설정 화면 공통)
+    if writer.sync_profile(db, user, before):
+        db.refresh(user)
     return user
 
 

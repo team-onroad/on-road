@@ -225,3 +225,47 @@ def extract(spec: dict, message: str) -> tuple[str | None, str]:
     if kind == "bizno":
         return _bizno(message), kind
     return strip_tail_text(message), kind
+
+
+# ---------------- 칸 내용 검사 (칸별로 쓰기 · 대화로 채우기 공통) ----------------
+
+_MASH_RE = re.compile(r"(qwer|wert|asdf|sdfg|dfgh|fghj|ghjk|hjkl|zxcv|xcvb|cvbn|vbnm|ㅁㄴㅇㄹ|ㅂㅈㄷㄱ)", re.IGNORECASE)
+_REPEAT_RE = re.compile(r"(.)\1{3,}")  # 같은 글자 4번 이상 ("가가가가", "1111")
+_VOWELLESS_RE = re.compile(r"^[b-df-hj-np-tv-z]{4,}$", re.IGNORECASE)  # 모음 없는 영문 ("sdkfj")
+ESSAY_MIN = 10  # 자기소개 · 사유 같은 글 칸의 최소 글자 수
+
+
+def looks_mash(text: str) -> bool:
+    """자판을 아무렇게나 친 글자인지 ("asdf", "ㅁㄴㅇㄹ", "가가가가", "sdkfj")"""
+    flat = re.sub(r"[\s.,!?~^\-]", "", text.lower())
+    if not flat:
+        return True
+    return bool(_MASH_RE.search(flat) or _REPEAT_RE.search(flat) or _VOWELLESS_RE.match(flat))
+
+
+def problem(spec: dict, value: str) -> str | None:
+    """칸에 적힌 내용이 그 칸에 맞지 않으면 고칠 안내, 맞으면 None.
+    이름 · 주소 · 이메일 · 사업자번호는 형식을 보고, 그 밖의 글 칸은 아무렇게나 친 글자인지 본다"""
+    text = value.strip()
+    if not text:
+        return None
+    kind = kind_of(spec)
+    if kind != "name" and (is_noise(text) or looks_mash(text)):
+        return "칸에 맞는 내용을 적어 주세요."
+    if kind == "name":
+        flat = "".join(text.split())
+        if _LATIN_NAME_RE.match(text) and not looks_mash(text):
+            return None
+        picked = _name(text)
+        # 이름만 적혀 있어야 한다 ("나는 민수" 처럼 말이 섞이면 이름만 남기게)
+        ok = picked is not None and "".join(picked.split()) == flat and re.fullmatch(r"[가-힣]{2,5}", flat)
+        return None if ok else "이름만 적어 주세요. (예: 홍길동)"
+    if kind == "address":
+        return None if _address(text) == text.strip(" .,~!") or _address(text) else RETRY["address"]
+    if kind == "email":
+        return None if _EMAIL_RE.fullmatch(text) else RETRY["email"]
+    if kind == "bizno":
+        return None if _bizno(text) else RETRY["bizno"]
+    if spec.get("essay") and len("".join(text.split())) < ESSAY_MIN:
+        return f"조금 더 자세히 적어 주세요. ({ESSAY_MIN}자 이상)"
+    return None

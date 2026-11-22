@@ -60,7 +60,7 @@ def test_photo_form_becomes_document(api, db_session, doc_llm):
     assert fields["계좌번호"]["input_type"] == "account" and fields["계좌번호"]["value_source"] == "user"
     assert fields["서명"]["value_source"] == "handwrite"
     assert fields["신청 사유"]["essay"] is True
-    assert d["notices"][0].startswith("받은 양식과 칸이 맞는지 확인하고")
+    assert d["notices"][0].startswith("이 양식은 칸 위치를 읽지 못해")  # 사진: 칸 이름·내용 PDF
     name, (form_text, images) = doc_llm.calls[-1]
     assert name == "read_form" and form_text is None and images[0].startswith("data:image/jpeg;base64,")
     assert len(images[0]) < 200_000  # 흑백 JPG 로 줄여 보낸다
@@ -143,7 +143,7 @@ def test_scattered_date_parts_are_merged(api, db_session, doc_llm):
     ]}
     d = _up(api, user, _png()).json()
     assert [(f["label"], f["input_type"]) for f in d["fields"]] == [("년 월 일", "date"), ("신청 사유", "text")]
-    assert d["source_id"].startswith("upload-v2-")
+    assert d["source_id"].startswith("upload-v3-")
 
 
 def test_hwp_and_hwpx_read_as_text():

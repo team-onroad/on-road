@@ -8,7 +8,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.codes import NATIONWIDE
-from app import ai_content
+from app import ai_content, pii
 from app.errors import AppError
 from app.ids import parse_id
 from app.cache import TtlCache
@@ -125,6 +125,7 @@ def _call_rag(rag: SearchPolicies, question: str, keys: list[str], answer: bool 
 def _call_rag_now(rag: SearchPolicies, question: str, keys: list[str], answer: bool = True) -> RagOutput:
     # 질문 내용은 로그에 남기지 않는다. 예외 메시지에 질문이 들어 있을 수 있어 예외 종류만 남긴다.
     try:
+        question = pii.mask(question)  # 검색 질문도 OpenAI 로 나가므로 개인정보를 가린다
         raw = rag(question, keys) if answer else rag(question, keys, answer=False)
     except Exception as e:
         logger.error("RAG 함수 오류: %s", type(e).__name__)

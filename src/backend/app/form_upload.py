@@ -3,10 +3,12 @@
 기관에서 받은 종이 양식을 찍어 올리면 칸을 읽어 대화로 채우기·칸별로 쓰기를 할 수 있게 한다.
 - PDF 에 글자가 있으면 글자만 LLM 에 보낸다. 사진·스캔 PDF 는 쪽 이미지를 보낸다 (최대 MAX_PAGES 쪽)
 - 토큰·속도: 사진은 흑백 JPG, 긴 변 IMAGE_MAX_SIDE 로 다시 그린다 (위치 정보 EXIF 도 지워짐).
-  LLM 에는 칸 이름·종류·짧은 안내만 받는다 (양식 전체 글자를 옮겨 적게 하지 않음). 올린 파일은 저장하지 않는다
+  LLM 에는 칸 이름·종류·짧은 안내만 받는다 (양식 전체 글자를 옮겨 적게 하지 않음)
 - PDF 글자가 있으면 LLM 이 준 칸 이름이 그 글자에 없을 때 버린다 (지어낸 칸 방지)
 - 주민등록번호·서명은 손으로 쓰는 칸, 계좌번호는 user 칸(LLM 에 보내지 않음)으로 정한다 (doc_spec 와 같은 원칙)
-- 원본 위에 채울 자리(box)는 없다 → 내보내면 칸 이름·내용 표 PDF (원본 양식에 옮겨 적는다)
+- 글자가 있는 PDF · hwpx 는 원본 규격 바탕 PDF 와 값 자리(box)를 만들어 원본 양식 위에 채워 내보낸다 (app/form_layouts.py).
+  사진 · 스캔 PDF · 예전 한글(hwp)은 값 자리를 알 수 없어 칸 이름·내용 표 PDF 로 내보낸다
+- 같은 양식은 파일이 달라도(다시 받은 파일 등) 글자가 같으면 같은 문서로 본다 (source_id)
 """
 
 import base64
@@ -28,7 +30,7 @@ IMAGE_MAX_SIDE = 1280  # 사진 긴 변 (픽셀). 칸 이름을 읽기에 충분
 JPG_QUALITY = 70
 MAX_FIELDS = 60  # 가족사항 · 경력처럼 줄이 반복되는 표가 있는 양식
 # 칸 읽는 규칙 버전. 올리면 같은 파일이어도 이 값이 바뀌었으면 새 문서로 다시 읽는다
-READ_VERSION = "v2"
+READ_VERSION = "v3"  # v3: 원본 규격 바탕 PDF · 값 자리, 글자 기준으로 같은 양식 판단
 
 _INPUT_TYPES = {"text", "date", "phone", "address", "checkbox", "account", "id_number", "signature"}
 _ID_SENSITIVE = ("주민등록번호", "외국인등록번호")
@@ -47,6 +49,10 @@ def bad_file(message: str) -> AppError:
 
 def unreadable() -> AppError:
     return AppError(422, "FORM_UNREADABLE", "양식에서 쓸 칸을 찾지 못했어요. 양식 전체가 밝고 반듯하게 나오게 다시 찍어 주세요.")
+
+
+def kind_of(data: bytes) -> str:
+    return _kind(data)
 
 
 def _kind(data: bytes) -> str:
@@ -376,14 +382,19 @@ def to_fields(raw: list[dict], form_text: str | None) -> list[dict]:
     return fields
 
 
-def source_id(data: bytes) -> str:
-    """같은 파일을 다시 올리면 같은 값 (쓰던 문서를 연다)"""
-    return f"upload-{READ_VERSION}-" + hashlib.sha256(data).hexdigest()[:20]
+def source_id(data: bytes, text: str | None = None) -> str:
+    """같은 양식이면 같은 값 (쓰던 문서를 연다).
+    글자를 꺼낸 양식(PDF · 한글)은 글자로 본다: 같은 양식을 다시 받은 파일처럼 바이트가 조금 달라도 같은 양식.
+    사진 · 스캔본은 파일 그대로 본다"""
+    basis = _flat(text).encode() if text and len(_flat(text)) >= MIN_PDF_TEXT else data
+    return f"upload-{READ_VERSION}-" + hashlib.sha256(basis).hexdigest()[:20]
 
 
-def read_form(data: bytes, file_name: str | None, doc_llm: DocLlm) -> tuple[str, list[dict]]:
-    """(제목, 칸 목록)"""
-    text, images = read_source(data)
+def read_form(
+    data: bytes, file_name: str | None, doc_llm: DocLlm, source: tuple[str | None, list[str]] | None = None,
+) -> tuple[str, list[dict]]:
+    """(제목, 칸 목록). source 는 이미 꺼낸 (글자, 쪽 이미지) (없으면 여기서 꺼낸다)"""
+    text, images = source if source is not None else read_source(data)
     out = call_llm("read_form", doc_llm.read_form, _check_read, text, images)
     fields = to_fields(out["fields"], text)
     if not fields:

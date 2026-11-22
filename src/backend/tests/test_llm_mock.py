@@ -60,9 +60,11 @@ def test_client_uses_coach_in_real_mode(monkeypatch):
     llm = llm_client.get_llm()
     from coach import llm as coach_llm  # get_llm 이 src 를 경로에 넣은 뒤에 불러온다
 
-    assert llm.classify_intent is coach_llm.classify_intent
-    assert llm.counsel_reply is coach_llm.counsel_reply
-    assert llm.roleplay_reply is coach_llm.roleplay_reply
+    # 대화 문장을 받는 함수는 개인정보 가리기(app/pii.masked)로 감싼다
+    assert llm.classify_intent.__wrapped__ is coach_llm.classify_intent
+    assert llm.counsel_reply.__wrapped__ is coach_llm.counsel_reply
+    assert llm.roleplay_reply.__wrapped__ is coach_llm.roleplay_reply
+    assert llm.counsel_stream.__wrapped__ is coach_llm.counsel_stream
     assert llm.polish_sentences is coach_llm.polish_sentences
 
 

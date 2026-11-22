@@ -11,6 +11,7 @@ from functools import lru_cache
 
 from app import llm_mock
 from app.config import PROJECT_ROOT, get_settings
+from app.pii import masked
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,8 @@ def _real_doc_llm() -> DocLlm:
         sys.path.insert(0, src)
     from docwriter import llm
 
-    return DocLlm(llm.route_message, llm.assist_field, llm.extract_answer, llm.read_form, llm.read_risk)
+    # 대화 문장(길 찾기 · 일반 칸 답 뽑기)은 개인정보를 가린 뒤 보낸다 (app/pii.py)
+    return DocLlm(masked(llm.route_message), llm.assist_field, masked(llm.extract_answer), llm.read_form, llm.read_risk)
 
 
 def get_doc_llm() -> DocLlm:

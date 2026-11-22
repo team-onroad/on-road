@@ -12,6 +12,7 @@ from functools import lru_cache
 from app import llm_mock
 from app.config import PROJECT_ROOT, get_settings
 from app.errors import AppError
+from app.pii import masked
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +39,11 @@ def _real_llm() -> Llm:
         sys.path.insert(0, src)
     from coach import llm
 
+    # 사용자가 쓴 문장은 개인정보(전화 · 주소 · 계좌 등)를 가린 뒤 OpenAI 로 보낸다 (app/pii.py)
+    # 서류 문장 다듬기(polish_sentences)는 사용자가 쓴 서류 내용 그대로여야 해서 가리지 않는다
     return Llm(
-        llm.classify_intent, llm.counsel_reply, llm.roleplay_reply, llm.polish_sentences, llm.judge_checks,
-        llm.counsel_stream, llm.roleplay_stream,
+        masked(llm.classify_intent), masked(llm.counsel_reply), masked(llm.roleplay_reply), llm.polish_sentences,
+        masked(llm.judge_checks), masked(llm.counsel_stream), masked(llm.roleplay_stream),
     )
 
 

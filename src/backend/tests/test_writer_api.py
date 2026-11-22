@@ -89,6 +89,16 @@ def _patch(api, user, doc_id, field_id, **body):
     return api.patch(f"/api/documents/{doc_id}/fields/{field_id}?user_id={user.id}", json=body)
 
 
+def sample_value(f: dict) -> str:
+    """칸 검사(answer_extract.problem)를 통과하는 테스트 값"""
+    from app.answer_extract import kind_of
+
+    kind = kind_of(f)
+    return {
+        "name": "홍길동", "address": "서울시 강남구 테헤란로 12", "email": "test@example.com", "bizno": "123-45-67890",
+    }.get(kind, "작성한 내용을 자세히 적었어요" if f.get("essay") else "작성한 내용")
+
+
 def _complete_all(api, user, data, values=None):
     values = values or {}
     for f in data["fields"]:
@@ -98,7 +108,7 @@ def _complete_all(api, user, data, values=None):
         if f["field_id"] in values:
             body["value"] = values[f["field_id"]]
         elif not f["value"]:
-            body["value"] = "작성한 내용"
+            body["value"] = sample_value(f)
         res = _patch(api, user, data["document_id"], f["field_id"], **body)
         assert res.status_code == 200, res.text
 

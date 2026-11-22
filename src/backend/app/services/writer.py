@@ -53,7 +53,11 @@ from app.services.policies import VISIBLE, get_visible_policy, search
 ASSIST_MAX_CHARS = 1000
 OTHER_FIELDS_FOR_AI = 3
 NOT_CHECKED_NOTICE = "아직 사람이 원본 양식과 대조하지 않은 칸 목록이에요. 공식 양식과 함께 확인해 주세요."
-UPLOAD_NOTICE = "받은 양식과 칸이 맞는지 확인하고, 다 쓰면 표로 내보내 양식에 옮겨 적어 주세요."
+UPLOAD_NOTICE = "받은 양식과 칸이 맞는지 확인해 주세요. 다 쓰면 받은 양식 모양 그대로 PDF로 만들어요."
+UPLOAD_TABLE_NOTICE = (
+    "이 양식은 칸 위치를 읽지 못해 칸 이름과 내용을 정리한 PDF로 만들어요. "
+    "사진·스캔본 대신 PDF나 한글(hwpx) 파일로 올리면 받은 양식 모양 그대로 만들어요."
+)
 AI_NOTICE = "색으로 표시된 문장은 내 상황에 맞게 고친 뒤 완료를 눌러 주세요."
 HANDWRITE_NOTICE = "주민등록번호·서명 칸은 앱에 입력하지 않아요. 출력한 양식에 직접 써 주세요."
 ACCOUNT_TIP = "통장에 적힌 계좌번호를 숫자와 -로 적어 주세요. 본인 명의 통장만 돼요. (계좌번호는 AI 에 보내지 않아요)"
@@ -149,6 +153,13 @@ def _field_warnings(spec: dict, value: str) -> list[str]:
     options = spec.get("options")
     if text and options and any(p.strip() not in options for p in text.split(",")):
         warnings.append(f"선택지 중에서 골라 주세요: {', '.join(options)}")
+    elif text and not options and spec["input_type"] not in ("date", "phone", "account", "checkbox"):
+        # 이름 · 주소 · 이메일 형식, 아무렇게나 친 글자, 너무 짧은 글 칸 (answer_extract.problem)
+        from app import answer_extract
+
+        reason = answer_extract.problem(spec, text)
+        if reason:
+            warnings.append(reason)
     return warnings
 
 
@@ -193,7 +204,7 @@ def _notices(doc: Document) -> list[str]:
     if doc.source_type == "policy_form" and not doc_spec_checked(doc):
         notices.insert(0, NOT_CHECKED_NOTICE)
     if doc.source_type == "upload":
-        notices.insert(0, UPLOAD_NOTICE)
+        notices.insert(0, UPLOAD_NOTICE if any(f.get("box") for f in doc.spec) else UPLOAD_TABLE_NOTICE)
     if any(f["value_source"] == "handwrite" for f in doc.spec):
         notices.append(HANDWRITE_NOTICE)
     if doc.personal_cleared_at is not None:
@@ -332,8 +343,9 @@ def create(db: Session, user: User, body: DocumentCreate) -> tuple[Document, boo
 
 
 def upload(db: Session, user: User, body: DocumentUpload, doc_llm) -> tuple[Document, bool]:
-    """올린 양식(사진·PDF) → 문서. 같은 파일을 다시 올리면 쓰던 문서를 연다 (LLM 을 다시 부르지 않음)"""
-    from app import form_upload
+    """올린 양식(사진·PDF·한글) → 문서. 같은 양식을 다시 올리면 쓰던 문서를 연다 (LLM 을 다시 부르지 않음).
+    글자가 있는 PDF · hwpx 는 원본 규격 바탕 PDF 와 값 자리를 함께 저장해 원본 양식 위에 채워 내보낸다"""
+    from app import form_layouts, form_upload
 
     item = _checklist_item(db, user, body.checklist_item_id)
     policy_id = get_visible_policy(db, str(body.policy_id)).id if body.policy_id is not None else None
@@ -341,13 +353,19 @@ def upload(db: Session, user: User, body: DocumentUpload, doc_llm) -> tuple[Docu
         data = base64.b64decode(body.file_base64, validate=True)
     except (binascii.Error, ValueError):
         raise form_upload.bad_file("파일을 읽지 못했어요. 다시 올려 주세요.") from None
-    source_id = form_upload.source_id(data)
+    source = form_upload.read_source(data)
+    source_id = form_upload.source_id(data, source[0])
     clear_stale(db, user)
     existing = _existing(db, user, "upload", source_id)
     if existing is not None:
         return _get_or_create(db, user, "upload", source_id, existing.title, existing.spec, policy_id, item, None)
-    title, fields = form_upload.read_form(data, body.file_name, doc_llm)
-    return _get_or_create(db, user, "upload", source_id, title, fields, policy_id, item, None)
+    title, fields = form_upload.read_form(data, body.file_name, doc_llm, source)
+    pdf = form_layouts.base_pdf(data, form_upload.kind_of(data))
+    boxed = form_layouts.attach_boxes(fields, pdf) if pdf else None
+    form_pdf = base64.b64encode(pdf).decode() if boxed else None
+    return _get_or_create(
+        db, user, "upload", source_id, title, boxed or fields, policy_id, item, None, form_pdf=form_pdf,
+    )
 
 
 def _existing(db: Session, user: User, source_type: str, source_id: str) -> Document | None:
@@ -359,6 +377,7 @@ def _existing(db: Session, user: User, source_type: str, source_id: str) -> Docu
 def _get_or_create(
     db: Session, user: User, source_type: str, source_id: str, title: str, fields: list[dict],
     policy_id: int | None, item: ChecklistItem | None, context: str | None, *, retried: bool = False,
+    form_pdf: str | None = None,
 ) -> tuple[Document, bool]:
     existing = _existing(db, user, source_type, source_id)
     if existing is not None:
@@ -376,7 +395,7 @@ def _get_or_create(
 
     doc = Document(
         user_id=user.id, source_type=source_type, source_id=source_id, title=title, policy_id=policy_id,
-        checklist_item_id=item.id if item else None, context=context, spec=fields,
+        checklist_item_id=item.id if item else None, context=context, spec=fields, form_pdf=form_pdf,
     )
     try:
         with db.begin_nested():  # 이 INSERT 만 되돌릴 수 있게 (SAVEPOINT)
@@ -387,7 +406,9 @@ def _get_or_create(
         # 예전에는 여기서 500 이 났다 → 먼저 만들어진 문서를 연다
         if retried:
             raise
-        return _get_or_create(db, user, source_type, source_id, title, fields, policy_id, item, context, retried=True)
+        return _get_or_create(
+            db, user, source_type, source_id, title, fields, policy_id, item, context, retried=True, form_pdf=form_pdf,
+        )
     reusable = _reusable(db, user, doc.id)
     for i, spec in enumerate(fields):
         segments, reused_from = _initial(spec, user, reusable)
@@ -397,6 +418,54 @@ def _get_or_create(
     db.commit()
     db.refresh(doc)
     return doc, True
+
+
+# ---------------- 내 정보가 바뀌면 서류 칸에도 ----------------
+
+PROFILE_KEYS = ("name", "birth_date", "region", "phone")
+
+
+def profile_snapshot(user: User) -> dict[str, str | None]:
+    """서류 칸에 들어가는 형태의 내 정보 (이름 · 생년월일 · 지역 · 전화)"""
+    return {k: doc_spec.profile_value(k, user.name, user.birth_date, user.region, user.phone) for k in PROFILE_KEYS}
+
+
+def sync_profile(db: Session, user: User, before: dict[str, str | None]) -> int:
+    """내 정보(이름 · 생년월일 · 지역 · 전화)가 바뀌면 그 정보를 쓰는 모든 서류 칸을 새 값으로 바꾼다.
+
+    - 바꾸는 칸: 그 정보를 쓰는 칸(profile_key) 중 비어 있거나, 내 정보에서 채웠거나, 예전 값과 같은 칸.
+      사용자가 일부러 다르게 적은 칸(예: 대리인 이름)은 두지 않는다
+    - 예전 값은 되돌리기(previous_segments)에 남긴다. 완료 여부는 그대로
+    - 개인정보 칸을 비운 오래된 서류는 건드리지 않는다. 바꾼 칸 수를 돌려준다
+    """
+    after = profile_snapshot(user)
+    changed = {k: v for k, v in after.items() if v and v != before.get(k)}
+    if not changed:
+        return 0
+    count = 0
+    docs = db.scalars(select(Document).where(Document.user_id == user.id, Document.personal_cleared_at.is_(None)))
+    for doc in docs:
+        specs = _specs(doc)
+        touched = False
+        for row in _rows(db, doc):
+            spec = specs.get(row.field_id)
+            key = spec.get("profile_key") if spec else None
+            if key not in changed or not _writable(spec):
+                continue
+            current = _value(row.segments).strip()
+            from_profile = all(seg.get("source") in ("profile", "reused") for seg in row.segments)
+            if current and not from_profile and current != (before.get(key) or ""):
+                continue
+            if current == changed[key]:
+                continue
+            row.previous_segments = row.segments
+            row.segments = [{"text": changed[key], "source": "profile"}]
+            touched = True
+            count += 1
+        if touched:
+            _touch(doc)
+    db.commit()
+    return count
 
 
 # ---------------- 오래된 서류: 개인정보 칸만 비우기 ----------------
@@ -715,8 +784,16 @@ def export(db: Session, user: User, doc: Document) -> ExportResponse:
     )
 
 
-def original_pdf(doc: Document) -> Path | None:
-    """정책 신청서의 원본 양식 PDF (formguide 가 data/forms/{form_id}.pdf 로 저장). 앱 양식은 None"""
+def original_pdf(doc: Document) -> Path | bytes | None:
+    """원본 양식 바탕 PDF. 정책 신청서는 formguide 가 저장한 data/forms/{form_id}.pdf,
+    올린 양식은 올릴 때 만든 바탕 PDF (documents.form_pdf). 앱 양식은 None"""
+    if doc.source_type == "upload":
+        if not doc.form_pdf:
+            return None
+        try:
+            return base64.b64decode(doc.form_pdf)
+        except (binascii.Error, ValueError):
+            return None
     if doc.source_type != "policy_form":
         return None
     path = get_settings().forms_dir / f"{doc.source_id}.pdf"
