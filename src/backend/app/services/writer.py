@@ -361,7 +361,8 @@ def upload(db: Session, user: User, body: DocumentUpload, doc_llm) -> tuple[Docu
         return _get_or_create(db, user, "upload", source_id, existing.title, existing.spec, policy_id, item, None)
     title, fields = form_upload.read_form(data, body.file_name, doc_llm, source)
     pdf = form_layouts.base_pdf(data, form_upload.kind_of(data))
-    boxed = form_layouts.attach_boxes(fields, pdf) if pdf else None
+    # 표가 있는 양식은 표 구조로 항목 칸 · 값 칸을 나눠 칸 목록을 다시 만든다. 표가 없으면 칸 이름으로 자리를 찾는다
+    boxed = (form_layouts.from_structure(fields, pdf) or form_layouts.attach_boxes(fields, pdf)) if pdf else None
     form_pdf = base64.b64encode(pdf).decode() if boxed else None
     return _get_or_create(
         db, user, "upload", source_id, title, boxed or fields, policy_id, item, None, form_pdf=form_pdf,

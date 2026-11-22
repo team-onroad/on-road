@@ -178,11 +178,49 @@ def _fill_date(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) 
             return False
         slots.append(hits[0])
     font = _font()
+    placed = []
+    left = rect.x0
     for number, slot in zip((m.group(1), str(int(m.group(2))), str(int(m.group(3)))), slots, strict=True):
         w = font.text_length(number, fontsize=size)
-        baseline = slot.y1 - slot.height * 0.2
-        page.insert_text((slot.x0 - 3 - w, baseline), number, fontname=FONT_NAME, fontsize=size, color=INK)
+        if slot.x0 - 3 - w < left + 1:  # 숫자가 앞 칸(항목 칸)이나 앞 단위 글자를 침범한다
+            return False
+        placed.append((slot.x0 - 3 - w, slot.y1 - slot.height * 0.2, number))
+        left = slot.x1
+    for x, y, number in placed:
+        page.insert_text((x, y), number, fontname=FONT_NAME, fontsize=size, color=INK)
     return True
+
+
+def _cover_words(page: pymupdf.Page, rect: pymupdf.Rect, only: str | None = None) -> None:
+    """칸 안 안내 글자를 칸 바탕색으로 가린다 (only 가 있으면 그 글자만)"""
+    paper = _paper(page, rect)
+    for w in page.get_text("words", clip=rect):
+        if only is None or w[4] == only:
+            page.draw_rect(pymupdf.Rect(w[:4]) + (-0.5, -0.5, 0.5, 0.5), color=None, fill=paper, width=0)
+
+
+def _fill_parens(page: pymupdf.Page, rect: pymupdf.Rect, text: str) -> bool:
+    """"(          )" 칸에 값이 길면: 닫는 괄호를 가리고 칸 끝까지 쓴 뒤 값 바로 뒤에 ")" 를 다시 쓴다"""
+    words = sorted(page.get_text("words", clip=rect), key=lambda w: w[0])
+    opens = [w for w in words if w[4] == "("]
+    closes = [w for w in words if w[4] == ")"]
+    if len(opens) != 1 or len(closes) != 1 or len(words) != 2 or "\n" in text:
+        return False
+    font = _font()
+    inside = closes[0][0] - opens[0][2] - 4
+    if font.text_length(text, fontsize=OVERLAY_SIZES[1]) <= inside:
+        return False  # 괄호 안에 충분히 들어간다
+    close_w = font.text_length(")", fontsize=OVERLAY_SIZES[0])
+    x0 = opens[0][2] + 2
+    for size in OVERLAY_SIZES:
+        w = font.text_length(text, fontsize=size)
+        if x0 + w + 2 + close_w <= rect.x1 and size <= rect.height * 0.85:
+            _cover_words(page, rect, only=")")
+            baseline = rect.y0 + (rect.height + size * 0.7) / 2
+            page.insert_text((x0, baseline), text, fontname=FONT_NAME, fontsize=size, color=INK)
+            page.insert_text((x0 + w + 2, baseline), ")", fontname=FONT_NAME, fontsize=size, color=(0, 0, 0))
+            return True
+    return False
 
 
 def _check_mark(page: pymupdf.Page, x: float, y: float, size: float = 7.5) -> None:
@@ -345,15 +383,21 @@ def render_overlay(pdf: Path | bytes, title: str, rows: list[tuple[dict, str]]) 
                 leftovers.append((spec, text))
             continue
         is_date = box.get("how") == "date_line" or (template and all(u in template for u in ("년", "월", "일")))
-        if is_date and _fill_date(page, pymupdf.Rect(box["rect"]), text, OVERLAY_SIZES[0]):
+        if is_date and _fill_date(page, rect, text, OVERLAY_SIZES[0]):
+            continue
+        whole = _DATE_RE.search(text)
+        if is_date and whole and all(u in template for u in ("년", "월", "일")):
+            # 단위 글자 앞이 좁아 숫자가 항목 칸으로 넘친다: 안내 글자를 가리고 "2004년 2월 1일" 로 쓴다
+            _cover_words(page, rect)
+            if _fill_box(page, rect, f"{whole.group(1)}년 {int(whole.group(2))}월 {int(whole.group(3))}일"):
+                continue
+        if "(" in template and ")" in template and _fill_parens(page, rect, text):
             continue
         if (is_date or any(u in template for u in _UNITS)) and _fill_units(page, rect, text, OVERLAY_SIZES[0]):
             continue
         if any(u in template for u in _UNITS) and not _NUM_RE.sub("", template).strip(" 년월일세만~-.()/"):
             # 단위 글자 자리에 숫자가 안 들어가면 ("2020.03 ~ 2023.02" 인데 칸이 좁다): 안내 글자를 가리고 값만 쓴다
-            paper = _paper(page, rect)
-            for w in page.get_text("words", clip=rect):
-                page.draw_rect(pymupdf.Rect(w[:4]) + (-0.5, -0.5, 0.5, 0.5), color=None, fill=paper, width=0)
+            _cover_words(page, rect)
             template = ""
         if template:  # 안내 글자를 덮지 않게 빈 곳에
             rect = _free_part(page, rect)

@@ -140,6 +140,10 @@ def test_talk_mode_fixes_part_of_a_date(api, db_session, doc_llm):
     assert birth["value"] == "2008.01.01"
     url = f"/api/documents/{d['document_id']}/interview"
     r = api.post(url, json={"user_id": str(user.id)}).json()
+    for _ in range(5):  # 표 구조로 앞쪽 칸(성명 등)도 생긴다: 생년월일 칸까지 '네'로 넘긴다
+        if r["question"]["field_id"] == birth["field_id"]:
+            break
+        r = api.post(url, json={"user_id": str(user.id), "message": "네"}).json()
     assert r["question"]["field_id"] == birth["field_id"], r
     r = api.post(url, json={"user_id": str(user.id), "message": "2월 1일임"}).json()
     got = api.get(f"/api/documents/{d['document_id']}?user_id={user.id}").json()
@@ -197,3 +201,20 @@ def test_resume_values_stay_out_of_label_cells():
         job = page.search_for("웹")[0]
         paren = page.search_for("(", clip=pymupdf.Rect(boxes["f7"]["rect"]))[0]
         assert job.x0 > paren.x1  # 괄호 안
+
+
+def test_resume_upload_splits_label_and_value_cells(api, db_session, doc_llm):
+    """AI 가 칸을 일부만 읽어도 표의 값 칸마다 칸이 생기고, 값은 값 칸에만 들어간다"""
+    from tests.resume_sample import build as resume
+
+    user = make_user(db_session, name="김민수", phone="01012345678")
+    doc_llm.form = {"title": "이력서", "fields": [
+        {"label": "성명", "type": "text"}, {"label": "학교명", "section": "학력사항", "type": "text"},
+    ]}
+    d = _up(api, user, resume(), file_name="이력서.hwpx").json()
+    labels = [(f["section"], f["label"]) for f in d["fields"]]
+    assert labels == [
+        (None, "성명"), (None, "생년월일"), (None, "나이"), (None, "연락처"), (None, "주소"), (None, "이메일"),
+        (None, "희망 직무"), ("학력사항 1", "기간"), ("학력사항 1", "학교명"), ("학력사항 1", "전공"),
+        ("학력사항 2", "기간"), ("학력사항 2", "학교명"), ("학력사항 2", "전공"),
+    ]
