@@ -276,8 +276,36 @@ def _essay_guide(spec: dict, value: str) -> str:
     return "괜찮아요. 떠오르는 사실 한두 가지만 말해 주세요. (예: 언제, 무엇을, 왜) 제가 문장으로 정리할게요."
 
 
-def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | None]:
-    """(칸에 넣을 값, 다시 물을 때 안내). 값이 None 이면 다시 묻는다"""
+def _partial_date(text: str, base: str | None, today: date) -> str | None:
+    """연·월·일 중 일부만 말한 날짜를 지금 칸 값으로 채운다.
+    "2008.01.01 맞아요?" → "2월 1일임" → 2008.02.01 / "2009년이요" → 2009.01.01 / "15일" → 2008.01.15.
+    칸이 비어 있으면 올해를 쓴다 (신청일 등)"""
+    parts: dict[str, int] = {}
+    for num, unit in _DATE_PART_RE.findall(text):
+        n = _ko_number(num)
+        if n is not None and unit not in parts:
+            parts[unit] = n
+    if not parts:
+        nums = _DIGITS_RE.findall(text)
+        if len(nums) == 2 and all(len(x) <= 2 for x in nums):  # "2.1", "2/1"
+            parts = {"월": int(nums[0]), "일": int(nums[1])}
+        else:
+            return None
+    m = re.match(r"^(\d{4})\.(\d{2})\.(\d{2})$", (base or "").strip())
+    known = {"년": int(m.group(1)), "월": int(m.group(2)), "일": int(m.group(3))} if m else {"년": today.year}
+    if "년" in parts and parts["년"] < 100:
+        parts["년"] += 2000 if parts["년"] <= today.year % 100 else 1900
+    merged = {**known, **parts}
+    if "월" not in merged or "일" not in merged:
+        return None
+    try:
+        return date(merged["년"], merged["월"], merged["일"]).strftime("%Y.%m.%d")
+    except ValueError:
+        return None
+
+
+def _normalize(spec: dict, answer: str, today: date, current: str | None = None) -> tuple[str | None, str | None]:
+    """(칸에 넣을 값, 다시 물을 때 안내). 값이 None 이면 다시 묻는다. current 는 칸에 지금 적힌 값 (날짜 일부만 고칠 때)"""
     flat = _flat(answer)
     options = spec.get("options")
     if (spec.get("box") or {}).get("how") == "confirm":
@@ -307,6 +335,9 @@ def _normalize(spec: dict, answer: str, today: date) -> tuple[str | None, str | 
                 return date(y, m, d).strftime("%Y.%m.%d"), None
             except ValueError:
                 pass
+        partial = _partial_date(answer, current, today)
+        if partial:
+            return partial, None
         return None, "날짜를 다시 알려 주세요. (예: 2026.10.27)"
     if kind == "account":
         digits = "".join(_DIGITS_RE.findall(answer))
@@ -481,12 +512,31 @@ def _answered_profile_change(db: Session, user: User, doc: Document, res: Interv
         return None
     spec = w._specs(doc).get(res.field.field_id) or {}
     key = spec.get("profile_key")
-    if key not in ("name", "phone"):
+    if key is None and answer_extract.kind_of(spec) == "address" and not w.doc_spec.is_other_person(spec):
+        key = "region"  # 내 주소 칸 → 사는 지역
+    if key not in ("name", "phone", "birth_date", "region"):
         return None
     row = next((r for r in w._rows(db, doc) if r.field_id == res.field.field_id), None)
     value = w._value(row.segments).strip() if row is not None else ""
     if not value or any(seg.get("source") == "profile" for seg in row.segments):
         return None
+    if key == "region":
+        code = profile_signal.region_in_address(value)
+        if not code or code == user.region:
+            return None
+        return ProfileChange(field="region", label="사는 지역", current=user.region, proposed=code, proposed_label=code)
+    if key == "birth_date":
+        m = re.fullmatch(r"(\d{4})\.(\d{2})\.(\d{2})", value)
+        if not m:
+            return None
+        try:
+            born = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return None
+        if born == user.birth_date:
+            return None
+        return ProfileChange(field="birth_date", label="생년월일", current=user.birth_date.strftime("%Y.%m.%d"),
+                             proposed=born.isoformat(), proposed_label=value)
     if key == "name":
         name = "".join(value.split())
         if not re.fullmatch(r"[가-힣]{2,5}", name) or name == user.name:
@@ -643,7 +693,7 @@ def _interview(
         return _response(db, user, doc, state, field_row=row)
 
     # 짧은 칸: 규칙으로 정리해 바로 완료
-    normalized, retry = _normalize(spec, msg, today)
+    normalized, retry = _normalize(spec, msg, today, value)
     if normalized is None:
         _save(db, doc, state)
         return _response(db, user, doc, state, message=retry)

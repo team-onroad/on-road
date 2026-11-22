@@ -125,3 +125,47 @@ def test_profile_change_keeps_hand_edited_value(api, db_session, doc_llm):
     api.patch(f"/api/users/{user.id}", json={"name": "정서현"})
     got = api.get(f"/api/documents/{d['document_id']}?user_id={user.id}").json()
     assert got["fields"][0]["value"] == "홍길동"
+
+
+def test_talk_mode_fixes_part_of_a_date(api, db_session, doc_llm):
+    """"2008.01.01 맞아요?" → "2월 1일임" 처럼 일부만 고쳐 말해도 알아듣는다"""
+    from datetime import date
+
+    user = make_user(db_session, name="김민수", birth_date=date(2008, 1, 1))
+    doc_llm.form = {"title": "신청서", "fields": [
+        {"label": "생년월일", "type": "date"}, {"label": "신청 사유", "type": "text"},
+    ]}
+    d = _up(api, user, build(), file_name="a.hwpx").json()
+    birth = next(f for f in d["fields"] if f["label"] == "생년월일")
+    assert birth["value"] == "2008.01.01"
+    url = f"/api/documents/{d['document_id']}/interview"
+    r = api.post(url, json={"user_id": str(user.id)}).json()
+    assert r["question"]["field_id"] == birth["field_id"], r
+    r = api.post(url, json={"user_id": str(user.id), "message": "2월 1일임"}).json()
+    got = api.get(f"/api/documents/{d['document_id']}?user_id={user.id}").json()
+    assert next(f for f in got["fields"] if f["field_id"] == birth["field_id"])["value"] == "2008.02.01", r
+    # 내 정보의 생일도 바꿀지 확인 카드 → 승인하면 DB 와 다른 서류 칸까지
+    change = next(c for c in r["profile_changes"] if c["field"] == "birth_date")
+    assert change["proposed"] == "2008-02-01"
+    assert api.patch(f"/api/users/{user.id}", json={"birth_date": change["proposed"]}).status_code == 200
+    assert api.get(f"/api/users/{user.id}").json()["birth_date"] == "2008-02-01"
+
+
+def test_chat_detects_every_profile_field():
+    """상담 · 문서 대화에서 DB 내 정보(이름 · 생일 · 지역 · 전화 · 상태 · 퇴소일 · 하는 일)가 바뀌면 확인 카드 후보"""
+    from datetime import date
+    from types import SimpleNamespace
+
+    from app.profile_signal import detect
+
+    user = SimpleNamespace(name="김민수", birth_date=date(2008, 1, 1), region="서울", phone="01012345678",
+                           status="leaving_soon", d_date=None, work=None)
+    today = date(2026, 11, 22)
+    fields = lambda m: {c.field: c.proposed for c in detect(m, user, today)}  # noqa: E731
+    assert fields("제 이름은 정서현이에요") == {"name": "정서현"}
+    assert fields("제 생일 2월 1일이에요") == {"birth_date": "2008-02-01"}
+    assert fields("부산으로 이사했어요") == {"region": "부산"}
+    assert fields("번호 010-9999-8888로 바꿨어요") == {"phone": "01099998888"}
+    assert fields("저 이번에 퇴소했어요")["status"] == "left_care"
+    assert fields("알바 시작했어요") == {"work": "working"}
+    assert fields("제 이름이 뭐였지?") == {} and fields("부산 정책 알려줘") == {}

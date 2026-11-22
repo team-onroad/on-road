@@ -49,7 +49,8 @@ _NAME_WORDS = ("개명", "이름바꿨", "이름을바꿨", "이름이바뀌", "
 _NAME_RE = re.compile(
     r"(?<![가-힣])([가-힣]{2,4}?)(?:으로|로|이라고|라고|이에요|예요|이야|야|입니다|이요|요)?(?=$|[\s.,!?~])"
 )
-_NOT_NAMES = {"이름", "개명", "새이름", "제이름", "내이름", "저는", "나는", "이번에", "최근에", "법원", "그래서"}
+_NOT_NAMES = {"이름", "개명", "새이름", "제이름", "내이름", "저는", "나는", "이번에", "최근에", "법원", "그래서",
+              "비밀", "몰라", "모름", "없어", "없음", "그냥", "아직", "뭐야", "뭐지", "그거"}
 _VERB_PARTS = ("했", "었", "았", "바꿨", "바뀌", "는데", "해서", "하고", "주세", "해줘", "줘", "할게", "됐", "개명", "이름")
 
 
@@ -119,6 +120,61 @@ def _phone_label(p: str | None) -> str | None:
     return f"{p[:3]}-{p[3:-4]}-{p[-4:]}"
 
 
+_BIRTH_WORDS = ("생일", "생년월일", "태어났", "태어난", "출생")
+_MONTH_DAY_RE = re.compile(r"(\d{1,2})\s*월\s*(\d{1,2})\s*일")
+_YEAR_RE = re.compile(r"(\d{4})\s*년")
+_SAY_NAME_RE = re.compile(
+    r"(?:제|내|저의|나의)\s*이름\s*(?:은|는|이)?\s*([가-힣]{2,4}?)(?:이에요|예요|입니다|이야|야|이고|고|이요|요|으로|로)?(?=$|[\s.,!?~])"
+)
+_ASK_WORDS = ("뭐", "뭔", "무엇", "모르", "알려", "어떻게", "?")
+
+
+def birth_in(message: str, current: date) -> date | None:
+    """생일을 말한 경우 그 날짜 ("제 생일 2008년 2월 1일이에요", "생일 2월 1일이야" → 연도는 지금 값)"""
+    flat = _flat(message)
+    if not any(w in flat for w in _BIRTH_WORDS):
+        return None
+    m = _DATE_RE.search(message)
+    try:
+        if m:
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        md = _MONTH_DAY_RE.search(message)
+        if md:
+            y = _YEAR_RE.search(message)
+            return date(int(y.group(1)) if y else current.year, int(md.group(1)), int(md.group(2)))
+        y = _YEAR_RE.search(message)
+        if y:
+            return date(int(y.group(1)), current.month, current.day)
+    except ValueError:
+        return None
+    return None
+
+
+def said_name(message: str) -> str | None:
+    """"제 이름은 정서현이에요" 처럼 이름을 말한 경우 (묻는 말은 빼고)"""
+    if any(w in message for w in _ASK_WORDS):
+        return None
+    m = _SAY_NAME_RE.search(message)
+    if not m:
+        return None
+    name = m.group(1)
+    if name in _NOT_NAMES or any(v in name for v in _VERB_PARTS) or name.endswith(("다", "요", "함")):
+        return None
+    return name
+
+
+def region_in_address(text: str) -> str | None:
+    """주소 글자 속 시·도 코드 ("부산광역시 해운대구 …" → 부산)"""
+    flat = _flat(text)
+    for name, code in _REGION_NAMES:
+        if flat.startswith(name) or flat.startswith(name.replace("특별자치", "")):
+            return code
+    for name, code in _REGION_NAMES:
+        if len(name) >= 3 and name in flat:
+            return code
+    return None
+
+
 def name_in(message: str) -> str | None:
     """개명·이름을 바꿨다는 말 속 새 이름 (예: "나 개명했는데 정서현으로 해 줘" → "정서현"). 말이 없으면 None"""
     if not any(w in _flat(message) for w in _NAME_WORDS):
@@ -133,7 +189,7 @@ def name_in(message: str) -> str | None:
 
 def detect(message: str, user: User, today: date) -> list[ProfileChange]:
     out: list[ProfileChange] = []
-    name = name_in(message)
+    name = name_in(message) or said_name(message)
     if name and name != user.name:
         out.append(ProfileChange(field="name", label="이름", current=user.name, proposed=name, proposed_label=name))
     region = _region(message)
@@ -144,6 +200,11 @@ def detect(message: str, user: User, today: date) -> list[ProfileChange]:
     if phone and phone != user.phone:
         out.append(ProfileChange(field="phone", label="휴대폰 번호", current=_phone_label(user.phone),
                                  proposed=phone, proposed_label=_phone_label(phone)))
+    current_birth = getattr(user, "birth_date", None)
+    born = birth_in(message, current_birth) if current_birth else None
+    if born and born != current_birth:
+        out.append(ProfileChange(field="birth_date", label="생년월일", current=user.birth_date.strftime("%Y.%m.%d"),
+                                 proposed=born.isoformat(), proposed_label=born.strftime("%Y.%m.%d")))
     status = _status(message, user.status)
     if status:
         out.append(ProfileChange(field="status", label="보호 상태", current=STATUS_LABELS.get(user.status),
