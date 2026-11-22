@@ -10,6 +10,7 @@
 """
 
 import logging
+import re
 import tempfile
 from pathlib import Path
 
@@ -154,7 +155,9 @@ def _fix_rows(path: Path, fields: list[dict], boxes: dict[str, dict]) -> dict[st
 
 # ---------------- 표 구조로 항목 칸 · 값 칸 나누기 ----------------
 
-_SKIP_SLOT = ("사진", "접수", "담당", "결재", "처리", "확인자", "비고")
+_SKIP_SLOT = ("사진", "접수", "담당자", "담당공무원", "결재", "처리", "확인자", "비고")
+_OPTION_MARK = re.compile(r"\[\s*\]|□|☐|○")
+_PHOTO_WORDS = ("사진", "증명사진", "사진첨부", "사진붙이는곳")
 _TYPE_WORDS = (
     (("생년월일", "일자", "날짜", "년월일", "입사일", "졸업일", "취득일"), "date"),
     (("연락처", "전화", "휴대", "핸드폰"), "phone"),
@@ -192,9 +195,18 @@ def slots(pdf: bytes) -> list[dict]:
                 top = min(c.bbox[1] for c in cells)
                 caption = _caption(page, top)
                 is_value = {id(c): _blank(c) and c.width >= MIN_BOX_W for c in cells}
+                table_w = max(c.bbox[2] for c in cells) - min(c.bbox[0] for c in cells)
+                # 표 폭 전체를 한 칸이 차지하는 글자 줄 ("학력사항", "1. 신청인"): 열 머리줄이 아니라 그 아래 줄들의 제목
+                titles = {
+                    r: " ".join(row_cells[0].text.split()) for r, row in enumerate(grid)
+                    if len(row_cells := [c for c in row if c is not None]) == 1
+                    and not is_value[id(row_cells[0])] and row_cells[0].width >= table_w * 0.9
+                }
                 header_rows = [
                     r for r, row in enumerate(grid)
-                    if any(c is not None for c in row) and all(c is None or not is_value[id(c)] for c in row)
+                    if r not in titles and any(c is not None for c in row) and all(c is None or not is_value[id(c)] for c in row)
+                    # 선택지 줄 ("[ ]방문 [ ]온라인")이나 긴 안내 글이 있는 줄은 열 머리줄이 아니다
+                    and not any(c is not None and (_OPTION_MARK.search(c.text) or len(c.text.strip()) > 20) for c in row)
                     and r + 1 < len(grid) and any(c is not None and is_value[id(c)] for c in grid[r + 1])
                 ]
                 data_rows: dict[int, int] = {}  # 머리줄 아래 값 줄 번호 (1부터)
@@ -203,7 +215,8 @@ def slots(pdf: bytes) -> list[dict]:
                         if c is None or not is_value[id(c)]:
                             continue
                         left = next((x for x in reversed(row[: c.col]) if x is not None and not is_value[id(x)]), None)
-                        heads = [h for h in header_rows if h < r]
+                        last_title = max((t for t in titles if t < r), default=-1)
+                        heads = [h for h in header_rows if last_title < h < r]  # 제목 줄 위 머리줄은 다른 묶음
                         header = None
                         if heads:
                             hrow = grid[heads[-1]]
@@ -212,6 +225,9 @@ def slots(pdf: bytes) -> list[dict]:
                                 None,
                             )
                         group = c.group or (left.group if left else "")
+                        if "".join(group.split()) in _PHOTO_WORDS:  # 왼쪽 "사진" 칸은 묶음 이름이 아니다
+                            group = ""
+                        title = next((titles[t] for t in sorted(titles, reverse=True) if t < r), "")
                         if header is not None and (left is None or (left.col == 0 and left.text != header.text)):
                             label = header.text
                             if left is not None:
@@ -220,10 +236,10 @@ def slots(pdf: bytes) -> list[dict]:
                                 n = data_rows.setdefault(r, len(data_rows) + 1)
                                 rows_below = sum(1 for rr in range(heads[-1] + 1, len(grid))
                                                  if any(x is not None and is_value[id(x)] for x in grid[rr]))
-                                base = caption or group or "줄"
-                                section = f"{base} {n}" if rows_below > 1 else (caption or group or None)
+                                base = title or caption or group or "줄"
+                                section = f"{base} {n}" if rows_below > 1 else (title or caption or group or None)
                         elif left is not None:
-                            label, section = left.text, (group or c.section or None)
+                            label, section = left.text, (group or c.section or title or None)
                         else:
                             continue
                         label = " ".join(label.split())

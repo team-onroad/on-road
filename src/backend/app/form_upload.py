@@ -338,7 +338,9 @@ def to_fields(raw: list[dict], form_text: str | None) -> list[dict]:
         label = " ".join(str(f.get("label") or "").split())[:60]
         flat = _flat(label)
         section = " ".join(str(f.get("section") or "").split())[:40] or None
-        if not label or (section, flat) in seen or (source is not None and not _in_source(label, source)):
+        # "신청일" · "작성일" 은 양식에 "년 월 일" 줄로만 있는 경우가 많다
+        dated = flat in _DATE_LABELS and source is not None and "년월일" in source
+        if not label or (section, flat) in seen or (source is not None and not dated and not _in_source(label, source)):
             continue
         if any(w in flat for w in _OFFICE_WORDS) or (section and any(w in _flat(section) for w in _OFFICE_WORDS)):
             continue

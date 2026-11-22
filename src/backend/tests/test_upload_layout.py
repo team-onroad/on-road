@@ -218,3 +218,47 @@ def test_resume_upload_splits_label_and_value_cells(api, db_session, doc_llm):
         (None, "희망 직무"), ("학력사항 1", "기간"), ("학력사항 1", "학교명"), ("학력사항 1", "전공"),
         ("학력사항 2", "기간"), ("학력사항 2", "학교명"), ("학력사항 2", "전공"),
     ]
+
+
+def test_styled_forms_split_titles_headers_and_values():
+    """표 폭 전체 제목 줄("학력사항", "1. 신청인")은 묶음 이름, "사진" 칸은 묶음이 아니고, 선택지 줄은 열 머리줄이 아니다"""
+    from app import form_upload
+    from tests import styled_forms as S
+
+    resume = form_layouts.from_structure(form_upload.to_fields(S.RESUME_LLM["fields"], None),
+                                         form_layouts.base_pdf(S.resume_hwpx(), "hwpx"))
+    got = [(f.get("section"), f["label"]) for f in resume if (f.get("box") or {}).get("how") == "table_slot"]
+    assert got[:7] == [(None, x) for x in ("성명", "생년월일", "연락처", "이메일", "주소", "희망 직무", "희망 연봉")]
+    assert ("학력사항 2", "졸업 구분") in got and ("경력사항 1", "담당 업무") in got and (None, "자기소개") in got
+    assert any(f["label"] == "작성일" and f.get("box") for f in resume)
+
+    pdf = S.scholarship_pdf()
+    scholar = form_layouts.from_structure(form_upload.to_fields(S.SCHOLAR_LLM["fields"], None), pdf)
+    got = {(f.get("section"), f["label"]) for f in scholar}
+    assert {("1. 신청인", "성명"), ("1. 신청인", "직전 학기 성적"), ("1. 신청인", "이수 학점"), ("2. 신청 사유", "신청 사유")} <= got
+    assert not any("[ ]" in f["label"] or f["label"].startswith("1.") for f in scholar)
+    assert not any("접수" in f["label"] for f in scholar)
+
+
+def test_unit_suffix_cells_put_value_before_unit():
+    """"     / 4.5", "      학점" 칸은 단위 앞에, 앞자리가 없는 "만원" 칸은 "3200만원" 으로"""
+    from app import doc_export, form_upload
+    from tests import styled_forms as S
+
+    for data, kind, llm, values in (
+        (S.scholarship_pdf(), "pdf", S.SCHOLAR_LLM, {"직전 학기 성적": "4.1", "이수 학점": "18"}),
+        (S.resume_hwpx(), "hwpx", S.RESUME_LLM, {"희망 연봉": "3200"}),
+    ):
+        pdf = form_layouts.base_pdf(data, kind)
+        fields = form_layouts.from_structure(form_upload.to_fields(llm["fields"], None), pdf)
+        rows = [(f, values.get(f["label"], "")) for f in fields]
+        with pymupdf.open(stream=doc_export.render_overlay(pdf, "t", rows), filetype="pdf") as out:
+            page = out[0]
+            words = page.get_text("words")
+            x = lambda t: next(w[0] for w in words if w[4] == t)
+            text = page.get_text()
+            if kind == "pdf":
+                unit_x = max(w[0] for w in words if w[4] == "학점")  # 칸 이름 "이수 학점" 말고 값 칸의 단위
+                assert x("4.1") < x("/") and x("18") < unit_x
+            else:
+                assert "3200만원" in text

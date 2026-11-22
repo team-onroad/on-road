@@ -208,8 +208,8 @@ def _fill_parens(page: pymupdf.Page, rect: pymupdf.Rect, text: str) -> bool:
         return False
     font = _font()
     inside = closes[0][0] - opens[0][2] - 4
-    if font.text_length(text, fontsize=OVERLAY_SIZES[1]) <= inside:
-        return False  # 괄호 안에 충분히 들어간다
+    if font.text_length(text, fontsize=OVERLAY_SIZES[0]) <= inside:
+        return False  # 괄호 안에 제 크기로 들어간다
     close_w = font.text_length(")", fontsize=OVERLAY_SIZES[0])
     x0 = opens[0][2] + 2
     for size in OVERLAY_SIZES:
@@ -253,11 +253,13 @@ def _fill_checkbox(
             left = max(opens, key=lambda b: b.x0)
             closes = [b for b in page.search_for("]", clip=area) if b.x0 >= left.x1 - 0.5]
             right_x = min((b.x0 for b in closes), default=hit.x0)
-            mark = ((left.x1 + right_x) / 2, (hit.y0 + hit.y1) / 2)
+            # 괄호 사이가 좁으면 ("[ ]" 가 붙어 그려진 양식) 표시를 괄호 폭에 맞춰 작게
+            size = min(7.5, max(4.5, (right_x - left.x1) + 3))
+            mark = ((left.x1 + right_x) / 2, (hit.y0 + hit.y1) / 2, size)
             break
         if mark is None:
             return False
-        _check_mark(page, *mark)
+        _check_mark(page, mark[0], mark[1], mark[2])
     return True
 
 
@@ -296,6 +298,37 @@ def _fill_units(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float)
     for x, y, text, s in placed:
         page.insert_text((x, y), text, fontname=FONT_NAME, fontsize=s, color=INK)
     return True
+
+
+_SUFFIX_RE = re.compile(r"^\s*(/\s*\d+(?:\.\d+)?|만\s*원|원|학점|점|명|개월|시간|회|호|층|평|㎡|kg|cm)\s*$")
+
+
+def _fill_suffix(page: pymupdf.Page, rect: pymupdf.Rect, text: str, template: str) -> bool:
+    """뒤에 붙는 단위만 있는 칸 ("      학점", "     / 4.5", "만원"): 값을 단위 바로 앞에 쓴다.
+    단위 앞자리가 좁으면 단위 글자를 가리고 "3200만원" 처럼 값과 단위를 이어 쓴다"""
+    m = _SUFFIX_RE.match(template)
+    if not m or "\n" in text:
+        return False
+    unit = m.group(1)
+    flat_unit = "".join(unit.split())
+    words = sorted(page.get_text("words", clip=rect), key=lambda w: w[0])
+    if not words:
+        return False
+    value = text.strip()
+    if "".join(value.split()).endswith(flat_unit):
+        value = "".join(value.split())[: -len(flat_unit)].strip() or value
+    font = _font()
+    start = words[0][0]
+    room = start - 2 - rect.x0
+    for size in OVERLAY_SIZES[:2]:
+        w = font.text_length(value, fontsize=size)
+        if w <= room and size <= rect.height * 0.85:
+            baseline = words[0][3] - (words[0][3] - words[0][1]) * 0.2
+            page.insert_text((start - 3 - w, baseline), value, fontname=FONT_NAME, fontsize=size, color=INK)
+            return True
+    _cover_words(page, rect)
+    joined = f"{value} {unit}" if unit.startswith("/") else f"{value}{flat_unit}"
+    return _fill_box(page, rect, joined)
 
 
 def _paper(page: pymupdf.Page, rect: pymupdf.Rect) -> tuple[float, float, float]:
@@ -392,6 +425,8 @@ def render_overlay(pdf: Path | bytes, title: str, rows: list[tuple[dict, str]]) 
             if _fill_box(page, rect, f"{whole.group(1)}년 {int(whole.group(2))}월 {int(whole.group(3))}일"):
                 continue
         if "(" in template and ")" in template and _fill_parens(page, rect, text):
+            continue
+        if template and _fill_suffix(page, rect, text, template):
             continue
         if (is_date or any(u in template for u in _UNITS)) and _fill_units(page, rect, text, OVERLAY_SIZES[0]):
             continue
