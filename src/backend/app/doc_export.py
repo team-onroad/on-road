@@ -223,6 +223,72 @@ def _fill_checkbox(
     return True
 
 
+_UNITS = ("년", "월", "일", "세")
+_NUM_RE = re.compile(r"\d+")
+
+
+def _fill_units(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) -> bool:
+    """양식에 단위 글자가 미리 있는 칸 ("    년   월   일", "   년  월 ~   년  월", "만    세"):
+    값의 숫자를 단위 글자 앞에 하나씩 맞춰 쓴다. 숫자 개수와 단위 개수가 다르면 False"""
+    nums = _NUM_RE.findall(value)
+    slots = sorted(
+        ((hit, unit) for unit in _UNITS for hit in page.search_for(unit, clip=rect)),
+        key=lambda x: (round(x[0].y0 / 4), x[0].x0),
+    )
+    if not nums or len(nums) != len(slots):
+        return False
+    font = _font()
+    placed = []
+    left = rect.x0
+    words = page.get_text("words", clip=rect)
+    for num, (slot, unit) in zip(nums, slots, strict=True):
+        text = str(int(num)) if unit in ("월", "일") else num
+        # 앞 단위 글자뿐 아니라 사이의 "~" 같은 글자도 피한다
+        before = [w[2] for w in words if w[2] <= slot.x0 + 0.5 and abs(w[1] - slot.y0) < slot.height]
+        left = max([left, *before])
+        room = slot.x0 - 2 - max(left, rect.x0)
+        s = size
+        while font.text_length(text, fontsize=s) > room and s > 7:
+            s -= 0.5
+        width = font.text_length(text, fontsize=s)
+        if width > room:
+            return False
+        placed.append((slot.x0 - 2 - width, slot.y1 - slot.height * 0.2, text, s))
+        left = slot.x1
+    for x, y, text, s in placed:
+        page.insert_text((x, y), text, fontname=FONT_NAME, fontsize=s, color=INK)
+    return True
+
+
+def _paper(page: pymupdf.Page, rect: pymupdf.Rect) -> tuple[float, float, float]:
+    """칸 바탕색 (칸 모서리 안쪽 한 점). 회색 칸의 안내 글자를 가릴 때 같은 색으로"""
+    spot = pymupdf.Rect(rect.x0 + 0.5, rect.y0 + 0.5, rect.x0 + 2.5, rect.y0 + 2.5)
+    try:
+        pix = page.get_pixmap(clip=spot, alpha=False)
+        r, g, b = pix.pixel(0, 0)[:3]
+        return r / 255, g / 255, b / 255
+    except Exception:  # 바탕색을 못 읽으면 흰색
+        return 1.0, 1.0, 1.0
+
+
+def _free_part(page: pymupdf.Page, rect: pymupdf.Rect) -> pymupdf.Rect:
+    """칸 안에 이미 글자("(          )", "만    세")가 있으면 그 글자를 피한 가장 넓은 빈 곳"""
+    words = sorted(page.get_text("words", clip=rect), key=lambda w: w[0])
+    if not words:
+        return rect
+    # "(          )": 괄호 안
+    opens = [w for w in words if w[4].endswith("(")]
+    closes = [w for w in words if w[4].startswith(")")]
+    if opens and closes and closes[-1][0] - opens[0][2] >= 16:
+        return pymupdf.Rect(opens[0][2] + 2, rect.y0, closes[-1][0] - 2, rect.y1)
+    edges = [rect.x0] + [v for w in words for v in (w[0], w[2])] + [rect.x1]
+    gaps = [(edges[i + 1] - edges[i], edges[i], edges[i + 1]) for i in range(0, len(edges) - 1, 2)]
+    width, x0, x1 = max(gaps)
+    if width < 16:
+        return rect
+    return pymupdf.Rect(x0 + 2, rect.y0, x1 - 2, rect.y1)
+
+
 def _fill_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str, align: str = "left") -> bool:
     """칸에 들어가면 True. 한 줄이면 세로 가운데, 여러 줄이면 위에서부터. 글자 크기를 줄여 가며 맞춘다.
     align="right": 칸 오른쪽 끝에 붙여 쓴다 (예: "____은행" 의 은행 이름)"""
@@ -230,6 +296,8 @@ def _fill_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str, align: str = "l
     if rect.is_empty or rect.width < 4:
         return False
     for size in OVERLAY_SIZES:
+        if size > rect.height * 0.85 and size > OVERLAY_SIZES[-1]:
+            continue  # 칸 높이보다 큰 글자는 위아래 칸으로 넘친다
         width = font.text_length(text, fontsize=size)
         if "\n" not in text and width <= rect.width:
             baseline = rect.y0 + (rect.height + size * 0.7) / 2
@@ -279,6 +347,16 @@ def render_overlay(pdf: Path | bytes, title: str, rows: list[tuple[dict, str]]) 
         is_date = box.get("how") == "date_line" or (template and all(u in template for u in ("년", "월", "일")))
         if is_date and _fill_date(page, pymupdf.Rect(box["rect"]), text, OVERLAY_SIZES[0]):
             continue
+        if (is_date or any(u in template for u in _UNITS)) and _fill_units(page, rect, text, OVERLAY_SIZES[0]):
+            continue
+        if any(u in template for u in _UNITS) and not _NUM_RE.sub("", template).strip(" 년월일세만~-.()/"):
+            # 단위 글자 자리에 숫자가 안 들어가면 ("2020.03 ~ 2023.02" 인데 칸이 좁다): 안내 글자를 가리고 값만 쓴다
+            paper = _paper(page, rect)
+            for w in page.get_text("words", clip=rect):
+                page.draw_rect(pymupdf.Rect(w[:4]) + (-0.5, -0.5, 0.5, 0.5), color=None, fill=paper, width=0)
+            template = ""
+        if template:  # 안내 글자를 덮지 않게 빈 곳에
+            rect = _free_part(page, rect)
         if not _fill_box(page, rect, text, box.get("align", "left")):
             _fill_box(page, rect, SEE_ATTACHMENT)
             leftovers.append((spec, text))

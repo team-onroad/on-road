@@ -169,3 +169,31 @@ def test_chat_detects_every_profile_field():
     assert fields("저 이번에 퇴소했어요")["status"] == "left_care"
     assert fields("알바 시작했어요") == {"work": "working"}
     assert fields("제 이름이 뭐였지?") == {} and fields("부산 정책 알려줘") == {}
+
+
+def test_resume_values_stay_out_of_label_cells():
+    """이력서: 값이 칸 이름 칸을 침범하지 않는다. 반복 줄은 다음 줄로, 단위 칸은 단위 앞에, 괄호 칸은 괄호 안에"""
+    from app import doc_export
+    from tests.resume_sample import build as resume
+
+    pdf = form_layouts.base_pdf(resume(), "hwpx")
+    f = lambda i, label, sec=None, t="text": dict(field_id=i, label=label, section=sec, input_type=t,  # noqa: E731
+                                                  value_source="user", guide="g", options=None)
+    fields = [f("f1", "성명"), f("f2", "생년월일", t="date"), f("f3", "나이"), f("f7", "희망 직무"),
+              f("f8", "기간", "학력 1"), f("f9", "학교명", "학력 1"), f("f11", "기간", "학력 2"), f("f12", "학교명", "학력 2")]
+    boxes = {x["field_id"]: x["box"] for x in form_layouts.attach_boxes(fields, pdf)}
+    assert boxes["f3"]["how"] == "table_right" and boxes["f3"]["template_text"] == "만 세"  # 나이 칸 이름 칸이 아니라 값 칸
+    assert boxes["f11"]["rect"][1] == boxes["f8"]["rect"][3]  # 학력 2 기간은 학력 1 바로 아래 줄
+    assert boxes["f12"]["rect"][1] == boxes["f9"]["rect"][3]
+    values = {"f1": "김민수", "f2": "2007.03.15", "f3": "19", "f7": "웹 개발", "f8": "2020.03 ~ 2023.02",
+              "f9": "인천 남동고등학교", "f11": "2023.03 ~ 2026.02", "f12": "동양미래대학교"}
+    out = doc_export.render_overlay(pdf, "이력서", [(dict(x, box=boxes[x["field_id"]]), values[x["field_id"]]) for x in fields])
+    with pymupdf.open(stream=out, filetype="pdf") as doc:
+        text = "".join(page.get_text() for page in doc)
+        assert doc.page_count == 1 and "별지" not in text  # 모두 제자리에 들어갔다
+        page = doc[0]
+        age = page.search_for("19")[0]
+        assert age.x0 > boxes["f3"]["rect"][0]  # 나이 값은 값 칸 안
+        job = page.search_for("웹")[0]
+        paren = page.search_for("(", clip=pymupdf.Rect(boxes["f7"]["rect"]))[0]
+        assert job.x0 > paren.x1  # 괄호 안

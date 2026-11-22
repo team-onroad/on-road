@@ -31,7 +31,8 @@ from formguide.schema import FormField, FormSpec
 
 _SPACE_RE = re.compile(r"[\s\x00]+")  # HWP 에서 바꾼 PDF 는 띄어쓰기 자리에 \x00 이 들어 있다
 # 셀에 원래 적힌 안내 글자만 있으면 빈 셀로 본다 (예: "    년   월   일", "(   )")
-_BLANKISH_RE = re.compile(r"^[\s년월일().:/~\-·]*$")
+# "만    세", "      원", "     개월" 처럼 단위만 적힌 칸도 값을 쓰는 칸이다 (이력서 · 신청서)
+_BLANKISH_RE = re.compile(r"^(?:[\s년월일().:/~\-·]|만|세|원|명|개월|시간|호|층|회)*$")
 _SECTION_RE = re.compile(r"^\s*\d+\s*\.\s*\S")
 _OPTION_RE = re.compile(r"\[\s*\]\s*([^\[\]()]+)")
 _WORD_RE = re.compile(r"[가-힣A-Za-z]{2,}")

@@ -5,8 +5,10 @@
 칸 글자와 표 밖 문단 글자를 제자리에 쓴다. 이렇게 만든 PDF 위에 formguide/layout.py 가 값 자리를 찾고,
 내보낼 때 작성 내용을 채운다 (app/form_layouts.py).
 
-- 글꼴 · 글자 크기 · 칸 색은 따라 하지 않는다 (양식의 칸 구조와 글자 위치를 맞추는 게 목적)
-- 그림 · 도형 · 머리말은 그리지 않는다
+- 따라 하는 것: 칸 배경색, 칸 테두리(변마다 있음/없음 · 굵기 · 색 · 실선/점선/이중선), 글자 크기 · 색 · 굵게,
+  가로 정렬(왼쪽/가운데/오른쪽), 칸 안 세로 정렬 (header.xml 의 borderFill · charPr · paraPr)
+- 따라 하지 않는 것: 글꼴 모양(한글 기본 글꼴 하나로 쓴다), 그림 · 도형 · 머리말
+- 테두리가 없는 변도 표 모양을 찾을 수 있게 아주 가는 흰 선을 그려 둔다 (보이지 않음, 값 자리 찾기용)
 - 단위: hwpx 는 1/7200 인치 (HWPUNIT). PDF 포인트 = HWPUNIT / 100
 """
 
@@ -42,6 +44,99 @@ def _pt(v: str | None, default: float = 0.0) -> float:
         return default
 
 
+# ---------------- 스타일 (header.xml) ----------------
+
+_MM = 72 / 25.4
+_DASHES = {"DASH": "[3 2] 0", "DOT": "[1 1.5] 0", "DASH_DOT": "[3 1.5 1 1.5] 0", "DASH_DOT_DOT": "[3 1.5 1 1.5 1 1.5] 0",
+           "LONG_DASH": "[6 2] 0", "CIRCLE": "[1 1.5] 0"}
+
+
+@dataclass
+class _Side:
+    kind: str  # SOLID · DASH · DOUBLE … / NONE
+    width: float  # pt
+    color: tuple[float, float, float]
+
+
+@dataclass
+class _Box:
+    sides: dict[str, _Side]  # left · right · top · bottom
+    fill: tuple[float, float, float] | None
+
+
+@dataclass
+class _Char:
+    size: float
+    color: tuple[float, float, float]
+    bold: bool
+
+
+@dataclass
+class _Styles:
+    boxes: dict[str, _Box]
+    chars: dict[str, _Char]
+    aligns: dict[str, str]  # paraPr id → LEFT · CENTER · RIGHT · JUSTIFY …
+
+
+def _rgb(value: str | None) -> tuple[float, float, float] | None:
+    if not value or not re.fullmatch(r"#[0-9A-Fa-f]{6}", value):
+        return None
+    return tuple(int(value[i: i + 2], 16) / 255 for i in (1, 3, 5))  # type: ignore[return-value]
+
+
+def _width(value: str | None) -> float:
+    m = re.match(r"([\d.]+)\s*mm", value or "")
+    return max(float(m.group(1)) * _MM, 0.3) if m else BORDER
+
+
+def _styles(header: bytes | None) -> _Styles:
+    out = _Styles({}, {}, {})
+    if not header:
+        return out
+    try:
+        root = ElementTree.fromstring(header)
+    except ElementTree.ParseError:
+        return out
+    for el in root.iter():
+        tag = _tag(el)
+        if tag == "borderFill":
+            sides = {}
+            fill = None
+            for ch in el.iter():
+                t = _tag(ch)
+                if t in ("leftBorder", "rightBorder", "topBorder", "bottomBorder"):
+                    sides[t[:-6]] = _Side(ch.get("type", "NONE"), _width(ch.get("width")), _rgb(ch.get("color")) or (0, 0, 0))
+                elif t == "winBrush":
+                    fill = _rgb(ch.get("faceColor"))
+            if fill == (1.0, 1.0, 1.0):
+                fill = None
+            out.boxes[el.get("id", "")] = _Box(sides, fill)
+        elif tag == "charPr":
+            size = _pt(el.get("height"), TEXT_SIZE * 100) if el.get("height") else TEXT_SIZE
+            bold = any(_tag(ch) == "bold" for ch in el)
+            out.chars[el.get("id", "")] = _Char(min(max(size, 6.0), 28.0), _rgb(el.get("textColor")) or (0, 0, 0), bold)
+        elif tag == "paraPr":
+            align = next((ch.get("horizontal") for ch in el if _tag(ch) == "align"), None)
+            out.aligns[el.get("id", "")] = align or "LEFT"
+    return out
+
+
+def _first_style(el, styles: _Styles) -> tuple[_Char | None, str]:
+    """문단(또는 칸) 안 첫 글자의 글자 모양과 문단 정렬"""
+    char, align = None, "LEFT"
+    for p in el.iter():
+        if _tag(p) != "p":
+            continue
+        align = styles.aligns.get(p.get("paraPrIDRef", ""), "LEFT")
+        for run in p:
+            if _tag(run) == "run" and any(_tag(t) == "t" and (t.text or "").strip() for t in run):
+                char = styles.chars.get(run.get("charPrIDRef", ""))
+                break
+        if char is not None:
+            break
+    return char, align
+
+
 @dataclass
 class _Cell:
     col: int
@@ -51,6 +146,9 @@ class _Cell:
     width: float
     height: float
     text: str
+    box: str = ""  # borderFillIDRef
+    valign: str = "CENTER"
+    el: object = None
 
 
 def _own_text(p) -> str:
@@ -130,6 +228,9 @@ def _cells(tbl) -> list[_Cell]:
                 width=_pt(size.get("width") if size is not None else None),
                 height=_pt(size.get("height") if size is not None else None),
                 text=_cell_text(tc),
+                box=tc.get("borderFillIDRef", ""),
+                valign=next((x.get("vertAlign") for x in tc if _tag(x) == "subList"), None) or "CENTER",
+                el=tc,
             ))
     return out
 
@@ -155,7 +256,8 @@ def _sizes(cells: list[_Cell], n: int, pos, span, length, minimum: float) -> lis
 
 
 class _Writer:
-    def __init__(self, width: float, height: float, margins: tuple[float, float, float, float]):
+    def __init__(self, width: float, height: float, margins: tuple[float, float, float, float], styles: _Styles):
+        self.styles = styles
         self.doc = pymupdf.open()
         self.width, self.height = width, height
         self.left, self.right, self.top, self.bottom = margins
@@ -190,21 +292,42 @@ class _Writer:
             lines.append(line)
         return lines
 
-    def paragraph(self, text: str) -> None:
+    def _text(self, page, x0: float, x1: float, y: float, line: str, size: float, char: _Char | None, align: str):
+        """한 줄 쓰기 (정렬 · 색 · 굵게)"""
+        width = self.font.text_length(line.rstrip(), fontsize=size)
+        if align == "CENTER":
+            x = x0 + max((x1 - x0 - width) / 2, 0)
+        elif align == "RIGHT":
+            x = max(x1 - width, x0)
+        else:
+            x = x0
+        color = char.color if char else (0, 0, 0)
+        if char and char.bold:  # 굵은 글꼴이 없어서 글자 테두리를 조금 그려 굵게 보이게
+            page.insert_text((x, y), line, fontname=FONT_NAME, fontsize=size, color=color,
+                             render_mode=2, border_width=0.035, fill=color)
+        else:
+            page.insert_text((x, y), line, fontname=FONT_NAME, fontsize=size, color=color)
+
+    def paragraph(self, text: str, p=None) -> None:
         if not text.strip():
             self.room(EMPTY_PARA)
             self.y += EMPTY_PARA
             return
+        char, align = _first_style(p, self.styles) if p is not None else (None, "LEFT")
+        size = char.size if char else TEXT_SIZE
         # 앞 공백은 남긴다 ("      년   월   일" 처럼 공백으로 자리를 맞춘 줄)
-        for line in self._wrap(text.rstrip(), self.content_w, TEXT_SIZE):
-            h = TEXT_SIZE * LINE_GAP
+        for line in self._wrap(text.rstrip() if align == "LEFT" else text.strip(), self.content_w, size):
+            h = size * LINE_GAP
             self.room(h)
-            self.page.insert_text((self.left, self.y + TEXT_SIZE), line, fontname=FONT_NAME, fontsize=TEXT_SIZE)
+            self._text(self.page, self.left, self.left + self.content_w, self.y + size, line, size, char, align)
             self.y += h
 
-    def _cell_lines(self, text: str, width: float) -> tuple[float, list[str]]:
+    def _cell_lines(self, text: str, width: float, start: float | None = None) -> tuple[float, list[str]]:
         inner = max(width - CELL_PAD * 2, 4)
-        for size in CELL_SIZES:
+        sizes = [x for x in CELL_SIZES if start is None or x <= start]
+        if start is not None:
+            sizes = [min(start, 11.0), *sizes]
+        for size in sizes:
             lines = self._wrap(text, inner, size)
             if all(self.font.text_length(x, fontsize=size) <= inner for x in lines):
                 return size, lines
@@ -220,11 +343,13 @@ class _Writer:
         rows = _sizes(cells, n_rows, lambda c: c.row, lambda c: c.row_span, lambda c: c.height, MIN_ROW)
         scale = min(1.0, self.content_w / (sum(cols) or 1))
         cols = [w * scale for w in cols]
+        styled = {id(c): _first_style(c.el, self.styles) for c in cells}
         # 글자가 칸보다 길면 그 줄을 늘린다 (한 줄짜리 칸만)
         for c in cells:
             if c.row_span == 1 and c.text:
                 w = sum(cols[c.col: c.col + c.col_span])
-                size, lines = self._cell_lines(c.text, w)
+                char = styled[id(c)][0]
+                size, lines = self._cell_lines(c.text, w, char.size if char else None)
                 need = len(lines) * size * LINE_GAP + CELL_PAD * 2
                 rows[c.row] = max(rows[c.row], need)
         xs = [self.left]
@@ -250,17 +375,47 @@ class _Writer:
             x1 = xs[min(c.col + c.col_span, n_cols)]
             rect = pymupdf.Rect(x0, y0, x1, y0 + height)
             page = self.doc[pno]
-            page.draw_rect(rect, color=(0, 0, 0), width=BORDER)
+            self._cell_box(page, rect, self.styles.boxes.get(c.box) or self.styles.boxes.get(tbl.get("borderFillIDRef", "")))
             if c.text:
-                size, lines = self._cell_lines(c.text, rect.width)
+                char, align = styled[id(c)]
+                size, lines = self._cell_lines(c.text, rect.width, char.size if char else None)
                 block = len(lines) * size * LINE_GAP
-                ty = rect.y0 + max((rect.height - block) / 2, CELL_PAD)
+                if c.valign == "TOP":
+                    ty = rect.y0 + CELL_PAD
+                elif c.valign == "BOTTOM":
+                    ty = rect.y1 - CELL_PAD - block
+                else:
+                    ty = rect.y0 + max((rect.height - block) / 2, CELL_PAD)
                 for line in lines:
-                    page.insert_text(
-                        (rect.x0 + CELL_PAD, ty + size), line, fontname=FONT_NAME, fontsize=size,
-                    )
+                    self._text(page, rect.x0 + CELL_PAD, rect.x1 - CELL_PAD, ty + size, line, size, char, align)
                     ty += size * LINE_GAP
         self.y += 4
+
+    def _cell_box(self, page, rect: pymupdf.Rect, box: _Box | None) -> None:
+        """칸 배경색과 변마다 테두리. 스타일을 모르면 검은 실선"""
+        if box is None:
+            page.draw_rect(rect, color=(0, 0, 0), width=BORDER)
+            return
+        if box.fill:
+            page.draw_rect(rect, color=None, fill=box.fill, width=0)
+        ends = {
+            "top": (rect.tl, rect.tr), "bottom": (rect.bl, rect.br),
+            "left": (rect.tl, rect.bl), "right": (rect.tr, rect.br),
+        }
+        for name, (a, b) in ends.items():
+            side = box.sides.get(name)
+            if side is None or side.kind == "NONE":
+                # 보이지 않는 선: 값 자리 찾기(formguide/layout.py)가 표 칸을 알아보게
+                page.draw_line(a, b, color=box.fill or (1, 1, 1), width=0.1)
+                continue
+            if side.kind.startswith("DOUBLE") or side.kind in ("THICK_THIN", "THIN_THICK"):
+                gap = max(side.width, 0.8)
+                horiz = a.y == b.y
+                for off in (-gap / 2, gap / 2):
+                    shift = pymupdf.Point(0, off) if horiz else pymupdf.Point(off, 0)
+                    page.draw_line(a + shift, b + shift, color=side.color, width=max(side.width / 2, 0.3))
+                continue
+            page.draw_line(a, b, color=side.color, width=side.width, dashes=_DASHES.get(side.kind))
 
     def to_bytes(self) -> bytes:
         self.doc.subset_fonts()
@@ -301,10 +456,10 @@ def _body(root, writer: _Writer) -> None:
                     text.append(_own_text_t(ch))
                 elif tag == "tbl":
                     if "".join(text).strip():
-                        writer.paragraph("".join(text))
+                        writer.paragraph("".join(text), p)
                     text = []
                     writer.table(ch)
-        writer.paragraph("".join(text))
+        writer.paragraph("".join(text), p)
 
 
 def _own_text_t(t) -> str:
@@ -330,8 +485,9 @@ def render(data: bytes) -> bytes:
         if not names:
             raise ValueError("본문이 없음")
         roots = [ElementTree.fromstring(z.read(n)) for n in names]
+        header = z.read("Contents/header.xml") if "Contents/header.xml" in z.namelist() else None
     width, height, margins = _page_setup(roots[0])
-    writer = _Writer(width, height, margins)
+    writer = _Writer(width, height, margins, _styles(header))
     for i, root in enumerate(roots):
         if i:
             writer.new_page()

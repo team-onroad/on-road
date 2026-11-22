@@ -87,6 +87,71 @@ def _clean_boxes(pdf: bytes, boxes: dict[str, dict]) -> dict[str, dict]:
     return out
 
 
+def _flat(text: str | None) -> str:
+    return "".join((text or "").split()).rstrip(":")
+
+
+def _cells(path: Path) -> dict[int, list[tuple[pymupdf.Rect, str]]]:
+    """쪽마다 표 칸 (위치, 글자). 값 자리 찾기와 같은 표 읽기(formguide/layout.py)를 쓴다"""
+    import pdfplumber
+    from formguide.layout import _cells as grids
+
+    out: dict[int, list[tuple[pymupdf.Rect, str]]] = {}
+    with pdfplumber.open(path) as pdf:
+        for grid in grids(pdf):
+            for row in grid:
+                for c in row:
+                    if c is not None:
+                        out.setdefault(c.page, []).append((pymupdf.Rect(c.bbox), _flat(c.text)))
+    return out
+
+
+def _fix_rows(path: Path, fields: list[dict], boxes: dict[str, dict]) -> dict[str, dict]:
+    """표 칸 다듬기
+    - 반복 줄 (학력 1 · 학력 2 의 "기간" · "학교명"): 앞 줄 칸 바로 아래 칸을 다음 줄 자리로
+    - 칸 이름만 적힌 칸 안에 잡힌 자리는 버린다 (항목 칸을 침범하지 않게, 별지에 적는다)"""
+    cells = _cells(path)
+    out = dict(boxes)
+    last_below: dict[str, dict] = {}
+    for f in fields:
+        fid, label = f["field_id"], _flat(f["label"])
+        box = out.get(fid)
+        prev = last_below.get(label)
+        if prev is not None and (box is None or box.get("how") in ("text_right", "cell_inline", "table_below")):
+            px0, _, px1, py1 = prev["rect"]
+            under = [
+                (r, t) for r, t in cells.get(prev["page"], [])
+                if abs(r.y0 - py1) < 3 and r.x0 < (px0 + px1) / 2 < r.x1
+            ]
+            if under and (box is None or box.get("how") != "table_below" or box["rect"] == prev["rect"]):
+                r, t = under[0]
+                box = {"page": prev["page"], "rect": [round(v, 1) for v in r], "how": "table_below",
+                       "template_text": t or None}
+                out[fid] = box
+        if box and box.get("how") in ("text_right", "cell_inline"):
+            cx = (box["rect"][0] + box["rect"][2]) / 2
+            cy = (box["rect"][1] + box["rect"][3]) / 2
+            home = [(r, t) for r, t in cells.get(box["page"], []) if r.x0 <= cx <= r.x1 and r.y0 <= cy <= r.y1]
+            if home and label and home[0][1] in (label, label + ":"):
+                # 칸 이름 칸 안이면 쓰지 않는다. 바로 아래 빈 칸이 있으면 그 칸 (머리줄 아래에 쓰는 표)
+                hr = home[0][0]
+                below = [
+                    (r, t) for r, t in cells.get(box["page"], [])
+                    if abs(r.y0 - hr.y1) < 3 and r.x0 < (hr.x0 + hr.x1) / 2 < r.x1 and not t.strip("년월일세만~-.()/:")
+                ]
+                taken = {(b["page"], tuple(b["rect"])) for k, b in out.items() if k != fid and b}
+                below = [(r, t) for r, t in below if (box["page"], tuple(round(v, 1) for v in r)) not in taken]
+                if not below:
+                    out.pop(fid, None)
+                    continue
+                r, t = below[0]
+                box = {"page": box["page"], "rect": [round(v, 1) for v in r], "how": "table_below", "template_text": t or None}
+                out[fid] = box
+        if box and box.get("how") == "table_below":
+            last_below[label] = box
+    return out
+
+
 def attach_boxes(fields: list[dict], pdf: bytes) -> list[dict] | None:
     """칸마다 바탕 PDF 위의 값 자리(box)를 붙인 새 칸 목록.
     쓸 칸 중 자리를 찾은 칸이 너무 적으면 None (칸 이름·내용 표로 내보낸다)"""
@@ -96,7 +161,7 @@ def attach_boxes(fields: list[dict], pdf: bytes) -> list[dict] | None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "form.pdf"
             path.write_bytes(pdf)
-            boxes = _clean_boxes(pdf, locate(path, [_form_field(f) for f in fields]))
+            boxes = _fix_rows(path, fields, _clean_boxes(pdf, locate(path, [_form_field(f) for f in fields])))
     except Exception as e:
         logger.warning("양식 값 자리 찾기 실패: %s", type(e).__name__)
         return None
