@@ -1,5 +1,6 @@
 from typing import Annotated, Literal
 
+import logging
 from fastapi import APIRouter, Depends, Response, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ValidationError
@@ -28,6 +29,7 @@ from app.services import writer as service
 from app.services.users import get_user
 from db.models import Document, User
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["문서 AI"])
 
 NOT_FOUND = "USER_NOT_FOUND / DOCUMENT_NOT_FOUND"
@@ -267,7 +269,11 @@ def download(target: QueryTarget, db: DB, format: Literal["pdf", "docx"] = "pdf"
     if format == "docx":
         data = doc_export.render_docx(doc.title, rows)
     elif doc_export.has_layout(pdf := service.original_pdf(doc), rows):
-        data = doc_export.render_overlay(pdf, doc.title, rows)
+        try:
+            data = doc_export.render_overlay(pdf, doc.title, rows)
+        except Exception as e:  # 원본 규격에 못 쓰면 칸 이름 · 내용 표 PDF 로라도 받게 한다
+            logger.warning("원본 규격 PDF 만들기 실패 (document %s): %s", doc.id, type(e).__name__)
+            data = doc_export.render_pdf(doc.title, rows)
     else:
         data = doc_export.render_pdf(doc.title, rows)
     filename = f"document-{doc.id}.{format}"

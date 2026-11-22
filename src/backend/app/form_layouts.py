@@ -262,7 +262,11 @@ def from_structure(llm_fields: list[dict], pdf: bytes) -> list[dict] | None:
     표가 없으면 None"""
     from app import form_upload
 
-    found = slots(pdf)
+    try:
+        found = slots(pdf)
+    except Exception as e:  # 표를 못 읽는 PDF 여도 올리기는 된다: 칸 이름으로 자리를 찾는 방식으로
+        logger.warning("양식 표 구조 읽기 실패: %s", type(e).__name__)
+        return None
     if not found:
         return None
     pool = list(llm_fields)
@@ -285,8 +289,11 @@ def from_structure(llm_fields: list[dict], pdf: bytes) -> list[dict] | None:
         if not kind:
             flat = _flat_label(slot["label"])
             kind = next((t for words, t in _TYPE_WORDS if any(w in flat for w in words)), "text")
+        # 칸 이름은 AI 가 읽은 이름이 같은 칸이면 그 이름 ("성 명" 처럼 칸 글자 사이 띄어쓰기 대신 "성명")
+        label = hint["label"] if hint and _flat_label(hint["label"]) == _flat_label(slot["label"]) else slot["label"]
+        slot["label"] = label
         raw.append({
-            "label": slot["label"], "section": slot["section"], "type": kind,
+            "label": label, "section": slot["section"], "type": kind,
             "guide": hint.get("guide") if hint else None, "example": hint.get("example") if hint else None,
             "options": hint.get("options") if hint else None, "required": hint.get("required") if hint else None,
         })
@@ -296,7 +303,19 @@ def from_structure(llm_fields: list[dict], pdf: bytes) -> list[dict] | None:
         slot = by_key.get((_flat_label(f.get("section")), _flat_label(f["label"])))
         if slot:
             f["box"] = {"page": slot["page"], "rect": slot["rect"], "how": "table_slot", "template_text": slot["template"]}
-    # 표 밖 칸 (AI 가 읽은 것 중 남은 것): 신청일 줄 · 서명 등
+    # 표 밖 칸 · 표에서 자리를 못 찾은 칸 (AI 가 읽은 것 중 남은 것): 신청일 줄 · 서명 · 선택 칸 등.
+    # 자리를 못 찾아도 버리지 않는다 (내보낼 때 별지에 적는다). 위에서 만든 표 칸과 같은 칸이면 빼서 두 번 묻지 않는다
+    def same_as_slot(f: dict) -> bool:
+        flat, sec = _flat_label(f["label"]), _flat_label(f.get("section"))
+        for s in found:
+            s_label, s_sec = _flat_label(s["label"]), _flat_label(s["section"])
+            if flat in (s_label, s_sec + s_label):
+                return True
+            # "대리인 성명" ↔ 대리인 묶음의 "성명"
+            if s_label and flat.endswith(s_label) and s_sec and (s_sec in flat or s_sec == sec):
+                return True
+        return False
+
     rest = [f for f in pool if f.get("value_source") in ("profile", "user", "handwrite")]
     if rest:
         located = attach_boxes(rest, pdf, structure=False, gate=False) or [{**f, "box": None} for f in rest]
@@ -306,8 +325,9 @@ def from_structure(llm_fields: list[dict], pdf: bytes) -> list[dict] | None:
             # 표 값 칸과 겹치는 자리는 이미 위에서 쓴 칸 (같은 칸을 두 번 쓰지 않게)
             if box and any(pymupdf.Rect(box["rect"]).intersects(u) for u in used):
                 continue
-            if box or f.get("value_source") == "handwrite":
-                fields.append(f)
+            if not box and same_as_slot(f):
+                continue
+            fields.append(f)
     for i, f in enumerate(fields, 1):
         f["field_id"] = f"f{i}"
     return fields

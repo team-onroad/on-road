@@ -222,3 +222,5 @@ data/chroma/
 
 # 신청서 작성 도우미 작업 파일 (내려받은 양식·변환 PDF)
 data/forms/_work/
+.env.*
+!.env.example

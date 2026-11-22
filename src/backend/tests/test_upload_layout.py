@@ -262,3 +262,50 @@ def test_unit_suffix_cells_put_value_before_unit():
                 assert x("4.1") < x("/") and x("18") < unit_x
             else:
                 assert "3200만원" in text
+
+
+def test_official_form_keeps_every_field_ai_read():
+    """실제 자립수당 신청서 PDF: 표 구조로 나눠도 AI 가 읽은 칸(통지방법 · 동의 · 유의사항 등 자리를 못 찾은 칸 포함)을 버리지 않는다"""
+    import json
+    from pathlib import Path
+
+    from app import form_upload
+
+    root = Path(__file__).resolve().parents[3] / "data" / "forms"
+    spec = json.loads((root / "P001-apply.json").read_text(encoding="utf-8"))
+    raw = [{"label": f["label"], "section": f.get("section"), "type": f.get("input_type", "text"), "options": f.get("options")}
+           for f in spec["fields"]]
+    pdf = (root / "P001-apply.pdf").read_bytes()
+    llm = form_upload.to_fields(raw, None)
+    old = form_layouts.attach_boxes(llm, pdf)
+    new = form_layouts.from_structure(llm, pdf)
+    writable = lambda fs: [f for f in fs if f["value_source"] in ("profile", "user")]
+    assert len(writable(new)) >= len(writable(old))
+    labels = {f["label"] for f in new}
+    assert {"통지방법", "동의함/동의하지 않음", "유의사항 확인"} <= labels
+    # 대리인 묶음의 "성명" 칸이 있으니 "대리인 성명" 을 따로 또 묻지 않는다
+    assert "대리인 성명" not in labels and any(f["label"] == "성명" and f.get("section") == "대리인" for f in new)
+
+
+def test_broken_table_reading_falls_back(monkeypatch):
+    """표 구조 읽기가 실패해도 올리기는 된다 (칸 이름으로 자리 찾기로)"""
+    def boom(_pdf):
+        raise ValueError("bad pdf")
+    monkeypatch.setattr(form_layouts, "slots", boom)
+    assert form_layouts.from_structure([], hwpx_render.render(build())) is None
+
+
+def test_overlay_failure_still_downloads_pdf(api, db_session, doc_llm, monkeypatch):
+    """원본 규격 그리기가 실패해도 PDF 받기는 된다 (칸 이름 · 내용 표 PDF 로)"""
+    from app import doc_export
+
+    user = make_user(db_session, name="김민수", phone="01012345678")
+    doc_llm.form = FORM
+    d = _up(api, user, build(), file_name="신청서.hwpx").json()
+    _fill_and_export(api, user, d)
+
+    def boom(*_a, **_k):
+        raise RuntimeError("draw failed")
+    monkeypatch.setattr(doc_export, "render_overlay", boom)
+    r = api.get(f"/api/documents/{d['document_id']}/file?user_id={user.id}&format=pdf")
+    assert r.status_code == 200 and r.content[:4] == b"%PDF"
