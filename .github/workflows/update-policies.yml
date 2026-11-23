@@ -1,0 +1,93 @@
+# 정책 데이터 자동 갱신: 매주 정부24 수집 → 쉬운 말 변환 → 노출 칸 반영 → 시드 검사 (src/collector/pipeline.py)
+# 바뀐 것이 있으면 develop 으로 PR 을 연다 (설명 = 갱신 보고서). 합치면 Render 가 다시 배포하며 검색 색인을 새로 만든다.
+#
+# 처음 한 번 저장소 설정이 필요하다 (Settings):
+# - Secrets and variables → Actions → Repository secrets: OPENAI_API_KEY, DATA_GO_KR_SERVICE_KEY
+# - Actions → General → Workflow permissions: "Allow GitHub Actions to create and approve pull requests" 켜기
+# 손으로 돌리기: Actions → 정책 데이터 자동 갱신 → Run workflow (미리보기 · 비용 상한 고를 수 있음)
+# 주의: GitHub 는 예약 실행(schedule)과 Run workflow 버튼을 기본 브랜치(main)에 있는 파일로만 켠다.
+#       develop 에만 있으면 돌지 않는다 → main 에 합쳐진 뒤부터 동작 (갱신 자체는 develop 을 받아서 develop 으로 PR)
+name: 정책 데이터 자동 갱신
+
+on:
+  schedule:
+    - cron: "0 18 * * 0"  # 매주 월요일 03:00 (한국 시간). 공공데이터 하루 요청 한도를 다른 작업과 나눠 쓰므로 새벽에
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "미리보기만 (파일 · PR 없음)"
+        type: boolean
+        default: false
+      max_won:
+        description: "쉬운 말 변환 비용 상한 (원)"
+        default: "3000"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-policies
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: src/backend/requirements.txt
+
+      - name: 패키지 설치
+        run: pip install -r src/backend/requirements.txt
+
+      - name: 갱신 (수집 → 변환 → 반영 → 검사)
+        id: pipeline
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+          EASYTEXT_MODEL: gpt-4o  # src/easytext/README: gpt-4o-mini 는 출처 메모를 옮기거나 문장을 자르는 일이 많음
+          EASYTEXT_JUDGE_MODEL: gpt-4o
+          TZ: Asia/Seoul
+        run: |
+          cd src
+          args="--max-won ${{ inputs.max_won || '3000' }}"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then args="$args --dry-run"; fi
+          # 중간에 멈춰도(수집 실패 등) 보고서는 남기고, 마지막 단계에서 실패로 표시한다
+          python -m collector.pipeline $args || echo "failed=1" >> "$GITHUB_OUTPUT"
+
+      - name: 바뀐 데이터로 PR 만들기
+        if: ${{ inputs.dry_run != true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 보고서만 바뀐 것은 빼고 본다 (확인일 checked_at 이 바뀌는 것은 '원문을 다시 확인함'이라 PR 로 올린다)
+          if git diff --quiet -- data ':!data/collected/pipeline_report.md' \
+             && [ -z "$(git ls-files --others --exclude-standard data)" ]; then
+            echo "바뀐 데이터 없음"; exit 0
+          fi
+          # 브랜치 하나에 매번 새 결과를 덮어쓴다: 날짜마다 브랜치를 만들면 안 합친 PR 이 쌓여 policies.json 에서 서로 충돌
+          branch="auto/policy-update"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add data/policies/policies.json data/collected data/easy_text data/policy_facts
+          git commit -m "정책 데이터 자동 갱신 $(date +%F)"
+          git push --force origin "$branch"
+          gh pr create --base develop --head "$branch" \
+            --title "정책 데이터 자동 갱신 $(date +%F)" \
+            --body-file data/collected/pipeline_report.md \
+            || gh pr edit "$branch" --body-file data/collected/pipeline_report.md
+
+      - name: 갱신이 중간에 멈췄으면 실패로 표시
+        if: ${{ steps.pipeline.outputs.failed == '1' }}
+        run: |
+          echo "갱신 중 실패한 단계가 있음 (위 보고서 참고)"
+          exit 1
