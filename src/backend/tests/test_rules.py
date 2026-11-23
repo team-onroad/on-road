@@ -191,8 +191,19 @@ def test_eligibility_for_uses_agency():
 
     from app.services.policies import eligibility_for
 
-    user = SimpleNamespace(birth_date=date(2005, 1, 1), region="서울")
+    user = SimpleNamespace(birth_date=date(2005, 1, 1), region="서울", has_children=False, has_siblings=False)
     local = SimpleNamespace(age_min=None, age_max=None, region="서울", agency="서울특별시 서초구")
     sido = SimpleNamespace(age_min=None, age_max=None, region="서울", agency="서울특별시")
     assert eligibility_for(user, local, date(2026, 11, 22)).status == "needs_check"
     assert eligibility_for(user, sido, date(2026, 11, 22)).status == "match"
+
+
+@pytest.mark.parametrize("family, age_max, expected", [
+    (False, 17, ("excluded", "excluded")),  # 21세 · 아동 정책 · 가족 없음 → 빠짐
+    (True, 17, ("needs_check", "needs_check")),  # 자녀 · 동생이 있으면 아동 정책은 '가족 기준 확인'
+    (True, 29, ("match", "match")),  # 아동 정책이 아니면 그대로
+    (True, 19, ("excluded", "excluded")),  # 상한이 17 넘으면 아동 정책이 아님 → 본인 나이로
+])
+def test_family_sees_child_policies(family, age_max, expected):
+    r = judge_eligibility(21, "서울", None, age_max, "서울", family=family)
+    assert (r["status"], r["age"]) == expected

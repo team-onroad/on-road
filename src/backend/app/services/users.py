@@ -50,6 +50,8 @@ def to_response(user: User, today: date) -> UserResponse:
         d_date=user.d_date,
         d_day=calc_d_day(user.d_date, today),
         work=user.work,
+        has_children=user.has_children,
+        has_siblings=user.has_siblings,
         created_at=user.created_at,
         updated_at=user.updated_at,
     )

@@ -333,6 +333,6 @@ def test_more_than_20_domains_are_searched_in_groups(monkeypatch):
 
 
 def test_web_uses_same_age_rules():
-    """웹 수집도 정부24 와 같은 나이 규칙 (11/23): 대상이 '보호종료 5년 이내 자립준비청년 대학생' → 보호가 끝난 청년 15세~"""
+    """웹 수집도 정부24 와 같은 나이 규칙 (11/23): 대상이 '보호종료 5년 이내 자립준비청년 대학생' → 보호가 끝난 청년 15~29세"""
     p = _convert().policy
-    assert (p["age_min"], p["age_max"]) == (15, None) and any(n.startswith("나이 15세~") for n in _convert().notes)
+    assert (p["age_min"], p["age_max"]) == (15, 29) and any(n.startswith("나이 15~29세") for n in _convert().notes)

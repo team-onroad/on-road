@@ -87,6 +87,9 @@ class User(Base):
     stage: Mapped[str] = mapped_column(String(10), nullable=False)
     d_date: Mapped[date | None] = mapped_column(Date)
     work: Mapped[str | None] = mapped_column(String(20))  # student | working | job_seeking | resting
+    # 자녀 · 보호 중인 동생(형제자매)이 있으면 아동 대상 정책(나이 상한 17세 이하)도 '가족을 위한 정책'으로 보여 준다
+    has_children: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"), default=False)
+    has_siblings: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"), default=False)
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
 

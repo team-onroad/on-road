@@ -63,6 +63,7 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | status | VARCHAR(20) | NOT NULL, 코드값 | 현재 상태 |
 | stage | VARCHAR(10) | NOT NULL, 코드값 | 성장 단계. 서버가 계산해서 저장 (5.2) |
 | d_date | DATE | NULL 허용 | D-day 기준일. 퇴소 전에는 퇴소 예정일, 퇴소 후에는 사용자가 정한 목표일 |
+| has_children / has_siblings | BOOLEAN | NOT NULL, 기본값 false | 자녀 · 보호 중인 동생(형제자매)이 있는지. 있으면 아동 대상 정책도 '가족을 위한 정책'으로 보인다 (5.3) |
 | created_at / updated_at | TIMESTAMPTZ | NOT NULL | |
 
 - 순차 ID 대신 UUID를 쓰는 이유: 로그인이 없어 ID 자체가 식별자 역할을 하므로 추측하기 어려워야 함
@@ -270,10 +271,11 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | 정책 지역이 사용자 지역과 **불일치** | `excluded` |
 
 - 시·군·구 정책: `region` 은 시/도까지라 "서울 서초구" 정책도 `region = '서울'` 로 넣어 서울 사용자 모두에게 보인다. `users.region` 도 시/도까지라 같은 구에 사는지 알 수 없어 `needs_check` 로 둔다 (`app/rules.py` `is_local_agency`, DB 칸 추가 없음)
+- 아동 대상 정책(`age_max` 17 이하): 자녀나 동생이 있는 사용자(`has_children` 또는 `has_siblings`)는 본인 나이로 `excluded` 여도 연령을 `needs_check` 로 두고 후보에 넣는다. 응답에는 `for_family = true` 가 붙어 앱이 '가족을 위한 정책'으로 묶는다 (지역 판정은 그대로)
 - 최종 판정: 하나라도 `excluded`면 제외 → 하나라도 `needs_check`면 `needs_check` → 모두 `match`면 `match`
 - `excluded` 정책은 검색 후보에서 빠진다.
 - `match`는 연령·지역만 맞는다는 뜻이다. 보호종료 여부·소득 등 다른 조건은 필터하지 않으므로, 화면에는 "기본 조건 해당 · 세부 조건은 공식 원문에서 확인"으로 안내한다.
-- `needs_check`(조건 확인 필요)는 위 시·군·구 정책의 지역 판정에서 나온다. 연령 판정에서는 나오지 않는다.
+- `needs_check`(조건 확인 필요)는 위 시·군·구 정책의 지역 판정과, 가족(자녀 · 동생)이 있는 사용자의 아동 대상 정책 연령 판정에서 나온다.
 
 <br/>
 

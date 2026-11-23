@@ -43,6 +43,14 @@ def is_outdated(checked_at: date, today: date) -> bool:
     return (today - checked_at).days > OUTDATED_DAYS
 
 
+# 아동 대상 정책: 나이 상한이 아동복지법상 아동(18세 미만) 안. 자녀 · 동생이 있는 사용자에게 '가족을 위한 정책'으로 보인다
+CHILD_AGE_MAX = 17
+
+
+def is_child_policy(age_max: int | None) -> bool:
+    return age_max is not None and age_max <= CHILD_AGE_MAX
+
+
 def judge_age(age: int, age_min: int | None, age_max: int | None) -> str:
     """만 나이가 정책 나이 범위 안이면 match, 밖이면 excluded. NULL 은 제한 없음 (db-schema.md 5.3)."""
     if age_min is not None and age < age_min:
@@ -76,7 +84,7 @@ def is_local_agency(agency: str | None) -> bool:
 
 def judge_eligibility(
     age: int, user_region: str, age_min: int | None, age_max: int | None, policy_region: str,
-    local: bool = False,
+    local: bool = False, family: bool = False,
 ) -> dict[str, str]:
     """조건 판정. 하나라도 excluded 면 excluded, 모두 match 면 match.
 
@@ -86,6 +94,9 @@ def judge_eligibility(
         "age": judge_age(age, age_min, age_max),
         "region": judge_region(user_region, policy_region, local),
     }
+    # 자녀 · 동생이 있으면 아동 대상 정책은 본인 나이로 빼지 않고 '가족 기준 확인'(needs_check)으로 둔다
+    if family and parts["age"] == "excluded" and is_child_policy(age_max):
+        parts["age"] = "needs_check"
     values = parts.values()
     if "excluded" in values:
         overall = "excluded"

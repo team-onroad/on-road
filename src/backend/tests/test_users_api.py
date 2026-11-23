@@ -16,7 +16,7 @@ ONBOARDING = {
 }
 RESPONSE_KEYS = {
     "user_id", "name", "birth_date", "age", "phone", "region", "status", "stage",
-    "d_date", "d_day", "work", "created_at", "updated_at",
+    "d_date", "d_day", "work", "has_children", "has_siblings", "created_at", "updated_at",
 }
 
 
@@ -63,6 +63,7 @@ def test_create_user_matches_spec_example(api, db_session):
     assert data["stage"] == "youth"
     assert data["d_date"] == "2026-11-12"
     assert data["d_day"] == 39
+    assert (data["has_children"], data["has_siblings"]) == (False, False)  # 보내지 않으면 false
     assert datetime.fromisoformat(data["created_at"]).utcoffset().total_seconds() == 9 * 3600
 
     row = _db_user(db_session, data["user_id"])
@@ -420,3 +421,14 @@ def test_validation_error_message_format(api):
     stage = _patch(api, created["user_id"], {"stage": "child"}).json()["error"]["message"]
     assert empty == "요청 값이 올바르지 않습니다."
     assert stage == "요청 값이 올바르지 않습니다. (stage)"
+
+
+def test_family_flags_update(api, db_session):
+    """자녀 · 동생 여부는 PATCH 로 바꾸고, null 은 받지 않는다"""
+    from tests.factories import make_user
+
+    user = make_user(db_session)
+    res = api.patch(f"/api/users/{user.id}", json={"has_children": True})
+    assert res.status_code == 200, res.text
+    assert (res.json()["has_children"], res.json()["has_siblings"]) == (True, False)
+    assert api.patch(f"/api/users/{user.id}", json={"has_siblings": None}).status_code == 422

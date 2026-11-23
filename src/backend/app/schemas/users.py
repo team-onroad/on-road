@@ -56,6 +56,8 @@ class UserCreate(BaseModel):
     region: Region
     status: Status
     d_date: date | None = None
+    has_children: bool = False
+    has_siblings: bool = False
 
     _dates = field_validator("birth_date", "d_date", mode="before")(_date_string_only)
     _phone_empty = field_validator("phone", mode="before")(_empty_phone_to_none)
@@ -75,13 +77,15 @@ class UserUpdate(BaseModel):
     status: Status | None = None
     d_date: date | None = None
     work: Work | None = None
+    has_children: bool | None = None
+    has_siblings: bool | None = None
 
     _dates = field_validator("birth_date", "d_date", mode="before")(_date_string_only)
     _phone_empty = field_validator("phone", mode="before")(_empty_phone_to_none)
     _phone = field_validator("phone")(_check_phone)
     _name = field_validator("name")(_normalize_name)
 
-    @field_validator("name", "birth_date", "region", "status")
+    @field_validator("name", "birth_date", "region", "status", "has_children", "has_siblings")
     @classmethod
     def _not_null(cls, v: Any) -> Any:
         # 기본값(None)은 검증하지 않으므로 이 검사는 요청에 null 을 직접 보낸 경우에만 걸린다.
@@ -108,5 +112,7 @@ class UserResponse(BaseModel):
     d_date: date | None
     d_day: int | None
     work: Work | None
+    has_children: bool
+    has_siblings: bool
     created_at: datetime
     updated_at: datetime

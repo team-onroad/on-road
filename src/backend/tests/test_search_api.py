@@ -23,7 +23,7 @@ QUESTION = "퇴소하고 나서 매달 받을 수 있는 돈이 있나요?"
 RESULT_KEYS = {
     "policy_id", "policy_key", "name", "agency", "category", "checked_at", "is_outdated",
     "eligibility", "target_description", "support_content", "support_amount", "support_period",
-    "original_text", "easy_text", "source_url", "evidences", "summary", "related",
+    "original_text", "easy_text", "source_url", "evidences", "summary", "related", "for_family",
 }
 
 
@@ -101,6 +101,21 @@ def test_answered_groups_evidences_by_policy(api, db_session, rag):
     nullable = {"support_amount", "support_period", "summary"}  # summary: 카드 요약 파일이 있을 때만
     assert all(data["results"][1][k] is not None for k in RESULT_KEYS - nullable)
     assert data["results"][1]["policy_id"] == p1.id
+
+
+def test_family_sees_child_policies_in_browse(api, db_session, rag):
+    """자녀 · 동생이 있으면 아동 대상 정책(상한 17세 이하)이 본인 정책 뒤에 for_family 로 나온다. 지역은 그대로 거른다"""
+    user = make_user(db_session)  # 성인
+    make_policy(db_session, policy_key="P001", name="자립수당")
+    make_policy(db_session, policy_key="C001", name="가정위탁아동 지원", age_max=17)
+    make_policy(db_session, policy_key="C002", name="다른 지역 아동", age_max=17, region="부산")
+
+    def keys():
+        return [(r["policy_key"], r["for_family"]) for r in api.get(f"/api/policies?user_id={user.id}").json()["results"]]
+
+    assert keys() == [("P001", False)]
+    api.patch(f"/api/users/{user.id}", json={"has_siblings": True})
+    assert keys() == [("P001", False), ("C001", True)]
 
 
 def test_related_policies_flagged(api, db_session, rag):
