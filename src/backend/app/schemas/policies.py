@@ -103,6 +103,8 @@ class SearchResult(BaseModel):
     source_url: str
     evidences: list[Evidence]
     summary: PolicySummary | None  # 카드용 짧은 요약. null 이면 target_description 등을 그대로 보여 준다
+    # 답변 근거가 아니라 질문과 뜻이 가까워 덧붙인 정책 (RAG related). 앱은 '비슷한 정책'으로 따로 보여 준다
+    related: bool = False
 
 
 class SearchResponse(BaseModel):
@@ -118,6 +120,7 @@ class RagEvidence(BaseModel):
     policy_key: str
     content: str
     score: float | None = None  # 백엔드는 사용하지 않음
+    related: bool = False  # 답변 근거가 아닌 비슷한 정책 (SearchResult.related 로 전달)
 
 
 class RagOutput(BaseModel):

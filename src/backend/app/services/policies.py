@@ -144,7 +144,7 @@ def _call_rag_now(rag: SearchPolicies, question: str, keys: list[str], answer: b
     return output
 
 
-def _result(p: Policy, user: User, today: date, evidences: list[Evidence]) -> SearchResult:
+def _result(p: Policy, user: User, today: date, evidences: list[Evidence], related: bool = False) -> SearchResult:
     return SearchResult(
         policy_id=p.id,
         policy_key=p.policy_key,
@@ -163,6 +163,7 @@ def _result(p: Policy, user: User, today: date, evidences: list[Evidence]) -> Se
         source_url=p.source_url,
         evidences=evidences,
         summary=ai_content.policy_summary(p.policy_key),
+        related=related,
     )
 
 
@@ -191,14 +192,17 @@ def search(db: Session, user: User, question: str, today: date, rag: SearchPolic
         return NO_EVIDENCE
 
     # evidences 를 policy_key 별로 묶는다. 후보 밖 policy_key 는 버리고, 처음 나온 순서를 유지한다.
+    # related(비슷한 정책)는 그 정책의 근거가 모두 related 일 때만 표시한다 (답변 근거와 겹치면 근거로 본다)
     grouped: dict[str, list[Evidence]] = {}
+    related: dict[str, bool] = {}
     for ev in output.evidences:
         if ev.policy_key in by_key:
             grouped.setdefault(ev.policy_key, []).append(Evidence(content=ev.content))
+            related[ev.policy_key] = related.get(ev.policy_key, True) and ev.related
     if not grouped:
         return NO_EVIDENCE
 
-    results = [_result(by_key[key], user, today, evidences) for key, evidences in grouped.items()]
+    results = [_result(by_key[key], user, today, evidences, related[key]) for key, evidences in grouped.items()]
     return SearchResponse(answer_status="answered", answer=output.answer if answer else None, results=results)
 
 
