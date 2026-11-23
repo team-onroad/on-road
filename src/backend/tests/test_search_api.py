@@ -103,19 +103,25 @@ def test_answered_groups_evidences_by_policy(api, db_session, rag):
     assert data["results"][1]["policy_id"] == p1.id
 
 
-def test_family_sees_child_policies_in_browse(api, db_session, rag):
-    """자녀 · 동생이 있으면 아동 대상 정책(상한 17세 이하)이 본인 정책 뒤에 for_family 로 나온다. 지역은 그대로 거른다"""
-    user = make_user(db_session)  # 성인
+def test_family_and_district_in_browse(api, db_session, rag):
+    """가족 나이가 맞는 아동 대상 정책은 본인 정책 뒤에 for_family 로, 다른 시 · 군 · 구 정책은 빠진다"""
+    user = make_user(db_session)  # 성인 · 서울
     make_policy(db_session, policy_key="P001", name="자립수당")
     make_policy(db_session, policy_key="C001", name="가정위탁아동 지원", age_max=17)
-    make_policy(db_session, policy_key="C002", name="다른 지역 아동", age_max=17, region="부산")
+    make_policy(db_session, policy_key="C002", name="중고생 지원", age_min=13, age_max=17)
+    make_policy(db_session, policy_key="C003", name="다른 지역 아동", age_max=17, region="부산")
+    make_policy(db_session, policy_key="L001", name="서초구 정착금", agency="서울특별시 서초구", region="서울")
 
     def keys():
-        return [(r["policy_key"], r["for_family"]) for r in api.get(f"/api/policies?user_id={user.id}").json()["results"]]
+        return [(r["policy_key"], r["for_family"], r["eligibility"]["status"])
+                for r in api.get(f"/api/policies?user_id={user.id}").json()["results"]]
 
-    assert keys() == [("P001", False)]
-    api.patch(f"/api/users/{user.id}", json={"has_siblings": True})
-    assert keys() == [("P001", False), ("C001", True)]
+    assert keys() == [("P001", False, "match"), ("L001", False, "needs_check")]
+    api.patch(f"/api/users/{user.id}", json={
+        "district": "강남구", "family": [{"relation": "sibling", "birth_date": "2018-01-01"}]})  # 8세 동생
+    assert keys() == [("P001", False, "match"), ("C001", True, "needs_check")]
+    api.patch(f"/api/users/{user.id}", json={"district": "서초구"})
+    assert ("L001", False, "match") in keys()
 
 
 def test_related_policies_flagged(api, db_session, rag):

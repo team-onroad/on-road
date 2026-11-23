@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.rules import calc_age, calc_d_day, calc_stage
-from app.schemas.users import UserCreate, UserResponse, UserUpdate
-from db.models import User
+from app.schemas.users import FamilyMemberIn, FamilyMemberOut, UserCreate, UserResponse, UserUpdate
+from db.models import FamilyMember, User
 
 
 def user_not_found() -> AppError:
@@ -50,16 +50,27 @@ def to_response(user: User, today: date) -> UserResponse:
         d_date=user.d_date,
         d_day=calc_d_day(user.d_date, today),
         work=user.work,
-        has_children=user.has_children,
-        has_siblings=user.has_siblings,
+        district=user.district,
+        family=[
+            FamilyMemberOut(relation=m.relation, gender=m.gender, birth_date=m.birth_date,
+                            age=calc_age(m.birth_date, today))
+            for m in user.family
+        ],
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
 
 
+def _family_rows(members: list[FamilyMemberIn], today: date) -> list[FamilyMember]:
+    for m in members:
+        _check_birth_date(m.birth_date, today)
+    return [FamilyMember(relation=m.relation, gender=m.gender, birth_date=m.birth_date) for m in members]
+
+
 def create_user(db: Session, data: UserCreate, today: date) -> User:
     _check_birth_date(data.birth_date, today)
-    user = User(**data.model_dump())
+    user = User(**data.model_dump(exclude={"family"}))
+    user.family = _family_rows(data.family, today)
     user.stage = _stage_for(user, today)
     db.add(user)
     db.commit()
@@ -78,9 +89,14 @@ def refresh_stage(db: Session, user: User, today: date) -> User:
 
 
 def update_user(db: Session, user: User, data: UserUpdate, today: date) -> User:
-    changes = data.model_dump(exclude_unset=True)
+    changes = data.model_dump(exclude_unset=True, exclude={"family"})
     if "birth_date" in changes:
         _check_birth_date(changes["birth_date"], today)
+    # 시/도를 바꾸면 예전 시 · 군 · 구는 맞지 않으니 지운다 (같은 요청에 district 가 있으면 그 값)
+    if "region" in changes and changes["region"] != user.region and "district" not in changes:
+        changes["district"] = None
+    if data.family is not None:
+        user.family = _family_rows(data.family, today)
 
     # 다른 상태 → 퇴소 후로 실제로 바뀔 때만 d_date 를 비운다. 같은 요청의 d_date 가 있으면 그 값을 저장
     becomes_left_care = changes.get("status") == "left_care" and user.status != "left_care"

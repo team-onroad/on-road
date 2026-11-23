@@ -16,7 +16,7 @@ ONBOARDING = {
 }
 RESPONSE_KEYS = {
     "user_id", "name", "birth_date", "age", "phone", "region", "status", "stage",
-    "d_date", "d_day", "work", "has_children", "has_siblings", "created_at", "updated_at",
+    "d_date", "d_day", "work", "district", "family", "created_at", "updated_at",
 }
 
 
@@ -63,7 +63,7 @@ def test_create_user_matches_spec_example(api, db_session):
     assert data["stage"] == "youth"
     assert data["d_date"] == "2026-11-12"
     assert data["d_day"] == 39
-    assert (data["has_children"], data["has_siblings"]) == (False, False)  # 보내지 않으면 false
+    assert (data["district"], data["family"]) == (None, [])  # 보내지 않으면 없음
     assert datetime.fromisoformat(data["created_at"]).utcoffset().total_seconds() == 9 * 3600
 
     row = _db_user(db_session, data["user_id"])
@@ -423,12 +423,24 @@ def test_validation_error_message_format(api):
     assert stage == "요청 값이 올바르지 않습니다. (stage)"
 
 
-def test_family_flags_update(api, db_session):
-    """자녀 · 동생 여부는 PATCH 로 바꾸고, null 은 받지 않는다"""
+def test_district_and_family_update(api, db_session):
+    """시 · 군 · 구와 가족(자녀 · 동생)은 PATCH 로 바꾼다. 가족은 보낸 목록으로 통째로 바뀐다"""
     from tests.factories import make_user
 
     user = make_user(db_session)
-    res = api.patch(f"/api/users/{user.id}", json={"has_children": True})
+    family = [{"relation": "child", "gender": "female", "birth_date": "2020-05-01"},
+              {"relation": "sibling", "birth_date": "2012-01-10"}]
+    res = api.patch(f"/api/users/{user.id}", json={"district": "서초구", "family": family})
     assert res.status_code == 200, res.text
-    assert (res.json()["has_children"], res.json()["has_siblings"]) == (True, False)
-    assert api.patch(f"/api/users/{user.id}", json={"has_siblings": None}).status_code == 422
+    data = res.json()
+    assert data["district"] == "서초구"
+    assert [(m["relation"], m["gender"], m["age"]) for m in data["family"]] == [("child", "female", 6), ("sibling", None, 14)]
+
+    # 시/도를 바꾸면 예전 시 · 군 · 구는 지운다, 빈 목록이면 가족 모두 지움
+    data = api.patch(f"/api/users/{user.id}", json={"region": "부산", "family": []}).json()
+    assert (data["district"], data["family"]) == (None, [])
+
+    assert api.patch(f"/api/users/{user.id}", json={"family": None}).status_code == 422
+    assert api.patch(f"/api/users/{user.id}", json={"district": "서초"}).status_code == 422
+    bad = [{"relation": "parent", "birth_date": "2012-01-10"}]
+    assert api.patch(f"/api/users/{user.id}", json={"family": bad}).status_code == 422

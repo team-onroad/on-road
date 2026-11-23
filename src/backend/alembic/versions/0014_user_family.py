@@ -1,4 +1,7 @@
-"""users.has_children · has_siblings: 자녀 · 보호 중인 동생(형제자매)이 있는지 → 아동 대상 정책을 '가족을 위한 정책'으로 보여 줌
+"""users.district (시·군·구) · family_members (자녀 · 동생의 관계 · 성별 · 생년월일)
+
+- district: 시 · 군 · 구 정책(담당기관이 "서울특별시 서초구")을 같은 시 · 군 · 구 사용자에게만 보이게
+- family_members: 아동 대상 정책을 가족 나이로 판정
 
 Revision ID: 0014
 Revises: 0013
@@ -15,10 +18,22 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TABLE users ADD COLUMN has_children BOOLEAN NOT NULL DEFAULT false")
-    op.execute("ALTER TABLE users ADD COLUMN has_siblings BOOLEAN NOT NULL DEFAULT false")
+    op.execute("ALTER TABLE users ADD COLUMN district VARCHAR(20)")
+    op.execute(
+        """
+        CREATE TABLE family_members (
+            id BIGSERIAL PRIMARY KEY,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            relation VARCHAR(10) NOT NULL CHECK (relation IN ('child', 'sibling')),
+            gender VARCHAR(10) CHECK (gender IN ('male', 'female')),
+            birth_date DATE NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """
+    )
+    op.execute("CREATE INDEX ix_family_members_user_id ON family_members (user_id)")
 
 
 def downgrade() -> None:
-    op.execute("ALTER TABLE users DROP COLUMN IF EXISTS has_siblings")
-    op.execute("ALTER TABLE users DROP COLUMN IF EXISTS has_children")
+    op.execute("DROP TABLE IF EXISTS family_members")
+    op.execute("ALTER TABLE users DROP COLUMN IF EXISTS district")

@@ -9,6 +9,7 @@ from app.rules import (
     calc_d_day,
     calc_stage,
     is_local_agency,
+    policy_district,
     is_outdated,
     judge_age,
     judge_eligibility,
@@ -176,34 +177,49 @@ def test_is_local_agency(agency, expected):
     assert is_local_agency(agency) is expected
 
 
-def test_local_policy_region_needs_check_in_same_sido():
-    """'서울 서초구' 정책: 서울 사용자는 같은 구인지 알 수 없어 needs_check, 다른 시/도는 excluded"""
-    assert judge_region("서울", "서울", local=True) == "needs_check"
-    assert judge_region("부산", "서울", local=True) == "excluded"
-    assert judge_region("서울", "전국", local=True) == "match"
-    assert judge_eligibility(21, "서울", None, None, "서울", local=True) == {
+def test_local_policy_region_by_district():
+    """'서울 서초구' 정책: 사용자 구를 모르면 needs_check, 같은 구면 match, 다른 구 · 다른 시/도면 excluded"""
+    assert judge_region("서울", "서울", "서초구") == "needs_check"
+    assert judge_region("서울", "서울", "서초구", "서초구") == "match"
+    assert judge_region("서울", "서울", "서초구", "강남구") == "excluded"
+    assert judge_region("부산", "서울", "서초구") == "excluded"
+    assert judge_region("서울", "전국", "서초구") == "match"
+    assert judge_eligibility(21, "서울", None, None, "서울", district="서초구") == {
         "status": "needs_check", "age": "match", "region": "needs_check"}
-    assert judge_eligibility(10, "서울", 18, None, "서울", local=True)["status"] == "excluded"  # 나이가 안 되면 excluded
+    assert judge_eligibility(10, "서울", 18, None, "서울", district="서초구")["status"] == "excluded"  # 나이가 안 되면 excluded
 
 
-def test_eligibility_for_uses_agency():
+def test_policy_district():
+    assert policy_district("서울특별시 서초구") == "서초구"
+    assert policy_district("충청북도 단양군 복지과") == "단양군"
+    assert policy_district("서울특별시") is None and policy_district("보건복지부") is None
+
+
+def test_eligibility_for_uses_agency_and_district():
     from types import SimpleNamespace
 
     from app.services.policies import eligibility_for
 
-    user = SimpleNamespace(birth_date=date(2005, 1, 1), region="서울", has_children=False, has_siblings=False)
+    today = date(2026, 11, 22)
+    user = SimpleNamespace(birth_date=date(2005, 1, 1), region="서울", district=None, family=[])
     local = SimpleNamespace(age_min=None, age_max=None, region="서울", agency="서울특별시 서초구")
     sido = SimpleNamespace(age_min=None, age_max=None, region="서울", agency="서울특별시")
-    assert eligibility_for(user, local, date(2026, 11, 22)).status == "needs_check"
-    assert eligibility_for(user, sido, date(2026, 11, 22)).status == "match"
+    assert eligibility_for(user, local, today).status == "needs_check"
+    assert eligibility_for(user, sido, today).status == "match"
+    user.district = "서초구"
+    assert eligibility_for(user, local, today).status == "match"
+    user.district = "강남구"
+    assert eligibility_for(user, local, today).status == "excluded"
 
 
-@pytest.mark.parametrize("family, age_max, expected", [
-    (False, 17, ("excluded", "excluded")),  # 21세 · 아동 정책 · 가족 없음 → 빠짐
-    (True, 17, ("needs_check", "needs_check")),  # 자녀 · 동생이 있으면 아동 정책은 '가족 기준 확인'
-    (True, 29, ("match", "match")),  # 아동 정책이 아니면 그대로
-    (True, 19, ("excluded", "excluded")),  # 상한이 17 넘으면 아동 정책이 아님 → 본인 나이로
+@pytest.mark.parametrize("family_ages, age_min, age_max, expected", [
+    ((), None, 17, ("excluded", "excluded")),  # 21세 · 아동 정책 · 가족 없음 → 빠짐
+    ((10,), None, 17, ("needs_check", "needs_check")),  # 10세 동생 → 가족 기준 확인
+    ((10,), 13, 17, ("excluded", "excluded")),  # 가족 나이가 범위 밖 (13~17세 정책)
+    ((3, 15), 13, 17, ("needs_check", "needs_check")),  # 한 명이라도 맞으면
+    ((10,), None, 29, ("match", "match")),  # 아동 정책이 아니면 본인 나이로
+    ((10,), None, 19, ("excluded", "excluded")),  # 상한이 17 넘으면 아동 정책이 아님
 ])
-def test_family_sees_child_policies(family, age_max, expected):
-    r = judge_eligibility(21, "서울", None, age_max, "서울", family=family)
+def test_family_ages_for_child_policies(family_ages, age_min, age_max, expected):
+    r = judge_eligibility(21, "서울", age_min, age_max, "서울", family_ages=family_ages)
     assert (r["status"], r["age"]) == expected

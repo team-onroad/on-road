@@ -22,7 +22,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
 from app import sealing
@@ -87,11 +87,26 @@ class User(Base):
     stage: Mapped[str] = mapped_column(String(10), nullable=False)
     d_date: Mapped[date | None] = mapped_column(Date)
     work: Mapped[str | None] = mapped_column(String(20))  # student | working | job_seeking | resting
-    # 자녀 · 보호 중인 동생(형제자매)이 있으면 아동 대상 정책(나이 상한 17세 이하)도 '가족을 위한 정책'으로 보여 준다
-    has_children: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"), default=False)
-    has_siblings: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"), default=False)
+    district: Mapped[str | None] = mapped_column(String(20))  # 시 · 군 · 구 ("서초구"). 시 · 군 · 구 정책 판정에 씀
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
+    # 자녀 · 동생 (아동 대상 정책을 가족 나이로 판정). 사용자를 지우면 같이 지운다
+    family: Mapped[list["FamilyMember"]] = relationship(
+        lazy="selectin", order_by="FamilyMember.id", cascade="all, delete-orphan", passive_deletes=True,
+    )
+
+
+class FamilyMember(Base):
+    __tablename__ = "family_members"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    relation: Mapped[str] = mapped_column(String(10), nullable=False)  # child | sibling
+    gender: Mapped[str | None] = mapped_column(String(10))  # male | female
+    birth_date: Mapped[date] = mapped_column(Date, nullable=False)
+    created_at: Mapped[datetime] = _created_at()
 
 
 class Policy(Base):

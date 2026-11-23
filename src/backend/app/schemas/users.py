@@ -47,6 +47,47 @@ def _check_phone(v: str | None) -> str | None:
     return v
 
 
+_DISTRICT_RE = re.compile(r"^\S{1,19}(시|군|구)$")
+FAMILY_MAX = 10
+
+
+def _check_district(v: str | None) -> str | None:
+    """시 · 군 · 구 이름 하나 ("서초구", "수원시", "단양군"). 빈 문자열은 null"""
+    if v is None:
+        return v
+    v = v.strip()
+    if v == "":
+        return None
+    if not _DISTRICT_RE.match(v):
+        raise ValueError("시 · 군 · 구 이름은 '서초구'처럼 시 · 군 · 구로 끝나야 합니다.")
+    return v
+
+
+class FamilyMemberIn(BaseModel):
+    """자녀 · 동생 한 명. 아동 대상 정책을 이 나이로 판정한다"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    relation: Literal["child", "sibling"]
+    gender: Literal["male", "female"] | None = None
+    birth_date: date
+
+    _dates = field_validator("birth_date", mode="before")(_date_string_only)
+
+
+def _check_family(v: list | None) -> list | None:
+    if v is not None and len(v) > FAMILY_MAX:
+        raise ValueError(f"가족은 {FAMILY_MAX}명까지 넣을 수 있습니다.")
+    return v
+
+
+class FamilyMemberOut(BaseModel):
+    relation: Literal["child", "sibling"]
+    gender: Literal["male", "female"] | None
+    birth_date: date
+    age: int
+
+
 class UserCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -56,10 +97,12 @@ class UserCreate(BaseModel):
     region: Region
     status: Status
     d_date: date | None = None
-    has_children: bool = False
-    has_siblings: bool = False
+    district: str | None = None
+    family: list[FamilyMemberIn] = []
 
     _dates = field_validator("birth_date", "d_date", mode="before")(_date_string_only)
+    _district = field_validator("district")(_check_district)
+    _family = field_validator("family")(_check_family)
     _phone_empty = field_validator("phone", mode="before")(_empty_phone_to_none)
     _phone = field_validator("phone")(_check_phone)
     _name = field_validator("name")(_normalize_name)
@@ -77,15 +120,17 @@ class UserUpdate(BaseModel):
     status: Status | None = None
     d_date: date | None = None
     work: Work | None = None
-    has_children: bool | None = None
-    has_siblings: bool | None = None
+    district: str | None = None  # null · 빈 문자열이면 지운다
+    family: list[FamilyMemberIn] | None = None  # 보낸 목록으로 통째로 바꾼다 (빈 목록이면 모두 지움)
 
+    _district = field_validator("district")(_check_district)
+    _family = field_validator("family")(_check_family)
     _dates = field_validator("birth_date", "d_date", mode="before")(_date_string_only)
     _phone_empty = field_validator("phone", mode="before")(_empty_phone_to_none)
     _phone = field_validator("phone")(_check_phone)
     _name = field_validator("name")(_normalize_name)
 
-    @field_validator("name", "birth_date", "region", "status", "has_children", "has_siblings")
+    @field_validator("name", "birth_date", "region", "status", "family")
     @classmethod
     def _not_null(cls, v: Any) -> Any:
         # 기본값(None)은 검증하지 않으므로 이 검사는 요청에 null 을 직접 보낸 경우에만 걸린다.
@@ -112,7 +157,7 @@ class UserResponse(BaseModel):
     d_date: date | None
     d_day: int | None
     work: Work | None
-    has_children: bool
-    has_siblings: bool
+    district: str | None
+    family: list[FamilyMemberOut]
     created_at: datetime
     updated_at: datetime
