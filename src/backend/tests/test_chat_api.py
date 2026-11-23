@@ -340,3 +340,26 @@ def test_profile_change_card(api, db_session, llm, rag):
 
     crisis = _chat(api, user.id, "서울로 이사했는데 죽고 싶어").json()
     assert crisis["type"] == "crisis" and "profile_changes" not in crisis or crisis["profile_changes"] == []
+
+
+def test_policy_embedding_is_prefetched_while_classifying(api, db_session, llm, rag):
+    """AI 가 정책 질문인지 판단하는 동안 검색 임베딩을 미리 만든다 (실제 RAG 함수에만 prefetch 가 있다)"""
+    user = make_user(db_session)
+    prefetched = []
+    rag.prefetch = prefetched.append
+    llm.intent = "counsel"
+    _chat(api, user.id, message="퇴소하면 받는 돈 있어?")  # 규칙으로 못 정해 AI 에게 묻는다
+    _chat(api, user.id, message="요즘 너무 힘들어")  # 규칙으로 상담 → 미리 만들지 않음
+    assert prefetched == ["퇴소하면 받는 돈 있어?"]
+
+
+def test_prefetch_masks_personal_info_like_search(api, db_session, llm, rag):
+    """미리 만들기도 검색처럼 개인정보를 가린 문장을 보낸다 (app/pii.py, OpenAI 로 나가는 글자는 모두 가림)"""
+    user = make_user(db_session)
+    make_policy(db_session)  # 후보 정책이 없으면 백엔드는 RAG 를 부르지 않는다 (api.md 4장)
+    prefetched = []
+    rag.prefetch = prefetched.append
+    llm.intent = "policy"
+    _chat(api, user.id, message="010-1234-5678 로 연락받는 퇴소 청년 지원 있어?")
+    assert prefetched and "010-1234-5678" not in prefetched[0]
+    assert rag.calls[0]["question"] == prefetched[0]  # 검색에 쓴 문장과 같아 임베딩을 다시 쓴다

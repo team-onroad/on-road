@@ -124,6 +124,8 @@ class RagOutput(BaseModel):
     status: Literal["answered", "no_evidence"]
     answer: str | None
     evidences: list[RagEvidence]
+    # 답변 AI 가 늦거나 실패해 근거 정책 안내 문장으로 대신한 결과 (캐시하지 않는다)
+    fallback: bool = False
 
 
 # ---------------- 쉬운 말 단계 (3.23) ----------------

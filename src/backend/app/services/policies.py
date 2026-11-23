@@ -13,7 +13,7 @@ from app.errors import AppError
 from app.ids import parse_id
 from app.cache import TtlCache
 from app.rag_client import SearchPolicies, get_search_policies
-from app.rules import calc_age, is_outdated, judge_eligibility
+from app.rules import calc_age, is_local_agency, is_outdated, judge_eligibility
 from app.schemas.policies import (
     EasyLevelOption,
     EasyTerm,
@@ -59,7 +59,8 @@ def get_visible_policy(db: Session, policy_id: str) -> Policy:
 def eligibility_for(user: User, policy: Policy, today: date) -> Eligibility:
     age = calc_age(user.birth_date, today)
     return Eligibility(
-        **judge_eligibility(age, user.region, policy.age_min, policy.age_max, policy.region)
+        **judge_eligibility(age, user.region, policy.age_min, policy.age_max, policy.region,
+                            local=is_local_agency(policy.agency))
     )
 
 
@@ -117,9 +118,11 @@ def _call_rag(rag: SearchPolicies, question: str, keys: list[str], answer: bool 
     # 실제 서버의 RAG 함수만 캐시한다 (테스트에서 바꿔 끼운 함수는 매번 부른다)
     if rag is not get_search_policies():
         return _call_rag_now(rag, question, keys, answer)
-    return RAG_CACHE.get_or_set(
-        (_normalize(question), tuple(sorted(keys)), answer), lambda: _call_rag_now(rag, question, keys, answer),
-    )
+    key = (_normalize(question), tuple(sorted(keys)), answer)
+    output = RAG_CACHE.get_or_set(key, lambda: _call_rag_now(rag, question, keys, answer))
+    if output.fallback:
+        RAG_CACHE.discard(key)  # 답변 AI 가 늦어 대신한 결과는 다시 쓰지 않는다 (다음엔 제대로 답하게)
+    return output
 
 
 def _call_rag_now(rag: SearchPolicies, question: str, keys: list[str], answer: bool = True) -> RagOutput:

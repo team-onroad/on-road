@@ -8,6 +8,7 @@ from app.rules import (
     calc_age,
     calc_d_day,
     calc_stage,
+    is_local_agency,
     is_outdated,
     judge_age,
     judge_eligibility,
@@ -149,3 +150,49 @@ def test_is_outdated(checked_at, expected):
     today = date(2026, 10, 4)
     assert (today - date(2026, 4, 7)).days == 180  # 경계값 확인
     assert is_outdated(checked_at, today) is expected
+
+
+# --- 시 · 군 · 구 정책 (자동 수집한 정부24 정책의 소관기관명) ---
+
+
+@pytest.mark.parametrize(
+    ("agency", "expected"),
+    [
+        ("서울특별시 서초구", True),
+        ("서울특별시 서초구 복지정책과", True),
+        ("경기도 광주시", True),
+        ("충청북도 단양군", True),
+        ("전북특별자치도 무주군", True),
+        ("보건복지부 청년정책팀", False),  # 중앙부처 (P001)
+        ("서울특별시", False),  # 시/도
+        ("경기도", False),
+        ("(재)인천인재평생교육진흥원", False),
+        ("(더미) 보건복지부", False),
+        ("", False),
+        (None, False),
+    ],
+)
+def test_is_local_agency(agency, expected):
+    assert is_local_agency(agency) is expected
+
+
+def test_local_policy_region_needs_check_in_same_sido():
+    """'서울 서초구' 정책: 서울 사용자는 같은 구인지 알 수 없어 needs_check, 다른 시/도는 excluded"""
+    assert judge_region("서울", "서울", local=True) == "needs_check"
+    assert judge_region("부산", "서울", local=True) == "excluded"
+    assert judge_region("서울", "전국", local=True) == "match"
+    assert judge_eligibility(21, "서울", None, None, "서울", local=True) == {
+        "status": "needs_check", "age": "match", "region": "needs_check"}
+    assert judge_eligibility(10, "서울", 18, None, "서울", local=True)["status"] == "excluded"  # 나이가 안 되면 excluded
+
+
+def test_eligibility_for_uses_agency():
+    from types import SimpleNamespace
+
+    from app.services.policies import eligibility_for
+
+    user = SimpleNamespace(birth_date=date(2005, 1, 1), region="서울")
+    local = SimpleNamespace(age_min=None, age_max=None, region="서울", agency="서울특별시 서초구")
+    sido = SimpleNamespace(age_min=None, age_max=None, region="서울", agency="서울특별시")
+    assert eligibility_for(user, local, date(2026, 11, 22)).status == "needs_check"
+    assert eligibility_for(user, sido, date(2026, 11, 22)).status == "match"

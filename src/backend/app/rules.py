@@ -4,6 +4,7 @@
 (stage 만 예외로 users.stage 에 저장한다)
 """
 
+import re
 from datetime import date
 
 from app.codes import NATIONWIDE
@@ -51,21 +52,39 @@ def judge_age(age: int, age_min: int | None, age_max: int | None) -> str:
     return "match"
 
 
-def judge_region(user_region: str, policy_region: str) -> str:
-    """정책 지역이 전국이거나 사용자 지역과 같으면 match, 다르면 excluded (db-schema.md 5.3)."""
-    return "match" if policy_region in (NATIONWIDE, user_region) else "excluded"
+def judge_region(user_region: str, policy_region: str, local: bool = False) -> str:
+    """정책 지역이 전국이거나 사용자 지역과 같으면 match, 다르면 excluded (db-schema.md 5.3).
+
+    local=True (시 · 군 · 구 정책): policies.region 은 시/도까지라 "서울 서초구" 정책도 region 이 '서울'이다.
+    users.region 도 시/도까지라 같은 구에 사는지 알 수 없으므로, 시/도가 같으면 match 대신 needs_check.
+    """
+    if policy_region not in (NATIONWIDE, user_region):
+        return "excluded"
+    return "needs_check" if local and policy_region != NATIONWIDE else "match"
+
+
+# 시/도 다음에 오는 시 · 군 · 구 ("서울특별시 서초구", "경기도 광주시", "충청북도 단양군 복지과")
+_SIDO_TAIL = ("특별시", "광역시", "특별자치시", "특별자치도", "통합특별시", "도")
+_SIGUNGU_RE = re.compile(r"\S+(시|군|구)$")
+
+
+def is_local_agency(agency: str | None) -> bool:
+    """담당기관이 시 · 군 · 구면 True (정부24 소관기관명 형식: "서울특별시 서초구 …"). 중앙부처 · 시/도는 False"""
+    parts = (agency or "").split()
+    return len(parts) > 1 and parts[0].endswith(_SIDO_TAIL) and bool(_SIGUNGU_RE.match(parts[1]))
 
 
 def judge_eligibility(
-    age: int, user_region: str, age_min: int | None, age_max: int | None, policy_region: str
+    age: int, user_region: str, age_min: int | None, age_max: int | None, policy_region: str,
+    local: bool = False,
 ) -> dict[str, str]:
     """조건 판정. 하나라도 excluded 면 excluded, 모두 match 면 match.
 
-    needs_check 는 현재 연령·지역 판정에서는 나오지 않는다 (이후 다른 조건을 추가할 때 사용).
+    needs_check 는 시 · 군 · 구 정책(local=True)의 지역 판정에서만 나온다 (같은 구에 사는지 앱이 알 수 없음).
     """
     parts = {
         "age": judge_age(age, age_min, age_max),
-        "region": judge_region(user_region, policy_region),
+        "region": judge_region(user_region, policy_region, local),
     }
     values = parts.values()
     if "excluded" in values:
