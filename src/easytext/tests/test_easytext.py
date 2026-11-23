@@ -669,3 +669,11 @@ def test_drop_covered_same_content_keeps_first():
     a = "18세 이후 보호가 끝난 사람은 2018년 8월 이후여야 합니다."
     b = "18세 이후 만기 또는 연장 보호가 끝난 보호종료자는 보호가 끝난 후 5년 이내여야 하며, 2018년 8월 이후여야 합니다."
     assert _drop_covered([("받는 사람", [a, b])]) == [("받는 사람", [b])]
+
+
+def test_inline_unit_markers_are_removed():
+    from easytext.convert import _tidy
+
+    # LLM 이 문장 안에 쓴 원문 단위 번호는 지운다 (원문에 없는 숫자로 걸리던 것, G084)
+    assert _tidy("온라인으로 신청할 수 있습니다(S3). 129로 문의합니다(S1, S6).") == "온라인으로 신청할 수 있습니다. 129로 문의합니다."
+    assert _tidy("매월 50만 원(세전)을 받습니다.") == "매월 50만 원(세전)을 받습니다."

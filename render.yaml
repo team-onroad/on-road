@@ -10,10 +10,13 @@ services:
     buildCommand: >-
       pip install -r src/backend/requirements.txt &&
       cd src && python -m rag.index
-    # db.seed 는 넣지 않는다: 시연 정책(P001 · 더미)을 다시 숨긴다. demo_seed 가 정책도 맞춘다
+    # db.seed: policies.json 의 정책(수집 정책 G · W 포함)을 DB 에 넣는다. --dummy-action keep 으로 더미는 그대로 두고,
+    # 그 뒤 demo_seed 가 시연 정책(P001 · 더미) 노출을 다시 맞춘다. 시드가 실패해도 이전 정책으로 서버는 켠다
+    # (policies.json 은 저장 전에 같은 시드 검사를 거침: src/collector/pipeline.py)
     startCommand: >-
       cd src/backend &&
       alembic upgrade head &&
+      (python -m db.seed --dummy-action keep || echo "[seed] 실패: 이전 정책으로 계속") &&
       python -m db.demo_seed --if-missing &&
       uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health

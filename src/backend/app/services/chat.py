@@ -8,7 +8,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app import profile_signal, sse
+from app import pii, profile_signal, sse
 from app.crisis import CRISIS_CONTACTS, CRISIS_MESSAGE, is_crisis
 from app.doc_llm import DocLlm
 from app.llm_client import Llm, ai_unavailable, call_llm
@@ -104,6 +104,12 @@ def _route(
     history = [h.model_dump() for h in body.history]
     route = _quick_route(body.message)
     intent = _quick_intent(body.message, history)
+    if intent != "counsel" and (route is None or intent is None):
+        # AI 에게 묻는 동안 정책 검색용 질문 임베딩을 미리 만든다 (정책 질문으로 판단되면 바로 검색, 실제 RAG 만)
+        prefetch = getattr(rag, "prefetch", None)
+        if prefetch is not None:
+            # 검색과 같이 개인정보를 가린 문장으로 (OpenAI 로 나가는 글자는 모두 가린다 · 기억해 둔 임베딩이 검색 때 그대로 쓰이게)
+            prefetch(pii.mask(body.message))
     with ThreadPoolExecutor(max_workers=2) as pool:
         routed_job = None if route else pool.submit(
             call_llm, "route_message", doc_llm.route_message, _check_route, body.message, history, {"screen": "chat"}

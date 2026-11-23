@@ -1,0 +1,151 @@
+{
+  "policy_key": "G056",
+  "name": "무료 소송대리 서비스(보호대상아동)",
+  "facts": [
+    {
+      "item": "target",
+      "text": "보호대상아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "무료 법률상담",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "무료 소송대리",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "온라인 신청: 대한법률구조공단 홈페이지",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "방문 신청: 예약 후 지부·출장소·지소 방문",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "전화 신청: 132",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "카카오톡 신청: '대한법률구조공단' 검색",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "period",
+      "text": "상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "보호대상아동"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "무료 법률상담",
+        "무료 소송대리"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "상시신청"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "온라인 신청: 대한법률구조공단 홈페이지"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "보호대상아동"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "보호대상아동"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "온라인 신청: 대한법률구조공단 홈페이지",
+          "방문 신청: 예약 후 지부·출장소·지소 방문",
+          "전화 신청: 132",
+          "카카오톡 신청: '대한법률구조공단' 검색"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "05538ecfbf852433",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T12:46:05+00:00"
+}

@@ -1,0 +1,132 @@
+{
+  "policy_key": "G013",
+  "name": "희망디딤돌 충북센터(자립준비청년 주거서비스 지원)",
+  "facts": [
+    {
+      "item": "target",
+      "text": "아동양육시설 등 보호아동 및 자립준비청년",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "주거(오피스텔) 지원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "자립체험(장단기) 등",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "period",
+      "text": "주거 지원 2년",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "유선 신청: 043-267-5550",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "아동양육시설 등 보호아동 및 자립준비청년"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "주거(오피스텔) 지원"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "주거 지원 2년"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "유선 신청: 043-267-5550"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "아동양육시설 등 보호아동 및 자립준비청년"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "아동양육시설 등 보호아동 및 자립준비청년"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "유선 신청: 043-267-5550",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "ab6d2f838b46d957",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:10:21+00:00"
+}

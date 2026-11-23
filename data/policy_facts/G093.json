@@ -1,0 +1,118 @@
+{
+  "policy_key": "G093",
+  "name": "생활시설아동 심리치료 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "아동복지시설 입소 아동 중 상담치료 필요한 요보호아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "심리정서 검사, 치료비 지원",
+      "src": [
+        "S1",
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "심리치료비: 1명당 월 200천 원 이내",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "사회복지시설정보시스템 통한 온라인 신청",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "개인별 신청 불가",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "아동복지시설 입소 아동 중 상담치료 필요한 요보호아동"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "심리정서 검사, 치료비 지원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "사회복지시설정보시스템 통한 온라인 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "아동복지시설 입소 아동 중 상담치료 필요한 요보호아동"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "아동복지시설 입소 아동 중 상담치료 필요한 요보호아동"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "사회복지시설정보시스템 통한 온라인 신청",
+          "개인별 신청 불가"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "b235f7ac4c9d37c4",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:17:08+00:00"
+}

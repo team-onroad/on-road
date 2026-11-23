@@ -1,0 +1,201 @@
+{
+  "policy_key": "G052",
+  "name": "보호대상아동 자립지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "가정위탁보호아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "가정위탁세대",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "시설아동 중 초·중·고 입학자",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "가정보호아동 부식비 지원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "가정보호세대 명절격려금 지원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "가정보호세대 무주택자월세비 지원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "시설보호아동 위문 지원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "신청 없이 자동 제공",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "상시신청",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "가정위탁보호 확인서 (가정보호아동 부식비)",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "가정위탁보호 확인서 (가정보호세대 명절격려금)",
+      "src": [
+        "S6"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "가정위탁보호아동"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "가정보호아동 부식비 지원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "신청 없이 자동 제공"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "가정위탁보호아동",
+          "가정위탁세대",
+          "시설아동 중 초·중·고 입학자"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "가정위탁보호아동",
+          "가정위탁세대",
+          "시설아동 중 초·중·고 입학자"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "신청 없이 자동 제공",
+          "상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "가정보호(가정위탁)아동 부식비  - 가정위탁보호 확인서": "가정위탁보호 확인서 (가정보호아동 부식비)",
+    "가정보호(가정위탁)세대 명절격려금  - 가정위탁보호 확인서": "가정위탁보호 확인서 (가정보호세대 명절격려금)"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "가정보호(가정위탁)아동 부식비",
+      "converted": "가정보호아동 부식비 지원",
+      "reason": "괄호 속 예시를 상위어로 줄임"
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "가정보호(가정위탁)세대 명절격려금",
+      "converted": "가정보호세대 명절격려금 지원",
+      "reason": "괄호 속 예시를 상위어로 줄임"
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "가정보호(가정위탁)세대 무주택자월세비 지원",
+      "converted": "가정보호세대 무주택자월세비 지원",
+      "reason": "괄호 속 예시를 상위어로 줄임"
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "요보호아동(시설보호아동) 위문 지원",
+      "converted": "시설보호아동 위문 지원",
+      "reason": "괄호 속 예시를 상위어로 줄임"
+    }
+  ],
+  "source_hash": "7b06c6ae24234645",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:14:12+00:00"
+}

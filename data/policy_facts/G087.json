@@ -1,0 +1,138 @@
+{
+  "policy_key": "G087",
+  "name": "아동복지시설 생활아동 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "아동복지시설 입소 아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "용돈, 전문서적비, 간식비 등 지급",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "아동복지시설에서 시군으로 공문 신청",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "exclusion",
+      "text": "개인 신청절차 없음",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "아동복지시설 입소 아동"
+      ]
+    },
+    {
+      "item": "exclusion",
+      "label": "받을 수 없는 경우",
+      "items": [
+        "개인 신청절차 없음"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "용돈, 전문서적비, 간식비 등 지급"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "아동복지시설에서 시군으로 공문 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "아동복지시설 입소 아동"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "개인 신청절차 없음"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "아동복지시설 입소 아동"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "개인 신청절차 없음"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "아동복지시설에서 시군으로 공문 신청",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "9e14d888301830e9",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:16:54+00:00"
+}

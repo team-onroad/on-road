@@ -1,0 +1,22 @@
+{
+  "_설명": "웹 수집(collector.web)이 읽는 믿을 만한 기관 목록. 주소(호스트)가 domain 이거나 그 하위 주소일 때만 수집한다. 가장 길게 맞는 domain 의 기관명을 출처로 쓴다. 새 기관은 공식 누리집인지 확인하고 넣는다.",
+  "sources": [
+    {"domain": "go.kr", "name": null, "type": "정부·지자체·공공기관", "note": "go.kr 로 끝나는 정부 누리집. 기관명은 아래 구체적인 항목이나 페이지의 기관명을 쓴다"},
+    {"domain": "gov.kr", "name": "정부24", "type": "정부"},
+    {"domain": "bokjiro.go.kr", "name": "복지로", "type": "정부"},
+    {"domain": "mohw.go.kr", "name": "보건복지부", "type": "정부"},
+    {"domain": "youthcenter.go.kr", "name": "온통청년", "type": "정부"},
+    {"domain": "kosaf.go.kr", "name": "한국장학재단", "type": "공공기관"},
+    {"domain": "work24.go.kr", "name": "고용24", "type": "정부"},
+    {"domain": "myhome.go.kr", "name": "마이홈포털", "type": "정부"},
+    {"domain": "seoul.go.kr", "name": "서울특별시", "type": "지자체"},
+    {"domain": "gg.go.kr", "name": "경기도", "type": "지자체"},
+    {"domain": "ncrc.or.kr", "name": "아동권리보장원", "type": "공공기관", "note": "자립정보ON 포함"},
+    {"domain": "lh.or.kr", "name": "한국토지주택공사(LH)", "type": "공공기관"},
+    {"domain": "khug.or.kr", "name": "주택도시보증공사(HUG)", "type": "공공기관"},
+    {"domain": "kinfa.or.kr", "name": "서민금융진흥원", "type": "공공기관"},
+    {"domain": "chest.or.kr", "name": "사회복지공동모금회(사랑의열매)", "type": "법정 모금기관"},
+    {"domain": "childfund.or.kr", "name": "초록우산", "type": "민간 복지재단"},
+    {"domain": "beautifulfund.org", "name": "아름다운재단", "type": "민간 공익재단"}
+  ]
+}

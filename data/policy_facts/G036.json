@@ -1,0 +1,162 @@
+{
+  "policy_key": "G036",
+  "name": "보호종료아동 자립지원 사업(자체)",
+  "facts": [
+    {
+      "item": "target",
+      "text": "논산시 거주, 2년 이상 연속 보호",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "18세 이후 만기 보호종료, 5년 이내",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "보호종료 5년 이내, 24세 이하",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "맞춤형 사례관리비: 1인 50만 원, 최대 연 2회",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "학원비·훈련장려수당: 1인 최대 연 300만 원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "자립수당 추가지원: 월 10만 원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "방문 신청: 시·군·구청 아동복지돌봄과",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청 후 1개월 이내 지급",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "18세 이후 만기 보호종료, 5년 이내"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "맞춤형 사례관리비: 1인 50만 원, 최대 연 2회"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "방문 신청: 시·군·구청 아동복지돌봄과"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "논산시 거주, 2년 이상 연속 보호",
+          "18세 이후 만기 보호종료, 5년 이내",
+          "보호종료 5년 이내, 24세 이하"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "논산시 거주, 2년 이상 연속 보호",
+          "18세 이후 만기 보호종료, 5년 이내",
+          "보호종료 5년 이내, 24세 이하"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "방문 신청: 시·군·구청 아동복지돌봄과",
+          "신청 후 1개월 이내 지급",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "학원비 및 훈련장려수당 등 지원: 1인 최대 연 300만원",
+      "converted": "학원비·훈련장려수당: 1인 최대 연 300만 원",
+      "reason": "'등 지원'이 '지원'으로 줄어듦."
+    }
+  ],
+  "source_hash": "62728aa4f3c3a90b",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:12:27+00:00"
+}

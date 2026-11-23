@@ -1,0 +1,143 @@
+{
+  "policy_key": "G086",
+  "name": "아동복지시설 생활아동 문화활동비 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "양육시설 및 공동생활가정 입소 초중고등학생",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "초등학생 30천원(1인/월)",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "중학생 50천원(1인/월)",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "고등학생 80천원(1인/월)",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "신청 없이 자동 제공",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "재학증명서 등",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "양육시설 및 공동생활가정 입소 초중고등학생"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "초등학생 30천원(1인/월)"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "신청 없이 자동 제공"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "양육시설 및 공동생활가정 입소 초중고등학생"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "양육시설 및 공동생활가정 입소 초중고등학생"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "신청 없이 자동 제공",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "재학증명서 등": "재학증명서 등"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "해당 서비스는 신청없이 자격대상자에게 자동적으로 제공됩니다.",
+      "converted": "신청 없이 자동 제공",
+      "reason": "문장이 줄어들어 표현이 간략해졌으나, 뜻은 동일함."
+    }
+  ],
+  "source_hash": "7d2b7b24f79ba57e",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:16:41+00:00"
+}

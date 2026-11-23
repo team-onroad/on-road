@@ -75,3 +75,28 @@ def test_same_search_reuses_rag(api, db_session, monkeypatch):
     second = api.post("/api/search", json={**body, "question": "자립수당 받을 수 있나요?"}).json()
     assert len(calls) == 1 and first == second
 
+
+
+def test_fallback_search_is_not_cached(api, db_session, monkeypatch):
+    """답변 AI 가 늦어 대신 안내한 결과(fallback)는 다시 쓰지 않는다 (다음 검색은 제대로 답하게)"""
+    make_policy(db_session, policy_key="allowance")
+    user = make_user(db_session)
+    calls = []
+
+    def fake_rag(question, keys, top_k=5):
+        calls.append(question)
+        return {"status": "answered", "answer": "대신 안내", "fallback": True,
+                "evidences": [{"policy_key": "allowance", "content": "근거", "score": 0.9}]}
+
+    monkeypatch.setattr(policy_service, "get_search_policies", lambda: fake_rag)
+    from app.rag_client import get_search_policies
+    from app.main import app
+
+    app.dependency_overrides[get_search_policies] = lambda: fake_rag
+    try:
+        body = {"user_id": str(user.id), "question": "자립수당 받을 수 있나요?"}
+        assert api.post("/api/search", json=body).json()["answer"] == "대신 안내"
+        api.post("/api/search", json=body)
+    finally:
+        app.dependency_overrides.pop(get_search_policies, None)
+    assert len(calls) == 2

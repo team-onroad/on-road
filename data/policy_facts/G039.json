@@ -1,0 +1,140 @@
+{
+  "policy_key": "G039",
+  "name": "아동복지시설 만기퇴소 청소년 자립정착금 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "관내 가정 위탁시설 보호종료청소년",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "보호종료청소년 1인당 200만 원 지급",
+      "src": [
+        "S1",
+        "S2",
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "해당 아동 보호시설장의 공문 신청",
+      "src": [
+        "S4"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "exclusion",
+      "text": "개인 신청절차 없음",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "관내 가정 위탁시설 보호종료청소년"
+      ]
+    },
+    {
+      "item": "exclusion",
+      "label": "받을 수 없는 경우",
+      "items": [
+        "개인 신청절차 없음"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "보호종료청소년 1인당 200만 원 지급"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "해당 아동 보호시설장의 공문 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "관내 가정 위탁시설 보호종료청소년"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "개인 신청절차 없음"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "관내 가정 위탁시설 보호종료청소년"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "개인 신청절차 없음"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "해당 아동 보호시설장의 공문 신청",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "c5d508a895113b7c",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:12:46+00:00"
+}

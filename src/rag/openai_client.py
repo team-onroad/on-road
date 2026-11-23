@@ -42,8 +42,20 @@ def stream_client() -> OpenAI:
     return _client().with_options(timeout=httpx.Timeout(STREAM_TIMEOUT, connect=5.0), max_retries=1)
 
 
+# 검색 답변 (정책 검색): 보통 3~5초. 이보다 오래 걸리면 다시 묻지 않고 끊는다.
+# 끊기면 policy_search 가 근거 정책 안내 문장으로 대신한다 (예전: 20초 + 다시 요청 = 최악 40초 넘게 기다림)
+ANSWER_TIMEOUT = 12.0
+
+
 def embed(texts: list[str]) -> list[list[float]]:
+    """인덱스 만들기용 (청크를 여러 개씩 한 번에)"""
     resp = _client().embeddings.create(model=get_rag_settings().rag_embedding_model, input=texts)
+    return [d.embedding for d in sorted(resp.data, key=lambda d: d.index)]
+
+
+def embed_query(texts: list[str]) -> list[list[float]]:
+    """검색 질문용. 보통 1초 안이라, 멈춘 듯 느리면 8초에 끊고 한 번 바로 다시 요청한다"""
+    resp = quick_client().embeddings.create(model=get_rag_settings().rag_embedding_model, input=texts)
     return [d.embedding for d in sorted(resp.data, key=lambda d: d.index)]
 
 
@@ -52,7 +64,7 @@ def generate_answer(question: str, hits: list[dict]) -> dict | None:
 
     답할 문장이 하나도 없으면 None. 검사는 guard.finalize 가 한다.
     """
-    resp = _client().chat.completions.create(
+    resp = _client().with_options(timeout=ANSWER_TIMEOUT, max_retries=0).chat.completions.create(
         model=get_rag_settings().rag_chat_model,
         temperature=0,
         max_tokens=600,

@@ -1,0 +1,109 @@
+{
+  "policy_key": "G003",
+  "name": "서리풀 희망사다리 프로젝트 자립준비청년(보호종료아동) 자립정착금 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "서초구 1년 이상 거주 자립준비청년",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "서초구 1년 이상 거주 자립준비청년 자립정착금 연 500만 원 지원",
+      "src": [
+        "S2",
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "관할 동주민센터 또는 구청 아동청년과 방문 신청",
+      "src": [
+        "S4"
+      ],
+      "key": true
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "서초구 1년 이상 거주 자립준비청년"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "서초구 1년 이상 거주 자립준비청년 자립정착금 연 500만 원 지원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "관할 동주민센터 또는 구청 아동청년과 방문 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "서초구 1년 이상 거주 자립준비청년"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "서초구 1년 이상 거주 자립준비청년"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "관할 동주민센터 또는 구청 아동청년과 방문 신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "자립준비청년(보호종료아동)",
+      "converted": "자립준비청년",
+      "reason": "자립준비청년의 정의로 포함된 '보호종료아동'이 생략됨"
+    }
+  ],
+  "source_hash": "f83fac53bf2fd21e",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:09:41+00:00"
+}

@@ -1,0 +1,143 @@
+{
+  "policy_key": "G040",
+  "name": "아동복지시설 퇴소자 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "만 18세 이후 보호종료 아동복지시설 퇴소자",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "만 18세 이후 가정위탁 보호종료아동",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "만 18세 이후 보호종료 자립정착금 지원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "방문 신청: 퇴소(예정) 아동복지시설 또는 가정위탁지원센터",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "docs",
+      "text": "자립정착금 사용계획서",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "통장사본",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "만 18세 이후 보호종료 아동복지시설 퇴소자"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "만 18세 이후 보호종료 자립정착금 지원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "방문 신청: 퇴소(예정) 아동복지시설 또는 가정위탁지원센터"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "만 18세 이후 보호종료 아동복지시설 퇴소자",
+          "만 18세 이후 가정위탁 보호종료아동"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "만 18세 이후 보호종료 아동복지시설 퇴소자",
+          "만 18세 이후 가정위탁 보호종료아동"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "방문 신청: 퇴소(예정) 아동복지시설 또는 가정위탁지원센터",
+          "상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 3,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "시군구 : 퇴소(예정)한 아동복지지설 또는 가정위탁지원센터를 통해 신청",
+      "converted": "방문 신청: 퇴소(예정) 아동복지시설 또는 가정위탁지원센터",
+      "reason": "'시군구'가 생략되어 신청 장소가 구체적이지 않음"
+    }
+  ],
+  "source_hash": "24c52614dc7d9219",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:13:06+00:00"
+}

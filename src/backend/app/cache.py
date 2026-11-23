@@ -46,6 +46,10 @@ class TtlCache(Generic[T]):
                 self._data.popitem(last=False)
         return value
 
+    def discard(self, key: Hashable) -> None:
+        with self._lock:
+            self._data.pop(key, None)
+
     def clear(self) -> None:
         with self._lock:
             self._data.clear()

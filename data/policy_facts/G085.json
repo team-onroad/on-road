@@ -1,0 +1,134 @@
+{
+  "policy_key": "G085",
+  "name": "아동복지시설 아동 맞춤형 서비스 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "아동복지시설 보호 아동 중 심리정서적 문제 행동 아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "사전, 사후 검사",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "종합심리검사",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "맞춤형 상담치료서비스 제공",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "원가족 관계개선 프로그램 등",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "민간보조사업자에게 신청",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 접수기관에 문의",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "아동복지시설 보호 아동 중 심리정서적 문제 행동 아동"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "사전, 사후 검사",
+        "종합심리검사"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "민간보조사업자에게 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "아동복지시설 보호 아동 중 심리정서적 문제 행동 아동"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "아동복지시설 보호 아동 중 심리정서적 문제 행동 아동"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "민간보조사업자에게 신청",
+          "신청기한: 접수기관에 문의"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "48146de3ff29ed43",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-22T18:12:52+00:00"
+}

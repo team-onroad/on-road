@@ -1,0 +1,172 @@
+{
+  "policy_key": "G008",
+  "name": "자립준비청년(보호종료아동) 대학생활안정자금 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "도내 양육시설, 공동생활가정, 가정위탁 보호종료아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "보호종료 5년 이내 아동 중 대학진학자",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "주민등록상 도내 거주자",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "1인 200만원(일시금)",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "등록금 납입일로부터 6개월 이내 신청",
+      "src": [
+        "S4"
+      ],
+      "key": true
+    },
+    {
+      "item": "docs",
+      "text": "신청서 및 개인정보 수집·이용동의서",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "신청자 신분증",
+      "src": [
+        "S6"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "통장사본",
+      "src": [
+        "S7"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "재학증명서",
+      "src": [
+        "S8"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "등록금 납입증명서",
+      "src": [
+        "S9"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "도내 양육시설, 공동생활가정, 가정위탁 보호종료아동",
+        "보호종료 5년 이내 아동 중 대학진학자",
+        "주민등록상 도내 거주자"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "1인 200만원(일시금)"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "등록금 납입일로부터 6개월 이내 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "도내 양육시설, 공동생활가정, 가정위탁 보호종료아동",
+          "보호종료 5년 이내 아동 중 대학진학자",
+          "주민등록상 도내 거주자"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "도내 양육시설, 공동생활가정, 가정위탁 보호종료아동",
+          "보호종료 5년 이내 아동 중 대학진학자",
+          "주민등록상 도내 거주자"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "등록금 납입일로부터 6개월 이내 신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "신청서 및 개인정보 수집·이용동의서": "신청서 및 개인정보 수집·이용동의서",
+    "신청자 신분증": "신청자 신분증",
+    "통장사본": "통장사본",
+    "재학증명서": "재학증명서",
+    "등록금 납입증명서": "등록금 납입증명서"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": false,
+  "auto_checks_passed": false,
+  "attempts": 4,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [
+      "\"1인 200만원(일시금)\": 1"
+    ],
+    "missing_units": [
+      "S2 [지원 내용] \"2023년 대학진학자부터 적용\n(지원조건)\n-「고등교육법」제2조에 따른 대학 진학자\n- 「평생교육법」제32조 및 제33조에 따라 전문대학 또는 대학졸업자와 동등한 학력·학위가 인정되는 평생교육시설(사이버대학, 학정은\""
+    ],
+    "unit_gaps": []
+  },
+  "judge_issues": null,
+  "source_hash": "2abd59782e07ec75",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-22T17:43:09+00:00"
+}

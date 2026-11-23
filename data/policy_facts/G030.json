@@ -1,0 +1,247 @@
+{
+  "policy_key": "G030",
+  "name": "보호아동 생활안정 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "18세 이상 ~ 보호종료 5년 이내 자립준비청년",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "아동복지시설 입소 아동",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "가정위탁아동",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "18세 이상 ~ 보호종료 5년 이내 대학 진학 아동",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "자립정착금 1,000만원, 2회 분할지급",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "능력개발비: 초등학교 70천원/월",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "중등학교 100천원/월, 고등학교 130천원/월",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "대학생활안정금: 연중 8개월 간 월 25만원, 대학 2년간 지원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "거주지 관할 읍/면/동 행정복지센터 방문 신청",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "정부24 온라인 신청: 거주지 시군 가능 여부 문의",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "신분증 (필수)",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "자립정착금: 지원 신청서, 자립지원계획서, 자립정착금 사용계획서",
+      "src": [
+        "S5",
+        "S6"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "아동명의 통장사본, 개인정보 수집ㆍ이용ㆍ제공 동의서",
+      "src": [
+        "S6"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "자립정착금 관련 의무교육 수료 확인서",
+      "src": [
+        "S6"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "능력개발비: 지원 신청서, 능력개발 활동 증명 서류, 통장사본",
+      "src": [
+        "S7",
+        "S8"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "대학생활안정금: 지원 신청서, 재학 및 성적 증명서, 통장사본",
+      "src": [
+        "S9",
+        "S10"
+      ],
+      "key": false
+    },
+    {
+      "item": "exclusion",
+      "text": "자립정착금 지원 불가",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "18세 이상 ~ 보호종료 5년 이내 자립준비청년"
+      ]
+    },
+    {
+      "item": "exclusion",
+      "label": "받을 수 없는 경우",
+      "items": [
+        "자립정착금 지원 불가"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "자립정착금 1,000만원, 2회 분할지급",
+        "대학생활안정금: 연중 8개월 간 월 25만원, 대학 2년간 지원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "거주지 관할 읍/면/동 행정복지센터 방문 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "18세 이상 ~ 보호종료 5년 이내 자립준비청년",
+          "아동복지시설 입소 아동",
+          "가정위탁아동",
+          "18세 이상 ~ 보호종료 5년 이내 대학 진학 아동"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "자립정착금 지원 불가"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "18세 이상 ~ 보호종료 5년 이내 자립준비청년",
+          "아동복지시설 입소 아동",
+          "가정위탁아동",
+          "18세 이상 ~ 보호종료 5년 이내 대학 진학 아동"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "자립정착금 지원 불가"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "거주지 관할 읍/면/동 행정복지센터 방문 신청",
+          "정부24 온라인 신청: 거주지 시군 가능 여부 문의"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "신분증": "신분증 (필수)",
+    ": 지원 신청서, 자립지원계획서, 자립정착금 사용계획서, 아동명의 통장사본, 개인정보 수집ㆍ이용ㆍ제공 동의서, 자립정착금 관련 의무교육 수료  확인서": "아동명의 통장사본, 개인정보 수집ㆍ이용ㆍ제공 동의서"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "1f7e5b07bd865866",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:11:58+00:00"
+}

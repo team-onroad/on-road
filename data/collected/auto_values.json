@@ -1,0 +1,590 @@
+{
+  "G001": {
+    "category": "living_cost",
+    "region": "서울",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G002": {
+    "category": "education",
+    "region": "서울",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G003": {
+    "category": "independence",
+    "region": "서울",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G004": {
+    "category": "independence",
+    "region": "서울",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G005": {
+    "category": "independence",
+    "region": "대구",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G006": {
+    "category": "independence",
+    "region": "인천",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G007": {
+    "category": "living_cost",
+    "region": "충북",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G008": {
+    "category": "education",
+    "region": "충남",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G009": {
+    "category": "independence",
+    "region": "인천",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G010": {
+    "category": "independence",
+    "region": "전남",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G011": {
+    "category": "independence",
+    "region": "대전",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G012": {
+    "category": "independence",
+    "region": "경기",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G013": {
+    "category": "housing",
+    "region": "충북",
+    "age_min": null,
+    "age_max": null
+  },
+  "G014": {
+    "category": "independence",
+    "region": "충남",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G015": {
+    "category": "independence",
+    "region": "경남",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G016": {
+    "category": "independence",
+    "region": "전북",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G017": {
+    "category": "education",
+    "region": "인천",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G018": {
+    "category": "independence",
+    "region": "전국",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G019": {
+    "category": "employment",
+    "region": "전국",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G020": {
+    "category": "medical",
+    "region": "서울",
+    "age_min": null,
+    "age_max": null
+  },
+  "G021": {
+    "category": "independence",
+    "region": "서울",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G022": {
+    "category": "independence",
+    "region": "충북",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G023": {
+    "category": "employment",
+    "region": "충남",
+    "age_min": 18,
+    "age_max": 39
+  },
+  "G024": {
+    "category": "independence",
+    "region": "경기",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G025": {
+    "category": "employment",
+    "region": "경기",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G026": {
+    "category": "employment",
+    "region": "충남",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G027": {
+    "category": "independence",
+    "region": "충북",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G028": {
+    "category": "employment",
+    "region": "인천",
+    "age_min": 18,
+    "age_max": 39
+  },
+  "G029": {
+    "category": "education",
+    "region": "경기",
+    "age_min": null,
+    "age_max": null
+  },
+  "G030": {
+    "category": "education",
+    "region": "강원",
+    "age_min": null,
+    "age_max": null
+  },
+  "G031": {
+    "category": "housing",
+    "region": "전국",
+    "age_min": null,
+    "age_max": null
+  },
+  "G032": {
+    "category": "housing",
+    "region": "전남",
+    "age_min": null,
+    "age_max": null
+  },
+  "G033": {
+    "category": "employment",
+    "region": "대전",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G034": {
+    "category": "living_cost",
+    "region": "경기",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G035": {
+    "category": "independence",
+    "region": "충북",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G036": {
+    "category": "independence",
+    "region": "충남",
+    "age_min": null,
+    "age_max": null
+  },
+  "G037": {
+    "category": "independence",
+    "region": "세종",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G038": {
+    "category": "living_cost",
+    "region": "전국",
+    "age_min": null,
+    "age_max": null
+  },
+  "G039": {
+    "category": "independence",
+    "region": "서울",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G040": {
+    "category": "independence",
+    "region": "대구",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G041": {
+    "category": "independence",
+    "region": "경기",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G042": {
+    "category": "independence",
+    "region": "경기",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G043": {
+    "category": "independence",
+    "region": "충북",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G044": {
+    "category": "independence",
+    "region": "충북",
+    "age_min": null,
+    "age_max": null
+  },
+  "G045": {
+    "category": "independence",
+    "region": "충북",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G046": {
+    "category": "independence",
+    "region": "경남",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G047": {
+    "category": "education",
+    "region": "부산",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G048": {
+    "category": "independence",
+    "region": "제주",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G049": {
+    "category": "education",
+    "region": "전국",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G050": {
+    "category": "independence",
+    "region": "서울",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G051": {
+    "category": "independence",
+    "region": "충북",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G052": {
+    "category": "independence",
+    "region": "경남",
+    "age_min": null,
+    "age_max": null
+  },
+  "G053": {
+    "category": "independence",
+    "region": "경남",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G054": {
+    "category": "living_cost",
+    "region": "대전",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G055": {
+    "category": "education",
+    "region": "제주",
+    "age_min": null,
+    "age_max": null
+  },
+  "G056": {
+    "category": "independence",
+    "region": "전국",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G057": {
+    "category": "housing",
+    "region": "충남",
+    "age_min": null,
+    "age_max": null
+  },
+  "G058": {
+    "category": "education",
+    "region": "울산",
+    "age_min": null,
+    "age_max": null
+  },
+  "G059": {
+    "category": "medical",
+    "region": "서울",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G060": {
+    "category": "independence",
+    "region": "서울",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G061": {
+    "category": "independence",
+    "region": "전남",
+    "age_min": null,
+    "age_max": null
+  },
+  "G062": {
+    "category": "independence",
+    "region": "울산",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G063": {
+    "category": "education",
+    "region": "경기",
+    "age_min": null,
+    "age_max": null
+  },
+  "G064": {
+    "category": "education",
+    "region": "경기",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G065": {
+    "category": "living_cost",
+    "region": "경기",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G066": {
+    "category": "living_cost",
+    "region": "경기",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G067": {
+    "category": "medical",
+    "region": "강원",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G068": {
+    "category": "education",
+    "region": "충북",
+    "age_min": null,
+    "age_max": null
+  },
+  "G069": {
+    "category": "education",
+    "region": "충북",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G070": {
+    "category": "independence",
+    "region": "충남",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G071": {
+    "category": "education",
+    "region": "전북",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G072": {
+    "category": "education",
+    "region": "전남",
+    "age_min": null,
+    "age_max": null
+  },
+  "G073": {
+    "category": "independence",
+    "region": "경북",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G074": {
+    "category": "education",
+    "region": "경남",
+    "age_min": null,
+    "age_max": 17
+  },
+  "G075": {
+    "category": "living_cost",
+    "region": "경남",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G076": {
+    "category": "education",
+    "region": "대구",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G077": {
+    "category": "education",
+    "region": "전남",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G078": {
+    "category": "independence",
+    "region": "전남",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G079": {
+    "category": "education",
+    "region": "전국",
+    "age_min": null,
+    "age_max": null
+  },
+  "G080": {
+    "category": "independence",
+    "region": "경기",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G081": {
+    "category": "independence",
+    "region": "강원",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G082": {
+    "category": "independence",
+    "region": "강원",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G083": {
+    "category": "independence",
+    "region": "충북",
+    "age_min": 18,
+    "age_max": null
+  },
+  "G084": {
+    "category": "finance",
+    "region": "전국",
+    "age_min": null,
+    "age_max": 17
+  },
+  "G085": {
+    "category": "medical",
+    "region": "전국",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G086": {
+    "category": "independence",
+    "region": "충북",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G087": {
+    "category": "independence",
+    "region": "전북",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G088": {
+    "category": "education",
+    "region": "제주",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G089": {
+    "category": "medical",
+    "region": "강원",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G090": {
+    "category": "education",
+    "region": "서울",
+    "age_min": 15,
+    "age_max": null
+  },
+  "G091": {
+    "category": "education",
+    "region": "전남",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G092": {
+    "category": "independence",
+    "region": "전남",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G093": {
+    "category": "medical",
+    "region": "전남",
+    "age_min": null,
+    "age_max": 24
+  },
+  "G094": {
+    "category": "housing",
+    "region": "전남",
+    "age_min": null,
+    "age_max": null
+  },
+  "G095": {
+    "category": "education",
+    "region": "전국",
+    "age_min": null,
+    "age_max": null
+  },
+  "W001": {
+    "category": "housing",
+    "region": "전국",
+    "age_min": null,
+    "age_max": null
+  },
+  "W002": {
+    "category": "housing",
+    "region": "서울",
+    "age_min": 15,
+    "age_max": null
+  },
+  "W003": {
+    "category": "medical",
+    "region": "전국",
+    "age_min": 15,
+    "age_max": null
+  }
+}

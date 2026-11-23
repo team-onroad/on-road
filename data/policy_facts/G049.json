@@ -1,0 +1,240 @@
+{
+  "policy_key": "G049",
+  "name": "고난도 보호대상아동 맞춤형 사례관리서비스",
+  "facts": [
+    {
+      "item": "target",
+      "text": "아동복지시설 보호아동 중 경계선지능 의심 또는 진단아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "경계선지능 의심: 선별체크리스트 평균 1.18점 이상",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "경계선지능 진단: 최근 2년 이내 종합심리검사 결과",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "경계선지능 의심아동: 선별비 최대 30만 원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "경계선지능 진단아동: 사례관리비 회당 35천 원, 최대 50회기",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "온라인신청: 문서24 공문 제출",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "의심아동",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "신청서",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "개인정보 수집이용제공동의서 (모든 담당자 아동 각 1부)",
+      "src": [
+        "S6",
+        "S10"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "선별 체크리스트",
+      "src": [
+        "S7"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "선별 체크리스트 1.18점 미만: 추천서",
+      "src": [
+        "S8"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "진단아동",
+      "src": [
+        "S9"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "종합심리평가보고서",
+      "src": [
+        "S11"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "지능지수 65이하, 90이상: 추천서",
+      "src": [
+        "S12"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "아동복지시설 보호아동 중 경계선지능 의심 또는 진단아동"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "경계선지능 의심아동: 선별비 최대 30만 원",
+        "경계선지능 진단아동: 사례관리비 회당 35천 원, 최대 50회기"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "온라인신청: 문서24 공문 제출"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "아동복지시설 보호아동 중 경계선지능 의심 또는 진단아동",
+          "경계선지능 의심: 선별체크리스트 평균 1.18점 이상",
+          "경계선지능 진단: 최근 2년 이내 종합심리검사 결과"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "아동복지시설 보호아동 중 경계선지능 의심 또는 진단아동",
+          "경계선지능 의심: 선별체크리스트 평균 1.18점 이상",
+          "경계선지능 진단: 최근 2년 이내 종합심리검사 결과"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "온라인신청: 문서24 공문 제출",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "의심아동": "의심아동",
+    "신청서": "신청서",
+    "선별 체크리스트": "선별 체크리스트",
+    "선별 체크리스트 ( 1.18점 미만 ) 추천서": "선별 체크리스트 1.18점 미만: 추천서",
+    "진단아동": "진단아동",
+    "종합심리평가보고서": "종합심리평가보고서",
+    "(지능지수 65이하, 90이상) 추천서": "지능지수 65이하, 90이상: 추천서"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "경계선지능 의심아동대상 선별비 지원(아동 1인당 최대 30만원)",
+      "converted": "경계선지능 의심아동: 선별비 최대 30만 원",
+      "reason": "지원 내용을 간략히 줄임."
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "경계선지능 진단아동대상 맞춤형 사례관리서비스 지원(아동 1인당 사례관리비 회당 35천원, 최대 50회기 지원)",
+      "converted": "경계선지능 진단아동: 사례관리비 회당 35천 원, 최대 50회기",
+      "reason": "지원 내용을 간략히 줄임."
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "문서24를 통한 공문 제출(https://docu.gdoc.go.kr/index.do)",
+      "converted": "문서24 공문 제출",
+      "reason": "문서24의 URL이 생략됨."
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "개인정보 수집이용제공동의서 * 신청하는 모든 담당자 아동 각 1부 씩 서명 날인 후 PDF파일로 제출",
+      "converted": "개인정보 수집이용제공동의서 (모든 담당자 아동 각 1부)",
+      "reason": "서명 날인 후 PDF파일로 제출한다는 세부사항이 생략됨."
+    }
+  ],
+  "source_hash": "ce59398553b9a00b",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:13:59+00:00"
+}

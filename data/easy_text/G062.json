@@ -1,0 +1,114 @@
+{
+  "levels": {
+    "L6": {
+      "level": "L6",
+      "level_name": "자세히",
+      "text": "[받는 것]\n가정위탁아동에게 1명당 월 10,000원을 제공합니다.\n\n[받는 사람]\n가정위탁아동은 문화누리카드 대상이 아닌 아동입니다.\n\n[받을 수 없는 경우]\n문화누리카드 대상 아동은 지원을 받을 수 없습니다.\n\n[신청 방법]\n개인 신청절차가 없으며 신청이 불가능합니다.\n\n[서류]\n신청할 때는 통장 사본 1부가 필요합니다. 재학증명서, 병원입원확인서 등도 필요할 수 있습니다.\n\n[신청 기한]\n신청기한은 반기별 신청으로 연 2회입니다.\n\n[더 알아보기]\n\n[받는 것]\n가정위탁아동에게는 월 10,000원이 제공됩니다.\n\n[문의]\n문의는 아동가족과에 전화(052-209-4351)로 할 수 있습니다.\n\n[확인 필요]\n나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+      "core_text": "[받는 것]\n가정위탁아동에게 1명당 월 10,000원을 제공합니다.\n\n[받는 사람]\n가정위탁아동은 문화누리카드 대상이 아닌 아동입니다.\n\n[받을 수 없는 경우]\n문화누리카드 대상 아동은 지원을 받을 수 없습니다.\n\n[신청 방법]\n개인 신청절차가 없으며 신청이 불가능합니다.\n\n[서류]\n신청할 때는 통장 사본 1부가 필요합니다. 재학증명서, 병원입원확인서 등도 필요할 수 있습니다.\n\n[신청 기한]\n신청기한은 반기별 신청으로 연 2회입니다.",
+      "passed": false,
+      "auto_checks_passed": true,
+      "attempts": 4,
+      "checks": {
+        "missing_facts": [],
+        "missing_details": [],
+        "missing_units": [],
+        "unit_gaps": [],
+        "condition_gaps": [],
+        "unsupported_numbers": [],
+        "tier_violations": [],
+        "style_violations": [],
+        "assertion": false,
+        "avg_eojeol": 5.6,
+        "max_eojeol": 7,
+        "core_sentences": 7,
+        "level_problems": []
+      },
+      "first_attempt_missing": [],
+      "metrics": {
+        "hard_terms_source": 3,
+        "hard_terms_converted": 2,
+        "term_reduction": 0.333,
+        "avg_eojeol_source": 3.3,
+        "avg_eojeol_converted": 5.6,
+        "length_reduction": -0.671
+      },
+      "judge_issues": [
+        {
+          "type": "changed",
+          "severity": "high",
+          "original": "개인 신청절차 없음 - 신청불가",
+          "converted": "신청할 때는 통장 사본 1부가 필요합니다. 재학증명서, 병원입원확인서 등도 필요할 수 있습니다.",
+          "reason": "원문에는 개인 신청절차가 없고 신청이 불가능하다고 명시되어 있는데, 변환문에는 신청할 때 필요한 서류가 있다고 되어 있어 개인이 신청할 수 있는 것처럼 오해할 수 있습니다."
+        }
+      ],
+      "terms": [
+        {
+          "term": "가정위탁",
+          "tier": 3,
+          "gloss": "다른 가정이 맡아 돌보는 것",
+          "count": 3
+        }
+      ],
+      "facts_used": true,
+      "verified": false,
+      "model": "gpt-4o-mini",
+      "generated_at": "2026-11-22T17:46:29+00:00"
+    },
+    "L7": {
+      "level": "L7",
+      "level_name": "꼼꼼히",
+      "text": "[받는 것]\n가정위탁아동에게 1명당 월 10,000원이 제공됩니다.\n\n[받는 사람]\n가정위탁아동은 문화누리카드 대상에서 제외된 아동입니다.\n\n[받을 수 없는 경우]\n문화누리카드 대상 아동은 지원을 받을 수 없습니다. 개인 신청절차가 없어서 신청이 불가능합니다.\n\n[신청 방법]\n개인 신청절차가 없어서 신청이 불가능합니다.\n\n[서류]\n신청을 위한 개인 신청절차가 없습니다.\n\n[신청 기한]\n신청은 반기별로 연 2회 가능합니다.\n\n[더 알아보기]\n\n[받는 것]\n매달 10,000원을 지원받습니다.\n\n[문의]\n울산광역시 동구 아동가족과에 문의하면 됩니다. 전화번호는 052-209-4351입니다.\n\n[확인 필요]\n나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+      "core_text": "[받는 것]\n가정위탁아동에게 1명당 월 10,000원이 제공됩니다.\n\n[받는 사람]\n가정위탁아동은 문화누리카드 대상에서 제외된 아동입니다.\n\n[받을 수 없는 경우]\n문화누리카드 대상 아동은 지원을 받을 수 없습니다. 개인 신청절차가 없어서 신청이 불가능합니다.\n\n[신청 방법]\n개인 신청절차가 없어서 신청이 불가능합니다.\n\n[서류]\n신청을 위한 개인 신청절차가 없습니다.\n\n[신청 기한]\n신청은 반기별로 연 2회 가능합니다.",
+      "passed": false,
+      "auto_checks_passed": true,
+      "attempts": 4,
+      "checks": {
+        "missing_facts": [],
+        "missing_details": [],
+        "missing_units": [],
+        "unit_gaps": [],
+        "condition_gaps": [],
+        "unsupported_numbers": [],
+        "tier_violations": [],
+        "style_violations": [],
+        "assertion": false,
+        "avg_eojeol": 5.3,
+        "max_eojeol": 7,
+        "core_sentences": 7,
+        "level_problems": []
+      },
+      "first_attempt_missing": [],
+      "metrics": {
+        "hard_terms_source": 3,
+        "hard_terms_converted": 2,
+        "term_reduction": 0.333,
+        "avg_eojeol_source": 3.3,
+        "avg_eojeol_converted": 5.3,
+        "length_reduction": -0.586
+      },
+      "judge_issues": [
+        {
+          "type": "changed",
+          "severity": "high",
+          "original": "신청기한: 반기별 신청(연2회)",
+          "converted": "신청은 반기별로 연 2회 가능합니다.",
+          "reason": "원문에서는 신청이 불가하다고 명시되어 있으나, 변환문에서는 신청이 가능한 것처럼 표현되어 있음."
+        }
+      ],
+      "terms": [
+        {
+          "term": "가정위탁",
+          "tier": 3,
+          "gloss": "다른 가정이 맡아 돌보는 것",
+          "count": 2
+        }
+      ],
+      "facts_used": true,
+      "verified": false,
+      "model": "gpt-4o-mini",
+      "generated_at": "2026-11-22T17:51:59+00:00"
+    }
+  },
+  "policy_key": "G062",
+  "name": "소년소녀가정 및 가정위탁아동 문화활동 지원"
+}
