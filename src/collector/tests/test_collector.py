@@ -50,7 +50,7 @@ def test_detail_becomes_seed_format_policy():
     assert p["agency"] == "보건복지부 청년정책팀"
     assert p["category"] == "living_cost" and p["region"] == "전국"
     # 원문에 나이가 없고 대상이 보호종료 자립준비청년 → 가장 이른 보호종료 나이 15세부터 (상한 없음)
-    assert p["age_min"] == 15 and p["age_max"] is None
+    assert p["age_min"] == 15 and p["age_max"] == 29
     assert p["easy_text"] is None and p["easy_text_verified"] is False  # 검수 전에는 앱에 안 보임
     assert p["target_description"].endswith("선정기준: 보호종료일 기준 2년 이상 연속 보호")
     assert "신청기한: 상시신청" in p["apply_method"] and "접수기관: 읍면동 행정복지센터" in p["apply_method"]
@@ -119,7 +119,7 @@ def test_support_condition_codes_are_not_used_as_ages():
     """지원조건 JA0110·JA0111 은 뜻이 확인되지 않음 (실제 응답: 자립준비청년 정책이 17~18) → 나이로 쓰지 않음"""
     conv = to_policy(DETAIL, "G001", TODAY, {"JA0110": 17, "JA0111": 18})
     # 지원조건의 17~18 이 아니라 대상 종류(보호종료 자립준비청년)로 정한 15세~ (11/23)
-    assert (conv.policy["age_min"], conv.policy["age_max"]) == (15, None)
+    assert (conv.policy["age_min"], conv.policy["age_max"]) == (15, 29)
     assert not any("17" in n for n in conv.notes)
 
 
@@ -513,7 +513,7 @@ def test_rule_change_relabels_untouched_policy():
     res = merge([old], [new], auto_prev={"G001": {"category": "independence", "region": "전국"}})
     p = res.policies[0]
     assert res.relabeled == ["G001"] and p["category"] == "living_cost" and p["easy_text_verified"] is True
-    assert res.auto_values["G001"] == {"category": "living_cost", "region": "전국", "age_min": 15, "age_max": None}
+    assert res.auto_values["G001"] == {"category": "living_cost", "region": "전국", "age_min": 15, "age_max": 29}
 
 
 def test_human_edited_category_is_kept_even_if_rule_changes():
@@ -529,7 +529,7 @@ def test_collect_saves_auto_values_for_next_merge(tmp_path):
                 policies_path=tmp_path / "team.json", output_path=tmp_path / "out.json",
                 collected_dir=tmp_path / "c", pause=0)
     saved = json.loads((tmp_path / "c" / "auto_values.json").read_text(encoding="utf-8"))
-    assert saved == {"G001": {"category": "living_cost", "region": "전국", "age_min": 15, "age_max": None}}
+    assert saved == {"G001": {"category": "living_cost", "region": "전국", "age_min": 15, "age_max": 29}}
 
 
 def test_support_amount_only_when_single_amount():
@@ -544,6 +544,9 @@ def test_legal_aid_is_not_medical_and_foundation_prefix_is_ignored():
     assert convert.pick_category({"서비스명": "무료 소송대리 서비스(보호대상아동)", "지원내용": "무료 법률상담"})[0] == "independence"
     assert convert.pick_region({"소관기관명": "(재)인천인재평생교육진흥원"})[0] == "인천"
     assert convert.pick_region({"소관기관명": "재단법인 경기도청소년재단"})[0] == "경기"
+    # 시 이름으로 시작하는 기관 (11/23): 전에는 '전국'으로 들어감
+    assert convert.pick_region({"소관기관명": "재단법인목포인재육성재단"})[0] == "전남"
+    assert convert.pick_region({"소관기관명": "보건복지부"})[0] == "전국"
 
 
 def test_same_criteria_not_appended():
@@ -601,13 +604,13 @@ def test_merge_ages_follow_rule_unless_human_edited():
 
 
 @pytest.mark.parametrize("name, target, content, expected", [
-    ("가정위탁아동 중고교생 교통비 지원", "○ 가정위탁아동 중 중고등학생", "", (None, 24)),  # 보호 중 아동: 보호연장 25세 전까지
-    ("생활시설아동용돈지급", "○ 아동복지시설 입소아동 중 초·중·고등학생", "", (None, 24)),
-    ("아동복지시설 퇴소자 지원", "○ 만 18세 이후 보호가 종료된 아동복지시설 및 가정위탁 보호종료아동", "", (18, None)),
-    ("아동복지시설 만기퇴소 청소년 자립정착금 지원", "○ 관내 보호종료청소년", "", (18, None)),  # 만기
-    ("보호종료아동 자립정착금 지원", "○ 만 15세 이후 아동복지시설 및 가정위탁 보호가 조기 종료되었거나", "", (15, None)),
-    ("은평자준청 운영", "○ 아동복지시설 퇴소하거나 퇴소 예정인 자립준비(예정)청년", "", (15, None)),  # 아직 보호 중
-    ("가정위탁 종결아동 자립정착금 지원", "○ 가정위탁 종결 아동", "", (15, None)),  # 나이 말이 없으면 가장 이른 15세
+    ("가정위탁아동 중고교생 교통비 지원", "○ 가정위탁아동 중 중고등학생", "", (None, 17)),  # 보호 중 아동: 18세 미만
+    ("생활시설아동용돈지급", "○ 아동복지시설 입소아동 중 초·중·고등학생", "", (None, 17)),
+    ("아동복지시설 퇴소자 지원", "○ 만 18세 이후 보호가 종료된 아동복지시설 및 가정위탁 보호종료아동", "", (18, 29)),
+    ("아동복지시설 만기퇴소 청소년 자립정착금 지원", "○ 관내 보호종료청소년", "", (18, 29)),  # 만기
+    ("보호종료아동 자립정착금 지원", "○ 만 15세 이후 아동복지시설 및 가정위탁 보호가 조기 종료되었거나", "", (15, 29)),
+    ("은평자준청 운영", "○ 아동복지시설 퇴소하거나 퇴소 예정인 자립준비(예정)청년", "", (15, 29)),  # 아직 보호 중
+    ("가정위탁 종결아동 자립정착금 지원", "○ 가정위탁 종결 아동", "", (15, 29)),  # 나이 말이 없으면 가장 이른 15세
 ])
 def test_ages_from_target_kind(name, target, content, expected):
     from collector.convert import infer_ages
@@ -638,4 +641,4 @@ def test_housing_condition_is_not_another_target():
     from collector.convert import infer_ages
 
     # '무주택' · '미혼'은 다른 대상이 아니라 조건 (W002) → 보호가 끝난 청년 · 퇴소 예정 15세~
-    assert infer_ages("보호종료아동 임대주택 지원", "아동복지시설 : 퇴소 예정이거나 퇴소한지 5년이 지나지 아니한 미혼 무주택자")[:2] == (15, None)
+    assert infer_ages("보호종료아동 임대주택 지원", "아동복지시설 : 퇴소 예정이거나 퇴소한지 5년이 지나지 아니한 미혼 무주택자")[:2] == (15, 29)

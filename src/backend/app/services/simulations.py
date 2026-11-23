@@ -27,7 +27,7 @@ from app.schemas.simulations import (
     SimulationCreate,
     SimulationResponse,
 )
-from app.services.policies import candidate_policies
+from app.services.policies import candidate_policies, for_family
 from db.models import Policy, Simulation, User
 
 
@@ -161,7 +161,9 @@ def _related_policies(db: Session, user: User, item_keys: list[str], criteria: C
 
     순서: 부족 항목 순서(기준표 순서) → 항목의 policy_categories 순서 → policy_id. 중복은 처음 것만 남긴다.
     """
-    candidates = candidate_policies(db, calc_age(user.birth_date, today), user.region)  # id 오름차순
+    # id 오름차순. 다른 시 · 군 · 구 정책은 빠지고, 가족 대상 아동 정책은 생활비 부족과 관계없어 넣지 않는다
+    candidates = [p for p in candidate_policies(db, calc_age(user.birth_date, today), user.region, user, today)
+                  if not for_family(user, p, today)]
     ordered: dict[int, Policy] = {}
     for key in item_keys:
         for category in criteria.items[key].policy_categories:
@@ -173,7 +175,7 @@ def _related_policies(db: Session, user: User, item_keys: list[str], criteria: C
 
 def _refilter_related(db: Session, user: User, policy_ids: list[int], today: date) -> list[Policy]:
     """3.14: 저장된 관련 정책 중 지금도 노출 대상이고 excluded 가 아닌 것만, 저장된 순서대로."""
-    current = {p.id: p for p in candidate_policies(db, calc_age(user.birth_date, today), user.region)}
+    current = {p.id: p for p in candidate_policies(db, calc_age(user.birth_date, today), user.region, user, today)}
     return [current[pid] for pid in policy_ids if pid in current]
 
 

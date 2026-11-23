@@ -105,6 +105,8 @@ class SearchResult(BaseModel):
     summary: PolicySummary | None  # 카드용 짧은 요약. null 이면 target_description 등을 그대로 보여 준다
     # 답변 근거가 아니라 질문과 뜻이 가까워 덧붙인 정책 (RAG related). 앱은 '비슷한 정책'으로 따로 보여 준다
     related: bool = False
+    # 본인 나이로는 빠지지만 가족(family_members) 나이가 맞는 아동 대상 정책. 앱은 따로 묶는다
+    for_family: bool = False
 
 
 class SearchResponse(BaseModel):

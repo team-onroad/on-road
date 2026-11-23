@@ -13,7 +13,7 @@ from app.errors import AppError
 from app.ids import parse_id
 from app.cache import TtlCache
 from app.rag_client import SearchPolicies, get_search_policies
-from app.rules import calc_age, is_local_agency, is_outdated, judge_eligibility
+from app.rules import CHILD_AGE_MAX, calc_age, is_child_policy, is_outdated, judge_age, judge_eligibility, policy_district
 from app.schemas.policies import (
     EasyLevelOption,
     EasyTerm,
@@ -56,11 +56,26 @@ def get_visible_policy(db: Session, policy_id: str) -> Policy:
     return policy
 
 
+def family_ages(user: User, today: date) -> list[int]:
+    """자녀 · 동생의 만 나이 (아동 대상 정책 판정에 씀)"""
+    return [calc_age(m.birth_date, today) for m in getattr(user, "family", None) or []]
+
+
+def for_family(user: User, policy: Policy, today: date) -> bool:
+    """본인 나이로는 빠지지만 가족(자녀 · 동생) 나이가 맞아 보이는 아동 대상 정책"""
+    if not is_child_policy(policy.age_max):
+        return False
+    if judge_age(calc_age(user.birth_date, today), policy.age_min, policy.age_max) != "excluded":
+        return False
+    return any(judge_age(a, policy.age_min, policy.age_max) == "match" for a in family_ages(user, today))
+
+
 def eligibility_for(user: User, policy: Policy, today: date) -> Eligibility:
     age = calc_age(user.birth_date, today)
     return Eligibility(
         **judge_eligibility(age, user.region, policy.age_min, policy.age_max, policy.region,
-                            local=is_local_agency(policy.agency))
+                            district=policy_district(policy.agency), user_district=getattr(user, "district", None),
+                            family_ages=family_ages(user, today))
     )
 
 
@@ -91,19 +106,30 @@ def to_detail(policy: Policy, today: date, user: User | None) -> PolicyDetail:
     )
 
 
-def candidate_policies(db: Session, age: int, region: str) -> list[Policy]:
-    """검색 1단계: 노출 대상 + 연령·지역 필터 (db-schema.md 1장, 5.3). excluded 정책은 빠진다."""
+def candidate_policies(db: Session, age: int, region: str, user: User | None = None,
+                       today: date | None = None) -> list[Policy]:
+    """검색 1단계: 노출 대상 + 연령·지역 필터 (db-schema.md 1장, 5.3). excluded 정책은 빠진다.
+    user 를 주면 사용자 기준으로 한 번 더 거른다: 다른 시 · 군 · 구 정책은 빼고(users.district),
+    아동 대상 정책(나이 상한 17세 이하)은 가족(자녀 · 동생) 나이가 맞으면 넣는다 (db-schema.md 5.3)"""
+    own_age = and_(
+        or_(Policy.age_min.is_(None), Policy.age_min <= age),
+        or_(Policy.age_max.is_(None), Policy.age_max >= age),
+    )
+    has_family = user is not None and bool(getattr(user, "family", None))
+    age_ok = or_(own_age, Policy.age_max <= CHILD_AGE_MAX) if has_family else own_age
     stmt = (
         select(Policy)
         .where(
             VISIBLE,
             or_(Policy.region == NATIONWIDE, Policy.region == region),
-            or_(Policy.age_min.is_(None), Policy.age_min <= age),
-            or_(Policy.age_max.is_(None), Policy.age_max >= age),
+            age_ok,
         )
         .order_by(Policy.id)
     )
-    return list(db.scalars(stmt))
+    policies = list(db.scalars(stmt))
+    if user is None:
+        return policies
+    return [p for p in policies if eligibility_for(user, p, today).status != "excluded"]
 
 
 # 같은 질문 · 같은 후보 정책이면 RAG 결과를 10분 동안 다시 쓴다 (RAG 는 몇 초 걸림)
@@ -164,6 +190,7 @@ def _result(p: Policy, user: User, today: date, evidences: list[Evidence], relat
         evidences=evidences,
         summary=ai_content.policy_summary(p.policy_key),
         related=related,
+        for_family=for_family(user, p, today),
     )
 
 
@@ -171,7 +198,10 @@ def browse(db: Session, user: User, today: date, category: str | None = None) ->
     """분야별로 보기: 내가 볼 수 있는 정책(연령 · 지역)을 분야 코드로 나눈다. 검색(RAG · AI)을 쓰지 않아 빠르고 정확하다.
     category 가 없으면 전체. 결과 형식은 검색과 같다 (근거는 비어 있음)"""
     age = calc_age(user.birth_date, today)
-    policies = [p for p in candidate_policies(db, age, user.region) if category is None or p.category == category]
+    policies = [p for p in candidate_policies(db, age, user.region, user, today)
+                if category is None or p.category == category]
+    # 가족 대상 정책은 본인 정책 뒤에 (앱이 제목을 따로 단다)
+    policies.sort(key=lambda p: for_family(user, p, today))
     if not policies:
         return NO_EVIDENCE
     return SearchResponse(
@@ -182,7 +212,7 @@ def browse(db: Session, user: User, today: date, category: str | None = None) ->
 def search(db: Session, user: User, question: str, today: date, rag: SearchPolicies, answer: bool = True) -> SearchResponse:
     """answer=False: 답변 문장 없이 정책 카드만 (분야별로 보기). 답변을 만드는 LLM 을 부르지 않아 빠르다"""
     age = calc_age(user.birth_date, today)
-    candidates = candidate_policies(db, age, user.region)
+    candidates = candidate_policies(db, age, user.region, user, today)
     if not candidates:
         return NO_EVIDENCE  # 후보가 없으면 RAG 를 호출하지 않는다 (api.md 4장)
 

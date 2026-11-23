@@ -230,9 +230,10 @@ def pick_ages(target: str) -> tuple[int | None, int | None, str | None]:
 
 
 # 원문에 나이가 없을 때: 누구를 위한 정책인지로 법에 정해진 범위를 쓴다 (11/23)
-# - 보호 중인 아동 → ~24세: 아동복지법상 아동은 18세 미만이지만 보호연장은 25세가 될 때까지 (그래서 17 이 아니라 24)
-# - 보호가 끝난 청년 → 18세~ (조기 보호종료 · 퇴소 예정이 있으면 15세~): 보호종료는 아무리 일러도 15세 이후.
-#   상한은 비운다 (보호종료 나이가 18~25세로 달라 '5년 이내'의 끝 나이가 정해지지 않음)
+# - 보호 중인 아동 → ~17세: 아동복지법상 아동(18세 미만). 보호연장(25세 전까지) 중인 청년이나
+#   자녀 · 동생 나이가 맞으면 가족 대상 정책으로 따로 보인다 (family_members, backend app/rules.py)
+# - 보호가 끝난 청년 → 18세~29세 (조기 보호종료 · 퇴소 예정이 있으면 15세~): 보호종료는 아무리 일러도 15세 이후.
+#   상한 29세: 보호연장은 25세가 되기 전에 끝나고 지원은 보호종료 후 5년 이내 → 늦어도 만 29세
 # - 둘이 섞였거나 다른 대상(수급자 · 장애인 · 신혼부부 …)이 함께 있으면 비운다
 _CHILD_RE = re.compile(r"가정위탁\s*(?:보호)?\s*(?:아동|중)|위탁\s*아동|보호\s*대상\s*아동|보호\s*아동|입소\s*아동|생활\s*아동|"
                        r"시설\s*(?:보호\s*|이용\s*)?아동|소년소녀|초[·.\s]*중[·.\s]*고|중[·.\s]*고등|재학|요보호")
@@ -242,8 +243,9 @@ _OTHER_TARGET_RE = re.compile(r"수급자|수급권자|장애인|고령자|국�
 _EARLY_LEAVE_RE = re.compile(r"조기|예정")  # 15세 이후 조기 보호종료 · 퇴소 예정(아직 보호 중)
 _UNIVERSITY_RE = re.compile(r"대학|진학|입학")  # 대학 진학 지원은 입학 나이가 다양
 _AGE18_LEAVE_RE = re.compile(r"18\s*세|만기|연령\s*초과")
-CHILD_AGE_MAX = 24  # 보호연장: 25세가 될 때까지 (아동복지법 제16조의3)
+CHILD_AGE_MAX = 17  # 아동복지법상 아동: 18세 미만
 LEAVER_AGE_MIN, EARLY_LEAVER_AGE_MIN = 18, 15
+LEAVER_AGE_MAX = 29  # 보호종료(25세 전) 후 5년 이내 (아동복지법 제38조, 자립수당 · 자립정착금 기준)
 
 
 def infer_ages(name: str, target: str, content: str = "") -> tuple[int | None, int | None, str | None]:
@@ -255,13 +257,13 @@ def infer_ages(name: str, target: str, content: str = "") -> tuple[int | None, i
     if child:
         if _LEAVER_RE.search(content) or _UNIVERSITY_RE.search(head):  # 지원내용에 보호종료자 지원이 섞임 (G057) · 대학 진학
             return None, None, None
-        return None, CHILD_AGE_MAX, f"나이 ~{CHILD_AGE_MAX}세 (보호 중인 아동 · 보호연장 25세 전까지, 대상 종류로 정함)"
+        return None, CHILD_AGE_MAX, f"나이 ~{CHILD_AGE_MAX}세 (보호 중인 아동, 대상 종류로 정함)"
     if leaver:
         # 18세는 원문이 18세 · 만기 · 연령초과 종료라고 할 때만. 아니면(조기 종료 · 퇴소 예정 · 말 없음) 가장 이른 15세
         both = f"{name} {target} {content}"
         at18 = _AGE18_LEAVE_RE.search(both) and not _EARLY_LEAVE_RE.search(both)
         lo = LEAVER_AGE_MIN if at18 else EARLY_LEAVER_AGE_MIN
-        return lo, None, f"나이 {lo}세~ (보호가 끝난 청년, 대상 종류로 정함)"
+        return lo, LEAVER_AGE_MAX, f"나이 {lo}~{LEAVER_AGE_MAX}세 (보호가 끝난 청년 · 보호종료 5년 이내, 대상 종류로 정함)"
     return None, None, None
 
 
@@ -274,6 +276,21 @@ def policy_ages(name: str, target: str, content: str = "") -> tuple[int | None, 
     return lo, hi, note
 
 
+# 시 이름 → 시/도 (소관기관이 "목포인재육성재단"처럼 시 이름으로 시작할 때. 경기 광주는 광주광역시와 겹쳐 뺀다)
+_CITIES = {
+    "경기": "수원 성남 의정부 안양 부천 광명 평택 동두천 안산 고양 과천 구리 남양주 오산 시흥 군포 의왕 하남 용인 파주 이천 안성 김포 화성 양주 포천 여주",
+    "강원": "춘천 원주 강릉 동해 태백 속초 삼척",
+    "충북": "청주 충주 제천",
+    "충남": "천안 공주 보령 아산 서산 논산 계룡 당진",
+    "전북": "전주 군산 익산 정읍 남원 김제",
+    "전남": "목포 여수 순천 나주 광양",
+    "경북": "포항 경주 김천 안동 구미 영주 영천 상주 문경 경산",
+    "경남": "창원 진주 통영 사천 김해 밀양 거제 양산",
+    "제주": "서귀포",
+}
+CITY_REGIONS = [(n, code) for code, names in _CITIES.items() for n in names.split()]
+
+
 def pick_region(row: dict) -> tuple[str, str | None]:
     """(지역 코드, 확인할 것). 소관기관이 지방자치단체면 그 시/도, 아니면 전국"""
     agency = text(row, "소관기관명") or ""
@@ -282,6 +299,8 @@ def pick_region(row: dict) -> tuple[str, str | None]:
     agency = re.sub(r"^\s*(?:\((?:재|사|주)\)|재단법인|사단법인)\s*", "", agency)
     head = agency.split()[0] if agency.split() else ""
     code = next((c for n, c in REGION_NAMES if head.startswith(n)), None)
+    if code is None:  # 시 이름으로 시작하는 기관 ("목포인재육성재단" → 전남, 전에는 '전국'으로 들어감)
+        code = next((c for n, c in CITY_REGIONS if head.startswith(n)), None)
     if code is None:
         if "지방" in kind or "자치" in kind:
             return NATIONWIDE, f"지방자치단체 정책인데 시/도를 못 찾음 ('{agency}') → 지역 확인 필요"

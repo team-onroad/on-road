@@ -5,6 +5,7 @@
 """
 
 import re
+from collections.abc import Iterable
 from datetime import date
 
 from app.codes import NATIONWIDE
@@ -43,6 +44,14 @@ def is_outdated(checked_at: date, today: date) -> bool:
     return (today - checked_at).days > OUTDATED_DAYS
 
 
+# 아동 대상 정책: 나이 상한이 아동복지법상 아동(18세 미만) 안. 가족(family_members) 나이가 맞으면 가족 대상 정책으로 보인다
+CHILD_AGE_MAX = 17
+
+
+def is_child_policy(age_max: int | None) -> bool:
+    return age_max is not None and age_max <= CHILD_AGE_MAX
+
+
 def judge_age(age: int, age_min: int | None, age_max: int | None) -> str:
     """만 나이가 정책 나이 범위 안이면 match, 밖이면 excluded. NULL 은 제한 없음 (db-schema.md 5.3)."""
     if age_min is not None and age < age_min:
@@ -52,40 +61,56 @@ def judge_age(age: int, age_min: int | None, age_max: int | None) -> str:
     return "match"
 
 
-def judge_region(user_region: str, policy_region: str, local: bool = False) -> str:
-    """정책 지역이 전국이거나 사용자 지역과 같으면 match, 다르면 excluded (db-schema.md 5.3).
-
-    local=True (시 · 군 · 구 정책): policies.region 은 시/도까지라 "서울 서초구" 정책도 region 이 '서울'이다.
-    users.region 도 시/도까지라 같은 구에 사는지 알 수 없으므로, 시/도가 같으면 match 대신 needs_check.
-    """
-    if policy_region not in (NATIONWIDE, user_region):
-        return "excluded"
-    return "needs_check" if local and policy_region != NATIONWIDE else "match"
-
-
 # 시/도 다음에 오는 시 · 군 · 구 ("서울특별시 서초구", "경기도 광주시", "충청북도 단양군 복지과")
 _SIDO_TAIL = ("특별시", "광역시", "특별자치시", "특별자치도", "통합특별시", "도")
 _SIGUNGU_RE = re.compile(r"\S+(시|군|구)$")
 
 
-def is_local_agency(agency: str | None) -> bool:
-    """담당기관이 시 · 군 · 구면 True (정부24 소관기관명 형식: "서울특별시 서초구 …"). 중앙부처 · 시/도는 False"""
+def policy_district(agency: str | None) -> str | None:
+    """담당기관이 시 · 군 · 구면 그 이름 ("서울특별시 서초구 …" → "서초구"). 중앙부처 · 시/도는 None"""
     parts = (agency or "").split()
-    return len(parts) > 1 and parts[0].endswith(_SIDO_TAIL) and bool(_SIGUNGU_RE.match(parts[1]))
+    if len(parts) > 1 and parts[0].endswith(_SIDO_TAIL) and _SIGUNGU_RE.match(parts[1]):
+        return parts[1]
+    return None
+
+
+def is_local_agency(agency: str | None) -> bool:
+    return policy_district(agency) is not None
+
+
+def judge_region(user_region: str, policy_region: str,
+                 district: str | None = None, user_district: str | None = None) -> str:
+    """정책 지역이 전국이거나 사용자 지역과 같으면 match, 다르면 excluded (db-schema.md 5.3).
+
+    district: 시 · 군 · 구 정책이면 그 시 · 군 · 구 (policies.region 은 시/도까지라 "서울 서초구" 정책도 '서울').
+    사용자 시 · 군 · 구(users.district)가 같으면 match, 다르면 excluded, 사용자가 정하지 않았으면 needs_check.
+    """
+    if policy_region not in (NATIONWIDE, user_region):
+        return "excluded"
+    if district is None or policy_region == NATIONWIDE:
+        return "match"
+    if user_district is None:
+        return "needs_check"
+    return "match" if user_district == district else "excluded"
 
 
 def judge_eligibility(
     age: int, user_region: str, age_min: int | None, age_max: int | None, policy_region: str,
-    local: bool = False,
+    district: str | None = None, user_district: str | None = None, family_ages: Iterable[int] = (),
 ) -> dict[str, str]:
-    """조건 판정. 하나라도 excluded 면 excluded, 모두 match 면 match.
+    """조건 판정. 하나라도 excluded 면 excluded, 하나라도 needs_check 면 needs_check, 모두 match 면 match.
 
-    needs_check 는 시 · 군 · 구 정책(local=True)의 지역 판정에서만 나온다 (같은 구에 사는지 앱이 알 수 없음).
+    needs_check: 시 · 군 · 구 정책인데 사용자 시 · 군 · 구를 모를 때 (지역),
+    아동 대상 정책이 본인 나이로는 안 되지만 가족(자녀 · 동생) 나이가 맞을 때 (연령)
     """
     parts = {
         "age": judge_age(age, age_min, age_max),
-        "region": judge_region(user_region, policy_region, local),
+        "region": judge_region(user_region, policy_region, district, user_district),
     }
+    if parts["age"] == "excluded" and is_child_policy(age_max) and any(
+        judge_age(a, age_min, age_max) == "match" for a in family_ages
+    ):
+        parts["age"] = "needs_check"
     values = parts.values()
     if "excluded" in values:
         overall = "excluded"

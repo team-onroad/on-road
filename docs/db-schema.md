@@ -63,7 +63,21 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | status | VARCHAR(20) | NOT NULL, 코드값 | 현재 상태 |
 | stage | VARCHAR(10) | NOT NULL, 코드값 | 성장 단계. 서버가 계산해서 저장 (5.2) |
 | d_date | DATE | NULL 허용 | D-day 기준일. 퇴소 전에는 퇴소 예정일, 퇴소 후에는 사용자가 정한 목표일 |
+| district | VARCHAR(20) | NULL 허용 | 거주 시 · 군 · 구 ("서초구"). 시 · 군 · 구 정책 판정에 사용 (5.3). 시/도를 바꾸면 비운다 |
 | created_at / updated_at | TIMESTAMPTZ | NOT NULL | |
+
+- 가족(자녀 · 동생)은 `family_members` 에 둔다
+
+`family_members` — 사용자의 자녀 · 동생 (아동 대상 정책 판정)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGSERIAL | PK | |
+| user_id | UUID | NOT NULL, FK → users.id, `ON DELETE CASCADE` | |
+| relation | VARCHAR(10) | NOT NULL, `child` / `sibling` | 자녀 / 동생 |
+| gender | VARCHAR(10) | NULL 허용, `male` / `female` | 성별 (판정에는 쓰지 않음. 정책 데이터에 성별 조건이 없음) |
+| birth_date | DATE | NOT NULL | 만 나이 계산 |
+| created_at | TIMESTAMPTZ | NOT NULL | |
 
 - 순차 ID 대신 UUID를 쓰는 이유: 로그인이 없어 ID 자체가 식별자 역할을 하므로 추측하기 어려워야 함
 - 나이는 저장하지 않고, 필요할 때마다 `birth_date`와 오늘 날짜로 계산한다.
@@ -266,14 +280,17 @@ IE 표기법으로 작성했다. 부모·자식은 FK 기준으로 구분하며,
 | 사용자 만 나이가 정책 나이 범위(`age_min` ~ `age_max`) **안에 있음** (NULL은 제한 없음으로 간주) | `match` |
 | 사용자 만 나이가 정책 나이 범위 **밖에 있음** | `excluded` |
 | 정책 지역이 `전국` 이거나 사용자 지역과 **일치** | `match` |
-| 정책 지역이 사용자 지역과 일치하지만 **시·군·구 정책** (담당기관 `agency`가 "서울특별시 서초구"처럼 시/도 + 시·군·구) | `needs_check` |
+| 정책 지역이 사용자 지역과 일치하지만 **시·군·구 정책** (담당기관 `agency`가 "서울특별시 서초구"처럼 시/도 + 시·군·구)이고 `users.district` 가 없음 | `needs_check` |
+| 시·군·구 정책인데 `users.district` 가 담당기관의 시·군·구와 같음 / 다름 | `match` / `excluded` |
 | 정책 지역이 사용자 지역과 **불일치** | `excluded` |
 
-- 시·군·구 정책: `region` 은 시/도까지라 "서울 서초구" 정책도 `region = '서울'` 로 넣어 서울 사용자 모두에게 보인다. `users.region` 도 시/도까지라 같은 구에 사는지 알 수 없어 `needs_check` 로 둔다 (`app/rules.py` `is_local_agency`, DB 칸 추가 없음)
+- 시·군·구 정책: `region` 은 시/도까지라 "서울 서초구" 정책도 `region = '서울'` 로 넣는다. 정책의 시·군·구는 담당기관 이름에서 읽는다 (`app/rules.py` `policy_district`)
+- 시 · 군 · 구 정책: `users.district` 가 있으면 같은 시 · 군 · 구일 때 `match`, 다르면 `excluded`, 없으면 `needs_check`
+- 아동 대상 정책(`age_max` 17 이하): 본인 나이로 `excluded` 여도 `family_members` 중 한 명의 만 나이가 정책 나이 범위 안이면 연령을 `needs_check` 로 두고 후보에 넣는다. 응답에는 `for_family = true` 가 붙는다 (지역 판정은 그대로)
 - 최종 판정: 하나라도 `excluded`면 제외 → 하나라도 `needs_check`면 `needs_check` → 모두 `match`면 `match`
 - `excluded` 정책은 검색 후보에서 빠진다.
 - `match`는 연령·지역만 맞는다는 뜻이다. 보호종료 여부·소득 등 다른 조건은 필터하지 않으므로, 화면에는 "기본 조건 해당 · 세부 조건은 공식 원문에서 확인"으로 안내한다.
-- `needs_check`(조건 확인 필요)는 위 시·군·구 정책의 지역 판정에서 나온다. 연령 판정에서는 나오지 않는다.
+- `needs_check`(조건 확인 필요)는 사용자 시·군·구를 모를 때의 시·군·구 정책 지역 판정과, 가족 나이로 들어간 아동 대상 정책의 연령 판정에서 나온다.
 
 <br/>
 
