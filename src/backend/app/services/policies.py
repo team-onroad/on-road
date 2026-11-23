@@ -132,8 +132,10 @@ def candidate_policies(db: Session, age: int, region: str, user: User | None = N
     return [p for p in policies if eligibility_for(user, p, today).status != "excluded"]
 
 
-# 같은 질문 · 같은 후보 정책이면 RAG 결과를 10분 동안 다시 쓴다 (RAG 는 몇 초 걸림)
-RAG_CACHE: TtlCache[RagOutput] = TtlCache("rag_search", ttl_seconds=600, max_size=256)
+# 같은 질문 · 같은 후보 정책이면 RAG 결과를 24시간 다시 쓴다 (RAG 는 2~4초, 캐시는 0.4초 · 11/23 배포 서버 측정).
+# 정책 데이터 · 검색 색인은 배포 때만 바뀌고 배포하면 서버가 다시 켜져 캐시가 비워지므로 길게 둬도 오래된 답을 주지 않는다
+# (10분이던 것: 시연 질문을 미리 돌려 둬도 10분 뒤면 다시 몇 초씩 걸렸다). 답변 AI 대신 안내(fallback)는 담지 않는다
+RAG_CACHE: TtlCache[RagOutput] = TtlCache("rag_search", ttl_seconds=24 * 60 * 60, max_size=256)
 
 
 def _normalize(question: str) -> str:
