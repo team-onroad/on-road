@@ -506,8 +506,14 @@ def _drop_orphan_conditions(blocks, conds):
 _TRAILING_PAREN_RE = re.compile(r"([.!?])\s*(\((?:[^()]|\([^()]*\))*\))(?=\s|$)")
 
 
+# LLM 이 src 칸 대신 문장 안에 쓴 원문 단위 번호 "(S3)" · "(S1, S2)": 내부 번호라 정책 내용일 수 없다 (G084)
+_INLINE_UNIT_RE = re.compile(r"\s*\(\s*S\d+(?:\s*[,·]\s*S\d+)*\s*\)")
+
+
 def _tidy(text: str) -> str:
-    """뜻을 바꾸지 않는 문장 다듬기: 떨어진 조건 괄호를 앞 문장에 붙이고, "…하세요." 를 합니다체로 바꾼다."""
+    """뜻을 바꾸지 않는 문장 다듬기: 문장 안 원문 단위 번호를 지우고, 떨어진 조건 괄호를 앞 문장에 붙이고,
+    "…하세요." 를 합니다체로 바꾼다."""
+    text = _INLINE_UNIT_RE.sub("", text)
     text = _TRAILING_PAREN_RE.sub(r"\2\1", text)
     return re.sub(r"하세요(?=[.!?]|$)", "하시기 바랍니다", text)
 
@@ -735,11 +741,16 @@ def convert_level(policy: dict, level: Level, generate: Generate, judge: Generat
     }
 
 
+# 변환은 미리 돌려 두는 일괄 작업이라 챗봇 답변(20초)보다 오래 기다린다.
+# 원문이 긴 정책(G031 전세임대 · G032 임대주택)은 20초 · 재시도 1번이면 매번 시간 초과였다
+GENERATE_TIMEOUT = 90.0
+
+
 def _openai_generate(model: str) -> Generate:
     from rag.openai_client import RagFormatError, _client
 
     def generate(messages: list[dict]) -> dict:
-        resp = _client().chat.completions.create(
+        resp = _client().with_options(timeout=GENERATE_TIMEOUT, max_retries=1).chat.completions.create(
             model=model, temperature=0.2, max_tokens=2500,
             response_format={"type": "json_object"}, messages=messages,
         )
