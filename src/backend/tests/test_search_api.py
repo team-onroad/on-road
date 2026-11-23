@@ -23,7 +23,7 @@ QUESTION = "퇴소하고 나서 매달 받을 수 있는 돈이 있나요?"
 RESULT_KEYS = {
     "policy_id", "policy_key", "name", "agency", "category", "checked_at", "is_outdated",
     "eligibility", "target_description", "support_content", "support_amount", "support_period",
-    "original_text", "easy_text", "source_url", "evidences", "summary",
+    "original_text", "easy_text", "source_url", "evidences", "summary", "related",
 }
 
 
@@ -101,6 +101,26 @@ def test_answered_groups_evidences_by_policy(api, db_session, rag):
     nullable = {"support_amount", "support_period", "summary"}  # summary: 카드 요약 파일이 있을 때만
     assert all(data["results"][1][k] is not None for k in RESULT_KEYS - nullable)
     assert data["results"][1]["policy_id"] == p1.id
+
+
+def test_related_policies_flagged(api, db_session, rag):
+    """RAG 가 related 로 붙인 비슷한 정책은 results[].related = true, 답변 근거와 섞이면 근거로 본다"""
+    user = make_user(db_session)
+    make_policy(db_session, policy_key="P001", name="자립수당")
+    make_policy(db_session, policy_key="P002", name="자립정착금")
+    make_policy(db_session, policy_key="P003", name="주거 지원")
+    rag.output = {"status": "answered", "answer": "답변", "evidences": [
+        {"policy_key": "P001", "content": "근거 A"},
+        {"policy_key": "P002", "content": "비슷 B", "related": True},
+        {"policy_key": "P003", "content": "근거 C"},
+        {"policy_key": "P003", "content": "비슷 D", "related": True},
+    ]}
+
+    data = _search(api, user.id).json()
+
+    assert [(r["policy_key"], r["related"]) for r in data["results"]] == [
+        ("P001", False), ("P002", True), ("P003", False),
+    ]
 
 
 def test_summary_from_policy_facts_file(api, db_session, rag, tmp_path, monkeypatch):
