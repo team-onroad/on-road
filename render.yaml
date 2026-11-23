@@ -4,7 +4,7 @@ services:
   - type: web
     name: onroad-api
     runtime: python
-    plan: free
+    plan: starter
     region: singapore          # 한국과 가장 가까운 곳
     branch: develop
     buildCommand: >-
