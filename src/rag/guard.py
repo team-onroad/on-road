@@ -82,11 +82,50 @@ def _check_sentence(sentence: object, hits: list[dict]) -> tuple[str, list[int]]
     refs = _valid_refs((evidence if isinstance(evidence, list) else []) + inline, len(hits))
     if not text or not refs:
         return None
-    cited = [hits[r - 1] for r in refs]
-    evidence_text = "\n".join([h["policy_name"] for h in cited] + [h["content"] for h in cited])
-    if unsupported_numbers(text, evidence_text) or has_assertion(text):
+    if has_assertion(text):
         return None
+    if unsupported_numbers(text, _evidence_text(hits, refs)):
+        refs = _repair_refs(text, refs, hits)
+        if refs is None:
+            return None
     return text, [r - 1 for r in refs]
+
+
+def _evidence_text(hits: list[dict], refs: list[int]) -> str:
+    cited = [hits[r - 1] for r in refs]
+    return "\n".join([h["policy_name"] for h in cited] + [h["content"] for h in cited])
+
+
+_NUM_UNIT_RE = re.compile(r"(\d+(?:[.,]\d+)*)\s*([가-힣%]{0,2})")
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"[\s,]", "", text)
+
+
+def _repair_refs(text: str, refs: list[int], hits: list[dict]) -> list[int] | None:
+    """AI 가 근거 번호를 같은 정책의 다른 조각으로 잘못 단 경우 맞는 조각을 더해 고친다 (평가로 찾음).
+
+    고치는 조건 (하나라도 아니면 None → 그 문장은 버림)
+    - 같은 정책의 조각만 더한다 (다른 정책 근거와 섞지 않음)
+    - 빠진 숫자마다 '숫자+단위'(30만원 · 1인당 · 35천원)가 더한 조각에 그대로 있어야 한다
+      (사용자가 질문에 쓴 나이 "20세" 같은 숫자가 우연히 다른 조각의 숫자와 맞아 살아나지 않게)
+    """
+    missing = unsupported_numbers(text, _evidence_text(hits, refs))
+    need = {_squash(n) + u for n, u in _NUM_UNIT_RE.findall(text) if _squash(n) in missing}
+    if not need:
+        return None
+    policies = {hits[r - 1].get("policy_key") for r in refs}
+    if None in policies:
+        return None  # 어느 정책 근거인지 모르면 고치지 않는다
+    added = [i for i, h in enumerate(hits, 1)
+             if i not in refs and h.get("policy_key") in policies and any(t in _squash(h["content"]) for t in need)]
+    fixed = refs + added
+    if not added or unsupported_numbers(text, _evidence_text(hits, fixed)):
+        return None
+    if not all(any(t in _squash(hits[i - 1]["content"]) for i in added) for t in need):
+        return None
+    return fixed
 
 
 def finalize(draft: dict | None, hits: list[dict]) -> Checked:
