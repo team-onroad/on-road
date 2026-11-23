@@ -1,0 +1,181 @@
+{
+  "policy_key": "G055",
+  "name": "보호대상아동 대학입학준비금 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "가정위탁 보호아동, 대학에 진학한 신입생",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "국내입양아동, 대학에 진학한 신입생",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "가정위탁 보호아동: 1회 3,000,000원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "국내입양아동: 1회 2,000,000원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "읍면동주민센터 방문",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "제주시청 주민복지과 방문",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "신청서 작성 및 구비서류 제출",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "대학입학준비금 지원 신청서 (시청 주민복지과 방문)",
+      "src": [
+        "S6"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "대학입학금 납부영수증 또는 대학합격증명서",
+      "src": [
+        "S7"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "지원아동 명의 통장 및 신분증",
+      "src": [
+        "S8"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "가정위탁 보호아동, 대학에 진학한 신입생"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "가정위탁 보호아동: 1회 3,000,000원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "읍면동주민센터 방문"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "가정위탁 보호아동, 대학에 진학한 신입생",
+          "국내입양아동, 대학에 진학한 신입생"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "가정위탁 보호아동, 대학에 진학한 신입생",
+          "국내입양아동, 대학에 진학한 신입생"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "읍면동주민센터 방문",
+          "제주시청 주민복지과 방문",
+          "신청서 작성 및 구비서류 제출",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "대학입학준비금 지원 신청서": "대학입학준비금 지원 신청서 (시청 주민복지과 방문)",
+    "대학입학금 납부영수증 또는 대학합격증명서(재학증명서 포함)": "대학입학금 납부영수증 또는 대학합격증명서",
+    "지원아동 명의 통장 및 신분증": "지원아동 명의 통장 및 신분증"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 3,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "대학합격증명서(재학증명서 포함)",
+      "converted": "대학합격증명서",
+      "reason": "재학증명서 포함 여부가 명시되지 않음"
+    }
+  ],
+  "source_hash": "1b4bb733ced49945",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:14:45+00:00"
+}

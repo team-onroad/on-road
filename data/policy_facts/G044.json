@@ -1,0 +1,136 @@
+{
+  "policy_key": "G044",
+  "name": "소년소녀가정 및 시설퇴소아동 등 자립지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "시설퇴소 등 보호종료 아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "자립정착금: 10,000천원/1인 1회",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "대학등록금: 5,000천원/1인 1회",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "방문 신청: 시·군·구청",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "자립정착금사용계획서",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "아동 본인 명의 통장사본",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "시설퇴소 등 보호종료 아동"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "자립정착금: 10,000천원/1인 1회"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "방문 신청: 시·군·구청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "시설퇴소 등 보호종료 아동"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "시설퇴소 등 보호종료 아동"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "방문 신청: 시·군·구청",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "자립정착금사용계획서": "자립정착금사용계획서",
+    "아동 본인 명의 통장사본": "아동 본인 명의 통장사본"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "704b4a4b1de21fc4",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:13:17+00:00"
+}

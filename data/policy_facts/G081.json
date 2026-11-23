@@ -1,0 +1,152 @@
+{
+  "policy_key": "G081",
+  "name": "보호아동 학용품비 및 피복 구입 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "초·중·고등학교 재학 가정위탁아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "초·중·고·미취학 가정위탁아동",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "학용품비: 1인당 10만 원 지급",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "피복구입비: 1인당 25만 원 한도 실비 지급",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "학용품비: 대상 아동 계좌 지급",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "피복구입비: 주민센터 피복쿠폰 지급",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "신청 불필요",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "초·중·고등학교 재학 가정위탁아동"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "학용품비: 1인당 10만 원 지급",
+        "피복구입비: 1인당 25만 원 한도 실비 지급"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "학용품비: 대상 아동 계좌 지급"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "초·중·고등학교 재학 가정위탁아동",
+          "초·중·고·미취학 가정위탁아동"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "초·중·고등학교 재학 가정위탁아동",
+          "초·중·고·미취학 가정위탁아동"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "학용품비: 대상 아동 계좌 지급",
+          "피복구입비: 주민센터 피복쿠폰 지급",
+          "신청 불필요"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "보호아동 피복구입 지원",
+      "converted": "피복구입비",
+      "reason": "지원 항목 이름이 줄어듦"
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "주민센터에서 해당 아동에게 피복쿠폰 지급",
+      "converted": "주민센터 피복쿠폰 지급",
+      "reason": "지급 대상인 '해당 아동에게'가 생략됨"
+    }
+  ],
+  "source_hash": "9720e5d61baa56ec",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:16:22+00:00"
+}

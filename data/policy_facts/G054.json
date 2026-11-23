@@ -1,0 +1,108 @@
+{
+  "policy_key": "G054",
+  "name": "보호대상아동 심성관리비 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "가정위탁아동, 아동복지시설 입소 아동 중 초·중·고 재학생",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "매월 심성관리비(현금) 지원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "개인 신청절차 없음",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "가정위탁아동, 아동복지시설 입소 아동 중 초·중·고 재학생"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "매월 심성관리비(현금) 지원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "개인 신청절차 없음"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "가정위탁아동, 아동복지시설 입소 아동 중 초·중·고 재학생"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "가정위탁아동, 아동복지시설 입소 아동 중 초·중·고 재학생"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "개인 신청절차 없음"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "아동복지시설 입소 아동 중, 초.중.고 재학생",
+      "converted": "가정위탁아동, 아동복지시설 입소 아동 중 초·중·고 재학생",
+      "reason": "원문에서는 '가정위탁아동 및 아동복지시설 입소 아동 중'이라는 표현이었으나, 변환문에서는 '가정위탁아동, 아동복지시설 입소 아동 중'으로 표현되어 있어, '가정위탁아동'이 '아동복지시설 입소 아동 중'에 포함되지 않는 것처럼 보일 수 있음."
+    }
+  ],
+  "source_hash": "98a07308ccd204c7",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:14:28+00:00"
+}

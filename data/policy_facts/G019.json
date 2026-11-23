@@ -1,0 +1,227 @@
+{
+  "policy_key": "G019",
+  "name": "청년도전지원사업 안내",
+  "facts": [
+    {
+      "item": "target",
+      "text": "구직단념청년 (만 18세 이상~34세 이하)",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "신청일 이전 6개월간 취업 및 교육·직업훈련 불가",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "자립준비청년",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "청소년복지시설 입·퇴소 청년",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "북한이탈청년",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "가습기살균제피해청년",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "지역특화청년",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "밀착상담, 사례관리, 자신감회복, 진로탐색, 취업역량강화",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "참여수당, 인센티브 제공",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "온라인 신청: 고용24",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "방문 신청: 각 지자체별 운영기관 방문",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "구비서류 없음 (조건: 온라인신청)",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "통장사본 (조건: 방문신청)",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "각 지자체별 운영기관 확인",
+      "src": [
+        "S6"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "구직단념청년 (만 18세 이상~34세 이하)"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "참여수당, 인센티브 제공"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "온라인 신청: 고용24"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "구직단념청년 (만 18세 이상~34세 이하)",
+          "신청일 이전 6개월간 취업 및 교육·직업훈련 불가",
+          "자립준비청년",
+          "청소년복지시설 입·퇴소 청년",
+          "북한이탈청년",
+          "가습기살균제피해청년",
+          "지역특화청년"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "구직단념청년 (만 18세 이상~34세 이하)",
+          "신청일 이전 6개월간 취업 및 교육·직업훈련 불가",
+          "자립준비청년",
+          "청소년복지시설 입·퇴소 청년",
+          "북한이탈청년",
+          "가습기살균제피해청년",
+          "지역특화청년"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "온라인 신청: 고용24",
+          "방문 신청: 각 지자체별 운영기관 방문"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "구비서류 없음": "구비서류 없음 (조건: 온라인신청)",
+    "통장사본 ※신청서 및 개인정보 동의서 등은 현장 작성": "통장사본 (조건: 방문신청)",
+    "각 지자체별 운영기관을 통해 확인 https://youth-up.kr/challenge-agency": "각 지자체별 운영기관 확인"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 3,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "고용24> 취업지원>-취업역량강화>-청년도전지원사업(www.work24.go.kr)",
+      "converted": "고용24",
+      "reason": "온라인 신청 경로가 구체적이지 않음"
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "운영기관 연락처 및 주소 https://youth-up.kr/challenge-agency",
+      "converted": "각 지자체별 운영기관 확인",
+      "reason": "운영기관 연락처 및 주소 정보가 구체적이지 않음"
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "신청서 및 개인정보 동의서 등은 현장 작성",
+      "converted": "",
+      "reason": "신청서 및 개인정보 동의서 현장 작성 정보가 빠짐"
+    }
+  ],
+  "source_hash": "bcd74ebe78c1b1b4",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-22T18:12:22+00:00"
+}

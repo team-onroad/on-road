@@ -1,0 +1,152 @@
+{
+  "policy_key": "G068",
+  "name": "가정위탁아동 대학진학자금 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "가정위탁 보호아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "대학진학자금 1인당 2백만원 한도 실비 지원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "1회 한도",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "1인당 2백만원",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "보호자 읍면사무소 방문 신청",
+      "src": [
+        "S4"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "상시신청",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "신청서 및 증빙서류",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "가족관계증명서",
+      "src": [
+        "S6"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "가정위탁 보호아동"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "대학진학자금 1인당 2백만원 한도 실비 지원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "보호자 읍면사무소 방문 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "가정위탁 보호아동"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "가정위탁 보호아동"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "보호자 읍면사무소 방문 신청",
+          "상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "신청서 및 증빙서류": "신청서 및 증빙서류",
+    "민원처리법률 제10조의2에 의거 가족관계증명서": "가족관계증명서"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "읍면 행정복지센터",
+      "converted": "읍면사무소",
+      "reason": "기관 이름을 줄인 것"
+    }
+  ],
+  "source_hash": "9f65f584472dbd1e",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:15:27+00:00"
+}

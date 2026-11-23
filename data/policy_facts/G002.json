@@ -1,0 +1,157 @@
+{
+  "policy_key": "G002",
+  "name": "서리풀 희망사다리 프로젝트 자립준비청년(보호종료아동) 교육비 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "서초구 1년 이상 거주 자립준비청년",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "취업·학업 사유 교육비 지원 신청자",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "대학등록금 연 300만 원 내 실비지원, 1회 150만 원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "학원비 연 200만 원 내 실비지원, 1회 100만 원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "관할 동주민센터 방문 신청",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "구청 아동청년과 방문 신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "period",
+      "text": "상시 신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "서초구 1년 이상 거주 자립준비청년"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "대학등록금 연 300만 원 내 실비지원, 1회 150만 원"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "상시 신청"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "관할 동주민센터 방문 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "서초구 1년 이상 거주 자립준비청년",
+          "취업·학업 사유 교육비 지원 신청자"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "서초구 1년 이상 거주 자립준비청년",
+          "취업·학업 사유 교육비 지원 신청자"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "관할 동주민센터 방문 신청",
+          "구청 아동청년과 방문 신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "서초구에서 1년이상 거주중인 자립준비청년(보호종료아동) 중 취업, 학업 등의 사유로 교육비 지원을 신청한 자",
+      "converted": "서초구 1년 이상 거주 자립준비청년",
+      "reason": "변환문에서 '보호종료아동'이 생략됨"
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "서초구에서 1년이상 거주중인 자립준비청년(보호종료아동) 중 취업, 학업 등의 사유로 교육비 지원을 신청한 자",
+      "converted": "취업·학업 사유 교육비 지원 신청자",
+      "reason": "변환문에서 '보호종료아동'이 생략됨"
+    }
+  ],
+  "source_hash": "50bbaa07bd7b55ce",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:07:30+00:00"
+}

@@ -1,0 +1,52 @@
+{
+  "levels": {
+    "L6": {
+      "level": "L6",
+      "level_name": "자세히",
+      "text": "[받는 것]\n아동복지시설에 있는 아동은 용돈, 전문서적비, 간식비 등을 받을 수 있습니다.\n\n[받는 사람]\n아동복지시설에 입소한 아동이 지원 대상입니다.\n\n[신청 방법]\n아동복지시설에서 시군으로 공문을 보내 신청합니다.\n\n[서류]\n개인이 직접 신청할 필요는 없습니다.\n\n[더 알아보기]\n\n[신청 방법]\n개인이 직접 신청할 필요는 없습니다. 신청은 언제든지 할 수 있습니다.\n\n[문의]\n궁금한 점은 여성가족과(063-280-4788)로 문의할 수 있습니다.\n\n[확인 필요]\n나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+      "core_text": "[받는 것]\n아동복지시설에 있는 아동은 용돈, 전문서적비, 간식비 등을 받을 수 있습니다.\n\n[받는 사람]\n아동복지시설에 입소한 아동이 지원 대상입니다.\n\n[신청 방법]\n아동복지시설에서 시군으로 공문을 보내 신청합니다.\n\n[서류]\n개인이 직접 신청할 필요는 없습니다.",
+      "passed": true,
+      "auto_checks_passed": true,
+      "attempts": 1,
+      "checks": {
+        "missing_facts": [],
+        "missing_details": [],
+        "missing_units": [],
+        "unit_gaps": [],
+        "condition_gaps": [],
+        "unsupported_numbers": [],
+        "tier_violations": [],
+        "style_violations": [],
+        "assertion": false,
+        "avg_eojeol": 6.2,
+        "max_eojeol": 10,
+        "core_sentences": 4,
+        "level_problems": []
+      },
+      "first_attempt_missing": [],
+      "metrics": {
+        "hard_terms_source": 4,
+        "hard_terms_converted": 3,
+        "term_reduction": 0.25,
+        "avg_eojeol_source": 3.0,
+        "avg_eojeol_converted": 6.2,
+        "length_reduction": -1.083
+      },
+      "judge_issues": [],
+      "terms": [
+        {
+          "term": "아동복지시설",
+          "tier": 3,
+          "gloss": "보육원·그룹홈 같은 시설",
+          "count": 3
+        }
+      ],
+      "facts_used": true,
+      "verified": false,
+      "model": "gpt-4o",
+      "generated_at": "2026-11-22T13:16:57+00:00"
+    }
+  },
+  "policy_key": "G087",
+  "name": "아동복지시설 생활아동 지원"
+}

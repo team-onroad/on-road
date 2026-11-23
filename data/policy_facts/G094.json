@@ -1,0 +1,230 @@
+{
+  "policy_key": "G094",
+  "name": "임대주택 임대 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "국가유공자",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "기초생활수급자(의료급여, 생계급여)",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "장애인",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "한부모가족",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "아동복지시설퇴소자",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "기초생활수급자 1순위 우선입주",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "국가유공자 등 월평균소득 70% 이하 1순위",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "그 외 대상 월평균소득 50% 이하 1순위",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "국민임대주택: 광주광역시도시공사 본사 방문",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "영구임대주택 등: 주민센터 방문",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "청년매입임대주택: 본사 방문 및 우편",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "행복주택: 관리사무소 방문 및 우편",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "주민등록등본 1부",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "가족관계증명서 상세 1부",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "신분증 및 인감도장",
+      "src": [
+        "S6"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "신분증빙서류(수급자 증명서 등)",
+      "src": [
+        "S7"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "국가유공자",
+        "기초생활수급자(의료급여, 생계급여)"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "기초생활수급자 1순위 우선입주"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "영구임대주택 등: 주민센터 방문"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "국가유공자",
+          "기초생활수급자(의료급여, 생계급여)",
+          "장애인",
+          "한부모가족",
+          "아동복지시설퇴소자"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "국가유공자",
+          "기초생활수급자(의료급여, 생계급여)",
+          "장애인",
+          "한부모가족",
+          "아동복지시설퇴소자"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "국민임대주택: 광주광역시도시공사 본사 방문",
+          "영구임대주택 등: 주민센터 방문",
+          "청년매입임대주택: 본사 방문 및 우편",
+          "행복주택: 관리사무소 방문 및 우편",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "주민등록등본 1부": "주민등록등본 1부",
+    "가족관계증명서 상세 1부": "가족관계증명서 상세 1부",
+    "신분증 및 인감도장": "신분증 및 인감도장",
+    "신분증빙서류(수급자 증명서, 한부모가족증명서 등)": "신분증빙서류(수급자 증명서 등)"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "947095212e5d58f3",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:17:13+00:00"
+}

@@ -1,0 +1,118 @@
+{
+  "policy_key": "G004",
+  "name": "서리풀 희망사다리 프로젝트 자립준비청년(보호종료아동) 자립컨설팅 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "서초구 거주 자립준비청년(보호종료아동)",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "생활·주거·학업·재무관리 자립컨설팅 제공",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "동주민센터 또는 구청 아동보호팀 신청",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "방문상담 후 컨설팅 참여",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "서초구 거주 자립준비청년(보호종료아동)"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "생활·주거·학업·재무관리 자립컨설팅 제공"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "동주민센터 또는 구청 아동보호팀 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "서초구 거주 자립준비청년(보호종료아동)"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "서초구 거주 자립준비청년(보호종료아동)"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "동주민센터 또는 구청 아동보호팀 신청",
+          "방문상담 후 컨설팅 참여",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "1cc895279ec416dd",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:09:39+00:00"
+}

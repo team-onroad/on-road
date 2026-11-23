@@ -1,0 +1,137 @@
+{
+  "policy_key": "G020",
+  "name": "전문멘토 - 언제든 기댈 수 있는 어른",
+  "facts": [
+    {
+      "item": "target",
+      "text": "가정위탁 및 시설 보호대상아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "자립준비청년",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "멘토링 분기별 활동지원금 5만 원 지급",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "1:1 멘토 연계 정서·심리적 지원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "멘토, 멘티: 방문신청",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 2024.01.01~2024.02.29",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "지원신청서 및 개인정보동의서",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "가정위탁 및 시설 보호대상아동"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "1:1 멘토 연계 정서·심리적 지원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "멘토, 멘티: 방문신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "가정위탁 및 시설 보호대상아동",
+          "자립준비청년"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "가정위탁 및 시설 보호대상아동",
+          "자립준비청년"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "멘토, 멘티: 방문신청",
+          "신청기한: 2024.01.01~2024.02.29"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "지원신청서 및 개인정보동의서": "지원신청서 및 개인정보동의서"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 2,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [],
+  "source_hash": "ff44ac9d12e42937",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:10:39+00:00"
+}

@@ -1,0 +1,191 @@
+{
+  "policy_key": "G025",
+  "name": "청년챙김프로젝트",
+  "facts": [
+    {
+      "item": "target",
+      "text": "최근 1년간 취업·교육·훈련 참여 이력 없는 19~39세 구직단념청년",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "자립준비청년: 보호종료 18세 청년",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "exclusion",
+      "text": "최근 1년간 취업·교육·훈련 참여 이력 있는 청년",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "청년 비움 프로그램: 심리 상담",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "청년 채움 프로그램: 정신건강·스트레스 관리법",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "청년 채움 프로그램: 취업지원 강좌 참여",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "청년 세움 프로그램: 1:1 밀착 상담",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "온라인 신청",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "구직단념청년 문답표",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "최근 1년간 취업·교육·훈련 참여 이력 없는 19~39세 구직단념청년"
+      ]
+    },
+    {
+      "item": "exclusion",
+      "label": "받을 수 없는 경우",
+      "items": [
+        "최근 1년간 취업·교육·훈련 참여 이력 있는 청년"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "청년 비움 프로그램: 심리 상담",
+        "청년 채움 프로그램: 정신건강·스트레스 관리법"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "온라인 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "최근 1년간 취업·교육·훈련 참여 이력 없는 19~39세 구직단념청년",
+          "자립준비청년: 보호종료 18세 청년"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "최근 1년간 취업·교육·훈련 참여 이력 있는 청년"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "최근 1년간 취업·교육·훈련 참여 이력 없는 19~39세 구직단념청년",
+          "자립준비청년: 보호종료 18세 청년"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "최근 1년간 취업·교육·훈련 참여 이력 있는 청년"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "온라인 신청",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "구직단념청년 문답표": "구직단념청년 문답표"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 3,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "아동양육시설, 공동생활가정, 가정위탁등 보호가 종료된 18세 홀로서기 청년",
+      "converted": "보호종료 18세 청년",
+      "reason": "자립준비청년의 보호 종료 조건이 구체적이지 않음"
+    }
+  ],
+  "source_hash": "bfbd99b7c136b103",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:11:03+00:00"
+}

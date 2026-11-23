@@ -1,0 +1,206 @@
+{
+  "policy_key": "W001",
+  "name": "소년소녀가정 등 전세주택지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "무주택가구인 소년소녀가정",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "무주택가구인 대리양육가정",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "무주택가구인 친인척위탁가정",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "무주택가구인 일반가정위탁",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "무주택가구인 아동복지시설퇴소자",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "target",
+      "text": "무주택가구인 교통사고유자녀가정",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "기존주택 전세계약 재임대",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "수도권 13,000만원",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "광역시 9,000만원",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "그 밖의 지역 7,000만원",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "주소지 관할 행정복지센터 신청",
+      "src": [
+        "S4"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "시·군·구청 사회복지사 신청",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "무주택가구인 소년소녀가정"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "기존주택 전세계약 재임대",
+        "수도권 13,000만원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "주소지 관할 행정복지센터 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "무주택가구인 소년소녀가정",
+          "무주택가구인 대리양육가정",
+          "무주택가구인 친인척위탁가정",
+          "무주택가구인 일반가정위탁",
+          "무주택가구인 아동복지시설퇴소자",
+          "무주택가구인 교통사고유자녀가정"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "무주택가구인 소년소녀가정",
+          "무주택가구인 대리양육가정",
+          "무주택가구인 친인척위탁가정",
+          "무주택가구인 일반가정위탁",
+          "무주택가구인 아동복지시설퇴소자",
+          "무주택가구인 교통사고유자녀가정"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "주소지 관할 행정복지센터 신청",
+          "시·군·구청 사회복지사 신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "입주희망자(친권자 또는 후견인 포함)",
+      "converted": "주소지 관할 행정복지센터 신청",
+      "reason": "신청 주체인 '입주희망자(친권자 또는 후견인 포함)'가 구체적으로 언급되지 않음."
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "읍 · 면 · 동 행정복지센터 또는 시 · 군 · 구청 담당 사회복지사나 공무원",
+      "converted": "주소지 관할 행정복지센터 신청",
+      "reason": "'읍 · 면 · 동 행정복지센터 또는 시 · 군 · 구청 담당 사회복지사나 공무원'이 '주소지 관할 행정복지센터'로 줄어듦."
+    },
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "시 · 군 · 구청 담당 사회복지사나 공무원",
+      "converted": "시·군·구청 사회복지사 신청",
+      "reason": "'담당 사회복지사나 공무원'이 '사회복지사'로 줄어듦."
+    }
+  ],
+  "source_hash": "bf1c4d4aea1ad7ff",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:17:21+00:00"
+}

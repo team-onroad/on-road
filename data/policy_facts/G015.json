@@ -1,0 +1,137 @@
+{
+  "policy_key": "G015",
+  "name": "자립준비청년 자립정착금 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "18세 이상 아동복지시설 퇴소, 가정위탁 보호종료아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "의무자립교육 수료자",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "자립에 필요한 임차보증금, 주거비용, 생활용품 구입비 지원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "방문 신청",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "docs",
+      "text": "자립정착금 사용계획서",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "교육수료 확인서 (자립교육신청·수료 후)",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "18세 이상 아동복지시설 퇴소, 가정위탁 보호종료아동"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "자립에 필요한 임차보증금, 주거비용, 생활용품 구입비 지원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "방문 신청"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "18세 이상 아동복지시설 퇴소, 가정위탁 보호종료아동",
+          "의무자립교육 수료자"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "18세 이상 아동복지시설 퇴소, 가정위탁 보호종료아동",
+          "의무자립교육 수료자"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "방문 신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "자립정착금 사용계획서": "자립정착금 사용계획서",
+    "교육수료 확인서": "교육수료 확인서 (자립교육신청·수료 후)"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "아동복지시설(양육시설, 그룹홈 등)",
+      "converted": "아동복지시설",
+      "reason": "괄호 속 예시를 생략하여 시설 종류를 상위어로 줄임"
+    }
+  ],
+  "source_hash": "fd58496a4b953f78",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:10:31+00:00"
+}

@@ -1,0 +1,141 @@
+{
+  "policy_key": "G077",
+  "name": "소년소녀가정 및 가정위탁아동 지원",
+  "facts": [
+    {
+      "item": "target",
+      "text": "소년소녀가정 및 위탁아동 세대",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "가정위탁 양육보조금: 월 30만 원",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "가정위탁세대위로금: 월 2만 원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "가정위탁아동 명절제수비: 연 2회 5만 원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "가정위탁아동 대학진학금: 대학진학 시 1회 150만 원",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "방문 신청: 주민등록상 주소지 읍·면·동 행정복지센터",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "소년소녀가정 및 위탁아동 세대"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "가정위탁 양육보조금: 월 30만 원"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "방문 신청: 주민등록상 주소지 읍·면·동 행정복지센터"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "소년소녀가정 및 위탁아동 세대"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "소년소녀가정 및 위탁아동 세대"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "방문 신청: 주민등록상 주소지 읍·면·동 행정복지센터",
+          "신청기한: 상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {},
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "주민센터: 주민등록상 주소지 관할 읍ㆍ면ㆍ동 행정복지센터",
+      "converted": "방문 신청: 주민등록상 주소지 읍·면·동 행정복지센터",
+      "reason": "'관할'이 생략되어 표현이 간단해졌습니다."
+    }
+  ],
+  "source_hash": "76ec8ff6f7e3c32b",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:16:10+00:00"
+}

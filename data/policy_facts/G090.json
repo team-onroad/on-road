@@ -1,0 +1,137 @@
+{
+  "policy_key": "G090",
+  "name": "은평자준청 운영",
+  "facts": [
+    {
+      "item": "target",
+      "text": "관내 자립준비(예정)청년",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "target",
+      "text": "아동복지시설 퇴소·퇴소 예정 청년",
+      "src": [
+        "S1"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "기술교육 및 심리상담 프로그램 운영",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "방문 및 유선 접수",
+      "src": [
+        "S3"
+      ],
+      "key": true
+    },
+    {
+      "item": "apply",
+      "text": "상시신청",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "docs",
+      "text": "퇴소(예정)증명서 및 재원증명서",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    }
+  ],
+  "card": [
+    {
+      "item": "target",
+      "label": "지원 대상",
+      "items": [
+        "관내 자립준비(예정)청년"
+      ]
+    },
+    {
+      "item": "benefit",
+      "label": "지원 내용",
+      "items": [
+        "기술교육 및 심리상담 프로그램 운영"
+      ]
+    },
+    {
+      "item": "apply",
+      "label": "신청 방법",
+      "items": [
+        "방문 및 유선 접수"
+      ]
+    }
+  ],
+  "checklist": {
+    "target_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "관내 자립준비(예정)청년",
+          "아동복지시설 퇴소·퇴소 예정 청년"
+        ]
+      }
+    ],
+    "condition_check": [
+      {
+        "item": "target",
+        "label": "지원 대상",
+        "items": [
+          "관내 자립준비(예정)청년",
+          "아동복지시설 퇴소·퇴소 예정 청년"
+        ]
+      }
+    ],
+    "apply": [
+      {
+        "item": "apply",
+        "label": "신청 방법",
+        "items": [
+          "방문 및 유선 접수",
+          "상시신청"
+        ]
+      }
+    ]
+  },
+  "doc_labels": {
+    "자립준비(예정)청년 퇴소(예정)증명서 및 재원증명서": "퇴소(예정)증명서 및 재원증명서"
+  },
+  "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+  "passed": true,
+  "auto_checks_passed": true,
+  "attempts": 1,
+  "checks": {
+    "format_problems": [],
+    "too_long": [],
+    "unsupported_numbers": [],
+    "missing_units": [],
+    "unit_gaps": []
+  },
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "아동복지시설 퇴소하거나 퇴소 예정인 자립준비(예정)청년",
+      "converted": "아동복지시설 퇴소·퇴소 예정 청년",
+      "reason": "원문에서는 '자립준비(예정)청년'이라는 표현이 포함되어 있으나, 변환문에서는 '청년'으로 줄여 표현됨."
+    }
+  ],
+  "source_hash": "e1324e21800346cf",
+  "source_checked_at": "2026-11-22",
+  "verified": false,
+  "model": "gpt-4o",
+  "generated_at": "2026-11-22T13:16:55+00:00"
+}
