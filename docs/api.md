@@ -123,6 +123,8 @@
 | 회원정보 | PATCH | `/users/{user_id}` | 회원정보 수정 (퇴소 처리, D-day 목표일 설정 등) |
 | 홈 | GET | `/users/{user_id}/dashboard` | 인사말, 진행 중인 체크리스트("지금 할 일"), 최근 시뮬레이션 |
 | 성장 기록 | GET | `/users/{user_id}/growth` | 체크리스트·시뮬레이션 기록 모아 보기 (3.13) |
+| 신청 로드맵 | GET | `/users/{user_id}/policy-roadmap` | 받을 수 있는 정책을 신청 시점별로, 월 합계·최대 총액 (3.32) |
+| 진로 로드맵 | GET | `/users/{user_id}/career-roadmap` | 취업·진학·직업훈련별 할 일, 연습·서류 연결, 관련 정책, 공식 사이트 (3.33) |
 | 정책 검색 | POST | `/search` | 질문 → 조건 필터 → RAG 답변 + 근거 (상담 화면) |
 | 정책 상세 | GET | `/policies/{policy_id}` | 정책 카드·상세 정보 |
 | 쉬운 말 | GET | `/policies/{policy_id}/easy-text` | 단계별(L1~L7) 쉬운 말 보기 (3.23) |
@@ -875,6 +877,89 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 - 같은 정책에 양식이 여러 개면 `checked: true` 우선, 그다음 `form_id` 순
 - `notices`는 항상 화면에 표시한다
 - 양식이 없으면 404 `FORM_GUIDE_NOT_FOUND` → 앱은 "준비 중" 표시
+
+<br/>
+
+### 3.32 `GET /users/{user_id}/policy-roadmap` — 맞춤 신청 로드맵
+
+받을 수 있는 정책(3.5 후보 필터와 같음: 나이·지역·시군구·가족, `excluded` 제외)을 신청 시점별로 묶는다. 규칙만 쓰고 AI 는 쓰지 않는다. 같은 정책이라도 사용자의 퇴소 예정일에 따라 신청 시작일이 달라진다.
+
+**응답 200**
+
+```json
+{
+  "base_date": "2027-02-28", "d_day": 96,
+  "summary": {"monthly_won": 500000, "once_won": 1200000, "policy_count": 15, "match_count": 7},
+  "stages": [
+    {"stage": "before_leave", "title": "퇴소 전에 미리 신청", "items": [
+      {"policy_id": 7, "policy_key": "G007", "name": "자립준비청년 자립수당 지급", "agency": "충청북도 보은군",
+       "category": "living_cost", "eligibility": "match",
+       "amount_won": 500000, "amount_cycle": "monthly", "amount_text": "월 50만 원", "period_years": null,
+       "max_total_won": null, "apply_from": "2027-01-29", "until": null,
+       "apply_note": "퇴소 30일 전부터 미리 신청"}
+    ]},
+    {"stage": "at_leave", "title": "퇴소하면 바로 신청", "items": []},
+    {"stage": "now", "title": "지금 신청할 수 있어요", "items": []}
+  ]
+}
+```
+
+| 필드 | 설명 |
+|---|---|
+| `base_date` | 퇴소 예정일. `status`가 `in_care`·`leaving_soon`이고 `d_date`가 오늘 이후일 때만 값이 있다. 퇴소 후(`d_date`는 목표일)거나 예정일이 지났으면 `null` |
+| `d_day` | `base_date`까지 남은 일수 (`base_date`가 null 이면 null) |
+| `summary.monthly_won` | `eligibility: match` 정책 중 월 지급 금액의 합 |
+| `summary.once_won` | `match` 정책 중 1회 지급 금액의 합. 주기 없이 금액만 있는 정책(자립정착금 "1,000만 원" 등)도 1회로 본다 |
+| `stage` | `before_leave`: 신청 방법·대상에 "종료 30일 전" 같은 사전신청 기간이 있음. `at_leave`: 대상에 보호종료·퇴소·자립준비가 들어감. `now`: 나머지. `base_date`가 null 이면 모두 `now` |
+| `apply_from` | 신청 시작일. `before_leave` = 퇴소 예정일 - N일, `at_leave` = 퇴소 예정일. 오늘보다 앞이면 오늘. `now`는 null |
+| `until` | 퇴소 예정일 + `period_years`. 둘 중 하나라도 없으면 null |
+| `max_total_won` | 월 금액 × 12 × 기간, 연 금액 × 기간, 1회·주기 없는 금액은 그대로. 월·연 금액인데 기간을 읽지 못하면 null |
+| `amount_*`, `period_years` | 3.6 과 같음 |
+
+- 빈 단계는 `stages`에서 빠진다. 순서는 `before_leave` → `at_leave` → `now`
+- 단계 안 정렬: `match` 먼저 → `apply_from` 빠른 순 → 월 환산 금액 큰 순 → 최대 총액 큰 순
+- 금액·기간은 원문에서 읽은 값이라 화면에 "공식 자료 기준, 실제 금액은 기관 확인"을 함께 표시한다
+- 사용자가 없으면 404 `USER_NOT_FOUND`
+
+<br/>
+
+### 3.33 `GET /users/{user_id}/career-roadmap` — 진로 로드맵
+
+진로 방향 3개(취업 준비 · 대학 진학 · 직업훈련·자격증)마다 할 일을 순서대로 준다. 할 일은 앱 기능(실전 연습, 서류 쓰기)과 공공기관 공식 사이트로 이어진다. 규칙만 쓰고 AI 는 쓰지 않는다.
+
+**응답 200**
+
+```json
+{
+  "recommended": "job",
+  "paths": [
+    {"path": "job", "title": "취업 준비",
+     "steps": [
+       {"kind": "link", "title": "하고 싶은 일 찾기", "detail": "커리어넷 · 직업정보 · 진로검사",
+        "scenario_id": null, "template_id": null, "url": "https://www.career.go.kr", "phone": null},
+       {"kind": "roleplay", "title": "고용센터 상담 연습", "detail": "처음 방문해서 할 말을 미리 연습",
+        "scenario_id": "jobcenter", "template_id": null, "url": null, "phone": null},
+       {"kind": "document", "title": "입사지원서 쓰기", "detail": "기본형 이력서 양식",
+        "scenario_id": null, "template_id": "resume-form", "url": null, "phone": null}
+     ],
+     "policies": [
+       {"policy_id": 19, "name": "청년도전지원사업 안내", "agency": "고용노동부", "category": "employment",
+        "eligibility": "match", "amount_text": null}
+     ]}
+  ]
+}
+```
+
+| 필드 | 설명 |
+|---|---|
+| `recommended` | `work`가 `student` → `college`, `working` → `training`, `job_seeking` → `job`. 그 밖에는 성장 단계가 `youth`면 `job`, 아니면 `college` |
+| `paths` | 항상 3개. `recommended` 방향이 맨 앞, 나머지는 job → college → training 순 |
+| `steps[].kind` | `roleplay`: 실전 연습 화면 (`scenario_id`) · `document`: 서류 작성 시작 `POST /documents` (`source_type: "template"`, `source_id: template_id`) · `link`: 공식 사이트 (`url`, 있으면 `phone`) |
+| `policies` | 받을 수 있는 정책(3.5 후보 필터) 중 방향별 낱말이 이름·지원 내용에 들어간 것, 최대 4개. `match` 먼저, 금액 있는 것 먼저 |
+
+- 방향별 낱말: 취업(취업·구직·도전지원·일자리·채용·면접) · 진학(대학·등록금·장학·진학·입학) · 훈련(훈련·교육비·자격·능력개발·학습·역량)
+- 공식 사이트는 공공기관 누리집만 쓴다: 커리어넷(한국직업능력연구원), 고용24(고용노동부, 1350), 고용24 국민내일배움카드 발급 안내, 한국장학재단(1599-2000), 큐넷(한국산업인력공단, 1644-8000)
+- 사용자가 없으면 404 `USER_NOT_FOUND`
 
 <br/>
 

@@ -15,7 +15,9 @@ from app.llm_client import Llm, ai_unavailable, call_llm
 from app.rag_client import SearchPolicies
 from app.rules import calc_age, calc_d_day, calc_stage
 from app.schemas.chat import ChatRequest, ChatResponse, Contact
+from app.money import normalize_amounts
 from app.services.policies import search
+from app.services.roadmap import is_broad_question, personal_plan
 from app.services.writer import HANDOFF_MESSAGE, handoff_for
 from db.models import User
 
@@ -127,9 +129,11 @@ def _route(
             )
         intent = intent_job.result() if intent_job else intent
     if intent == "policy":
-        return ChatResponse(
-            type="policy", message=None, search=search(db, user, body.message, today, rag), contacts=[]
-        )
+        found = search(db, user, body.message, today, rag)
+        if found.answer:
+            found.answer = normalize_amounts(found.answer)  # "300천원" → "30만 원" (앱 표기와 같게)
+        plan = personal_plan(db, user, today) if is_broad_question(body.message) else None
+        return ChatResponse(type="policy", message=None, search=found, contacts=[], plan=plan)
     return None
 
 

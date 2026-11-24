@@ -1,0 +1,180 @@
+"""맞춤 신청 로드맵 (api.md 3.32). 규칙만 쓴다 (AI 없음).
+
+1. 받을 수 있는 정책: candidate_policies (나이 · 지역 · 시군구 · 가족, excluded 제외)
+2. 단계
+   - before_leave: 신청 방법에 "종료 30일 전" 같은 사전신청 기간이 있는 정책. 신청 시작일 = 퇴소 예정일 - N일
+   - at_leave: 대상에 보호종료 · 퇴소 · 자립준비가 들어간 정책. 신청 시작일 = 퇴소 예정일
+   - now: 나머지. 퇴소 후 사용자는 모든 정책이 now
+3. 금액은 app/money.py 로 읽고, 월 금액은 기간(년)을 곱해 최대 총액을 낸다
+"""
+
+import re
+from datetime import date, timedelta
+
+from sqlalchemy.orm import Session
+
+from app import ai_content
+from app.money import parse_amount, parse_period_years
+from app.rules import calc_age
+from app.schemas.chat import PersonalPlan, PlanItem
+from app.schemas.roadmap import PolicyRoadmap, RoadmapItem, RoadmapStageGroup, RoadmapSummary
+from app.services.policies import candidate_policies, eligibility_for
+from db.models import Policy, User
+
+BEFORE_LEAVE_STATUSES = ("in_care", "leaving_soon")
+STAGE_TITLES = {
+    "before_leave": "퇴소 전에 미리 신청",
+    "at_leave": "퇴소하면 바로 신청",
+    "now": "지금 신청할 수 있어요",
+}
+_PRE_APPLY = re.compile(r"종료\s*(?:전|예정일?\s*전)\s*(\d{1,3})\s*일|종료\s*(\d{1,3})\s*일\s*전")
+_LEAVER = re.compile(r"보호\s*종료|퇴소|자립\s*준비")
+
+
+def pre_apply_days(policy: Policy) -> int | None:
+    """"보호종료 30일 전부터 사전 신청" · "종료 전 30일 이내" → 30"""
+    text = " ".join(t for t in (policy.apply_method, policy.target_description) if t)
+    m = _PRE_APPLY.search(text)
+    return int(m.group(1) or m.group(2)) if m else None
+
+
+def for_leavers(policy: Policy) -> bool:
+    return bool(_LEAVER.search(policy.target_description or ""))
+
+
+def _add_years(d: date, years: int) -> date:
+    try:
+        return d.replace(year=d.year + years)
+    except ValueError:  # 2월 29일
+        return d.replace(year=d.year + years, day=28)
+
+
+def _max_total(won: int | None, cycle: str | None, years: int | None) -> int | None:
+    if won is None:
+        return None
+    if cycle in ("once", None):  # 주기가 없는 금액(자립정착금 "1,000만 원" 등)은 한 번 받는 돈으로 본다
+        return won
+    if years is None:
+        return None
+    if cycle == "monthly":
+        return won * 12 * years
+    if cycle == "yearly":
+        return won * years
+    return None
+
+
+def _item(policy: Policy, user: User, today: date, leave: date | None) -> tuple[str, RoadmapItem]:
+    won, cycle, text = parse_amount(policy.support_amount)
+    years = parse_period_years(policy.support_period)
+    days = pre_apply_days(policy)
+
+    if leave is not None and days is not None:
+        stage, apply_from = "before_leave", leave - timedelta(days=days)
+        note = f"퇴소 {days}일 전부터 미리 신청"
+    elif leave is not None and for_leavers(policy):
+        stage, apply_from = "at_leave", leave
+        note = "퇴소한 날부터 신청"
+    else:
+        stage, apply_from, note = "now", None, "지금 신청"
+    if apply_from is not None and apply_from < today:
+        apply_from = today
+
+    return stage, RoadmapItem(
+        policy_id=policy.id,
+        policy_key=policy.policy_key,
+        name=policy.name,
+        agency=policy.agency,
+        category=policy.category,
+        eligibility=eligibility_for(user, policy, today).status,
+        amount_won=won,
+        amount_cycle=cycle,
+        amount_text=text,
+        period_years=years,
+        max_total_won=_max_total(won, cycle, years),
+        apply_from=apply_from,
+        until=_add_years(leave, years) if leave is not None and years else None,
+        apply_note=note,
+    )
+
+
+def _monthly_equivalent(item: RoadmapItem) -> int:
+    if item.amount_won is None:
+        return 0
+    return {"monthly": item.amount_won, "yearly": item.amount_won // 12}.get(item.amount_cycle or "", 0)
+
+
+def _sort_key(item: RoadmapItem):
+    return (
+        item.eligibility != "match",
+        item.apply_from or date.max,
+        -_monthly_equivalent(item),
+        -(item.max_total_won or 0),
+        item.policy_id,
+    )
+
+
+def build_roadmap(db: Session, user: User, today: date) -> PolicyRoadmap:
+    leave = user.d_date if user.status in BEFORE_LEAVE_STATUSES else None
+    if leave is not None and leave < today:  # 예정일이 지났으면 이미 퇴소한 것으로 본다
+        leave = None
+
+    pool = candidate_policies(db, calc_age(user.birth_date, today), user.region, user=user, today=today)
+    groups: dict[str, list[RoadmapItem]] = {s: [] for s in STAGE_TITLES}
+    for p in pool:
+        stage, item = _item(p, user, today, leave)
+        groups[stage].append(item)
+
+    items = [i for g in groups.values() for i in g]
+    matched = [i for i in items if i.eligibility == "match" and i.amount_won is not None]
+    return PolicyRoadmap(
+        base_date=leave,
+        d_day=(leave - today).days if leave is not None else None,
+        summary=RoadmapSummary(
+            monthly_won=sum(i.amount_won for i in matched if i.amount_cycle == "monthly"),
+            once_won=sum(i.amount_won for i in matched if i.amount_cycle in ("once", None)),
+            policy_count=len(items),
+            match_count=sum(1 for i in items if i.eligibility == "match"),
+        ),
+        stages=[
+            RoadmapStageGroup(stage=s, title=STAGE_TITLES[s], items=sorted(g, key=_sort_key))
+            for s, g in groups.items() if g
+        ],
+    )
+
+
+# ---------------- 상담 답변에 붙는 내 조건 요약 ----------------
+
+PLAN_ITEMS = 5
+PLAN_NOTICE = "공식 자료 기준 금액이에요. 실제 지급 여부와 금액은 신청 기관이 정해요."
+# "퇴소하면 받을 수 있는 게 뭐야", "나 얼마 받아", "어떤 지원 있어" 같은 넓은 질문 (특정 정책 이름을 묻는 질문은 아님)
+_BROAD = re.compile(
+    r"받을\s*수\s*있|뭐\s*(가|를)?\s*(받|있)|무엇을?\s*받|어떤\s*(지원|혜택|정책|제도|돈)|얼마\s*(나|를|까지)?\s*받"
+    r"|퇴소\s*(하면|후에?|하고|하니까)|나한테\s*맞는|내가\s*받"
+)
+
+
+def is_broad_question(message: str) -> bool:
+    return bool(_BROAD.search(message))
+
+
+def personal_plan(db: Session, user: User, today: date) -> PersonalPlan | None:
+    """조건이 맞는(match) 정책이 없으면 None"""
+    rm = build_roadmap(db, user, today)
+    if rm.summary.match_count == 0:
+        return None
+    items = [i for g in rm.stages for i in g.items if i.eligibility == "match" and i.amount_won is not None]
+    return PersonalPlan(
+        base_date=rm.base_date,
+        d_day=rm.d_day,
+        monthly_won=rm.summary.monthly_won,
+        once_won=rm.summary.once_won,
+        match_count=rm.summary.match_count,
+        items=[
+            PlanItem(
+                policy_id=i.policy_id, name=i.name, amount_text=i.amount_text, apply_from=i.apply_from,
+                apply_note=i.apply_note, has_form=ai_content.find_form(i.policy_key) is not None,
+            )
+            for i in items[:PLAN_ITEMS]
+        ],
+        notice=PLAN_NOTICE,
+    )

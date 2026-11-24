@@ -10,10 +10,12 @@ from sqlalchemy.orm import Session
 from app.api.deps import JsonBody
 from app.clock import get_today
 from app.schemas.home import DashboardResponse, GrowthResponse, RoleplayDetail
+from app.schemas.career import CareerRoadmap
+from app.schemas.roadmap import PolicyRoadmap
 from app.schemas.readiness import ActivityCreate, ActivityCreated, ActivityKind, ActivityList, ReadinessResponse
 from app.schemas.saved_policies import SavedPolicy, SavedPolicyCreate, SavedPolicyList
 from app.schemas.users import UserCreate, UserResponse, UserUpdate
-from app.services import home, readiness, saved_policies
+from app.services import career, home, readiness, roadmap, saved_policies
 from app.services import users as service
 from db.models import User
 from db.session import get_db
@@ -97,6 +99,26 @@ def get_user(user: ExistingUser, db: DB, today: Today) -> UserResponse:
 def get_dashboard(user: ExistingUser, db: DB, today: Today) -> DashboardResponse:
     service.refresh_stage(db, user, today)  # 3.3 과 같이 stage 재계산
     return home.dashboard(db, user, today)
+
+
+@router.get(
+    "/{user_id}/policy-roadmap",
+    response_model=PolicyRoadmap,
+    summary="맞춤 신청 로드맵 (받을 수 있는 정책을 신청 시점별로)",
+    responses={404: ERROR_RESPONSES[404]},
+)
+def get_policy_roadmap(user: ExistingUser, db: DB, today: Today) -> PolicyRoadmap:
+    return roadmap.build_roadmap(db, user, today)
+
+
+@router.get(
+    "/{user_id}/career-roadmap",
+    response_model=CareerRoadmap,
+    summary="진로 로드맵 (취업 · 진학 · 직업훈련별 할 일, 받을 수 있는 지원, 공식 사이트)",
+    responses={404: ERROR_RESPONSES[404]},
+)
+def get_career_roadmap(user: ExistingUser, db: DB, today: Today) -> CareerRoadmap:
+    return career.build_career_roadmap(db, user, today)
 
 
 @router.get(

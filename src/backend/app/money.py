@@ -61,3 +61,21 @@ def parse_period_years(text: str | None) -> int | None:
         return None
     m = _PERIOD.search(text)
     return int(m.group(3)) if m else None
+
+
+def normalize_amounts(text: str | None) -> str | None:
+    """문장 안 금액 표기를 앱 표기로 맞춘다: "300천원" → "30만 원", "10,000,000원" → "1,000만 원".
+    1억 원 이상(사업 예산 등)과 읽지 못한 표기는 그대로 둔다"""
+    if not text:
+        return text
+
+    def repl(m: re.Match) -> str:
+        try:
+            won = int(float(m.group(1).replace(",", "")) * _UNIT[m.group(2)])
+        except ValueError:
+            return m.group(0)
+        if won <= 0 or won >= MAX_PER_PERSON:
+            return m.group(0)
+        return won_text(won)
+
+    return _AMOUNT.sub(repl, text)

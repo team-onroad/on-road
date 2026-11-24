@@ -103,7 +103,7 @@ def test_counsel_streams_sentences_then_done(api, db_session, llm, rag):
     assert name == "done" and len(ev) == 3
     assert done == {
         "type": "counsel", "message": "첫 문장이에요. 둘째 문장이에요.", "search": None, "contacts": [],
-        "handoff": None, "profile_changes": [], "replace": False,
+        "handoff": None, "profile_changes": [], "plan": None, "replace": False,
     }
     # 마음 이야기는 규칙으로 정해서 질문 종류를 AI 에게 묻지 않는다
     assert "classify_intent" not in llm.calls
@@ -124,7 +124,7 @@ def test_counsel_falls_back_without_stream(api, db_session, llm, rag):
     assert ev == [
         ("delta", {"text": "한 번에 온 답"}),
         ("done", {"type": "counsel", "message": "한 번에 온 답", "search": None, "contacts": [], "handoff": None,
-                  "profile_changes": [], "replace": False}),
+                  "profile_changes": [], "plan": None, "replace": False}),
     ]
 
 

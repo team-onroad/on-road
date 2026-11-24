@@ -1,5 +1,6 @@
 """AI 상담 채팅 스키마 (api.md 1.6, 3.15, 부록)."""
 
+from datetime import date
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -80,6 +81,29 @@ class Handoff(BaseModel):
     candidates: list[HandoffCandidate]
 
 
+class PlanItem(BaseModel):
+    """내 조건 요약에 보일 정책 한 줄 (맞춤 신청 로드맵 3.32 에서 고름)"""
+
+    policy_id: int
+    name: str
+    amount_text: str | None  # "월 50만 원"
+    apply_from: date | None  # 신청 시작일 (퇴소 예정일 기준). null 이면 지금 신청
+    apply_note: str  # "퇴소 30일 전부터 미리 신청"
+    has_form: bool  # 신청서 작성 도우미 양식이 있음 → 앱이 "신청서 쓰기" 버튼
+
+
+class PersonalPlan(BaseModel):
+    """'받을 수 있는 게 뭐야' 같은 넓은 정책 질문에 붙는 내 조건 요약 (규칙, AI 없음)"""
+
+    base_date: date | None  # 퇴소 예정일 (퇴소 후면 null)
+    d_day: int | None
+    monthly_won: int  # 조건이 맞는 정책의 월 금액 합
+    once_won: int  # 조건이 맞는 정책의 1회 금액 합
+    match_count: int
+    items: list[PlanItem]  # 금액이 있는 조건 맞는 정책, 최대 PLAN_ITEMS 개
+    notice: str
+
+
 class ChatResponse(BaseModel):
     type: Literal["policy", "counsel", "crisis", "document"]
     message: str | None  # policy 면 null
@@ -87,3 +111,4 @@ class ChatResponse(BaseModel):
     contacts: list[Contact]
     handoff: Handoff | None = None  # document 일 때만
     profile_changes: list[ProfileChange] = []  # 대화에서 찾은 프로필 변경 후보 (확인 카드, crisis 면 비움)
+    plan: PersonalPlan | None = None  # policy 이고 넓은 질문일 때만 (내 조건 요약 · 신청 시점)

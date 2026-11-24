@@ -48,3 +48,13 @@ def test_won_text():
 )
 def test_parse_period_years(text, years):
     assert parse_period_years(text) == years
+
+
+def test_normalize_amounts_in_sentence():
+    from app.money import normalize_amounts
+
+    assert normalize_amounts("월 300천원을 받아요") == "월 30만 원을 받아요"
+    assert normalize_amounts("10,000,000원 한 번") == "1,000만 원 한 번"
+    assert normalize_amounts("월 50만 원") == "월 50만 원"
+    assert normalize_amounts("예산 659,900천원") == "예산 659,900천원"  # 1억 이상은 그대로
+    assert normalize_amounts(None) is None
