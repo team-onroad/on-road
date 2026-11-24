@@ -119,3 +119,26 @@ def judge_eligibility(
     else:
         overall = "match"
     return {"status": overall, **parts}
+
+
+# 지금 보호받고 있는 아동만 받는 정책 (가정위탁아동 지원, 소년소녀가정 지원 등).
+# 정책 데이터에 나이 조건이 비어 있는 경우가 많아 이름 · 대상 문장으로 알아본다.
+# 자립 · 퇴소 · 보호종료 · 대학 진학처럼 보호가 끝난 뒤를 말하면 아동 전용으로 보지 않는다
+_IN_CARE_CHILD = re.compile(r"가정위탁\s*(보호)?\s*아동|보호\s*대상\s*아동|요보호\s*아동|보호\s*아동|위탁\s*아동|생활\s*시설\s*아동|시설\s*아동|소년소녀\s*가정")
+_AFTER_CARE = re.compile(r"자립|퇴소|보호\s*종료|종결|대학|진학|입학|청년")
+
+
+def is_in_care_child_policy(name: str, target: str | None) -> bool:
+    """보호 중인 아동 전용 정책인지. 퇴소한 사용자에게는 본인 정책으로 보이지 않게 한다"""
+    if not _IN_CARE_CHILD.search(name or ""):
+        return False
+    return not (_AFTER_CARE.search(name or "") or _AFTER_CARE.search(target or ""))
+
+
+_CHILD_HOUSEHOLD = re.compile(r"소년소녀\s*가정")
+_OTHER_GROUPS = re.compile(r"위탁|시설|퇴소|보호|및|등")
+
+
+def is_child_household_policy(name: str) -> bool:
+    """소년소녀가정(아동이 가정을 이끄는 세대)만 받는 정책. 시설 · 위탁 보호 중인 아동은 소년소녀가정이 아니다"""
+    return bool(_CHILD_HOUSEHOLD.search(name or "")) and not _OTHER_GROUPS.search(name or "")

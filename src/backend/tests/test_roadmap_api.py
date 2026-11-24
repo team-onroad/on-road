@@ -140,3 +140,63 @@ def test_same_kind_allowance_counted_once(api, db_session):
     s = api.get(f"/api/users/{user.id}/policy-roadmap").json()["summary"]
     assert s["monthly_won"] == 700_000
     assert s["once_won"] == 15_000_000
+
+
+def test_policy_needing_age_18_shows_at_leave_for_17(api, db_session):
+    """17세가 18세 이후 퇴소하면, 만 18세 이상 정책은 '퇴소하면 바로 신청'에 퇴소일 나이로 들어간다"""
+    adult = make_policy(db_session, name="만기퇴소 자립정착금", age_min=18, age_max=29, support_amount="200만 원",
+                        target_description="만 18세 이후 퇴소한 청년")
+    user = make_user(db_session, birth_date=date(2009, 3, 1), status="in_care", d_date=date(2027, 4, 30))  # 지금 17세
+
+    data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
+
+    at_leave = _stage(data, "at_leave")
+    assert _ids(at_leave) == [adult.id]
+    assert at_leave["items"][0]["apply_from"] == "2027-04-30"
+    assert at_leave["items"][0]["eligibility"] == "match"
+
+
+def test_in_care_without_leave_date_groups_leaver_policies(api, db_session):
+    leaver = make_policy(db_session, target_description="보호종료 5년 이내 자립준비청년")
+    anytime = make_policy(db_session, target_description="청년")
+    user = make_user(db_session, status="in_care", birth_date=date(2008, 1, 1))  # 퇴소일 없음
+
+    data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
+
+    assert data["base_date"] is None
+    at_leave = _stage(data, "at_leave")
+    assert _ids(at_leave) == [leaver.id]
+    assert at_leave["items"][0]["apply_from"] is None
+    assert at_leave["items"][0]["apply_note"] == "퇴소하면 신청"
+    assert _ids(_stage(data, "now")) == [anytime.id]
+
+
+def test_in_care_child_policy_hidden_after_leaving(api, db_session):
+    child = make_policy(db_session, name="가정위탁아동 지원", target_description="가정위탁 보호조치 결정 아동",
+                        support_amount="월 10만 원")
+    leaver = make_policy(db_session, name="가정위탁아동 자립정착금", target_description="보호종료 아동")
+    left = make_user(db_session, status="left_care")
+    staying = make_user(db_session, status="in_care", birth_date=date(2010, 1, 1))
+
+    assert _ids(_stage(api.get(f"/api/users/{left.id}/policy-roadmap").json(), "now")) == [leaver.id]
+    assert child.id in _ids(_stage(api.get(f"/api/users/{staying.id}/policy-roadmap").json(), "now"))
+
+
+def test_only_one_allowance_listed(api, db_session):
+    p001 = make_policy(db_session, policy_key="P001", name="자립준비청년 자립수당 지급", support_amount="월 50만 원")
+    make_policy(db_session, name="청소년복지시설 퇴소청소년 자립지원수당", support_amount="월 50만 원")
+    make_policy(db_session, name="보호종료아동 자립수당", support_amount="월 50만 원")
+    user = make_user(db_session)
+
+    data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
+
+    assert _ids(_stage(data, "now")) == [p001.id]
+    assert data["summary"]["monthly_won"] == 500_000
+
+
+def test_child_household_policy_not_for_in_care(api, db_session):
+    make_policy(db_session, name="소년소녀가정 지원", age_max=17, support_amount="월 20만 원",
+                target_description="만 18세 미만 아동이 가정을 이끄는 세대")
+    user = make_user(db_session, status="in_care", birth_date=date(2010, 1, 1))
+    data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
+    assert data["summary"]["policy_count"] == 0

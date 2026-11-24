@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app import ai_content
 from app.money import parse_period_years, policy_amount
-from app.rules import calc_age
+from app.rules import calc_age, is_in_care_child_policy
 from app.schemas.chat import PersonalPlan, PlanItem
 from app.schemas.roadmap import PolicyRoadmap, RoadmapItem, RoadmapStageGroup, RoadmapSummary
 from app.services.policies import candidate_policies, eligibility_for
@@ -63,7 +63,10 @@ def _max_total(won: int | None, cycle: str | None, years: int | None) -> int | N
     return None
 
 
-def _item(policy: Policy, user: User, today: date, leave: date | None) -> tuple[str, RoadmapItem]:
+def _item(policy: Policy, user: User, today: date, leave: date | None,
+          in_care: bool = False, at_leave_only: bool = False) -> tuple[str, RoadmapItem]:
+    """at_leave_only: 오늘 나이로는 안 되지만 퇴소일 나이로는 되는 정책 (17세가 18세에 퇴소하는 경우 등).
+    in_care: 아직 시설 · 위탁 보호 중인데 퇴소일을 모르는 사용자 (퇴소해야 받는 정책은 '퇴소하면 신청', 날짜 없음)"""
     won, cycle, text = policy_amount(policy)
     years = parse_period_years(policy.support_period)
     days = pre_apply_days(policy)
@@ -71,9 +74,12 @@ def _item(policy: Policy, user: User, today: date, leave: date | None) -> tuple[
     if leave is not None and days is not None:
         stage, apply_from = "before_leave", leave - timedelta(days=days)
         note = f"퇴소 {days}일 전부터 미리 신청"
-    elif leave is not None and for_leavers(policy):
+    elif leave is not None and (for_leavers(policy) or at_leave_only):
         stage, apply_from = "at_leave", leave
         note = "퇴소한 날부터 신청"
+    elif in_care and (days is not None or for_leavers(policy)) and not is_in_care_child_policy(
+            policy.name, policy.target_description):
+        stage, apply_from, note = "at_leave", None, "퇴소하면 신청"
     else:
         stage, apply_from, note = "now", None, "지금 신청"
     if apply_from is not None and apply_from < today:
@@ -85,7 +91,7 @@ def _item(policy: Policy, user: User, today: date, leave: date | None) -> tuple[
         name=policy.name,
         agency=policy.agency,
         category=policy.category,
-        eligibility=eligibility_for(user, policy, today).status,
+        eligibility=eligibility_for(user, policy, leave if at_leave_only and leave else today).status,
         amount_won=won,
         amount_cycle=cycle,
         amount_text=text,
@@ -121,6 +127,19 @@ def _max_sum(items: list[RoadmapItem]) -> int:
     return sum(best.values())
 
 
+def _drop_same_allowance(groups: dict[str, list[RoadmapItem]]) -> None:
+    """자립수당은 전국 같은 제도인데 정부24 · 지자체마다 따로 올라와 있다 (P001 · G007 · G034 · G038 ...).
+    목록에는 하나만 남긴다: 앱이 직접 확인한 P001 → 조건이 맞는 것 → 사전신청 단계 → 번호 순"""
+    allowance = [(stage, i) for stage, items in groups.items() for i in items if _kind_key(i) == "allowance"]
+    if len(allowance) <= 1:
+        return
+    order = {"before_leave": 0, "at_leave": 1, "now": 2}
+    keep = min(allowance, key=lambda si: (not si[1].policy_key.startswith("P"), si[1].eligibility != "match",
+                                          order[si[0]], si[1].policy_id))[1]
+    for stage in groups:
+        groups[stage] = [i for i in groups[stage] if _kind_key(i) != "allowance" or i is keep]
+
+
 def _monthly_equivalent(item: RoadmapItem) -> int:
     if item.amount_won is None:
         return 0
@@ -143,10 +162,22 @@ def build_roadmap(db: Session, user: User, today: date) -> PolicyRoadmap:
         leave = None
 
     pool = candidate_policies(db, calc_age(user.birth_date, today), user.region, user=user, today=today)
+    # 퇴소일 나이로만 받을 수 있는 정책 (만 18세 이상 조건 등). 17세가 퇴소할 때 18세가 되면 '퇴소하면 바로 신청'에 넣는다
+    later: list[Policy] = []
+    if leave is not None:
+        have = {p.id for p in pool}
+        later = [p for p in candidate_policies(db, calc_age(user.birth_date, leave), user.region, user=user, today=leave)
+                 if p.id not in have]
+    # 아직 보호 중인데 퇴소일을 안 넣은 사람 (예정일이 지난 사람은 퇴소한 것으로 본다)
+    in_care = user.d_date is None and user.status in BEFORE_LEAVE_STATUSES
     groups: dict[str, list[RoadmapItem]] = {s: [] for s in STAGE_TITLES}
     for p in pool:
-        stage, item = _item(p, user, today, leave)
+        stage, item = _item(p, user, today, leave, in_care=in_care)
         groups[stage].append(item)
+    for p in later:
+        stage, item = _item(p, user, today, leave, at_leave_only=True)
+        groups[stage].append(item)
+    _drop_same_allowance(groups)
 
     items = [i for g in groups.values() for i in g]
     matched = [i for i in items if i.eligibility == "match" and i.amount_won is not None]

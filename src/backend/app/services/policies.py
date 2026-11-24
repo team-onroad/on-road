@@ -15,7 +15,10 @@ from app.ids import parse_id
 from app.money import parse_period_years, policy_amount
 from app.cache import TtlCache
 from app.rag_client import SearchPolicies, get_search_policies
-from app.rules import CHILD_AGE_MAX, calc_age, is_child_policy, is_outdated, judge_age, judge_eligibility, policy_district
+from app.rules import (
+    CHILD_AGE_MAX, calc_age, is_child_household_policy, is_child_policy, is_in_care_child_policy, is_outdated, judge_age, judge_eligibility,
+    policy_district,
+)
 from app.schemas.policies import (
     EasyLevelOption,
     EasyTerm,
@@ -171,6 +174,14 @@ def candidate_policies(db: Session, age: int, region: str, user: User | None = N
     policies = [p for p in db.scalars(stmt) if not is_hidden_dummy(p)]
     if user is None:
         return policies
+    # 퇴소한 사용자에게 '지금 보호받는 아동' 전용 정책(가정위탁아동 지원 등)은 본인 정책이 아니다.
+    # 자녀 · 동생 나이가 맞는 아동 정책(for_family)은 가족을 위해 그대로 둔다
+    if user.status == "left_care":
+        policies = [p for p in policies
+                    if not is_in_care_child_policy(p.name, p.target_description) or for_family(user, p, today)]
+    # 시설 · 위탁 보호 중인 사람은 소년소녀가정(아동이 가정을 이끄는 세대)이 아니다
+    if user.status in ("in_care", "leaving_soon"):
+        policies = [p for p in policies if not is_child_household_policy(p.name) or for_family(user, p, today)]
     return [p for p in policies if eligibility_for(user, p, today).status != "excluded"]
 
 
