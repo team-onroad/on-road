@@ -107,6 +107,22 @@ def _summary(data: dict, raw_sections: object) -> dict | None:
     return {"sections": sections, "notice": data.get("notice"), "verified": bool(data.get("verified"))}
 
 
+def policy_benefit(policy_key: str) -> str | None:
+    """'받는 것' 한 줄: 카드 요약의 지원 내용(benefit) 첫 항목. 금액 표기는 앱 표기로 맞춘다 ("1,500천원" → "150만 원").
+    돈이 아닌 지원(주거 · 의료 · 상담)도 무엇을 받는지 보여 주려고 쓴다. 없으면 None"""
+    from app.money import normalize_amounts
+
+    data = _policy_facts(policy_key)
+    card = data.get("card") if data else None
+    if not isinstance(card, list):
+        return None
+    for section in card:
+        if isinstance(section, dict) and section.get("item") == "benefit":
+            items = [i.strip() for i in section.get("items") or [] if isinstance(i, str) and i.strip()]
+            return normalize_amounts(items[0]) if items else None
+    return None
+
+
 def policy_summary(policy_key: str) -> dict | None:
     """검색 카드 요약 {"sections", "notice", "verified"}. 없으면 None."""
     data = _policy_facts(policy_key)

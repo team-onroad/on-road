@@ -39,7 +39,7 @@ def get_policy(
 ) -> PolicyDetail:
     policy = service.get_visible_policy(db, policy_id)  # 정책 404 를 먼저 확인
     user = get_user(db, user_id) if user_id is not None else None
-    return service.to_detail(policy, today, user)
+    return service.to_detail(policy, today, user, related=service.related_policies(db, policy, user, today))
 
 
 @router.get(

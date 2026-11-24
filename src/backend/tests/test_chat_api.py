@@ -75,7 +75,7 @@ def test_counsel(api, db_session, llm, rag):
     res = _chat(api, user.id)
 
     assert res.status_code == 200
-    assert res.json() == {"type": "counsel", "message": "상담 답변", "search": None, "contacts": [], "handoff": None, "profile_changes": []}
+    assert res.json() == {"type": "counsel", "message": "상담 답변", "search": None, "contacts": [], "handoff": None, "profile_changes": [], "plan": None}
     assert rag.calls == []
 
 
@@ -129,7 +129,7 @@ def test_crisis_skips_llm(api, db_session, llm, rag, message):
     res = _chat(api, user.id, message=message)
 
     assert res.status_code == 200
-    assert res.json() == {"type": "crisis", "message": CRISIS_MESSAGE, "search": None, "contacts": CONTACTS, "handoff": None, "profile_changes": []}
+    assert res.json() == {"type": "crisis", "message": CRISIS_MESSAGE, "search": None, "contacts": CONTACTS, "handoff": None, "profile_changes": [], "plan": None}
     assert llm.calls == [] and rag.calls == []
 
 
@@ -363,3 +363,48 @@ def test_prefetch_masks_personal_info_like_search(api, db_session, llm, rag):
     _chat(api, user.id, message="010-1234-5678 로 연락받는 퇴소 청년 지원 있어?")
     assert prefetched and "010-1234-5678" not in prefetched[0]
     assert rag.calls[0]["question"] == prefetched[0]  # 검색에 쓴 문장과 같아 임베딩을 다시 쓴다
+
+
+# ------------------------------------------------------------------ 넓은 질문: 내 조건 요약 (plan)
+
+
+def test_broad_policy_question_has_plan(api, db_session, llm, rag):
+    user = make_user(db_session, status="leaving_soon", d_date=date(2026, 12, 31))
+    make_policy(
+        db_session, policy_key="P001", name="자립수당", target_description="보호종료 자립준비청년",
+        apply_method="보호종료 30일 전부터 사전 신청", support_amount="월 50만 원",
+    )
+    make_policy(db_session, policy_key="P002", name="정착금", target_description="보호종료아동",
+                support_amount="1,000만 원")
+    llm.intent = "policy"
+    rag.answer_with(("P001", "근거"), answer="월 500천원을 받아요")
+
+    data = _chat(api, user.id, message="퇴소하면 받을 수 있는 게 뭐가 있어?").json()
+
+    assert data["search"]["answer"] == "월 50만 원을 받아요"
+    plan = data["plan"]
+    assert plan["base_date"] == "2026-12-31"
+    assert plan["monthly_won"] == 500_000
+    assert plan["once_won"] == 10_000_000
+    assert [i["name"] for i in plan["items"]] == ["자립수당", "정착금"]
+    assert plan["items"][0]["apply_from"] == "2026-12-01"
+    assert plan["items"][0]["apply_note"] == "퇴소 30일 전부터 미리 신청"
+    assert set(plan["items"][0]) == {"policy_id", "name", "amount_text", "benefit", "apply_from", "apply_note", "has_form"}
+    assert plan["notice"]
+
+
+def test_specific_policy_question_has_no_plan(api, db_session, llm, rag):
+    user = make_user(db_session)
+    make_policy(db_session, policy_key="P001", name="자립수당")
+    llm.intent = "policy"
+    rag.answer_with(("P001", "근거"))
+
+    data = _chat(api, user.id, message="자립수당 신청 방법 알려줘").json()
+
+    assert data["plan"] is None
+
+
+def test_counsel_has_no_plan(api, db_session, llm, rag):
+    user = make_user(db_session)
+    data = _chat(api, user.id, message="요즘 너무 힘들어").json()
+    assert data["type"] == "counsel" and data["plan"] is None
