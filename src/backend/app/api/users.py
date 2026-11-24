@@ -11,7 +11,7 @@ from app.api.deps import JsonBody
 from app.clock import get_today
 from app.schemas.home import DashboardResponse, GrowthResponse, RoleplayDetail
 from app.schemas.career import CareerRoadmap
-from app.schemas.roadmap import PolicyRoadmap
+from app.schemas.roadmap import PolicyRoadmap, RecommendedPolicy
 from app.schemas.readiness import ActivityCreate, ActivityCreated, ActivityKind, ActivityList, ReadinessResponse
 from app.schemas.saved_policies import SavedPolicy, SavedPolicyCreate, SavedPolicyList
 from app.schemas.users import UserCreate, UserResponse, UserUpdate
@@ -109,6 +109,16 @@ def get_dashboard(user: ExistingUser, db: DB, today: Today) -> DashboardResponse
 )
 def get_policy_roadmap(user: ExistingUser, db: DB, today: Today) -> PolicyRoadmap:
     return roadmap.build_roadmap(db, user, today)
+
+
+@router.get(
+    "/{user_id}/recommended-policies",
+    response_model=list[RecommendedPolicy],
+    summary="홈 '나에게 맞는 지원 정책' (추천 순서대로, 최대 8개)",
+    responses={404: ERROR_RESPONSES[404]},
+)
+def get_recommended_policies(user: ExistingUser, db: DB, today: Today) -> list[RecommendedPolicy]:
+    return roadmap.recommend(db, user, today)
 
 
 @router.get(

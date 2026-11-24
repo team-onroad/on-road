@@ -17,7 +17,7 @@ from app import ai_content
 from app.money import parse_period_years, policy_amount
 from app.rules import calc_age, is_in_care_child_policy
 from app.schemas.chat import PersonalPlan, PlanItem
-from app.schemas.roadmap import PolicyRoadmap, RoadmapItem, RoadmapStageGroup, RoadmapSummary
+from app.schemas.roadmap import PolicyRoadmap, RecommendedPolicy, RoadmapItem, RoadmapStageGroup, RoadmapSummary
 from app.services.policies import candidate_policies, eligibility_for
 from db.models import Policy, User
 
@@ -233,3 +233,50 @@ def personal_plan(db: Session, user: User, today: date) -> PersonalPlan | None:
         ],
         notice=PLAN_NOTICE,
     )
+
+
+# ---------------- 홈 '나에게 맞는 지원 정책' (추천 순서) ----------------
+
+RECOMMEND_LIMIT = 8
+_UNIT = {"monthly": "매월", "yearly": "매년", "once": "한 번", None: "한 번"}
+
+
+def _when_text(stage: str, item: RoadmapItem) -> str:
+    if item.apply_from is not None:
+        d = item.apply_from
+        return f"{d.month}월 {d.day}일부터 " + ("미리 신청" if stage == "before_leave" else "신청")
+    return "퇴소하면 신청" if stage == "at_leave" else "지금 신청"
+
+
+def _score(stage: str, item: RoadmapItem, today: date) -> int:
+    """추천 점수: 조건이 맞는 정책 > 곧 신청할 정책 > 현금이 큰 정책. 같은 점수면 로드맵 순서"""
+    score = 100 if item.eligibility == "match" else 0
+    if stage == "before_leave":
+        days = (item.apply_from - today).days if item.apply_from else 999
+        score += 40 if days <= 60 else 25
+    elif stage == "now":
+        score += 30
+    else:
+        score += 15
+    score += min(_monthly_equivalent(item) // 20_000, 30)  # 월 50만 원 → 25점
+    if item.amount_won is not None and item.amount_cycle in ("once", None):
+        score += min(item.amount_won // 1_000_000, 15)  # 1,000만 원 → 10점
+    return score
+
+
+def recommend(db: Session, user: User, today: date, limit: int = RECOMMEND_LIMIT) -> list[RecommendedPolicy]:
+    """맞춤 신청 로드맵(3.32)과 같은 후보 · 단계로 점수를 매겨 추천 순서대로 준다 (규칙, AI 없음)"""
+    rm = build_roadmap(db, user, today)
+    rows = []
+    for order, (group, item) in enumerate((g, i) for g in rm.stages for i in g.items):
+        cash = item.amount_won is not None
+        unit = _UNIT.get(item.amount_cycle, "한 번") if cash else None
+        value = item.amount_text.removeprefix("월 ").removeprefix("연 ") if cash and item.amount_text else None
+        rows.append((-_score(group.stage, item, today), order, RecommendedPolicy(
+            policy_id=item.policy_id, policy_key=item.policy_key, name=item.name, category=item.category,
+            eligibility=item.eligibility, stage=group.stage, when_text=_when_text(group.stage, item),
+            amount_unit=unit, amount_value=value, amount_text=item.amount_text, benefit=item.benefit,
+            score=_score(group.stage, item, today),
+        )))
+    rows.sort(key=lambda r: (r[0], r[1]))
+    return [r[2] for r in rows[:limit]]

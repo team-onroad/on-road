@@ -125,6 +125,7 @@
 | 성장 기록 | GET | `/users/{user_id}/growth` | 체크리스트·시뮬레이션 기록 모아 보기 (3.13) |
 | 신청 로드맵 | GET | `/users/{user_id}/policy-roadmap` | 받을 수 있는 정책을 신청 시점별로, 월 합계·최대 총액 (3.32) |
 | 진로 로드맵 | GET | `/users/{user_id}/career-roadmap` | 취업·진학·직업훈련별 할 일, 연습·서류 연결, 관련 정책, 공식 사이트 (3.33) |
+| 추천 정책 | GET | `/users/{user_id}/recommended-policies` | 홈 '나에게 맞는 지원 정책', 추천 순서대로 최대 8개 (3.34) |
 | 정책 검색 | POST | `/search` | 질문 → 조건 필터 → RAG 답변 + 근거 (상담 화면) |
 | 정책 상세 | GET | `/policies/{policy_id}` | 정책 카드·상세 정보 |
 | 쉬운 말 | GET | `/policies/{policy_id}/easy-text` | 단계별(L1~L7) 쉬운 말 보기 (3.23) |
@@ -423,6 +424,7 @@
 | `amount_won`, `amount_cycle`, `amount_text` | `support_amount`에서 금액을 읽지 못함 (없음, 1억 원 이상 등). 앱은 원문 문장을 보여 준다 |
 | `period_years` | `support_period`에 "보호종료 후 N년" 같은 표현이 없음 |
 | `benefit` | 카드 요약(`data/policy_facts`)이 없거나 검사를 통과하지 못함 |
+| `conditions` · `exclusions` | 빈 목록 `[]` (카드 요약이 없으면). 카드 요약의 '지원 대상' · '받을 수 없는 경우' 구절 |
 
 - 금액 읽기 규칙 추가: 내는 돈(임대보증금 · 임대료 · 본인부담) 앞의 금액은 건너뛴다. `support_amount`에 주기가 없으면 `support_content`의 "(인/월)", "/월"로 월 지급을 알아내고, 하루 단위("1일/2.4천원")는 읽지 않는다
 - 시연용 더미 정책(D001~)은 `RAG_MODE=real` 서버에서 검색 · 분야별 보기 · 로드맵 · 추천 · 관련 정책에 넣지 않는다 (id 로 여는 상세는 그대로)
@@ -968,6 +970,25 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 
 - 방향별 낱말: 취업(취업·구직·도전지원·일자리·채용·면접) · 진학(대학·등록금·장학·진학·입학) · 훈련(훈련·교육비·자격·능력개발·학습·역량)
 - 공식 사이트는 공공기관 누리집만 쓴다: 커리어넷(한국직업능력연구원), 고용24(고용노동부, 1350), 고용24 국민내일배움카드 발급 안내, 한국장학재단(1599-2000), 큐넷(한국산업인력공단, 1644-8000)
+- 사용자가 없으면 404 `USER_NOT_FOUND`
+
+<br/>
+
+### 3.34 `GET /users/{user_id}/recommended-policies` — 홈 추천 정책
+
+맞춤 신청 로드맵(3.32)과 같은 후보 · 단계로 점수를 매겨 추천 순서대로 최대 8개를 준다. 규칙만 쓴다.
+
+```json
+[
+  {"policy_id": 1, "policy_key": "P001", "name": "자립준비청년 자립수당 지급", "category": "living_cost",
+   "eligibility": "match", "stage": "before_leave", "when_text": "12월 1일부터 미리 신청",
+   "amount_unit": "매월", "amount_value": "50만 원", "amount_text": "월 50만 원",
+   "benefit": "월 50만 원, 매월 20일 지급", "score": 165}
+]
+```
+
+- 점수: 조건이 맞음(`match`) +100 → 신청 시기 (퇴소 전 사전신청 60일 안 +40, 그 밖의 사전신청 +25, 지금 +30, 퇴소하면 +15) → 현금 (월 환산 2만 원당 1점, 최대 30 · 1회 금액 100만 원당 1점, 최대 15)
+- `amount_unit` · `amount_value`: 현금이 아니면 null (앱은 분야 이름을 대신 보여 준다)
 - 사용자가 없으면 404 `USER_NOT_FOUND`
 
 <br/>

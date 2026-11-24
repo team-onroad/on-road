@@ -123,6 +123,18 @@ def policy_benefit(policy_key: str) -> str | None:
     return None
 
 
+def policy_section(policy_key: str, item: str) -> list[str]:
+    """카드 요약의 한 묶음 (item: target · exclusion · benefit …) 구절들. 금액 표기는 앱 표기로. 없으면 []"""
+    from app.money import normalize_amounts
+
+    data = _policy_facts(policy_key)
+    card = data.get("card") if data else None
+    for section in card if isinstance(card, list) else []:
+        if isinstance(section, dict) and section.get("item") == item:
+            return [normalize_amounts(i.strip()) for i in section.get("items") or [] if isinstance(i, str) and i.strip()]
+    return []
+
+
 def policy_benefits(policy_key: str) -> list[str]:
     """검사를 통과한 핵심 사실 중 지원 내용(benefit) 구절 전부. 없으면 []"""
     data = _policy_facts(policy_key)
