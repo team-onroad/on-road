@@ -5,8 +5,8 @@
 # - Secrets and variables → Actions → Repository secrets: OPENAI_API_KEY, DATA_GO_KR_SERVICE_KEY
 # - Actions → General → Workflow permissions: "Allow GitHub Actions to create and approve pull requests" 켜기
 # 손으로 돌리기: Actions → 정책 데이터 자동 갱신 → Run workflow (미리보기 · 비용 상한 고를 수 있음)
-# 주의: GitHub 는 예약 실행(schedule)과 Run workflow 버튼을 기본 브랜치(main)에 있는 파일로만 켠다.
-#       develop 에만 있으면 돌지 않는다 → main 에 합쳐진 뒤부터 동작 (갱신 자체는 develop 을 받아서 develop 으로 PR)
+# 참고: GitHub 는 예약 실행(schedule)과 Run workflow 버튼을 기본 브랜치에 있는 파일로 켠다.
+#       이 저장소의 기본 브랜치는 develop 이라 develop 의 이 파일로 돈다 (develop 을 받아서 develop 으로 PR)
 name: 정책 데이터 자동 갱신
 
 on:
