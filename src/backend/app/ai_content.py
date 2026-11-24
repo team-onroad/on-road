@@ -135,6 +135,35 @@ def policy_section(policy_key: str, item: str) -> list[str]:
     return []
 
 
+def policy_fact_items(policy_key: str, item: str) -> list[str]:
+    """검사를 통과한 핵심 사실 중 한 항목(apply · docs …) 구절 전부, 원문 순서대로. 금액 표기는 앱 표기로. 없으면 []"""
+    from app.money import normalize_amounts
+
+    data = _policy_facts(policy_key)
+    facts = data.get("facts") if data else None
+    out: list[str] = []
+    for f in facts or []:
+        if isinstance(f, dict) and f.get("item") == item and isinstance(f.get("text"), str) and f["text"].strip():
+            text = normalize_amounts(f["text"].strip())
+            if text not in out:
+                out.append(text)
+    return out
+
+
+def apply_guide(policy_key: str) -> dict | None:
+    """신청 방법 정리본 {"ways": [{"way", "lines"}], "deadline"} (data/apply_guide.json). 없으면 None"""
+    data = _load_json(get_settings().apply_guide_path)
+    entry = data.get(policy_key) if isinstance(data, dict) else None
+    if not isinstance(entry, dict) or not isinstance(entry.get("ways"), list):
+        return None
+    ways = [
+        {"way": w["way"], "lines": [line for line in w.get("lines") or [] if isinstance(line, str) and line.strip()]}
+        for w in entry["ways"] if isinstance(w, dict) and isinstance(w.get("way"), str) and w["way"].strip()
+    ]
+    deadline = entry.get("deadline") if isinstance(entry.get("deadline"), str) else None
+    return {"ways": ways, "deadline": deadline} if ways else None
+
+
 def policy_benefits(policy_key: str) -> list[str]:
     """검사를 통과한 핵심 사실 중 지원 내용(benefit) 구절 전부. 없으면 []"""
     data = _policy_facts(policy_key)
