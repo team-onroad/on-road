@@ -147,6 +147,8 @@ def to_detail(policy: Policy, today: date, user: User | None,
         amount_text=amount_text,
         period_years=parse_period_years(policy.support_period),
         benefit=ai_content.policy_benefit(policy.policy_key),
+        conditions=ai_content.policy_section(policy.policy_key, "target"),
+        exclusions=ai_content.policy_section(policy.policy_key, "exclusion"),
         related=related or [],
     )
 

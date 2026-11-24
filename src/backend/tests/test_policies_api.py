@@ -12,7 +12,7 @@ DETAIL_KEYS = {
     "age_max", "target_description", "support_content", "support_amount", "support_period",
     "apply_method", "required_docs", "apply_url", "source_url", "original_text", "easy_text",
     "checked_at", "is_outdated", "eligibility",
-    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit", "related",
+    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit", "conditions", "exclusions", "related",
 }
 NULLABLE = {
     "contact", "age_min", "age_max", "support_amount", "support_period", "apply_url", "eligibility",
@@ -211,13 +211,19 @@ def test_benefit_from_card_summary(api, db_session, tmp_path, monkeypatch):
     p = make_policy(db_session, support_amount=None)
     (tmp_path / f"{p.policy_key}.json").write_text(_json.dumps({
         "passed": True,
-        "card": [{"item": "benefit", "label": "지원 내용", "items": ["주거(오피스텔) 지원 1,500천원", "자립체험"]}],
+        "card": [
+            {"item": "target", "label": "지원 대상", "items": ["보호종료 5년 이내"]},
+            {"item": "exclusion", "label": "받을 수 없는 경우", "items": ["원가정 복귀"]},
+            {"item": "benefit", "label": "지원 내용", "items": ["주거(오피스텔) 지원 1,500천원", "자립체험"]},
+        ],
     }), encoding="utf-8")
 
     data = api.get(f"/api/policies/{p.id}").json()
 
     assert data["amount_text"] is None
     assert data["benefit"] == "주거(오피스텔) 지원 150만 원"
+    assert data["conditions"] == ["보호종료 5년 이내"]
+    assert data["exclusions"] == ["원가정 복귀"]
 
 
 def test_benefit_null_without_facts(api, db_session, tmp_path, monkeypatch):

@@ -47,3 +47,20 @@ class PolicyRoadmap(BaseModel):
     d_day: int | None
     summary: RoadmapSummary
     stages: list[RoadmapStageGroup]  # 빈 단계는 빠진다. 순서: before_leave → at_leave → now
+
+
+class RecommendedPolicy(BaseModel):
+    """홈 '나에게 맞는 지원 정책' 카드 하나 (추천 순서대로)"""
+
+    policy_id: int
+    policy_key: str
+    name: str
+    category: Category
+    eligibility: EligibilityValue
+    stage: RoadmapStage
+    when_text: str  # "1월 29일부터 미리 신청" · "퇴소하면 신청" · "지금 신청"
+    amount_unit: str | None  # "매월" · "매년" · "한 번" (현금이 아니면 null)
+    amount_value: str | None  # "50만 원" (현금이 아니면 null)
+    amount_text: str | None  # "월 50만 원"
+    benefit: str | None  # 받는 것 한 줄 (현금이 아니면 앱이 이걸 보여 준다)
+    score: int  # 추천 점수 (클수록 먼저). 조건 맞음 > 신청 시기 가까움 > 현금 금액 순으로 더한다

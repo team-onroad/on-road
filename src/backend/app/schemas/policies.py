@@ -68,6 +68,9 @@ class PolicyDetail(BaseModel):
     amount_text: str | None = None
     period_years: int | None = None
     benefit: str | None = None  # 받는 것 한 줄 (카드 요약의 지원 내용). 돈이 아닌 지원(주거 · 의료 · 상담)도 보여 준다
+    # 나이 · 지역 말고 따로 확인할 대상 조건 (카드 요약의 '지원 대상' 구절). 앱 '내 조건'에 그대로 보여 준다
+    conditions: list[str] = []
+    exclusions: list[str] = []  # 받을 수 없는 경우 (카드 요약의 '받을 수 없는 경우')
     related: list[RelatedPolicy] = []
 
 
