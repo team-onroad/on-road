@@ -123,6 +123,13 @@ def policy_benefit(policy_key: str) -> str | None:
     return None
 
 
+def policy_benefits(policy_key: str) -> list[str]:
+    """검사를 통과한 핵심 사실 중 지원 내용(benefit) 구절 전부. 없으면 []"""
+    data = _policy_facts(policy_key)
+    facts = data.get("facts") if data else None
+    return [f["text"] for f in facts or [] if isinstance(f, dict) and f.get("item") == "benefit" and f.get("text")]
+
+
 def policy_summary(policy_key: str) -> dict | None:
     """검색 카드 요약 {"sections", "notice", "verified"}. 없으면 None."""
     data = _policy_facts(policy_key)

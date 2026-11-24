@@ -22,7 +22,7 @@ POLICY_LIMIT = 4
 PATH_ORDER = ("job", "college", "training")
 TITLES = {"job": "취업 준비", "college": "대학 진학", "training": "직업훈련 · 자격증"}
 _KEYWORDS = {
-    "job": re.compile(r"취업|구직|도전지원|일자리|채용|면접|청년챙김"),
+    "job": re.compile(r"취업|구직|청년\s*도전|일자리|채용|면접|청년챙김"),
     "college": re.compile(r"대학|등록금|장학|진학|입학"),
     "training": re.compile(r"훈련|교육비|자격|능력개발|학습|역량"),
 }
@@ -82,9 +82,16 @@ def recommended_path(user: User, today: date) -> str:
     return "college" if calc_stage(calc_age(user.birth_date, today), user.status) != "youth" else "job"
 
 
+def _match_text(p: Policy) -> str:
+    """방향별 낱말을 찾을 글: 정책 이름 + 받는 것(카드 요약의 지원 내용 구절).
+    지원 내용 원문 전체는 '대학생 전세임대', '교육생'처럼 다른 뜻으로 걸리는 말이 많아서 쓰지 않는다 (요약이 없을 때만)"""
+    facts = ai_content.policy_benefits(p.policy_key)
+    return f"{p.name} {' '.join(facts) if facts else (p.support_content or '')}"
+
+
 def _policies(pool: list[Policy], path: str, user: User, today: date) -> list[CareerPolicy]:
     pattern = _KEYWORDS[path]
-    hits = [p for p in pool if pattern.search(f"{p.name} {p.support_content or ''}")]
+    hits = [p for p in pool if pattern.search(_match_text(p))]
     rows = []
     for p in hits:
         status = eligibility_for(user, p, today).status
