@@ -424,6 +424,8 @@
 | `period_years` | `support_period`에 "보호종료 후 N년" 같은 표현이 없음 |
 | `benefit` | 카드 요약(`data/policy_facts`)이 없거나 검사를 통과하지 못함 |
 
+- 금액 읽기 규칙 추가: 내는 돈(임대보증금 · 임대료 · 본인부담) 앞의 금액은 건너뛴다. `support_amount`에 주기가 없으면 `support_content`의 "(인/월)", "/월"로 월 지급을 알아내고, 하루 단위("1일/2.4천원")는 읽지 않는다
+- 시연용 더미 정책(D001~)은 `RAG_MODE=real` 서버에서 검색 · 분야별 보기 · 로드맵 · 추천 · 관련 정책에 넣지 않는다 (id 로 여는 상세는 그대로)
 - 금액 필드 (`app/money.py`, 규칙): `support_amount`는 수집할 때(`collector/convert.py` `normalize_amount`) 단위를 맞춰 저장한다 (`300천원` → `30만 원`, 1억 원 이상은 사업 예산으로 보고 비움). 응답에는 앱이 계산에 쓸 숫자를 함께 준다.
   - `amount_won`: 원 단위 숫자. `amount_cycle`: `monthly` 매달 · `yearly` 매년 · `once` 한 번 · null 알 수 없음
   - `amount_text`: 앱 표기 ("월 50만 원", "1,000만 원", "월 최대 20만 원")
@@ -911,8 +913,8 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 |---|---|
 | `base_date` | 퇴소 예정일. `status`가 `in_care`·`leaving_soon`이고 `d_date`가 오늘 이후일 때만 값이 있다. 퇴소 후(`d_date`는 목표일)거나 예정일이 지났으면 `null` |
 | `d_day` | `base_date`까지 남은 일수 (`base_date`가 null 이면 null) |
-| `summary.monthly_won` | `eligibility: match` 정책 중 월 지급 금액의 합 |
-| `summary.once_won` | `match` 정책 중 1회 지급 금액의 합. 주기 없이 금액만 있는 정책(자립정착금 "1,000만 원" 등)도 1회로 본다 |
+| `summary.monthly_won` | `eligibility: match` 정책을 모두 받을 때의 최대 월 금액. 같은 종류(자립수당 · 자립정착금)는 가장 큰 것 하나만 센다. 앱은 "최대 월 70만 원"으로 표시 |
+| `summary.once_won` | `match` 정책 중 1회 지급 최대 금액. 주기 없이 금액만 있는 정책도 1회로 보고, 같은 종류는 하나만 센다 |
 | `stage` | `before_leave`: 신청 방법·대상에 "종료 30일 전" 같은 사전신청 기간이 있음. `at_leave`: 대상에 보호종료·퇴소·자립준비가 들어감. `now`: 나머지. `base_date`가 null 이면 모두 `now` |
 | `apply_from` | 신청 시작일. `before_leave` = 퇴소 예정일 - N일, `at_leave` = 퇴소 예정일. 오늘보다 앞이면 오늘. `now`는 null |
 | `until` | 퇴소 예정일 + `period_years`. 둘 중 하나라도 없으면 null |

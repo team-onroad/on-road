@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
 from app import ai_content
-from app.money import parse_amount, parse_period_years
+from app.money import parse_period_years, policy_amount
 from app.rules import calc_age
 from app.schemas.chat import PersonalPlan, PlanItem
 from app.schemas.roadmap import PolicyRoadmap, RoadmapItem, RoadmapStageGroup, RoadmapSummary
@@ -64,7 +64,7 @@ def _max_total(won: int | None, cycle: str | None, years: int | None) -> int | N
 
 
 def _item(policy: Policy, user: User, today: date, leave: date | None) -> tuple[str, RoadmapItem]:
-    won, cycle, text = parse_amount(policy.support_amount)
+    won, cycle, text = policy_amount(policy)
     years = parse_period_years(policy.support_period)
     days = pre_apply_days(policy)
 
@@ -96,6 +96,29 @@ def _item(policy: Policy, user: User, today: date, leave: date | None) -> tuple[
         until=_add_years(leave, years) if leave is not None and years else None,
         apply_note=note,
     )
+
+
+# 같은 종류라 보통 하나만 받는 지원 (자립수당 · 자립정착금). 합계에는 그중 가장 큰 것 하나만 센다
+_SAME_KIND = (
+    ("allowance", re.compile(r"자립\s*(지원)?\s*수당")),
+    ("settlement", re.compile(r"(자립)?\s*정착금")),
+)
+
+
+def _kind_key(item: RoadmapItem) -> str:
+    for key, pattern in _SAME_KIND:
+        if pattern.search(item.name):
+            return key
+    return f"policy-{item.policy_id}"
+
+
+def _max_sum(items: list[RoadmapItem]) -> int:
+    """같은 종류는 가장 큰 금액 하나만 더한다 (자립수당 두 개를 함께 받는다고 보지 않는다)"""
+    best: dict[str, int] = {}
+    for i in items:
+        key = _kind_key(i)
+        best[key] = max(best.get(key, 0), i.amount_won or 0)
+    return sum(best.values())
 
 
 def _monthly_equivalent(item: RoadmapItem) -> int:
@@ -131,8 +154,8 @@ def build_roadmap(db: Session, user: User, today: date) -> PolicyRoadmap:
         base_date=leave,
         d_day=(leave - today).days if leave is not None else None,
         summary=RoadmapSummary(
-            monthly_won=sum(i.amount_won for i in matched if i.amount_cycle == "monthly"),
-            once_won=sum(i.amount_won for i in matched if i.amount_cycle in ("once", None)),
+            monthly_won=_max_sum([i for i in matched if i.amount_cycle == "monthly"]),
+            once_won=_max_sum([i for i in matched if i.amount_cycle in ("once", None)]),
             policy_count=len(items),
             match_count=sum(1 for i in items if i.eligibility == "match"),
         ),

@@ -114,3 +114,29 @@ def test_pre_apply_days_patterns():
     assert pre_apply_days(P("", "보호 종료 전 30일 이내 신청")) == 30
     assert pre_apply_days(P("시설종사자가 종료 전 30일 이내 사전신청")) == 30
     assert pre_apply_days(P("방문 신청")) is None
+
+
+def test_dummy_policies_hidden_on_real_server(api, db_session, monkeypatch):
+    from app.config import get_settings
+
+    real = make_policy(db_session, support_amount="월 20만 원")
+    make_policy(db_session, policy_key="D901", name="(더미) 지원금", support_amount="월 50만 원")
+    user = make_user(db_session)
+
+    monkeypatch.setattr(get_settings(), "rag_mode", "real")
+    data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
+    assert _ids(_stage(data, "now")) == [real.id]
+    assert data["summary"]["monthly_won"] == 200_000
+
+
+def test_same_kind_allowance_counted_once(api, db_session):
+    make_policy(db_session, name="자립준비청년 자립수당 지급", support_amount="월 50만 원")
+    make_policy(db_session, name="퇴소청소년 자립지원수당", support_amount="월 50만 원")
+    make_policy(db_session, name="청년 월세 지원", support_amount="월 20만 원")
+    make_policy(db_session, name="자립정착금", support_amount="1,000만 원")
+    make_policy(db_session, name="구로형 자립정착금", support_amount="1,500만 원")
+    user = make_user(db_session)
+
+    s = api.get(f"/api/users/{user.id}/policy-roadmap").json()["summary"]
+    assert s["monthly_won"] == 700_000
+    assert s["once_won"] == 15_000_000

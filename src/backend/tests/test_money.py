@@ -58,3 +58,12 @@ def test_normalize_amounts_in_sentence():
     assert normalize_amounts("월 50만 원") == "월 50만 원"
     assert normalize_amounts("예산 659,900천원") == "예산 659,900천원"  # 1억 이상은 그대로
     assert normalize_amounts(None) is None
+
+
+def test_paid_and_daily_amounts_are_not_benefits():
+    from app.money import parse_amount
+
+    assert parse_amount("임대료 : 시중 시세의 30%, 임대보증금 100만원") == (None, None, None)
+    assert parse_amount("2,400원", "교통비 지원(1일/2.4천원)") == (None, None, None)
+    assert parse_amount("30만 원", "생활보조수당 300천원(인/월) 지원") == (300_000, "monthly", "월 30만 원")
+    assert parse_amount("본인부담 10만 원, 지원 50만 원")[0] == 500_000

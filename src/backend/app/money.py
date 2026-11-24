@@ -29,11 +29,20 @@ def won_text(won: int) -> str:
     return f"{won // 10_000:,}만 원"
 
 
-def parse_amount(text: str | None) -> tuple[int | None, str | None, str | None]:
-    """(amount_won, amount_cycle, amount_text). 첫 금액만 읽는다"""
+# 받는 돈이 아니라 내는 돈 (임대보증금 · 임대료 · 본인부담금) 앞에 붙는 말. 이 금액은 건너뛴다
+_PAY = re.compile(r"(보증금|임대료|월세|본인\s*부담|자부담|자기\s*부담)\s*[:：]?\s*(최대|약)?\s*$")
+# 금액 문장에 주기가 없을 때 지원 내용에서 찾는 주기 ("300천원(인/월)", "1일/2.4천원")
+_CTX_MONTHLY = re.compile(r"/\s*인\s*월|인\s*/\s*월|/\s*월(?![가-힣])|월\s*/\s*인|\(\s*월\s*\)")
+_CTX_DAILY = re.compile(r"\b1\s*일\s*/|/\s*1?\s*일(?![가-힣])|일당")
+
+
+def parse_amount(text: str | None, context: str | None = None) -> tuple[int | None, str | None, str | None]:
+    """(amount_won, amount_cycle, amount_text). 받는 금액 중 첫 번째만 읽는다.
+    내는 돈(보증금 · 임대료 · 본인부담)은 건너뛴다. 주기가 없으면 context(지원 내용)에서 찾고,
+    하루 단위 금액은 한 번 · 한 달 금액으로 볼 수 없어서 읽지 않는다"""
     if not text:
         return None, None, None
-    m = _AMOUNT.search(text)
+    m = next((x for x in _AMOUNT.finditer(text) if not _PAY.search(text[: x.start()])), None)
     if not m:
         return None, None, None
     try:
@@ -50,9 +59,18 @@ def parse_amount(text: str | None) -> tuple[int | None, str | None, str | None]:
         cycle, shown = "yearly", f"연 {upto}{won_text(won)}"
     elif _ONCE.search(before):
         cycle, shown = "once", f"{upto}{won_text(won)}"
+    elif context and _CTX_DAILY.search(context):
+        return None, None, None
+    elif context and _CTX_MONTHLY.search(context):
+        cycle, shown = "monthly", f"월 {upto}{won_text(won)}"
     else:
         cycle, shown = None, f"{upto}{won_text(won)}"
     return won, cycle, shown
+
+
+def policy_amount(policy) -> tuple[int | None, str | None, str | None]:
+    """정책의 받는 금액. 주기가 금액 문장에 없으면 지원 내용에서 찾는다"""
+    return parse_amount(policy.support_amount, getattr(policy, "support_content", None))
 
 
 def parse_period_years(text: str | None) -> int | None:

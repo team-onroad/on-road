@@ -36,8 +36,8 @@ class RoadmapStageGroup(BaseModel):
 
 
 class RoadmapSummary(BaseModel):
-    monthly_won: int  # 조건이 맞는(match) 월 지급 정책 금액 합
-    once_won: int  # 조건이 맞는(match) 1회 지급 정책 금액 합 (주기 없는 금액 포함)
+    monthly_won: int  # 조건이 맞는(match) 월 지급 정책을 모두 받을 때의 최대 금액. 같은 종류(자립수당 · 자립정착금)는 가장 큰 것 하나만
+    once_won: int  # 조건이 맞는(match) 1회 지급 최대 금액 (주기 없는 금액 포함, 같은 종류는 하나만)
     policy_count: int  # 로드맵에 든 정책 수 (확인 필요 포함)
     match_count: int
 

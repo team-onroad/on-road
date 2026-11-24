@@ -8,10 +8,11 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.codes import NATIONWIDE
+from app.config import get_settings
 from app import ai_content, pii
 from app.errors import AppError
 from app.ids import parse_id
-from app.money import parse_amount, parse_period_years
+from app.money import parse_period_years, policy_amount
 from app.cache import TtlCache
 from app.rag_client import SearchPolicies, get_search_policies
 from app.rules import CHILD_AGE_MAX, calc_age, is_child_policy, is_outdated, judge_age, judge_eligibility, policy_district
@@ -30,6 +31,7 @@ from app.schemas.policies import (
     SearchResult,
 )
 from db.models import Policy, User
+from db.seed import DUMMY_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,13 @@ def policy_not_found() -> AppError:
 
 def rag_unavailable() -> AppError:
     return AppError(503, "RAG_UNAVAILABLE", "정책 검색 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
+
+
+def is_hidden_dummy(policy: Policy) -> bool:
+    """시연용 더미 정책(D001~)은 실제 정책을 쓰는 서버(RAG_MODE=real)에서 검색 · 로드맵 · 추천에 넣지 않는다.
+    '(더미)' 정책이 실제 사용자 목록과 금액 합계에 섞이지 않게. 시연 사용자의 기록에서 id 로 여는 것은 된다.
+    mock 모드(로컬 · 테스트)는 더미가 유일한 정책이라 그대로 쓴다"""
+    return get_settings().rag_mode == "real" and policy.policy_key.startswith(DUMMY_PREFIX)
 
 
 def get_visible_policy(db: Session, policy_id: str) -> Policy:
@@ -91,13 +100,13 @@ def related_policies(db: Session, policy: Policy, user: User | None, today: date
     if user is not None:
         pool = candidate_policies(db, calc_age(user.birth_date, today), user.region, user=user, today=today)
     else:
-        pool = list(db.scalars(select(Policy).where(VISIBLE).order_by(Policy.id)))
+        pool = [p for p in db.scalars(select(Policy).where(VISIBLE).order_by(Policy.id)) if not is_hidden_dummy(p)]
     pool = [p for p in pool if p.id != policy.id and p.category == policy.category]
-    pool.sort(key=lambda p: (parse_amount(p.support_amount)[0] is None, p.id))
+    pool.sort(key=lambda p: (policy_amount(p)[0] is None, p.id))
     return [
         RelatedPolicy(
             policy_id=p.id, policy_key=p.policy_key, name=p.name, agency=p.agency,
-            category=p.category, amount_text=parse_amount(p.support_amount)[2],
+            category=p.category, amount_text=policy_amount(p)[2],
             benefit=ai_content.policy_benefit(p.policy_key),
         )
         for p in pool[:RELATED_LIMIT]
@@ -106,7 +115,7 @@ def related_policies(db: Session, policy: Policy, user: User | None, today: date
 
 def to_detail(policy: Policy, today: date, user: User | None,
               related: list[RelatedPolicy] | None = None) -> PolicyDetail:
-    amount_won, amount_cycle, amount_text = parse_amount(policy.support_amount)
+    amount_won, amount_cycle, amount_text = policy_amount(policy)
     return PolicyDetail(
         policy_id=policy.id,
         policy_key=policy.policy_key,
@@ -159,7 +168,7 @@ def candidate_policies(db: Session, age: int, region: str, user: User | None = N
         )
         .order_by(Policy.id)
     )
-    policies = list(db.scalars(stmt))
+    policies = [p for p in db.scalars(stmt) if not is_hidden_dummy(p)]
     if user is None:
         return policies
     return [p for p in policies if eligibility_for(user, p, today).status != "excluded"]
