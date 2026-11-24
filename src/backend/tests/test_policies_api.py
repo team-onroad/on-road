@@ -12,8 +12,12 @@ DETAIL_KEYS = {
     "age_max", "target_description", "support_content", "support_amount", "support_period",
     "apply_method", "required_docs", "apply_url", "source_url", "original_text", "easy_text",
     "checked_at", "is_outdated", "eligibility",
+    "amount_won", "amount_cycle", "amount_text", "period_years", "related",
 }
-NULLABLE = {"contact", "age_min", "age_max", "support_amount", "support_period", "apply_url", "eligibility"}
+NULLABLE = {
+    "contact", "age_min", "age_max", "support_amount", "support_period", "apply_url", "eligibility",
+    "amount_won", "amount_cycle", "amount_text", "period_years",
+}
 
 
 def _assert_error(res, status_code, code):
@@ -163,3 +167,36 @@ def test_policy_detail_never_says_apply_possible(api, db_session):
     p = make_policy(db_session)
     res = api.get(f"/api/policies/{p.id}", params={"user_id": str(user.id)})
     assert "신청 가능" not in res.text
+
+
+def test_policy_detail_amount_fields(api, db_session):
+    p = make_policy(db_session, support_amount="300천원", support_period="보호종료 후 5년 이내")
+    data = api.get(f"/api/policies/{p.id}").json()
+    assert (data["amount_won"], data["amount_cycle"], data["amount_text"]) == (300_000, None, "30만 원")
+    assert data["period_years"] == 5
+    assert data["support_amount"] == "300천원"  # 원문은 그대로
+
+
+def test_policy_detail_related_same_category_eligible_first_with_amount(api, db_session):
+    me = make_policy(db_session, category="housing", region="전국")
+    no_amount = make_policy(db_session, category="housing", region="전국", support_amount=None)
+    with_amount = make_policy(db_session, category="housing", region="전국", support_amount="월 20만 원")
+    make_policy(db_session, category="education", region="전국")  # 다른 분야는 빠진다
+    make_policy(db_session, category="housing", region="부산")  # 내 지역이 아니면 빠진다
+    user = make_user(db_session, region="서울")
+
+    data = api.get(f"/api/policies/{me.id}", params={"user_id": str(user.id)}).json()
+
+    ids = [r["policy_id"] for r in data["related"]]
+    assert me.id not in ids
+    assert ids[:2] == [with_amount.id, no_amount.id]
+    assert all(r["category"] == "housing" for r in data["related"])
+    assert data["related"][0]["amount_text"] == "월 20만 원"
+
+
+def test_policy_detail_related_limit_and_without_user(api, db_session):
+    me = make_policy(db_session, category="medical")
+    for _ in range(5):
+        make_policy(db_session, category="medical")
+    data = api.get(f"/api/policies/{me.id}").json()
+    assert len(data["related"]) == 3

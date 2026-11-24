@@ -642,3 +642,17 @@ def test_housing_condition_is_not_another_target():
 
     # '무주택' · '미혼'은 다른 대상이 아니라 조건 (W002) → 보호가 끝난 청년 · 퇴소 예정 15세~
     assert infer_ages("보호종료아동 임대주택 지원", "아동복지시설 : 퇴소 예정이거나 퇴소한지 5년이 지나지 아니한 미혼 무주택자")[:2] == (15, 29)
+
+
+def test_normalize_amount_units():
+    # 수집처마다 다른 단위를 저장할 때 맞춘다 (앞말은 그대로, 1억 원 이상은 사업 예산으로 보고 비운다)
+    n = convert.normalize_amount
+    assert n("300천원") == "30만 원"
+    assert n("10,000,000원") == "1,000만 원"
+    assert n("1인당 1천만원") == "1인당 1,000만 원"
+    assert n("5백만원") == "500만 원"
+    assert n("매월 50만 원") == "매월 50만 원"
+    assert n("월 최대 20만원") == "월 최대 20만 원"
+    assert n("5,500원") == "5,500원"
+    assert n("659,900천원") is None
+    assert n(None) is None

@@ -311,12 +311,41 @@ def pick_region(row: dict) -> tuple[str, str | None]:
     return code, None
 
 
+_AMOUNT_PARTS_RE = re.compile(r"^((?:(?:월|연|매월|최대|1회|일시금|1인당)\s*)*)([\d,]+(?:\.\d+)?)\s*(백만|천만|만|천|백|억)?\s*원$")
+_UNIT_WON = {"백": 100, "천": 1_000, "만": 10_000, "백만": 1_000_000, "천만": 10_000_000, "억": 100_000_000, None: 1}
+AMOUNT_BUDGET_MIN = 100_000_000  # 1억 원 이상은 1인 지원금이 아니라 사업 예산으로 본다 (예: "659,900천원")
+
+
+def _won_text(won: int) -> str:
+    """앱 · 서버와 같은 표기: 1만 원 단위면 "50만 원", 아니면 "5,000원" """
+    return f"{won // 10_000:,}만 원" if won % 10_000 == 0 else f"{won:,}원"
+
+
+def normalize_amount(amount: str | None) -> str | None:
+    """금액 한 개를 같은 단위로: "300천원" → "30만 원", "10,000,000원" → "1,000만 원", "1인당 1천만원" → "1인당 1,000만 원".
+    앞말(월 · 매월 · 연 · 최대 · 1회 · 1인당)은 그대로 둔다. 1억 원 이상은 사업 예산으로 보고 None (금액 칸을 비운다)"""
+    if not amount:
+        return None
+    m = _AMOUNT_PARTS_RE.match(" ".join(amount.split()))
+    if m is None:
+        return amount
+    try:
+        won = int(float(m.group(2).replace(",", "")) * _UNIT_WON[m.group(3)])
+    except ValueError:
+        return amount
+    if won >= AMOUNT_BUDGET_MIN:
+        return None
+    prefix = " ".join(m.group(1).split())
+    return f"{prefix} {_won_text(won)}".strip()
+
+
 def _single_amount(text: str | None) -> str | None:
     """지원 금액 칸(support_amount)에는 금액 표현이 하나일 때만 넣는다.
     여러 개면(예: 디딤씨앗통장 "월 10만 원, 10만 원, 월 50만 원" — 50만 원은 지원금이 아니라 추가 적립 한도) 이어 붙이면
     뜻이 틀어지므로 비우고, 자세한 금액은 지원내용(support_content)의 원문에 맡긴다 (쉬운 말 변환에서 찾음)"""
     amounts = find_amounts(text)
-    return amounts if amounts and ", " not in amounts else None
+    # 수집처마다 단위가 달라서(300천원 · 10,000,000원) 저장할 때 같은 단위로 맞춘다 (원문은 support_content 에 그대로)
+    return normalize_amount(amounts) if amounts and ", " not in amounts else None
 
 
 def find_amounts(*texts: str | None) -> str | None:

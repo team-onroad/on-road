@@ -29,7 +29,7 @@ from datetime import date
 from html.parser import HTMLParser
 from pathlib import Path
 
-from collector.convert import (CONTACT_MAX, DOC_TEXT_MAX, NAME_MAX, Converted, _cut, pick_category, pick_region,
+from collector.convert import (CONTACT_MAX, DOC_TEXT_MAX, NAME_MAX, Converted, _cut, normalize_amount, pick_category, pick_region,
                                policy_ages, relevance)
 from collector.merge import (KeyMap, MergeResult, NameIndex, load_auto_values, merge, read_json, save_auto_values,
                              write_json)
@@ -272,7 +272,7 @@ def to_policy(program: dict, page: str, url: str, source: Source, today: date) -
         "age_max": age_max,
         "target_description": values["target_description"],
         "support_content": values["support_content"],
-        "support_amount": values.get("support_amount"),
+        "support_amount": normalize_amount(values.get("support_amount")),
         "support_period": values.get("support_period"),
         "apply_method": apply_method,
         "required_docs": docs,

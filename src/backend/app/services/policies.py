@@ -11,6 +11,7 @@ from app.codes import NATIONWIDE
 from app import ai_content, pii
 from app.errors import AppError
 from app.ids import parse_id
+from app.money import parse_amount, parse_period_years
 from app.cache import TtlCache
 from app.rag_client import SearchPolicies, get_search_policies
 from app.rules import CHILD_AGE_MAX, calc_age, is_child_policy, is_outdated, judge_age, judge_eligibility, policy_district
@@ -23,6 +24,7 @@ from app.schemas.policies import (
     Evidence,
     PolicyDetail,
     RagOutput,
+    RelatedPolicy,
     RequiredDoc,
     SearchResponse,
     SearchResult,
@@ -79,7 +81,31 @@ def eligibility_for(user: User, policy: Policy, today: date) -> Eligibility:
     )
 
 
-def to_detail(policy: Policy, today: date, user: User | None) -> PolicyDetail:
+RELATED_LIMIT = 3
+
+
+def related_policies(db: Session, policy: Policy, user: User | None, today: date) -> list[RelatedPolicy]:
+    """정책 상세의 '같이 보면 좋은 정책' (규칙, AI 없음).
+    사용자가 있으면 그 사람이 받을 수 있는 정책(candidate_policies) 중에서, 없으면 노출 정책 중에서
+    같은 분야를 먼저, 금액이 있는 정책을 먼저 최대 3개 고른다. 자기 자신은 뺀다"""
+    if user is not None:
+        pool = candidate_policies(db, calc_age(user.birth_date, today), user.region, user=user, today=today)
+    else:
+        pool = list(db.scalars(select(Policy).where(VISIBLE).order_by(Policy.id)))
+    pool = [p for p in pool if p.id != policy.id and p.category == policy.category]
+    pool.sort(key=lambda p: (parse_amount(p.support_amount)[0] is None, p.id))
+    return [
+        RelatedPolicy(
+            policy_id=p.id, policy_key=p.policy_key, name=p.name, agency=p.agency,
+            category=p.category, amount_text=parse_amount(p.support_amount)[2],
+        )
+        for p in pool[:RELATED_LIMIT]
+    ]
+
+
+def to_detail(policy: Policy, today: date, user: User | None,
+              related: list[RelatedPolicy] | None = None) -> PolicyDetail:
+    amount_won, amount_cycle, amount_text = parse_amount(policy.support_amount)
     return PolicyDetail(
         policy_id=policy.id,
         policy_key=policy.policy_key,
@@ -103,6 +129,11 @@ def to_detail(policy: Policy, today: date, user: User | None) -> PolicyDetail:
         checked_at=policy.checked_at,
         is_outdated=is_outdated(policy.checked_at, today),
         eligibility=eligibility_for(user, policy, today) if user is not None else None,
+        amount_won=amount_won,
+        amount_cycle=amount_cycle,
+        amount_text=amount_text,
+        period_years=parse_period_years(policy.support_period),
+        related=related or [],
     )
 
 

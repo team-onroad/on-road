@@ -398,7 +398,15 @@
   "easy_text": "쉬운 말 변환문",
   "checked_at": "2026-09-28",
   "is_outdated": false,
-  "eligibility": { "status": "match", "age": "match", "region": "match" }
+  "eligibility": { "status": "match", "age": "match", "region": "match" },
+  "amount_won": 500000,
+  "amount_cycle": "monthly",
+  "amount_text": "월 50만 원",
+  "period_years": 5,
+  "related": [
+    { "policy_id": 7, "policy_key": "G012", "name": "자립정착금", "agency": "서울특별시",
+      "category": "living_cost", "amount_text": "2,000만 원" }
+  ]
 }
 ```
 
@@ -409,6 +417,13 @@
 | `support_amount`, `support_period` | 원문에 금액·기간 정보가 없음. 해당 줄 숨김 |
 | `apply_url` | 공식 신청 페이지 없음 |
 | `eligibility` | 쿼리에 `user_id`를 넘기지 않음 |
+| `amount_won`, `amount_cycle`, `amount_text` | `support_amount`에서 금액을 읽지 못함 (없음, 1억 원 이상 등). 앱은 원문 문장을 보여 준다 |
+| `period_years` | `support_period`에 "보호종료 후 N년" 같은 표현이 없음 |
+
+- 금액 필드 (`app/money.py`, 규칙): `support_amount`는 수집할 때(`collector/convert.py` `normalize_amount`) 단위를 맞춰 저장한다 (`300천원` → `30만 원`, 1억 원 이상은 사업 예산으로 보고 비움). 응답에는 앱이 계산에 쓸 숫자를 함께 준다.
+  - `amount_won`: 원 단위 숫자. `amount_cycle`: `monthly` 매달 · `yearly` 매년 · `once` 한 번 · null 알 수 없음
+  - `amount_text`: 앱 표기 ("월 50만 원", "1,000만 원", "월 최대 20만 원")
+- `related` (같이 보면 좋은 정책, 규칙): 같은 분야 정책 중 최대 3개. `user_id`를 넘기면 그 사람이 받을 수 있는 정책(검색 후보와 같은 기준)에서만 고르고, 금액이 있는 정책을 먼저 둔다. 자기 자신은 빠진다. 없으면 `[]`.
 
 - 시뮬레이션 결과의 "관련 정책 보기"에서도 이 API로 해당 정책을 바로 표시한다.
 - 서비스 노출 대상이 아닌 정책은 404 `POLICY_NOT_FOUND`
