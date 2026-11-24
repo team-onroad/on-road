@@ -200,3 +200,24 @@ def test_child_household_policy_not_for_in_care(api, db_session):
     user = make_user(db_session, status="in_care", birth_date=date(2010, 1, 1))
     data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
     assert data["summary"]["policy_count"] == 0
+
+
+def test_recommended_policies_order(api, db_session):
+    now_cash = make_policy(db_session, name="청년 월세 지원", support_amount="월 20만 원", target_description="청년")
+    pre = make_policy(db_session, policy_key="P001", name="자립준비청년 자립수당 지급", support_amount="월 50만 원",
+                      target_description="보호종료 자립준비청년", apply_method="보호종료 30일 전부터 사전 신청")
+    service = make_policy(db_session, name="자립지원 전담기관 운영", support_amount=None, target_description="보호종료 아동")
+    check = make_policy(db_session, name="서초구 생활보조수당", agency="서울특별시 서초구", region="서울",
+                        support_amount="월 30만 원", target_description="청년")
+    user = make_user(db_session, region="서울", status="leaving_soon", d_date=date(2026, 12, 31))
+
+    res = api.get(f"/api/users/{user.id}/recommended-policies")
+
+    assert res.status_code == 200, res.text
+    items = res.json()
+    assert [i["policy_id"] for i in items] == [pre.id, now_cash.id, service.id, check.id]
+    first = items[0]
+    assert first["when_text"] == "12월 1일부터 미리 신청"
+    assert (first["amount_unit"], first["amount_value"]) == ("매월", "50만 원")
+    assert items[2]["amount_unit"] is None and items[2]["amount_value"] is None
+    assert items[3]["eligibility"] == "needs_check"
