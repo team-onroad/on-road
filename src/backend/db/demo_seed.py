@@ -36,6 +36,8 @@ DEMO_USER = {
     "region": "서울",
     "status": "leaving_soon",
     "d_date": "2026-12-31",
+    # 시 · 군 · 구까지 넣어야 구 단위 정책이 '확인 필요'가 아니라 해당 · 제외로 갈린다 (시연에서 내 조건 결과가 분명하게)
+    "district": "서초구",
 }
 
 DEMO_POLICY_KEY = "P001"
@@ -178,8 +180,13 @@ def main() -> int:
     try:
         with Session(get_engine()) as db:
             # --if-missing: 서버를 켤 때마다 부른다 (Render). 시연 사용자가 이미 있으면 기록을 지우지 않고 넘어간다
-            if "--if-missing" in sys.argv and db.get(User, DEMO_USER_ID) is not None:
+            existing = db.get(User, DEMO_USER_ID)
+            if "--if-missing" in sys.argv and existing is not None:
                 _seed_policies(db)  # 정책 노출 상태는 매번 맞춘다 (사용자 기록은 그대로)
+                # 예전에 만든 시연 사용자는 시 · 군 · 구가 비어 있다 → 비어 있을 때만 채운다 (사용자가 바꾼 값은 그대로)
+                if existing.district is None and existing.region == DEMO_USER["region"]:
+                    existing.district = DEMO_USER["district"]
+                    db.commit()
                 print("[demo_seed] 시연 사용자가 이미 있어 정책 노출만 맞춤")
                 return 0
             user = seed_demo(db, today_kst())
