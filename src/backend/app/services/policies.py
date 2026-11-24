@@ -119,6 +119,7 @@ def related_policies(db: Session, policy: Policy, user: User | None, today: date
 def to_detail(policy: Policy, today: date, user: User | None,
               related: list[RelatedPolicy] | None = None) -> PolicyDetail:
     amount_won, amount_cycle, amount_text = policy_amount(policy)
+    guide = ai_content.apply_guide(policy.policy_key) or {}
     return PolicyDetail(
         policy_id=policy.id,
         policy_key=policy.policy_key,
@@ -149,6 +150,8 @@ def to_detail(policy: Policy, today: date, user: User | None,
         benefit=ai_content.policy_benefit(policy.policy_key),
         conditions=ai_content.policy_section(policy.policy_key, "target"),
         exclusions=ai_content.policy_section(policy.policy_key, "exclusion"),
+        apply_ways=guide.get("ways", []),
+        apply_deadline=guide.get("deadline"),
         apply_steps=ai_content.policy_fact_items(policy.policy_key, "apply"),
         doc_facts=ai_content.policy_fact_items(policy.policy_key, "docs"),
         related=related or [],

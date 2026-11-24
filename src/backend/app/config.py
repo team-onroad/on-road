@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     forms_dir: Path = PROJECT_ROOT / "data" / "forms"
     # 정책 핵심 사실·카드 요약 (src/easytext/facts.py)
     policy_facts_dir: Path = PROJECT_ROOT / "data" / "policy_facts"
+    apply_guide_path: Path = PROJECT_ROOT / "data" / "apply_guide.json"
     # mock: app/rag_mock.py (기본), real: src/rag/ 실제 RAG (OPENAI_API_KEY·Chroma 인덱스 필요)
     rag_mode: Literal["mock", "real"] = "mock"
     # mock: app/llm_mock.py (기본), real: src/coach/ 실제 AI 상담·롤플레잉 (OPENAI_API_KEY 필요)

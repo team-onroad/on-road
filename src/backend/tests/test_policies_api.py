@@ -12,11 +12,11 @@ DETAIL_KEYS = {
     "age_max", "target_description", "support_content", "support_amount", "support_period",
     "apply_method", "required_docs", "apply_url", "source_url", "original_text", "easy_text",
     "checked_at", "is_outdated", "eligibility",
-    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit", "conditions", "exclusions", "apply_steps", "doc_facts", "related",
+    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit", "conditions", "exclusions", "apply_ways", "apply_deadline", "apply_steps", "doc_facts", "related",
 }
 NULLABLE = {
     "contact", "age_min", "age_max", "support_amount", "support_period", "apply_url", "eligibility",
-    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit",
+    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit", "apply_deadline",
 }
 
 
@@ -234,6 +234,50 @@ def test_benefit_from_card_summary(api, db_session, tmp_path, monkeypatch):
     assert data["benefit"] == "주거(오피스텔) 지원 150만 원"
     assert data["conditions"] == ["보호종료 5년 이내"]
     assert data["exclusions"] == ["원가정 복귀"]
+
+
+def test_apply_guide(api, db_session, tmp_path, monkeypatch):
+    import json as _json
+
+    from app.config import get_settings
+
+    path = tmp_path / "apply_guide.json"
+    monkeypatch.setattr(get_settings(), "apply_guide_path", path)
+    p = make_policy(db_session)
+    path.write_text(_json.dumps({p.policy_key: {
+        "ways": [{"way": "방문", "lines": ["주소지 행정복지센터에서 신청해요"]}, {"way": "온라인", "lines": []}, {"way": ""}],
+        "deadline": "상시 신청",
+    }}), encoding="utf-8")
+
+    data = api.get(f"/api/policies/{p.id}").json()
+
+    assert data["apply_ways"] == [
+        {"way": "방문", "lines": ["주소지 행정복지센터에서 신청해요"]},
+        {"way": "온라인", "lines": []},
+    ]
+    assert data["apply_deadline"] == "상시 신청"
+
+
+def test_apply_guide_missing(api, db_session, tmp_path, monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "apply_guide_path", tmp_path / "none.json")
+    data = api.get(f"/api/policies/{make_policy(db_session).id}").json()
+    assert data["apply_ways"] == []
+    assert data["apply_deadline"] is None
+
+
+def test_apply_guide_covers_real_policies():
+    """정리본은 실제 정책마다 있고, 모든 갈래에 이름이 있다"""
+    import json as _json
+
+    from app.config import get_settings
+
+    guide = _json.loads(get_settings().apply_guide_path.read_text(encoding="utf-8"))
+    keys = {p["policy_key"] for p in _json.loads(get_settings().policies_json_path.read_text(encoding="utf-8"))}
+    assert keys <= set(guide)
+    for entry in guide.values():
+        assert entry["ways"] and all(w["way"] for w in entry["ways"])
 
 
 def test_benefit_null_without_facts(api, db_session, tmp_path, monkeypatch):
