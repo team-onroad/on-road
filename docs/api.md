@@ -405,9 +405,10 @@
   "amount_cycle": "monthly",
   "amount_text": "월 50만 원",
   "period_years": 5,
+  "benefit": "월 50만 원, 매월 20일 지급",
   "related": [
     { "policy_id": 7, "policy_key": "G012", "name": "자립정착금", "agency": "서울특별시",
-      "category": "living_cost", "amount_text": "2,000만 원" }
+      "category": "living_cost", "amount_text": "2,000만 원", "benefit": "자립정착금 1인 2,000만 원" }
   ]
 }
 ```
@@ -421,10 +422,12 @@
 | `eligibility` | 쿼리에 `user_id`를 넘기지 않음 |
 | `amount_won`, `amount_cycle`, `amount_text` | `support_amount`에서 금액을 읽지 못함 (없음, 1억 원 이상 등). 앱은 원문 문장을 보여 준다 |
 | `period_years` | `support_period`에 "보호종료 후 N년" 같은 표현이 없음 |
+| `benefit` | 카드 요약(`data/policy_facts`)이 없거나 검사를 통과하지 못함 |
 
 - 금액 필드 (`app/money.py`, 규칙): `support_amount`는 수집할 때(`collector/convert.py` `normalize_amount`) 단위를 맞춰 저장한다 (`300천원` → `30만 원`, 1억 원 이상은 사업 예산으로 보고 비움). 응답에는 앱이 계산에 쓸 숫자를 함께 준다.
   - `amount_won`: 원 단위 숫자. `amount_cycle`: `monthly` 매달 · `yearly` 매년 · `once` 한 번 · null 알 수 없음
   - `amount_text`: 앱 표기 ("월 50만 원", "1,000만 원", "월 최대 20만 원")
+- `benefit` (받는 것 한 줄): 카드 요약의 "지원 내용" 첫 항목 ("주거(오피스텔) 지원", "건강보험 본인부담금 경감 지원"). 금액 표기는 앱 표기로 맞춘다. 돈이 아닌 정책이 많아서 앱은 금액이 없으면 이 문장을 "받는 것"으로 보여 준다. `related`, 3.32 로드맵, 3.33 진로 로드맵, 상담 `plan` 항목에도 같은 값이 들어간다
 - `related` (같이 보면 좋은 정책, 규칙): 같은 분야 정책 중 최대 3개. `user_id`를 넘기면 그 사람이 받을 수 있는 정책(검색 후보와 같은 기준)에서만 고르고, 금액이 있는 정책을 먼저 둔다. 자기 자신은 빠진다. 없으면 `[]`.
 
 - 시뮬레이션 결과의 "관련 정책 보기"에서도 이 API로 해당 정책을 바로 표시한다.
@@ -894,7 +897,7 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
     {"stage": "before_leave", "title": "퇴소 전에 미리 신청", "items": [
       {"policy_id": 7, "policy_key": "G007", "name": "자립준비청년 자립수당 지급", "agency": "충청북도 보은군",
        "category": "living_cost", "eligibility": "match",
-       "amount_won": 500000, "amount_cycle": "monthly", "amount_text": "월 50만 원", "period_years": null,
+       "amount_won": 500000, "amount_cycle": "monthly", "amount_text": "월 50만 원", "benefit": "월 50만 원, 매월 20일 지급", "period_years": null,
        "max_total_won": null, "apply_from": "2027-01-29", "until": null,
        "apply_note": "퇴소 30일 전부터 미리 신청"}
     ]},
@@ -914,7 +917,7 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 | `apply_from` | 신청 시작일. `before_leave` = 퇴소 예정일 - N일, `at_leave` = 퇴소 예정일. 오늘보다 앞이면 오늘. `now`는 null |
 | `until` | 퇴소 예정일 + `period_years`. 둘 중 하나라도 없으면 null |
 | `max_total_won` | 월 금액 × 12 × 기간, 연 금액 × 기간, 1회·주기 없는 금액은 그대로. 월·연 금액인데 기간을 읽지 못하면 null |
-| `amount_*`, `period_years` | 3.6 과 같음 |
+| `amount_*`, `period_years`, `benefit` | 3.6 과 같음 |
 
 - 빈 단계는 `stages`에서 빠진다. 순서는 `before_leave` → `at_leave` → `now`
 - 단계 안 정렬: `match` 먼저 → `apply_from` 빠른 순 → 월 환산 금액 큰 순 → 최대 총액 큰 순
@@ -944,7 +947,7 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
      ],
      "policies": [
        {"policy_id": 19, "name": "청년도전지원사업 안내", "agency": "고용노동부", "category": "employment",
-        "eligibility": "match", "amount_text": null}
+        "eligibility": "match", "amount_text": null, "benefit": "참여수당, 인센티브 제공"}
      ]}
   ]
 }

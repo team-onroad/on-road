@@ -98,6 +98,7 @@ def related_policies(db: Session, policy: Policy, user: User | None, today: date
         RelatedPolicy(
             policy_id=p.id, policy_key=p.policy_key, name=p.name, agency=p.agency,
             category=p.category, amount_text=parse_amount(p.support_amount)[2],
+            benefit=ai_content.policy_benefit(p.policy_key),
         )
         for p in pool[:RELATED_LIMIT]
     ]
@@ -133,6 +134,7 @@ def to_detail(policy: Policy, today: date, user: User | None,
         amount_cycle=amount_cycle,
         amount_text=amount_text,
         period_years=parse_period_years(policy.support_period),
+        benefit=ai_content.policy_benefit(policy.policy_key),
         related=related or [],
     )
 

@@ -36,6 +36,7 @@ class RelatedPolicy(BaseModel):
     agency: str
     category: Category
     amount_text: str | None  # "월 50만 원" (금액을 읽지 못하면 null)
+    benefit: str | None = None  # 받는 것 한 줄 ("주거(오피스텔) 지원"). 돈이 아닌 정책도 있음
 
 
 class PolicyDetail(BaseModel):
@@ -66,6 +67,7 @@ class PolicyDetail(BaseModel):
     amount_cycle: Literal["monthly", "yearly", "once"] | None = None
     amount_text: str | None = None
     period_years: int | None = None
+    benefit: str | None = None  # 받는 것 한 줄 (카드 요약의 지원 내용). 돈이 아닌 지원(주거 · 의료 · 상담)도 보여 준다
     related: list[RelatedPolicy] = []
 
 

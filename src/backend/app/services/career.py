@@ -11,6 +11,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from app import ai_content
 from app.money import parse_amount
 from app.rules import calc_age, calc_stage
 from app.schemas.career import CareerPathPlan, CareerPolicy, CareerRoadmap, CareerStep
@@ -91,7 +92,8 @@ def _policies(pool: list[Policy], path: str, user: User, today: date) -> list[Ca
         rows.append((status != "match", won is None, -(won or 0), p.id, p, status, text))
     rows.sort(key=lambda r: r[:4])
     return [
-        CareerPolicy(policy_id=p.id, name=p.name, agency=p.agency, category=p.category, eligibility=s, amount_text=t)
+        CareerPolicy(policy_id=p.id, name=p.name, agency=p.agency, category=p.category, eligibility=s, amount_text=t,
+                     benefit=ai_content.policy_benefit(p.policy_key))
         for *_, p, s, t in rows[:POLICY_LIMIT]
     ]
 

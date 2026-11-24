@@ -389,7 +389,7 @@ def test_broad_policy_question_has_plan(api, db_session, llm, rag):
     assert [i["name"] for i in plan["items"]] == ["자립수당", "정착금"]
     assert plan["items"][0]["apply_from"] == "2026-12-01"
     assert plan["items"][0]["apply_note"] == "퇴소 30일 전부터 미리 신청"
-    assert set(plan["items"][0]) == {"policy_id", "name", "amount_text", "apply_from", "apply_note", "has_form"}
+    assert set(plan["items"][0]) == {"policy_id", "name", "amount_text", "benefit", "apply_from", "apply_note", "has_form"}
     assert plan["notice"]
 
 

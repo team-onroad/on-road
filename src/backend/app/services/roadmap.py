@@ -89,6 +89,7 @@ def _item(policy: Policy, user: User, today: date, leave: date | None) -> tuple[
         amount_won=won,
         amount_cycle=cycle,
         amount_text=text,
+        benefit=ai_content.policy_benefit(policy.policy_key),
         period_years=years,
         max_total_won=_max_total(won, cycle, years),
         apply_from=apply_from,
@@ -171,7 +172,7 @@ def personal_plan(db: Session, user: User, today: date) -> PersonalPlan | None:
         match_count=rm.summary.match_count,
         items=[
             PlanItem(
-                policy_id=i.policy_id, name=i.name, amount_text=i.amount_text, apply_from=i.apply_from,
+                policy_id=i.policy_id, name=i.name, amount_text=i.amount_text, benefit=i.benefit, apply_from=i.apply_from,
                 apply_note=i.apply_note, has_form=ai_content.find_form(i.policy_key) is not None,
             )
             for i in items[:PLAN_ITEMS]

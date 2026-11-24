@@ -70,7 +70,7 @@
   "base_date": "2027-02-28", "d_day": 96, "monthly_won": 500000, "once_won": 1200000, "match_count": 7,
   "items": [
     {"policy_id": 12, "name": "청소년복지시설 퇴소청소년 자립지원수당", "amount_text": "월 50만 원",
-     "apply_from": "2027-02-28", "apply_note": "퇴소한 날부터 신청", "has_form": false}
+     "benefit": "자립 수당 월 50만 원 지급", "apply_from": "2027-02-28", "apply_note": "퇴소한 날부터 신청", "has_form": false}
   ],
   "notice": "공식 자료 기준 금액이에요. 실제 지급 여부와 금액은 신청 기관이 정해요."
 }

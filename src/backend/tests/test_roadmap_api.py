@@ -10,7 +10,7 @@ TODAY = date(2026, 10, 4)
 KEYS = {"base_date", "d_day", "summary", "stages"}
 ITEM_KEYS = {
     "policy_id", "policy_key", "name", "agency", "category", "eligibility", "amount_won", "amount_cycle",
-    "amount_text", "period_years", "max_total_won", "apply_from", "until", "apply_note",
+    "amount_text", "benefit", "period_years", "max_total_won", "apply_from", "until", "apply_note",
 }
 
 

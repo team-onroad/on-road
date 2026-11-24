@@ -87,6 +87,7 @@ class PlanItem(BaseModel):
     policy_id: int
     name: str
     amount_text: str | None  # "월 50만 원"
+    benefit: str | None  # 받는 것 한 줄
     apply_from: date | None  # 신청 시작일 (퇴소 예정일 기준). null 이면 지금 신청
     apply_note: str  # "퇴소 30일 전부터 미리 신청"
     has_form: bool  # 신청서 작성 도우미 양식이 있음 → 앱이 "신청서 쓰기" 버튼

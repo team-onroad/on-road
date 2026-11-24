@@ -27,6 +27,7 @@ class CareerPolicy(BaseModel):
     category: Category
     eligibility: EligibilityValue
     amount_text: str | None
+    benefit: str | None = None  # 받는 것 한 줄
 
 
 class CareerPathPlan(BaseModel):

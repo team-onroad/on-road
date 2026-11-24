@@ -12,11 +12,11 @@ DETAIL_KEYS = {
     "age_max", "target_description", "support_content", "support_amount", "support_period",
     "apply_method", "required_docs", "apply_url", "source_url", "original_text", "easy_text",
     "checked_at", "is_outdated", "eligibility",
-    "amount_won", "amount_cycle", "amount_text", "period_years", "related",
+    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit", "related",
 }
 NULLABLE = {
     "contact", "age_min", "age_max", "support_amount", "support_period", "apply_url", "eligibility",
-    "amount_won", "amount_cycle", "amount_text", "period_years",
+    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit",
 }
 
 
@@ -200,3 +200,29 @@ def test_policy_detail_related_limit_and_without_user(api, db_session):
         make_policy(db_session, category="medical")
     data = api.get(f"/api/policies/{me.id}").json()
     assert len(data["related"]) == 3
+
+
+def test_benefit_from_card_summary(api, db_session, tmp_path, monkeypatch):
+    import json as _json
+
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "policy_facts_dir", tmp_path)
+    p = make_policy(db_session, support_amount=None)
+    (tmp_path / f"{p.policy_key}.json").write_text(_json.dumps({
+        "passed": True,
+        "card": [{"item": "benefit", "label": "지원 내용", "items": ["주거(오피스텔) 지원 1,500천원", "자립체험"]}],
+    }), encoding="utf-8")
+
+    data = api.get(f"/api/policies/{p.id}").json()
+
+    assert data["amount_text"] is None
+    assert data["benefit"] == "주거(오피스텔) 지원 150만 원"
+
+
+def test_benefit_null_without_facts(api, db_session, tmp_path, monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "policy_facts_dir", tmp_path)
+    p = make_policy(db_session)
+    assert api.get(f"/api/policies/{p.id}").json()["benefit"] is None

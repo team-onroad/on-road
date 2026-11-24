@@ -21,6 +21,7 @@ class RoadmapItem(BaseModel):
     amount_won: int | None
     amount_cycle: AmountCycle | None
     amount_text: str | None  # "월 50만 원"
+    benefit: str | None  # 받는 것 한 줄 ("주거(오피스텔) 지원"). 돈이 아닌 정책은 이걸 보여 준다
     period_years: int | None
     max_total_won: int | None  # 월 금액 × 12 × 기간(년), 연 금액 × 기간, 1회 · 주기 없는 금액은 그대로. 읽지 못하면 null
     apply_from: date | None  # 이날부터 신청할 수 있음. 퇴소 예정일을 모르면 null
