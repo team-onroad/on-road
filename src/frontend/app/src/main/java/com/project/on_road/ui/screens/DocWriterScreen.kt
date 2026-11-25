@@ -39,6 +39,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,7 +54,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.offset
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -117,7 +117,13 @@ class DocWriterViewModel : ViewModel() {
     var selectedId by mutableStateOf<String?>(null)
     val drafts = mutableStateMapOf<String, String>()
     var prompt by mutableStateOf("")
-    var notice by mutableStateOf<DocBubble.Ai?>(null) // 칸별 화면 위 안내 (정책 검색·고민·검사 결과)
+    var notice by mutableStateOf<DocBubble.Ai?>(null) // 칸별 화면 위 안내 (검사 · 내보내기 · 저장 결과)
+        private set
+    /** 칸 안 AI 입력줄로 물어본 답: (칸 id, 답). 물어본 칸 바로 아래에 보인다 */
+    var answer by mutableStateOf<Pair<String, DocBubble.Ai>?>(null)
+        private set
+    /** 지금 AI 가 답을 준비 중인 칸 id */
+    var asking by mutableStateOf<String?>(null)
         private set
 
     // 대화로 채우기
@@ -144,9 +150,14 @@ class DocWriterViewModel : ViewModel() {
         private set
 
     override fun onCleared() {
+        watchingExport?.let { com.project.on_road.data.BackgroundWork.unwatch(it) }
         val d = doc ?: return
         com.project.on_road.data.ScreenCache.put("doc:${d.documentId}", d)
         cacheKey?.let { com.project.on_road.data.ScreenCache.put(it, d) }
+        // 칸에 쓰다 저장 안 하고 나가도 쓴 글은 서버에 남긴다 (완료 처리는 하지 않음). 화면이 없어도 끝까지 보낸다
+        val unsaved = drafts.toMap().filter { (id, v) -> v != d.fields.firstOrNull { it.fieldId == id }?.value }
+        unsaved.forEach { (id, v) -> com.project.on_road.data.BackgroundWork.write { repo.saveValue(d.documentId, id, v) } }
+        drafts.clear()
     }
 
     fun start(documentId: Long?, policyId: Long?, templateId: String?, checklistItemId: Long?, context: String?) {
@@ -181,6 +192,7 @@ class DocWriterViewModel : ViewModel() {
                 if (d.status == "exported") mode = WriteMode.FIELDS
                 loading = false
                 if (mode == WriteMode.TALK) startTalk()
+                followExport(d.documentId)  // 나갔다 와도 내보내기가 돌고 있으면 이어서 보여 준다
             }.onFailure {
                 // 보던 서류가 있으면 그대로 두고, 처음 열다 실패했을 때만 오류
                 if (doc == null) error = message(it, "서류를 열 수 없어요. 잠시 후 다시 시도해 주세요.")
@@ -227,14 +239,19 @@ class DocWriterViewModel : ViewModel() {
                     r.field?.let(::applyField)
                     applyProgress(r.progress)
                     val search = r.search
+                    val q = r.question
+                    val newQuestion = q != null && (q.fieldId != question?.fieldId || q.text != question?.text)
+                    // "적었어요." 처럼 짧은 대답 + 다음 질문은 한 말풍선으로 이어 말한다 (따로 나오면 뚝뚝 끊겨 보임)
+                    val ack = r.message?.takeIf { newQuestion && it.trim() in ACKS }?.let { ackText(it.trim(), r.field) }
                     when {
+                        ack != null -> Unit
                         r.route == "policy" && search != null ->
                             bubbles += DocBubble.Ai(nextId++, searchText(search), policies = search.results.map { it.name })
                         r.route == "crisis" -> bubbles += DocBubble.Ai(nextId++, r.message.orEmpty(), contacts = r.contacts)
                         r.check != null && !r.check.ready ->
                             bubbles += DocBubble.Ai(nextId++, r.message ?: "고칠 칸이 있어요.", problems = r.check.problems)
                         r.export != null -> {
-                            bubbles += DocBubble.Ai(nextId++, r.message.orEmpty(), exported = true)
+                            bubbles += DocBubble.Ai(nextId++, exportedText(r.export.document.title, r.export.checklist?.isChecked == true), exported = true)
                             onExported(r.export)
                         }
                         !r.message.isNullOrBlank() -> bubbles += DocBubble.Ai(nextId++, r.message)
@@ -243,9 +260,9 @@ class DocWriterViewModel : ViewModel() {
                         bubbles += DocBubble.Ai(nextId++, "", changes = c.map { it.toChange() })
                     }
                     // 다음 질문. 같은 질문을 다시 묻는 경우(검색·안내·다시 입력)는 말풍선을 또 만들지 않는다
-                    val q = r.question
-                    if (q != null && (q.fieldId != question?.fieldId || q.text != question?.text)) {
-                        bubbles += DocBubble.Ai(nextId++, q.text, items = q.items.orEmpty(), fieldId = q.fieldId)
+                    if (q != null && newQuestion) {
+                        val text = if (ack != null) "$ack\n${q.text}" else q.text
+                        bubbles += DocBubble.Ai(nextId++, text, items = q.items.orEmpty(), fieldId = q.fieldId)
                         selectedId = q.fieldId
                     }
                     question = q
@@ -253,6 +270,29 @@ class DocWriterViewModel : ViewModel() {
                 .onFailure { bubbles += DocBubble.Ai(nextId++, message(it, "답을 처리하지 못했어요. 다시 말해 주세요.")) }
             busy = false
         }
+    }
+
+    /** 서류 완성 안내 (서버 문장 대신 사람 말처럼) */
+    private fun exportedText(title: String, linked: Boolean): String {
+        val name = title.trim().substringAfterLast(' ').ifBlank { "서류" }.let { if (it.length > 8) "서류" else it }
+        // 받침이 있으면 '을', 없으면 '를'
+        val last = name.last()
+        val josa = if (last in '가'..'힣' && (last - '가') % 28 != 0) "을" else "를"
+        return "$name$josa 다 썼어요. PDF로 저장해 뒀" + if (linked) "고, 신청 관리에도 챙긴 서류로 표시해 뒀어요." else "어요."
+    }
+
+    private var ackTurn = 0
+
+    /** 짧은 대답을 사람 말처럼: 적은 값이 짧으면 그 값을 말해 주고, 아니면 몇 가지 말을 돌려 쓴다 */
+    private fun ackText(ack: String, f: DocFieldDto?): String {
+        val v = f?.value?.trim().orEmpty()
+        // 계좌번호는 화면에 다시 말하지 않는다
+        val echo = f != null && f.inputType != "account" && !f.essay
+        if (echo && (ack == "적었어요." || ack == "확인했어요.") && v.isNotEmpty() && v.length <= ACK_VALUE_MAX && '\n' !in v) {
+            return "‘$v’ 적었어요."
+        }
+        val pool = ACK_VARIANTS[ack] ?: return ack
+        return pool[ackTurn++ % pool.size]
     }
 
     /** 지금 질문에 맞는 빠른 답 버튼 */
@@ -275,6 +315,7 @@ class DocWriterViewModel : ViewModel() {
 
     fun select(id: String) {
         selectedId = id
+        if (answer?.first != id) answer = null // 다른 칸으로 가면 앞 칸의 AI 답은 닫는다
     }
 
     fun edit(f: DocFieldDto, value: String) {
@@ -287,21 +328,23 @@ class DocWriterViewModel : ViewModel() {
         drafts[f.fieldId] = if (option in now) (now - option).joinToString(", ") else option
     }
 
-    fun complete(f: DocFieldDto) = fieldCall(f) {
+    fun complete(f: DocFieldDto) = fieldCall(f) { id ->
         val value = drafts[f.fieldId]
-        if (value != null && value != f.value) repo.saveValue(doc!!.documentId, f.fieldId, value, complete = true)
-        else repo.complete(doc!!.documentId, f.fieldId, true)
+        if (value != null && value != f.value) repo.saveValue(id, f.fieldId, value, complete = true)
+        else repo.complete(id, f.fieldId, true)
     }
 
-    fun reopen(f: DocFieldDto) = fieldCall(f) { repo.complete(doc!!.documentId, f.fieldId, false) }
+    fun reopen(f: DocFieldDto) = fieldCall(f) { id -> repo.complete(id, f.fieldId, false) }
 
-    fun undo(f: DocFieldDto) = fieldCall(f) { repo.undo(doc!!.documentId, f.fieldId) }
+    fun undo(f: DocFieldDto) = fieldCall(f) { id -> repo.undo(id, f.fieldId) }
 
-    private fun fieldCall(f: DocFieldDto, block: suspend () -> FieldResponseDto) {
-        if (busy || doc == null) return
+    /** 칸 하나 저장 · 완료 · 되돌리기. 문서 id 는 누른 순간의 값으로 (나중에 문서가 바뀌어도 앱이 꺼지지 않게) */
+    private fun fieldCall(f: DocFieldDto, block: suspend (Long) -> FieldResponseDto) {
+        val id = doc?.documentId ?: return
+        if (busy) return
         busy = true
         viewModelScope.launch {
-            runCatching { block() }
+            runCatching { block(id) }
                 .onSuccess { r ->
                     drafts.remove(f.fieldId)
                     applyField(r.field)
@@ -322,26 +365,31 @@ class DocWriterViewModel : ViewModel() {
     /** 상단 AI 프롬프트: 선택한 칸에 바로 채운다 (질문이면 라우터가 정책 검색·고민 안내로 보냄) */
     fun ask() {
         val f = field(selectedId) ?: return
+        val docId = doc?.documentId ?: return
         val p = prompt.trim()
         if (p.isEmpty() || busy) return
         busy = true
+        asking = f.fieldId
+        answer = null
         viewModelScope.launch {
             // 직접 고치던 글이 있으면 먼저 저장해야 AI 가 그 글을 이어 쓴다
             runCatching {
-                drafts[f.fieldId]?.takeIf { it != f.value }?.let { repo.saveValue(doc!!.documentId, f.fieldId, it) }
-                repo.assist(doc!!.documentId, f.fieldId, p)
+                drafts[f.fieldId]?.takeIf { it != f.value }?.let { repo.saveValue(docId, f.fieldId, it) }
+                repo.assist(docId, f.fieldId, p)
             }.onSuccess { r ->
                 prompt = ""
                 drafts.remove(f.fieldId)
                 r.field?.let(::applyField)
                 r.progress?.let(::applyProgress)
                 val changes = r.profileChanges.orEmpty().map { it.toChange() }
-                notice = when (r.route) {
+                // 정책 · 고민 안내 · 바꿀까요 카드도 화면 위가 아니라 물어본 칸 바로 아래에
+                answer = when (r.route) {
                     "policy" -> r.search?.let { DocBubble.Ai(0, searchText(it), policies = it.results.map { p -> p.name }, changes = changes) }
                     "counsel", "crisis" -> DocBubble.Ai(0, r.message.orEmpty(), contacts = r.contacts, changes = changes)
                     else -> if (changes.isNotEmpty()) DocBubble.Ai(0, "", changes = changes) else null
-                }
-            }.onFailure { notice = DocBubble.Ai(0, message(it, "AI 도우미가 답하지 못했어요. 잠시 후 다시 시도해 주세요.")) }
+                }?.let { f.fieldId to it }
+            }.onFailure { answer = f.fieldId to DocBubble.Ai(0, message(it, "AI 도우미가 답하지 못했어요. 잠시 후 다시 시도해 주세요.")) }
+            asking = null
             busy = false
         }
     }
@@ -350,43 +398,129 @@ class DocWriterViewModel : ViewModel() {
         notice = null
     }
 
-    /** 검사 → 통과하면 내보내기, 문제가 있으면 첫 문제 칸을 고른다 */
+    fun dismissAnswer() {
+        answer = null
+    }
+
+    /** 내보내기 결과: 고칠 칸이 있으면 check, 다 됐으면 export (+ 받아 둔 PDF) */
+    private class ExportOutcome(val check: CheckDto? = null, val export: ExportDto? = null, val pdf: File? = null)
+
+    private fun exportKey(id: Long) = "export:$id"
+
+    /** 보고 있는 내보내기 (화면을 나가면 unwatch) */
+    private var watchingExport: String? = null
+
+    /**
+     * 검사 → 통과하면 내보내기, 문제가 있으면 첫 문제 칸을 고른다.
+     * 내보내기는 오래 걸려서 앱 전체 작업(BackgroundWork)으로 돌린다 → 화면을 나갔다 와도 계속되고, 다시 들어오면 이어서 보여 준다
+     */
     fun export() {
         val d = doc ?: return
         if (busy) return
         busy = true
         viewModelScope.launch {
-            runCatching {
-                // 저장 안 한 글은 먼저 저장 (완료 처리는 사용자가)
+            // 저장 안 한 글은 먼저 저장 (완료 처리는 사용자가). 화면 상태를 쓰니 여기서
+            val saved = runCatching {
                 drafts.toMap().forEach { (id, v) -> if (v != field(id)?.value) applyField(repo.saveValue(d.documentId, id, v).field) }
                 drafts.clear()
-                val check = repo.check(d.documentId)
-                if (!check.ready) {
+            }
+            if (saved.isFailure) {
+                notice = DocBubble.Ai(0, saved.exceptionOrNull()?.let { message(it, "내보내지 못했어요. 잠시 후 다시 시도해 주세요.") } ?: "내보내지 못했어요. 잠시 후 다시 시도해 주세요.")
+                busy = false
+                return@launch
+            }
+            val id = d.documentId
+            val title = d.title
+            val ctx = appContext
+            com.project.on_road.data.BackgroundWork.start<ExportOutcome>(
+                exportKey(id),
+                onAwayDone = { r ->
+                    val out = r.getOrNull()
+                    com.project.on_road.ui.components.OnRoadToast.show(
+                        when {
+                            out?.export != null -> "‘$title’ 내보내기를 끝냈어요. 서류 작성 도우미에서 열 수 있어요."
+                            out?.check != null -> "‘$title’에 고칠 칸이 있어 내보내지 못했어요."
+                            else -> "‘$title’ 내보내지 못했어요. 다시 시도해 주세요."
+                        },
+                    )
+                },
+            ) {
+                val check = repo.check(id)
+                if (!check.ready) ExportOutcome(check = check)
+                else {
+                    val r = repo.export(id)
+                    val file = ctx?.let { c -> runCatching { repo.downloadPdf(c, id, r.document.title) }.getOrNull() }
+                    ExportOutcome(export = r, pdf = file)
+                }
+            }
+            followExport(id)
+        }
+    }
+
+    /** 돌고 있거나 끝난 내보내기가 있으면 받아서 화면에 반영 (다시 들어왔을 때도) */
+    private fun followExport(id: Long) {
+        val key = exportKey(id)
+        val job = com.project.on_road.data.BackgroundWork.find<ExportOutcome>(key) ?: return
+        if (watchingExport != key) {
+            watchingExport?.let { com.project.on_road.data.BackgroundWork.unwatch(it) }
+            com.project.on_road.data.BackgroundWork.watch(key)
+            watchingExport = key
+        }
+        busy = true
+        viewModelScope.launch {
+            val r = job.await()
+            com.project.on_road.data.BackgroundWork.consume(key)
+            r.onSuccess { out ->
+                out.check?.let { check ->
                     notice = DocBubble.Ai(0, "내보내기 전에 고칠 칸이 있어요.", problems = check.problems)
                     check.problems.firstOrNull()?.let { selectedId = it.fieldId }
-                    null
-                } else repo.export(d.documentId)
-            }.onSuccess { r -> r?.let(::onExported) }
-                .onFailure { notice = DocBubble.Ai(0, message(it, "내보내지 못했어요. 잠시 후 다시 시도해 주세요.")) }
+                }
+                out.export?.let { onExported(it, out.pdf) }
+            }.onFailure { notice = DocBubble.Ai(0, message(it, "내보내지 못했어요. 잠시 후 다시 시도해 주세요.")) }
             busy = false
         }
     }
+
 
     // ---------------- 공통 ----------------
 
     private var appContext: Context? = null
 
+    private companion object {
+        /** 다음 질문과 한 말풍선으로 이어 말할 짧은 대답 (서버 문구) */
+        val ACKS = setOf("적었어요.", "확인했어요.", "비워 둘게요.", "나중에 다시 물어볼게요.", "대리인 칸은 비워 둘게요.")
+        val ACK_VARIANTS = mapOf(
+            "적었어요." to listOf("적었어요.", "좋아요, 적어 뒀어요.", "네, 적었어요."),
+            "확인했어요." to listOf("확인했어요.", "좋아요.", "네, 그대로 둘게요."),
+            "비워 둘게요." to listOf("그 칸은 비워 둘게요.", "비워 둘게요."),
+        )
+        /** 이 길이까지는 적은 값을 말해 준다 ('정서현' 적었어요) */
+        const val ACK_VALUE_MAX = 20
+    }
+
     fun attach(context: Context) {
         appContext = context.applicationContext
     }
 
-    /** 내보낸 뒤 이어서 해 볼 것 (제출할 곳 연습 · 챙길 것 묻기) */
-    fun nextSteps(): List<NextStep> = doc?.title?.let(Links::afterDocExport).orEmpty()
+    /** 내보낸 뒤 이어서 해 볼 것: 체크리스트에 연결된 서류면 그 체크리스트로 먼저, 그다음 제출할 곳 연습 · 챙길 것 묻기 */
+    fun nextSteps(): List<NextStep> {
+        val d = doc ?: return emptyList()
+        // 정책 신청서면 (신청 관리에서 시작하지 않았어도) 그 신청 준비로 돌아가기가 먼저
+        val back = d.policyId?.let { NextStep("checklist", "신청 준비로 돌아가기", query = it.toString()) }
+        return (listOfNotNull(back) + Links.afterDocExport(d.title)).take(2)
+    }
 
-    private fun onExported(r: ExportDto) {
-        if (exported == null) ActivityStore.logDocExported(r.document.title)
+    private fun onExported(r: ExportDto, downloaded: File? = null) {
+        if (exported == null) {
+            ActivityStore.logDocExported(r.document.title)
+            // 체크리스트 서류 칸이 자동으로 체크됐으면 알려 준다 (어디에 반영됐는지 보이게)
+            r.checklist?.takeIf { it.isChecked }?.let {
+                com.project.on_road.ui.components.OnRoadToast.show("체크리스트의 '${it.label}'을(를) 준비 완료로 바꿨어요")
+            }
+        }
         exported = r
         doc = r.document
+        if (downloaded != null) { pdf = downloaded; return }  // 내보내기 작업이 이미 받아 둠
         val ctx = appContext ?: return
         viewModelScope.launch {
             pdf = runCatching { repo.downloadPdf(ctx, r.document.documentId, r.document.title) }.getOrNull()
@@ -534,8 +668,12 @@ private fun Header(d: WriterDocumentDto, vm: DocWriterViewModel) {
 private fun TalkPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (NextStep) -> Unit = {}) {
     val list = rememberLazyListState()
     val context = LocalContext.current
-    LaunchedEffect(vm.bubbles.size, vm.busy) {
-        if (vm.bubbles.isNotEmpty()) list.animateScrollToItem(vm.bubbles.size - 1 + if (vm.busy) 1 else 0)
+    // 새 말이 생겼을 때만, 그 말이 화면 아래로 가려져 있으면 맨 아래로 한 번 내린다.
+    // ("입력 중" 표시가 생기고 사라질 때마다 위아래로 왔다갔다 하지 않게)
+    LaunchedEffect(vm.bubbles.size) {
+        if (vm.bubbles.isEmpty()) return@LaunchedEffect
+        androidx.compose.runtime.withFrameNanos { }
+        if (list.canScrollForward) list.animateScrollToItem(list.layoutInfo.totalItemsCount - 1)
     }
     Column(modifier) {
         LazyColumn(
@@ -561,7 +699,7 @@ private fun TalkPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (NextSt
             }
             // 서류를 다 만들면: 내러 가기 전에 해 볼 것
             if (vm.doc?.status == "exported" && vm.bubbles.any { it is DocBubble.Ai && it.exported }) {
-                item(key = "next-steps") { NextStepList(vm.nextSteps(), onStep) }
+                item(key = "next-steps") { NextStepList(vm.nextSteps(), onStep, modifier = Modifier.stagger(1), compact = true) }
             }
             if (vm.busy) item(key = "typing") { TypingLine() }
         }
@@ -605,16 +743,16 @@ private fun AiBubble(
     // 서류 완성 안내는 말풍선이 아니라 양쪽 여백이 같은 전체 폭 카드로
     Row(Modifier.fillMaxWidth().padding(end = if (b.exported) 0.dp else 32.dp)) {
         // 폭은 글 길이만큼 (체크 목록·버튼이 있으면 최대 폭까지). 연회색 말풍선, 아이콘 없음
-        Column(
-            Modifier
-                .weight(1f, fill = b.exported)
-                .clip(OnRoadShapes.Inner)
-                .background(OnRoadColors.SurfaceSubtle)
-                .border(1.dp, OnRoadColors.Border.copy(alpha = 0.7f), OnRoadShapes.Inner)
-                .padding(14.dp),
-        ) {
+        // 서류 완성 안내만 말풍선 없이 글 + 버튼 (화면 여백 선에 맞춰)
+        val bubble = if (b.exported) Modifier.weight(1f) else Modifier
+            .weight(1f, fill = false)
+            .clip(OnRoadShapes.Inner)
+            .background(OnRoadColors.SurfaceSubtle)
+            .border(1.dp, OnRoadColors.Border.copy(alpha = 0.7f), OnRoadShapes.Inner)
+            .padding(14.dp)
+        Column(bubble) {
             if (b.text.isNotBlank()) {
-                BubbleText(b.text, color = OnRoadColors.TextPrimary)
+                BubbleText(b.text, color = OnRoadColors.TextPrimary, boldQuotes = true)
             }
             if (b.items.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
@@ -644,7 +782,7 @@ private fun AiBubble(
             if (b.exported) {
                 Spacer(Modifier.height(12.dp))
                 OnRoadButton(
-                    if (pdfReady) "PDF 열기" else "PDF 받는 중…", onOpenPdf, Modifier.fillMaxWidth(),
+                    if (pdfReady) "PDF 열기" else "PDF 받는 중", onOpenPdf, Modifier.fillMaxWidth(),
                     height = 40.dp, textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
                     enabled = pdfReady,
                 )
@@ -669,7 +807,7 @@ private fun MyBubble(text: String) {
 
 @Composable
 private fun TypingLine() {
-    Text("적고 있어요…", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+    Text("적고 있어요", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
 }
 
 /* ---------------------------- 칸별로 쓰기 ---------------------------- */
@@ -678,27 +816,37 @@ private fun TypingLine() {
 private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (NextStep) -> Unit = {}) {
     val d = vm.doc ?: return
     val context = LocalContext.current
-    // 양식 순서대로: 앱에서 쓰는 칸 + 출력 후 손으로 쓰는 칸 (공무원 기재란은 뺀다)
-    // 쓸 칸이 맨 위, 출력 후 손으로 쓰는 칸, 완료한 칸은 맨 아래 (각 묶음 안에서는 양식 순서 유지)
+    // 양식 순서 그대로: 앱에서 쓰는 칸 + 출력 후 손으로 쓰는 칸 (공무원 기재란은 뺀다).
+    // 완료해도 칸 자리는 바뀌지 않는다 (칸이 맨 아래로 날아가며 목록 전체가 움직이지 않게)
     val shown = d.fields.filter { it.writable || it.valueSource == "handwrite" }
-        .sortedBy { when { it.writable && !it.isCompleted -> 0; !it.writable -> 1; else -> 2 } }
     // 칸별로 보기로 넘어오면 처음부터 굴러 내려가지 않고, 고른 칸에서 바로 시작한다 (0번은 안내 묶음)
     val start = shown.indexOfFirst { it.fieldId == vm.selectedId }.takeIf { it >= 0 } ?: 0
     val list = rememberLazyListState(initialFirstVisibleItemIndex = start)
+    val density = androidx.compose.ui.platform.LocalDensity.current
     var first by remember { mutableStateOf(true) }
 
-    // 그 뒤에 다른 칸을 고르면(완료 → 다음 칸 등) 그때만 부드럽게 옮긴다
+    // 그 뒤에 다른 칸을 고르면(완료 → 다음 칸 등): 칸 높이가 바로 바뀐 다음 화면은 한 번만 움직인다.
+    // 고른 칸이 화면 안에 다 보이면 움직이지 않고, 가려져 있을 때만 그 칸 위쪽이 화면 위에 오도록
     LaunchedEffect(vm.selectedId) {
         if (first) { first = false; return@LaunchedEffect }
         val i = shown.indexOfFirst { it.fieldId == vm.selectedId }
         if (i < 0) return@LaunchedEffect
-        // 칸이 접히고 펼쳐지는 게 끝난 뒤에 움직여서 화면이 두 번 튀지 않게
-        kotlinx.coroutines.delay(FieldMotion.SCROLL_DELAY)
+        androidx.compose.runtime.withFrameNanos { } // 접히고 펼쳐진 뒤의 자리로 판단
         val info = list.layoutInfo
         val item = info.visibleItemsInfo.firstOrNull { it.index == i }
         val fits = item != null && item.offset >= info.viewportStartOffset && item.offset + item.size <= info.viewportEndOffset
-        // 이미 화면 안에 다 보이면 그대로 두고, 가려져 있을 때만 부드럽게 끌어온다
-        if (!fits) list.animateScrollToItem(i)
+        if (!fits) list.animateScrollToItem(i, scrollOffset = -with(density) { FieldSpace.ListTop.roundToPx() })
+    }
+    // AI 답이 칸 아래에 생겼는데 화면 아래로 가려지면, 답 끝이 보일 만큼만 한 번 내린다
+    LaunchedEffect(vm.answer, vm.asking) {
+        if (vm.answer == null && vm.asking == null) return@LaunchedEffect
+        androidx.compose.runtime.withFrameNanos { }
+        val i = shown.indexOfFirst { it.fieldId == vm.selectedId }
+        val info = list.layoutInfo
+        val item = info.visibleItemsInfo.firstOrNull { it.index == i } ?: return@LaunchedEffect
+        val hidden = item.offset + item.size - info.viewportEndOffset
+        // 칸 윗부분이 화면 위로 넘어가지 않는 만큼만
+        if (hidden > 0) list.animateScrollBy(minOf(hidden.toFloat(), (item.offset - info.viewportStartOffset).coerceAtLeast(0).toFloat()))
     }
     Column(modifier) {
         LazyColumn(
@@ -716,8 +864,8 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (Next
                     else -> FieldSpace.Gap
                 }
                 // AI 가 채우거나 저장해서 값이 바뀌면 그 칸이 잠깐 빛난다
-                if (!f.writable) Box(Modifier.animateItem(placementSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)).padding(top = top)) { HandwriteCard(f) }
-                else Box(Modifier.animateItem(placementSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)).padding(top = top).flashOn(f.value)) { FieldCard(
+                if (!f.writable) Box(Modifier.padding(top = top)) { HandwriteCard(f) }
+                else Box(Modifier.padding(top = top).flashOn(f.value)) { FieldCard(
                     f = f,
                     text = vm.text(f),
                     selected = f.fieldId == vm.selectedId,
@@ -733,13 +881,17 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (Next
                     prompt = vm.prompt,
                     onPromptChange = { vm.prompt = it },
                     onAsk = vm::ask,
+                    answer = vm.answer?.takeIf { it.first == f.fieldId }?.second,
+                    asking = vm.asking == f.fieldId,
+                    onCloseAnswer = vm::dismissAnswer,
+                    onFix = vm::select,
                 ) }
             }
             if (d.status == "exported") {
                 item(key = "next-steps") {
                     Column {
                         Spacer(Modifier.height(16.dp))
-                        NextStepList(vm.nextSteps(), onStep)
+                        NextStepList(vm.nextSteps(), onStep, modifier = Modifier.stagger(1), compact = true)
                     }
                 }
             }
@@ -764,17 +916,6 @@ private fun FieldsPane(vm: DocWriterViewModel, modifier: Modifier, onStep: (Next
             }
         }
     }
-}
-
-/** 칸별로 화면 움직임 */
-private object FieldMotion {
-    /** 높이 변화: 튕김 없는 스프링 (tween 보다 손에 붙는 느낌) */
-    fun <T> size() = androidx.compose.animation.core.spring<T>(
-        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
-        stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow,
-    )
-    /** 칸을 고른 뒤 목록을 움직이기까지 기다리는 시간(ms) */
-    const val SCROLL_DELAY = 180L
 }
 
 /** 칸별로 화면 간격 (숫자만 바꿔서 조절) */
@@ -814,19 +955,23 @@ private fun FieldCard(
     prompt: String = "",
     onPromptChange: (String) -> Unit = {},
     onAsk: () -> Unit = {},
+    answer: DocBubble.Ai? = null,
+    asking: Boolean = false,
+    onCloseAnswer: () -> Unit = {},
+    onFix: (String) -> Unit = {},
 ) {
-    // 입력칸 ↔ 완료 한 줄 카드 바뀔 때: 겹쳐 사라지며 높이도 부드럽게
+    // 입력칸 ↔ 완료 한 줄 카드 바뀔 때: 높이는 바로 바뀌고(아래 칸이 출렁이지 않게) 글자만 짧게 겹쳐 바뀐다
     androidx.compose.animation.AnimatedContent(
         targetState = f.isCompleted && !selected,
         transitionSpec = {
-            // 새 모양은 옛 모양이 거의 사라진 뒤 나타나고, 높이는 튕김 없는 스프링으로
-            (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(220, delayMillis = 90)) togetherWith
-                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120)))
-                .using(androidx.compose.animation.SizeTransform(clip = true) { _, _ -> FieldMotion.size() })
+            (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(140)) togetherWith
+                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(80)))
+                .using(androidx.compose.animation.SizeTransform(clip = true) { _, _ -> androidx.compose.animation.core.snap() })
         },
         label = "field-card",
     ) { compact ->
-        FieldCardBody(f, text, selected, compact, locked, busy, onSelect, onEdit, onChoose, onComplete, onReopen, onUndo, prompt, onPromptChange, onAsk)
+        FieldCardBody(f, text, selected, compact, locked, busy, onSelect, onEdit, onChoose, onComplete, onReopen, onUndo, prompt, onPromptChange, onAsk,
+            answer, asking, onCloseAnswer, onFix)
     }
 }
 
@@ -847,6 +992,10 @@ private fun FieldCardBody(
     prompt: String = "",
     onPromptChange: (String) -> Unit = {},
     onAsk: () -> Unit = {},
+    answer: DocBubble.Ai? = null,
+    asking: Boolean = false,
+    onCloseAnswer: () -> Unit = {},
+    onFix: (String) -> Unit = {},
 ) {
     val done = f.isCompleted
     // 3. 완료한 칸 (고르지 않았을 때): 한 줄 카드. 항목명은 왼쪽, 값은 오른쪽 끝.
@@ -854,7 +1003,7 @@ private fun FieldCardBody(
     if (compact) {
         var expanded by remember(f.fieldId) { mutableStateOf(false) }
         val long = text.length > 18 || '\n' in text
-        SubtleCard(Modifier.fillMaxWidth().animateContentSize(FieldMotion.size()), onClick = onSelect, contentPadding = PaddingValues(horizontal = FieldSpace.TextInset, vertical = 16.dp)) {
+        SubtleCard(Modifier.fillMaxWidth(), onClick = onSelect, contentPadding = PaddingValues(horizontal = FieldSpace.TextInset, vertical = 16.dp)) {
             // 항목명은 왼쪽, 항목값은 카드 오른쪽 끝에 붙인다
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -897,8 +1046,7 @@ private fun FieldCardBody(
     Column(
         Modifier
             .fillMaxWidth()
-            // AI 칸 · 완료 버튼이 나타나고 사라질 때 높이가 부드럽게
-            .animateContentSize(FieldMotion.size())
+            // AI 칸 · 완료 버튼은 바로 나타나고 사라진다 (높이가 천천히 바뀌며 아래 칸이 계속 밀리지 않게)
             .tap(enabled = !selected, pressed = 1f, onClick = onSelect),
     ) {
         // 항목 이름 · 쓰는 법 · 입력칸 · AI 칸 · 버튼이 모두 같은 선(화면 여백)에서 시작하고 끝난다
@@ -912,7 +1060,8 @@ private fun FieldCardBody(
                     if (f.required == true && !done) {
                         Text(" *", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Danger)
                     }
-                    if (f.easyLabel != null && f.easyLabel != f.label) {
+                    // "대리인 성명"처럼 원래 이름이 이미 들어 있으면 옅은 원래 이름은 안 보인다
+                    if (f.easyLabel != null && f.easyLabel != f.label && !f.easyLabel.endsWith(f.label)) {
                         Spacer(Modifier.width(8.dp))
                         Text(f.label, style = OnRoadType.Caption2, color = OnRoadColors.TextQuaternary, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(bottom = 1.dp))
@@ -996,9 +1145,18 @@ private fun FieldCardBody(
                 padded = false,
             )
         }
-        f.tip?.takeIf { selected && !done }?.let {
+        // AI 답은 모두 이 칸 입력줄 바로 아래에 (기다리는 동안엔 한 줄 안내)
+        if (asking && selected) {
+            Spacer(Modifier.height(10.dp))
+            Text("AI가 답을 준비하고 있어요", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+        }
+        f.tip?.takeIf { selected && !done && !asking }?.let {
             Spacer(Modifier.height(10.dp))
             NoticeBox(it, title = "AI 안내")
+        }
+        answer?.takeIf { selected && !asking }?.let {
+            Spacer(Modifier.height(10.dp))
+            NoticeCard(it, onClose = onCloseAnswer, onFix = onFix)
         }
         f.warnings.takeIf { it.isNotEmpty() && !done }?.let { w ->
             Spacer(Modifier.height(8.dp))
@@ -1135,7 +1293,7 @@ private fun NoticeCard(n: DocBubble.Ai, onClose: () -> Unit, onFix: (String) -> 
             .padding(14.dp),
     ) {
         Row {
-            BubbleText(n.text, color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f))
+            BubbleText(n.text, color = OnRoadColors.TextSecondary, modifier = Modifier.weight(1f), boldQuotes = true)
             Icon(Icons.Outlined.Close, "닫기", tint = OnRoadColors.TextMuted, modifier = Modifier.size(18.dp).tap(onClick = onClose))
         }
         n.policies.take(3).forEach { BulletText(it, OnRoadColors.Primary, style = OnRoadType.Caption2) }

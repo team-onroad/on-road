@@ -35,11 +35,19 @@ sealed interface PlanGo {
     data object MonthLife : PlanGo
     data object Forms : PlanGo
     data class Chat(val question: String?) : PlanGo
+    /** 정책 상세 (맞춤 신청 로드맵 일정) */
+    data class Policy(val policyId: String) : PlanGo
+    /** 서류 쓰기 (양식으로 새로 시작) */
+    data class Document(val templateId: String) : PlanGo
+    /** 흥미 탐색 */
+    data object Interest : PlanGo
+    /** 진로 로드맵 화면 (공식 사이트 할 일은 그 화면에서 연다) */
+    data object Career : PlanGo
 }
 
 data class PlanAction(val label: String, val go: PlanGo)
 
-enum class PlanKind { BASE, WORK, POLICY }
+enum class PlanKind { BASE, WORK, POLICY, CAREER }
 
 data class PlanTask(
     val id: String,
@@ -52,7 +60,59 @@ data class PlanTask(
     val kind: PlanKind = PlanKind.BASE,
     /** 날짜 대신 보여 줄 말 ("진행 중인 신청" 등). null 이면 D-n · 날짜 */
     val label: String? = null,
+    /** 맞춤 신청 로드맵: 같은 날 신청하는 정책 묶음 (가운데 기준 일정 아래에 작은 점으로) */
+    val children: List<RoadmapItem> = emptyList(),
+    /** 가운데 선 위에 놓는 기준 일정 (퇴소하면 바로 신청 · 지금 신청 묶음) */
+    val milestone: Boolean = false,
+    /** 맞춤 신청 로드맵에서 온 일정 (일정 '정책 신청' 필터) */
+    val fromRoadmap: Boolean = false,
 )
+
+/**
+ * 맞춤 신청 로드맵(서버 3.32)을 타임라인 일정으로 바꾼다.
+ * - 퇴소 전에 미리 신청: 정책마다 한 줄 (신청 시작일)
+ * - 퇴소하면 바로 신청 · 지금 신청: 같은 날이라 한 묶음 (가운데 기준 일정 + 작은 점). 정책이 하나면 한 줄
+ * - 이미 신청을 시작한 정책(체크리스트 · 저장)은 뺀다 (진행 중인 신청 일정이 따로 있다)
+ */
+object RoadmapTimeline {
+    /** leaveDate: 앱의 퇴소일. 서버가 퇴소일을 몰라 신청일이 없는 '퇴소하면 신청' 정책은 이 날짜에 둔다 */
+    fun tasks(roadmap: PolicyRoadmap?, today: LocalDate, skip: Set<String>, leaveDate: LocalDate? = null): List<PlanTask> {
+        roadmap ?: return emptyList()
+        val out = mutableListOf<PlanTask>()
+        roadmap.stages.forEach { stage ->
+            val items = stage.items.filter { it.policyId !in skip }
+            if (items.isEmpty()) return@forEach
+            val fallback = if (stage.stage == "now") today else (leaveDate ?: today)
+            fun single(i: RoadmapItem, label: String) = PlanTask(
+                id = "rm-${stage.stage}-${i.policyId}",
+                offsetDays = null,
+                date = i.applyFrom ?: fallback,
+                title = i.name,
+                description = listOfNotNull(if (i.eligibility == "needs_check") "조건 확인 필요" else null, i.benefit, i.agency).joinToString(" · "),
+                actions = listOf(PlanAction("정책 보기", PlanGo.Policy(i.policyId))),
+                kind = PlanKind.POLICY,
+                label = label,
+                fromRoadmap = true,
+            )
+            when {
+                stage.stage == "before_leave" -> items.forEach { out += single(it, "미리 신청") }
+                items.size == 1 -> out += single(items[0], if (stage.stage == "now") "지금 신청" else "퇴소하면 신청")
+                else -> out += PlanTask(
+                    id = "rm-${stage.stage}",
+                    offsetDays = null,
+                    date = items.first().applyFrom ?: fallback,
+                    title = if (stage.stage == "now") "지금 신청" else "퇴소하면 바로 신청",
+                    description = "",
+                    kind = PlanKind.POLICY,
+                    children = items,
+                    milestone = true,
+                    fromRoadmap = true,
+                )
+            }
+        }
+        return out
+    }
+}
 
 /** 진행 중인 정책 신청 (체크리스트) 또는 저장만 한 정책 */
 data class PlanPolicy(val policyId: String, val name: String, val nextStep: String?, val completed: Boolean = false)

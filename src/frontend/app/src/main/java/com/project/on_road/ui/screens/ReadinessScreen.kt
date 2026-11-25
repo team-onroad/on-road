@@ -1,29 +1,20 @@
 package com.project.on_road.ui.screens
 
-import androidx.compose.foundation.layout.Box
 
-import androidx.compose.material3.Icon
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.Icons
-import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.AppContainer
 import com.project.on_road.data.Readiness
-import com.project.on_road.data.ReadinessArea
 import com.project.on_road.data.remote.userMessage
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.screens.navigation.stepRoute
@@ -76,15 +67,15 @@ fun ReadinessScreen(onBack: () -> Unit, onNavigate: (String) -> Unit, vm: Readin
             ReadinessRadar(r, Modifier.fillMaxWidth().height(240.dp))
         }
 
-        // ── 3. 지난 4주 흐름 + 이번 주에 해낸 것 ──
-        if (r.history.size >= 2) {
+        // ── 요즘 내 준비: 행동 기록으로 본 판단 (다시 볼 것 · 잘하는 것) ──
+        if (r.watch.isNotEmpty() || r.good.isNotEmpty()) {
             Spacer(Modifier.height(OnRoadDimens.SectionGap))
-            SectionHeader("지난 4주")
-            Spacer(Modifier.height(12.dp))
-            TrendBars(r.history)
+            RecentPrep(r.watch, r.good)
         }
+
+        // ── 3. 이번 주에 해낸 것 ──
         if (r.recent.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(OnRoadDimens.SectionGap))
             SubtleCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(16.dp)) {
                 Text("이번 주에 해낸 것", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                 Spacer(Modifier.height(8.dp))
@@ -98,19 +89,12 @@ fun ReadinessScreen(onBack: () -> Unit, onNavigate: (String) -> Unit, vm: Readin
             }
         }
 
-        // ── 4. 점수를 올리려면 (약한 영역부터) ──
+        // ── 4. 다음에 해 보면 좋은 것 (약한 영역부터) ──
         if (r.nextSteps.isNotEmpty()) {
             Spacer(Modifier.height(OnRoadDimens.SectionGap))
-            NextStepList(r.nextSteps, { onNavigate(stepRoute(it)) }, title = "점수를 올리려면")
+            NextStepList(r.nextSteps, { onNavigate(stepRoute(it)) }, title = "다음에 해 보면 좋은 것")
         }
 
-        // ── 5. 영역별: 가장 약한 곳만 펼쳐 두고, 나머지는 눌러서 펼치기 ──
-        Spacer(Modifier.height(OnRoadDimens.SectionGap))
-        SectionHeader("영역별")
-        Spacer(Modifier.height(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            r.areas.forEach { a -> AreaCard(a, weakest = a.key == r.weakest) { s -> onNavigate(stepRoute(s)) } }
-        }
         Spacer(Modifier.height(24.dp))
         Footnote("점수는 준비 정도를 보여 주는 참고용이에요.")
         }
@@ -153,109 +137,46 @@ private fun ScoreHeader(r: Readiness) {
     }
 }
 
-/** 지난 4주 점수 막대 (지금 막대만 포인트 색) */
-@Composable
-private fun TrendBars(history: List<Int>) {
-    val labels = history.indices.map { i ->
-        when (val ago = history.lastIndex - i) {
-            0 -> "지금"
-            1 -> "지난주"
-            else -> "${ago}주 전"
-        }
+/** 요즘 내 준비 크기 · 간격 */
+private object PrepSpace {
+    val LabelWidth = 72.dp  // 왼쪽 이름 칸 폭
+    val LineGap = 16.dp     // 다시 볼 것 ↔ 잘하는 것
+    val TextGap = 6.dp      // 같은 줄 안 문장 사이
+}
+
+/** 숫자 조건만 굵게 ("25점", "14일", "2번") */
+private val PREP_NUMBER = Regex("""\d[\d,.]*\s*(만\s*)?(점|일|번|개|곳|원|개월|주)""")
+
+private fun prepText(text: String) = androidx.compose.ui.text.buildAnnotatedString {
+    var last = 0
+    for (m in PREP_NUMBER.findAll(text)) {
+        append(text.substring(last, m.range.first))
+        withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, color = OnRoadColors.TextPrimary)) { append(m.value) }
+        last = m.range.last + 1
     }
-    var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { shown = true }
-    Row(
-        Modifier.fillMaxWidth().height(132.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        history.forEachIndexed { i, score ->
-            val now = i == history.lastIndex
-            val h by androidx.compose.animation.core.animateFloatAsState(
-                if (shown) score.coerceIn(0, 100) / 100f else 0f,
-                androidx.compose.animation.core.tween(600, delayMillis = 80 * i, easing = com.project.on_road.ui.theme.OnRoadMotion.EmphasizedDecelerate),
-                label = "trend-$i",
-            )
-            Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                Text(
-                    "$score",
-                    style = OnRoadType.Caption2.copy(fontWeight = if (now) FontWeight.Bold else FontWeight.Medium),
-                    color = if (now) OnRoadColors.TextPrimary else OnRoadColors.TextTertiary,
-                )
-                Spacer(Modifier.height(4.dp))
-                Box(
-                    Modifier
-                        .fillMaxWidth(0.62f)
-                        .weight(1f, fill = false)
-                        .fillMaxHeight(h.coerceAtLeast(0.02f))
-                        .clip(OnRoadShapes.Badge)
-                        .background(if (now) OnRoadColors.Point else OnRoadColors.SurfaceMuted),
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(labels[i], style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
-            }
+    append(text.substring(last))
+}
+
+/** 요즘 내 준비: '다시 볼 것' · '잘하는 것' 두 줄. 왼쪽 굵은 이름, 오른쪽 문장들 */
+@Composable
+private fun RecentPrep(watch: List<String>, good: List<String>) {
+    Column(Modifier.fillMaxWidth()) {
+        SubHeader("요즘 내 준비")
+        Spacer(Modifier.height(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(PrepSpace.LineGap)) {
+            if (watch.isNotEmpty()) PrepLine("다시 볼 것", watch, OnRoadColors.Warning)
+            if (good.isNotEmpty()) PrepLine("잘하는 것", good, OnRoadColors.TextPrimary)
         }
     }
 }
 
 @Composable
-private fun AreaCard(a: ReadinessArea, weakest: Boolean, onStep: (com.project.on_road.data.NextStep) -> Unit) {
-    // 가장 약한 곳만 펼쳐 둔다 (영역 6개가 모두 펼쳐져 있으면 길고 복잡해서)
-    var open by androidx.compose.runtime.saveable.rememberSaveable(a.key) { mutableStateOf(weakest) }
-    OnRoadCard(
-        Modifier.fillMaxWidth().animateContentSize(com.project.on_road.ui.theme.OnRoadMotion.move()),
-        borderColor = if (weakest) OnRoadColors.Primary else OnRoadColors.BorderChip,
-        borderWidth = if (weakest) 1.5.dp else 1.dp,
-        shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        onClick = { open = !open },
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(a.label, style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-            if (weakest) {
-                Spacer(Modifier.width(8.dp))
-                OnRoadTag("가장 약한 곳", style = TagStyle.Neutral, textStyle = OnRoadType.Tiny)
-            }
-            Spacer(Modifier.weight(1f))
-            Text("${a.doneCount}/${a.total} · ${a.score}점", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-            Icon(
-                Icons.Filled.KeyboardArrowDown,
-                null,
-                tint = OnRoadColors.TextQuaternary,
-                modifier = Modifier.size(20.dp).flipWhen(open),
-            )
-        }
-        Spacer(Modifier.height(10.dp))
-        ProgressBar(a.score / 100f)
-        ExpandArea(open) {
-            Spacer(Modifier.height(8.dp))
-            a.items.forEachIndexed { i, (label, done) ->
-                val p = a.progresses.getOrNull(i) ?: if (done) 1f else 0f
-                Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
-                    CheckBoxMark(done)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(label, style = OnRoadType.Caption, color = if (done) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary)
-                        a.details.getOrNull(i)?.let { d ->
-                            Text(d, style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
-                        }
-                        // 하다 만 항목: 얼마나 했는지 가는 막대로
-                        if (!done && p > 0f) {
-                            Spacer(Modifier.height(4.dp))
-                            ProgressBar(p, Modifier.fillMaxWidth(0.6f), height = 3.dp)
-                        }
-                    }
-                    if (!done && p > 0f) {
-                        Spacer(Modifier.width(8.dp))
-                        AnimatedNumber((p * 100).toLong(), { "$it%" }, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextSecondary)
-                    }
-                }
-            }
-            a.nextStep?.let { s ->
-                Spacer(Modifier.height(10.dp))
-                NextStepRow(s) { onStep(s) }
-            }
+private fun PrepLine(label: String, texts: List<String>, labelColor: androidx.compose.ui.graphics.Color) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Text(label, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = labelColor,
+             modifier = Modifier.width(PrepSpace.LabelWidth).padding(top = 1.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PrepSpace.TextGap)) {
+            texts.forEach { Text(prepText(it), style = OnRoadType.Body3, color = OnRoadColors.TextSecondary) }
         }
     }
 }

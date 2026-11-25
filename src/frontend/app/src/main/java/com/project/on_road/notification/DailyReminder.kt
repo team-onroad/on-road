@@ -127,12 +127,14 @@ object Notifications {
         if (!s.ddayAlarm) {
             DdayNotifier.cancel(context)
             DailyReminder.cancel(context)
+            DueReminder.cancel(context)
             return
         }
         val leave = s.leaveDate
         if (leave != null && s.status != LivingStatus.LEFT) DdayNotifier.schedule(context, leave) else DdayNotifier.cancel(context)
         DailyReminder.ensureChannel(context)
         DailyReminder.schedule(context)
+        DueReminder.reschedule(context)
     }
 
     fun setEnabled(context: Context, on: Boolean) {

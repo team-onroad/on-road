@@ -4,6 +4,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import android.widget.Toast
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -35,13 +36,14 @@ import com.project.on_road.data.LivingStatus
 import com.project.on_road.data.UserStage
 import com.project.on_road.data.UserUpdate
 import androidx.compose.ui.platform.LocalContext
+import com.project.on_road.data.remote.userMessage
 import kotlinx.coroutines.launch
 import com.project.on_road.ui.components.*
 import com.project.on_road.ui.theme.*
 
 /** 설정 */
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Unit = {}) {
+fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Unit = {}, onOpenConditions: () -> Unit = {}) {
     var confirmReset by remember { mutableStateOf(false) }
     var confirmWipe by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
@@ -51,8 +53,11 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
     val scope = rememberCoroutineScope()
     var showAccounts by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<SavedAccount?>(null) }
+    var confirmQuit by remember { mutableStateOf(false) }
+    var quitting by remember { mutableStateOf(false) }
     var accountList by remember { mutableStateOf(AppContainer.session.accounts) }
     var switchingId by remember { mutableStateOf<String?>(null) }
+    var profile by remember { mutableStateOf(com.project.on_road.data.ProfileStore.current) }
     // 알림: 하나로 켜고 끈다 (D-day + 매일 저녁 '오늘 챙길 것')
     var notifyOn by remember { mutableStateOf(AppContainer.session.ddayAlarm) }
     val notifyPermission = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -96,12 +101,14 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
     /** 3.12 퇴소 처리: 상태를 '퇴소 후'로 바꾼다. 서버가 퇴소 예정일을 지운다 */
     fun leaveCare() {
         val userId = AppContainer.session.userId ?: return
+        if (leaving) return
         leaving = true
         scope.launch {
-            runCatching { AppContainer.api.updateUser(userId, UserUpdate(status = LivingStatus.LEFT)) }
+            com.project.on_road.data.BackgroundWork.write { AppContainer.api.updateUser(userId, UserUpdate(status = LivingStatus.LEFT)) }.await()
                 .onSuccess {
                     AppContainer.applyProfile(it)
                     status = it.status
+                    profile = it
                     // 퇴소일 기준 알림은 더 이상 맞지 않으니 끈다 (매일 저녁 알림은 그대로)
                     com.project.on_road.notification.Notifications.applyAll(context)
                     com.project.on_road.ui.components.OnRoadToast.show("퇴소 후 상태로 바꿨어요. 이제 '목표 D-day'에서 목표일을 정할 수 있어요.")
@@ -114,6 +121,26 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
         }
     }
 
+    // 시 · 군 · 구 · 가족(자녀 · 동생): 정책 판정에 쓴다 (서버 값, 불러오기 전에는 profile 이 null)
+    LaunchedEffect(Unit) {
+        com.project.on_road.data.ProfileStore.refresh()?.let { profile = it }
+    }
+    /** 회원정보 수정. 저장되면 앱 전체(홈 조건 · 추천, 일정 로드맵)에 바로 반영한다 */
+    fun saveProfile(update: UserUpdate, done: String? = null) {
+        val userId = AppContainer.session.userId ?: return
+        scope.launch {
+            com.project.on_road.data.BackgroundWork.write { AppContainer.api.updateUser(userId, update) }.await()
+                .onSuccess {
+                    profile = it
+                    status = it.status
+                    AppContainer.applyProfile(it)
+                    com.project.on_road.data.PlanData.refreshRoadmap()
+                    done?.let { msg -> com.project.on_road.ui.components.OnRoadToast.show(msg) }
+                }
+                .onFailure { com.project.on_road.ui.components.OnRoadToast.show("저장하지 못했어요.") }
+        }
+    }
+
     var editingServer by remember { mutableStateOf(false) }
     var serverDraft by remember { mutableStateOf("") }
     OnRoadScreen("설정", onBack) {
@@ -122,6 +149,15 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
         // ── 내 정보: 배경·테두리 없이 글만 ──
         Column(Modifier.padding(start = 4.dp)) {
             Text(AppContainer.session.nickname.ifBlank { "사용자" }, style = OnRoadType.Title2, color = OnRoadColors.TextPrimary)
+        }
+
+        // ── 나의 자립 조건: 나이 · 지역 · 상황 · 퇴소일 · 가족 · 확인한 조건을 한 화면에서 ──
+        SettingsGroup("나의 자립 조건") {
+            val p = profile
+            SettingRow(
+                "나의 자립 조건",
+                p?.let { listOfNotNull(it.region, it.district).joinToString(" ") + ", " + it.status.label } ?: "",
+            ) { onOpenConditions() }
         }
 
         // ── 알림 · 음성 ──
@@ -159,8 +195,11 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
                     com.project.on_road.ui.components.OnRoadToast.show("아이디를 복사했어요. 다른 휴대폰의 '이미 사용 중이에요'에 붙여 넣으세요.")
                 }
             }
-            SettingRow("이 계정 지우기", "이 휴대폰에서 지금 계정과 기록을 지워요", danger = true) {
+            SettingRow("이 휴대폰에서 계정 지우기", "서버 계정은 남아요. 나중에 다시 불러올 수 있어요") {
                 AppContainer.session.accounts.firstOrNull { it.userId == AppContainer.session.userId }?.let { deleting = it }
+            }
+            SettingRow(if (quitting) "탈퇴하는 중" else "탈퇴하기", "서버에 있는 내 기록을 모두 지워요", danger = true) {
+                if (!quitting && myId.isNotBlank()) confirmQuit = true
             }
         }
 
@@ -169,7 +208,7 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
             // 퇴소 처리는 자립준비청년만
             if (AppState.stage == UserStage.YOUNG_ADULT && status != null && status != LivingStatus.LEFT) {
                 SettingRow(
-                    if (leaving) "바꾸는 중…" else "퇴소했어요",
+                    if (leaving) "바꾸는 중" else "퇴소했어요",
                     "상황을 '퇴소 후'로 바꿔요. 퇴소 예정일은 지워져요",
                 ) { if (!leaving) confirmLeave = true }
             }
@@ -253,7 +292,7 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
                             Text(a.name.ifBlank { "이름 없음" }, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f), maxLines = 1)
                             Text(
                                 when {
-                                    switchingId == a.userId -> "바꾸는 중…"
+                                    switchingId == a.userId -> "바꾸는 중"
                                     now -> "지금 사용 중"
                                     else -> a.stage.label
                                 },
@@ -283,6 +322,33 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
             },
             dismissButton = {
                 TextButton(onClick = { showAccounts = false }) { Text("닫기", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary) }
+            },
+        )
+    }
+
+    if (confirmQuit) {
+        ConfirmDeleteDialog(
+            title = "탈퇴할까요?",
+            text = "내 기록이 모두 지워지고 되돌릴 수 없어요.",
+            detail = "서류, 신청 준비, 연습 기록, 저장한 정책",
+            confirmLabel = "탈퇴하기",
+            onCancel = { confirmQuit = false },
+            onConfirm = {
+                confirmQuit = false
+                quitting = true
+                val id = AppContainer.session.userId.orEmpty()
+                scope.launch {
+                    com.project.on_road.data.BackgroundWork.write { AppContainer.api.deleteAccount(id) }.await()
+                        .onSuccess {
+                            // 서버에서 지웠으면 이 휴대폰 기록도 지우고 처음 화면으로
+                            AppContainer.session.removeAccount(id)
+                            com.project.on_road.data.ScreenCache.clear()
+                            com.project.on_road.ui.components.OnRoadToast.show("탈퇴했어요. 그동안 고마웠어요.")
+                            onReset()
+                        }
+                        .onFailure { com.project.on_road.ui.components.OnRoadToast.show(it.userMessage("탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요.")) }
+                    quitting = false
+                }
             },
         )
     }

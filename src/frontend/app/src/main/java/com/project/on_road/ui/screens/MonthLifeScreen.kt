@@ -83,7 +83,7 @@ class MonthLifeViewModel : ViewModel() {
         // 서버에도 남겨 자립 준비도에 반영 (실패해도 그대로)
         val userId = com.project.on_road.data.AppContainer.session.userId ?: return
         viewModelScope.launch {
-            runCatching {
+            com.project.on_road.data.BackgroundWork.write {
                 com.project.on_road.data.AppContainer.api.logActivity(
                     userId, "month_life", null,
                     mapOf(

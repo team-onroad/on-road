@@ -90,6 +90,8 @@ object BarSpace {
     val Top = 4.dp
     /** 그라데이션 높이 */
     val Fade = 24.dp
+    /** 메뉴가 내용 위에 떠 있을 때, 탭 화면 맨 아래에 비워 둘 높이 (마지막 내용이 메뉴에 가리지 않게) */
+    val Overlay = 88.dp
     /** 메뉴가 없는 화면(설정 등) 맨 아래 그라데이션 높이 */
     val EdgeFade = 20.dp
     /** 아래에 버튼이 붙은 화면(정책 상세 등): 버튼 영역 바로 위 그라데이션 높이 */
@@ -139,20 +141,11 @@ fun OnRoadBottomBar(
     /** 화면 바깥에서 이미 띄운 아래 여백 (그만큼 빼서 아래 여백이 양옆과 같아 보이게) */
     bottomInset: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
+    // 흰 띠 · 그라데이션 없이 둥근 메뉴만 내용 위에 띄운다 (뒤 내용이 메뉴 양옆 · 아래로 보인다)
     Box(modifier.fillMaxWidth()) {
-        // 메뉴 위 그라데이션: 위 여백(Top) 바로 위부터 내용이 빠르게 흰색으로 사라진다
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(BarSpace.Fade)
-                .offset(y = -BarSpace.Fade)
-                // 끝으로 갈수록 천천히 하얘지는 곡선: 위 여백(Top)의 흰 띠와 이음새 없이 이어진다
-                .background(softFadeBrush()),
-        )
     Box(
         Modifier
             .fillMaxWidth()
-            .background(Color.White)
             .padding(
                 start = BarSpace.Margin,
                 end = BarSpace.Margin,
@@ -201,3 +194,13 @@ fun OnRoadBottomBar(
     }
     }
 }
+
+/** 탭 화면 맨 아래 빈칸: 메뉴가 떠 있으면 그 높이만큼 (스크롤 끝 내용이 메뉴에 가리지 않게) */
+@Composable
+fun TabBarSpacer() {
+    if (BarShown.value) androidx.compose.foundation.layout.Spacer(Modifier.height(BarSpace.Overlay))
+}
+
+/** LazyColumn 아래 여백에 더할 값: 메뉴가 떠 있으면 그 높이 */
+val tabBarPad: androidx.compose.ui.unit.Dp
+    get() = if (BarShown.value) BarSpace.Overlay else 0.dp

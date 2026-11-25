@@ -95,10 +95,41 @@ class TimelineViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch { PlanData.refresh(force = true) }
+        // 예전 목표 화면에서 끝낸 내 일정은 타임라인에서도 끝낸 일로
+        session.goalTasks.filter { it.done }.forEach { g -> if ("goal-${g.id}" !in PlanData.done) PlanData.toggleDone("goal-${g.id}") }
     }
 
+    /** 내 일정 전체, 날짜순: 퇴소일(퇴소 후는 퇴소한 날) 기준 할 일 + 내 일정 + 진로 할 일 · 시험 + 맞춤 신청 로드맵 */
     fun plan(today: LocalDate): List<PlanTask> =
-        TimelinePlanner.plan(PlanInput(leaveDate, today, region, work, policies, weak))
+        (PlanData.all(today) + PlanData.roadmapTasks(today)).sortedBy { it.date }
+
+    // ── 퇴소 후: 목표 D-day ──
+    val goalMode: Boolean get() = PlanData.goalMode
+    var goalTitle by mutableStateOf(session.goalTitle.orEmpty())
+        private set
+    /** 목표일 (퇴소 후에는 d_date 가 목표일). 없으면 null */
+    var goalDate by mutableStateOf(session.leaveDate)
+        private set
+    /** 내 일정이 바뀌면 오른다 (타임라인을 다시 그리게) */
+    var goalVersion by mutableIntStateOf(0)
+        private set
+
+    fun saveGoal(title: String, date: LocalDate?) {
+        goalTitle = title.trim()
+        session.goalTitle = goalTitle
+        if (date != null && date != goalDate) {
+            goalDate = date
+            updateDate(date)
+        } else com.project.on_road.ui.components.OnRoadToast.show("목표를 저장했어요")
+    }
+
+    fun addGoalTask(title: String, date: LocalDate) {
+        session.goalTasks = session.goalTasks + com.project.on_road.data.GoalTask(System.currentTimeMillis().toString(), title.trim(), date, false)
+        goalVersion++
+    }
+
+    /** 맞춤 신청 로드맵 (현금 합계 카드) */
+    val roadmap get() = PlanData.roadmap
 
     /** 신청을 끝낸 정책 때문에 자동으로 끝난 할 일 (id → 까닭) */
     fun autoDone(): Map<String, String> = PlanData.autoDone()
@@ -106,12 +137,19 @@ class TimelineViewModel(app: Application) : AndroidViewModel(app) {
     fun pickWork(w: WorkStatus) {
         work = if (work == w) null else w
         session.workStatus = work
+        // 서버에도 저장 (다른 휴대폰 · 다시 설치해도 남게). 실패해도 앱 안 값은 그대로
+        val userId = session.userId ?: return
+        val picked = work
+        viewModelScope.launch {
+            com.project.on_road.data.BackgroundWork.write { AppContainer.api.updateUser(userId, if (picked == null) UserUpdate(clearWork = true) else UserUpdate(work = picked)) }.await()
+        }
     }
 
     fun updateDate(date: LocalDate) {
         leaveDate = date
         session.leaveDate = date
-        if (alarmOn) DdayNotifier.schedule(getApplication(), date)
+        // 퇴소일 기준 할 일 알림은 퇴소 전만 (퇴소 후 날짜는 목표일이라 퇴소 준비 알림이 엉뚱한 날 온다)
+        if (alarmOn && !PlanData.goalMode) DdayNotifier.schedule(getApplication(), date)
         saveToServer(date)
     }
 
@@ -119,8 +157,13 @@ class TimelineViewModel(app: Application) : AndroidViewModel(app) {
     private fun saveToServer(date: LocalDate) {
         val userId = session.userId ?: return
         viewModelScope.launch {
-            runCatching { AppContainer.api.updateUser(userId, UserUpdate(dDate = date)) }
-                .onSuccess { AppContainer.applyProfile(it); com.project.on_road.ui.components.OnRoadToast.show("날짜를 저장했어요") }
+            com.project.on_road.data.BackgroundWork.write { AppContainer.api.updateUser(userId, UserUpdate(dDate = date)) }.await()
+                .onSuccess {
+                    AppContainer.applyProfile(it)
+                    com.project.on_road.ui.components.OnRoadToast.show("날짜를 저장했어요")
+                    // 신청 시작일이 퇴소일 기준이라 로드맵을 다시 받는다
+                    PlanData.refreshRoadmap()
+                }
                 .onFailure {
                     android.util.Log.e("OnRoad", "퇴소일 서버 저장 실패", it)
                     com.project.on_road.ui.components.OnRoadToast.show("서버에 저장하지 못했어요. 인터넷 연결을 확인해 주세요.")
@@ -128,7 +171,14 @@ class TimelineViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun toggle(id: String) = PlanData.toggleDone(id)
+    fun toggle(id: String) {
+        PlanData.toggleDone(id)
+        // 내 일정은 목표 기록에도 끝냄을 같이 남긴다 (성장 기록 화면이 쓴다)
+        if (id.startsWith("goal-")) {
+            val gid = id.removePrefix("goal-")
+            session.goalTasks = session.goalTasks.map { if (it.id == gid) it.copy(done = id in PlanData.done) else it }
+        }
+    }
 
     fun toggleNa(id: String) = PlanData.toggleNa(id)
 }
@@ -167,9 +217,19 @@ fun ColumnScope.TimelineBody(
     showHeader: Boolean = true,
 ) {
     var showClosed by remember { mutableStateOf(false) }
+    // 일정 고르기: 전체 · 정책 신청 · 준비할 일. 상담의 '일정 보기'로 오면 정책 신청부터
+    var pick by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(ScheduleFilter.ALL) }
+    LaunchedEffect(com.project.on_road.data.ScheduleJump.policyFilter) {
+        if (com.project.on_road.data.ScheduleJump.policyFilter) {
+            pick = ScheduleFilter.POLICY
+            com.project.on_road.data.ScheduleJump.policyFilter = false
+        }
+    }
 
     val today = LocalDate.now()
-    val all = vm.plan(today)
+    @Suppress("UNUSED_VARIABLE") val careerVersion = com.project.on_road.data.CareerPlan.version
+    @Suppress("UNUSED_VARIABLE") val goalVersion = vm.goalVersion
+    val all = vm.plan(today).filter { pick.keeps(it) }
     val auto = vm.autoDone()
     // 오래 지난 일은 놓친 일에 쌓지 않고 지난 일로 넘긴다
     val stale = all.filter { it.date.isBefore(today.minusDays(TimelinePlanner.MISSED_DAYS.toLong())) }
@@ -181,15 +241,22 @@ fun ColumnScope.TimelineBody(
 
     run {
         if (showHeader) TimelineInfoCard(vm)
+        Spacer(Modifier.height(if (showHeader) 12.dp else 0.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ScheduleFilter.entries.forEach { f -> ChoiceChip(f.label, selected = pick == f) { pick = f } }
+        }
+        // 정책 신청: 조건이 맞는 정책의 현금 합계
+        if (pick == ScheduleFilter.POLICY) vm.roadmap?.let { CashCard(it) }
         // 타임라인: 놓친 일 → 오늘 → 다가오는 일을 날짜순으로 한 줄에
-        Spacer(Modifier.height(if (showHeader) 28.dp else 8.dp))
+        Spacer(Modifier.height(20.dp))
         val line = missed + thisWeek + later
         if (line.isEmpty()) {
             Text("남은 할 일이 없어요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(start = 4.dp))
         }
         // 처음엔 놓친 일 + 앞으로 한 달 안의 일만 보이고, 그 뒤는 맨 아래 '이후 일정 보기' 하나로 펼친다
         var showLater by remember { mutableStateOf(false) }
-        val soon = line.filter { !it.date.isAfter(today.plusDays(NEAR_DAYS)) }
+        // 정책 신청만 볼 때는 몇 개 안 되니 처음부터 다 보인다
+        val soon = if (pick == ScheduleFilter.POLICY) line else line.filter { !it.date.isAfter(today.plusDays(NEAR_DAYS)) }
         val rest = line - soon.toSet()
         val shown = if (showLater) line else soon
         var lastMonth: java.time.YearMonth? = null
@@ -200,7 +267,9 @@ fun ColumnScope.TimelineBody(
                 MonthHeader(month, first = i == 0)
             }
             Box(Modifier.stagger(i)) {
-                TimelineRow(t, today, vm, onNavigate, left = i % 2 == 0, last = i == shown.lastIndex && rest.isEmpty())
+                val last = i == shown.lastIndex && rest.isEmpty()
+                if (t.milestone) MilestoneRow(t, today, PlanData.baseDate(today) ?: vm.leaveDate, onNavigate, last = last)
+                else TimelineRow(t, today, vm, onNavigate, left = i % 2 == 0, last = last)
             }
         }
         if (rest.isNotEmpty()) {
@@ -253,7 +322,9 @@ fun ColumnScope.TimelineBody(
 @Composable
 fun TimelineInfoCard(vm: TimelineViewModel = viewModel(), modifier: Modifier = Modifier) {
     var editing by remember { mutableStateOf(false) }
-    val daysLeft = ChronoUnit.DAYS.between(LocalDate.now(), vm.leaveDate)
+    var editGoal by remember { mutableStateOf(false) }
+    var addTask by remember { mutableStateOf(false) }
+    val goal = vm.goalMode
     OnRoadCard(
         modifier.fillMaxWidth(),
         background = OnRoadColors.SurfaceSubtle,
@@ -263,25 +334,70 @@ fun TimelineInfoCard(vm: TimelineViewModel = viewModel(), modifier: Modifier = M
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("퇴소까지 ${dLabel(daysLeft)}", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    listOfNotNull(vm.leaveDate.format(fullDateFormat), vm.work?.label).joinToString(" · "),
-                    style = OnRoadType.Caption2,
-                    color = OnRoadColors.TextTertiary,
-                    maxLines = 1,
-                )
+                if (goal) {
+                    // 퇴소 후: 내가 정한 목표까지 (목표가 없으면 정하자고)
+                    val date = vm.goalDate
+                    val title = vm.goalTitle.ifBlank { "목표" }
+                    Text(
+                        if (date != null) "${title}까지 ${dLabel(ChronoUnit.DAYS.between(LocalDate.now(), date))}" else "목표를 정해 볼까요?",
+                        style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                        color = OnRoadColors.TextPrimary,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    val left = com.project.on_road.data.MyConditions.leftDate
+                    Text(
+                        listOfNotNull(
+                            date?.format(fullDateFormat),
+                            left?.let { "퇴소 ${ChronoUnit.DAYS.between(it, LocalDate.now()) + 1}일째" },
+                            vm.work?.label,
+                        ).joinToString(", ").ifBlank { "첫 출근, 이사, 자격증 시험처럼 준비 중인 날" },
+                        style = OnRoadType.Caption2,
+                        color = OnRoadColors.TextTertiary,
+                        maxLines = 1,
+                    )
+                } else {
+                    val daysLeft = ChronoUnit.DAYS.between(LocalDate.now(), vm.leaveDate)
+                    Text("퇴소까지 ${dLabel(daysLeft)}", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        listOfNotNull(vm.leaveDate.format(fullDateFormat), vm.work?.label).joinToString(", "),
+                        style = OnRoadType.Caption2,
+                        color = OnRoadColors.TextTertiary,
+                        maxLines = 1,
+                    )
+                }
             }
             Row(
-                Modifier.clip(OnRoadShapes.Chip).tap(onClickLabel = "퇴소일 · 지금 하는 일 수정") { editing = true }.padding(horizontal = 6.dp, vertical = 4.dp),
+                Modifier.clip(OnRoadShapes.Chip).tap(onClickLabel = if (goal) "목표 바꾸기" else "퇴소일 · 지금 하는 일 수정") {
+                    if (goal) editGoal = true else editing = true
+                }.padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("정보 수정", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
+                Text(if (goal) "목표 바꾸기" else "정보 수정", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextTertiary, modifier = Modifier.size(16.dp))
             }
         }
+        // 퇴소 후: 내 일정 추가 (타임라인에 바로 들어간다)
+        if (goal) {
+            Spacer(Modifier.height(10.dp))
+            OutlinePill("내 일정 추가") { addTask = true }
+        }
     }
 
+    if (editGoal) {
+        GoalEditDialog(
+            title = vm.goalTitle,
+            date = vm.goalDate,
+            onDismiss = { editGoal = false },
+            onSave = { t, d -> vm.saveGoal(t, d); editGoal = false },
+        )
+    }
+    if (addTask) {
+        TaskAddDialog(
+            onDismiss = { addTask = false },
+            onSave = { t, d -> vm.addGoalTask(t, d); addTask = false },
+        )
+    }
     // 정보 수정: 퇴소 예정일 · 지금 하는 일 (바꾸면 바로 저장되고 할 일이 다시 짜인다)
     if (editing) InfoEditDialog(vm) { editing = false }
 }
@@ -524,7 +640,7 @@ private fun TimelineRow(
                             "해당 없음",
                             style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
                             color = OnRoadColors.TextTertiary,
-                            modifier = Modifier.tap(haptic = true) { vm.toggleNa(t.id) }.padding(vertical = 4.dp),
+                            modifier = Modifier.tap() { vm.toggleNa(t.id) }.padding(vertical = 4.dp),
                         )
                     }
                 }
@@ -534,7 +650,7 @@ private fun TimelineRow(
                     "되돌리기",
                     style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
                     color = OnRoadColors.TextTertiary,
-                    modifier = Modifier.tap(haptic = true) { vm.toggleNa(t.id) }.padding(top = 4.dp),
+                    modifier = Modifier.tap() { vm.toggleNa(t.id) }.padding(top = 4.dp),
                 )
             }
         }
@@ -553,7 +669,7 @@ private fun TimelineRow(
                 Modifier
                     .size(24.dp)
                     .clip(CircleShape)
-                    .tap(haptic = true, enabled = checkable, onClickLabel = if (done) "끝냄 취소" else "끝냄") { vm.toggle(t.id) },
+                    .tap(enabled = checkable, onClickLabel = if (done) "끝냄 취소" else "끝냄") { vm.toggle(t.id) },
                 contentAlignment = Alignment.Center,
             ) {
                 Box(Modifier.size(9.dp).clip(CircleShape).background(dot))
@@ -564,6 +680,177 @@ private fun TimelineRow(
 }
 
 private val shortDateFormat = DateTimeFormatter.ofPattern("M.d", Locale.KOREAN)
+
+/** 일정 고르기 */
+enum class ScheduleFilter(val label: String) {
+    ALL("전체"),
+    POLICY("정책 신청"),
+    PREP("준비할 일"),
+    CAREER("진로");
+
+    fun keeps(t: PlanTask): Boolean = when (this) {
+        ALL -> true
+        POLICY -> t.kind == PlanKind.POLICY && t.label != "자립 준비도"
+        PREP -> t.kind != PlanKind.POLICY && t.kind != PlanKind.CAREER
+        CAREER -> t.kind == PlanKind.CAREER
+    }
+}
+
+private fun wonText(won: Long): String =
+    if (won % 10_000 == 0L) "${"%,d".format(won / 10_000)}만 원" else "${"%,d".format(won)}원"
+
+private val categoryWord = mapOf(
+    "housing" to "주거", "medical" to "의료", "independence" to "자립", "employment" to "취업",
+    "education" to "교육", "living_cost" to "생활비", "finance" to "금융",
+)
+
+/**
+ * '정책 신청' 위 카드: 현금으로 받는 지원 합계. 돈이 아닌 지원도 많아서 그 분야를 한 줄로 붙인다.
+ * 위계: 라벨(12 · 회색) → 금액(22 굵게) → 보조(13 · 회색)
+ */
+@Composable
+private fun CashCard(r: com.project.on_road.data.PolicyRoadmap) {
+    if (r.monthlyWon <= 0 && r.onceWon <= 0) return
+    val others = r.stages.flatMap { it.items }
+        .filter { it.eligibility == "match" && it.amountText == null }
+        .mapNotNull { categoryWord[it.category] }
+        .distinct()
+    Spacer(Modifier.height(20.dp))
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border,
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+    ) {
+        Text("현금으로 받는 지원", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            // 같은 종류(자립수당 · 정착금)는 하나만 센 최대 금액
+            if (r.monthlyWon > 0) "최대 월 ${wonText(r.monthlyWon)}" else "최대 ${wonText(r.onceWon)}",
+            style = OnRoadType.Title1,
+            color = OnRoadColors.TextPrimary,
+        )
+        val sub = listOfNotNull(
+            if (r.monthlyWon > 0 && r.onceWon > 0) "한 번에 받는 돈 최대 ${wonText(r.onceWon)}" else null,
+            if (others.isNotEmpty()) "그 밖에 ${others.joinToString(" · ")} 지원" else null,
+        )
+        if (sub.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(sub.joinToString(" · "), style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+        }
+    }
+}
+
+/**
+ * 가운데 선 위의 기준 일정 (퇴소하면 바로 신청 · 지금 신청 묶음).
+ * 위계: 큰 빈 동그라미 + 제목(16 굵게) + 날짜 태그 → 펼치면 정책마다 작은 점 · 이름(14) · 받는 것(12 회색)이 좌우로 번갈아
+ */
+@Composable
+private fun MilestoneRow(
+    t: PlanTask,
+    today: LocalDate,
+    leaveDate: LocalDate,
+    onNavigate: (String) -> Unit,
+    last: Boolean,
+) {
+    var open by remember(t.id) { mutableStateOf(false) }
+    val isToday = t.date == today
+    val days = ChronoUnit.DAYS.between(leaveDate, t.date)
+    val dText = when {
+        days == 0L -> "D-DAY"
+        days < 0 -> "D$days"
+        else -> "D+$days"
+    }
+    val chip = if (isToday) "오늘" else "${t.date.format(shortDateFormat)} · $dText"
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        CenterLine(Modifier.height(6.dp))
+        Box(
+            Modifier
+                .padding(vertical = 4.dp)
+                .size(11.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(2.dp, if (isToday) OnRoadColors.Primary else OnRoadColors.TextQuaternary, CircleShape),
+        )
+        Column(
+            Modifier.clip(OnRoadShapes.Chip).tap { open = !open }.padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(t.title, style = OnRoadType.Body1.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OnRoadTag(chip, style = TagStyle.Neutral)
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    Modifier.size(18.dp).clip(CircleShape).background(OnRoadColors.SurfaceSubtle),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (open) "−" else "+", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
+                }
+            }
+        }
+        if (!(last && !open)) CenterLine(Modifier.height(14.dp))
+        ExpandArea(open) {
+            Column(Modifier.fillMaxWidth()) {
+                t.children.forEachIndexed { i, item ->
+                    ChildRow(item, left = i % 2 == 0, last = last && i == t.children.lastIndex) {
+                        onNavigate(Routes.policyDetail(item.policyId))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 기준 일정 아래 정책 한 개: 작은 빈 점 · 이름 · 받는 것 */
+@Composable
+private fun ChildRow(item: com.project.on_road.data.RoadmapItem, left: Boolean, last: Boolean, onClick: () -> Unit) {
+    val align = if (left) Alignment.End else Alignment.Start
+    val textAlign = if (left) androidx.compose.ui.text.style.TextAlign.End else androidx.compose.ui.text.style.TextAlign.Start
+    val content: @Composable () -> Unit = {
+        Column(
+            Modifier.fillMaxWidth().clip(OnRoadShapes.Chip).tap(onClickLabel = "${item.name} 정책 보기", onClick = onClick).padding(horizontal = 4.dp),
+            horizontalAlignment = align,
+        ) {
+            Text(item.name, style = OnRoadType.Body3.copy(fontWeight = FontWeight.Medium, lineHeight = OnRoadType.Body3.fontSize * 1.4f), color = OnRoadColors.TextPrimary, textAlign = textAlign)
+            val sub = item.benefit ?: item.amountText
+            // 시 · 군 · 구 정책처럼 조건을 더 확인해야 하는 정책은 받는 것 앞에 '확인 필요'
+            val check = item.eligibility == "needs_check"
+            if (sub != null || check) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    androidx.compose.ui.text.buildAnnotatedString {
+                        if (check) {
+                            pushStyle(androidx.compose.ui.text.SpanStyle(color = OnRoadColors.Warning, fontWeight = FontWeight.Medium))
+                            append("확인 필요")
+                            pop()
+                            if (sub != null) append(" · ")
+                        }
+                        if (sub != null) append(sub)
+                    },
+                    style = OnRoadType.Caption2,
+                    color = OnRoadColors.TextQuaternary,
+                    textAlign = textAlign,
+                )
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Box(Modifier.weight(1f).padding(bottom = 14.dp), contentAlignment = Alignment.TopEnd) { if (left) content() }
+        Box(Modifier.width(28.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+            Column(Modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                CenterLine(Modifier.height(6.dp))
+                Box(
+                    Modifier.size(7.dp).clip(CircleShape).background(Color.White)
+                        .border(1.5.dp, OnRoadColors.BorderChip, CircleShape),
+                )
+                if (last) Spacer(Modifier.weight(1f)) else CenterLine(Modifier.weight(1f))
+            }
+        }
+        Box(Modifier.weight(1f).padding(bottom = 14.dp), contentAlignment = Alignment.TopStart) { if (!left) content() }
+    }
+}
 
 /** 연회색 카드: 체크 동그라미 · 날짜 / 제목 / 설명 / 바로 하기 버튼 · 해당 없음 */
 @Composable
@@ -614,7 +901,7 @@ private fun TaskCard(
                         .clip(CircleShape)
                         .background(checkBg)
                         .border(1.dp, checkLine, CircleShape)
-                        .tap(haptic = true, enabled = autoReason == null) { vm.toggle(t.id) },
+                        .tap(enabled = autoReason == null) { vm.toggle(t.id) },
                     contentAlignment = Alignment.Center,
                 ) {
                     // 체크 표시가 톡 튀어나오고, 풀면 오므라들며 사라진다
@@ -650,7 +937,7 @@ private fun TaskCard(
                     "되돌리기",
                     style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
                     color = OnRoadColors.TextTertiary,
-                    modifier = Modifier.tap(haptic = true) { vm.toggleNa(t.id) }.padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                    modifier = Modifier.tap() { vm.toggleNa(t.id) }.padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
                 )
             }
         }
@@ -677,7 +964,7 @@ private fun TaskCard(
                             "해당 없음",
                             style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
                             color = OnRoadColors.TextTertiary,
-                            modifier = Modifier.tap(haptic = true) { vm.toggleNa(t.id) }.padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                            modifier = Modifier.tap() { vm.toggleNa(t.id) }.padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
                         )
                     }
                 }

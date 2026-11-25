@@ -9,7 +9,7 @@ import com.project.on_road.data.remote.RemoteOnRoadApi
 
 object AppContainer {
     /** true: 백엔드 연결 / false: 가짜 데이터로 화면 확인 */
-    private const val USE_REMOTE = false
+    private const val USE_REMOTE = true
 
     lateinit var session: SessionStore
         private set
@@ -24,6 +24,11 @@ object AppContainer {
     val serverUrl: String
         get() = prefs?.getString(KEY_SERVER_URL, null)?.takeIf { it.isNotBlank() } ?: BuildConfig.BASE_URL
 
+    /** 알림 권한을 이미 한 번 물어봤는지 (이 휴대폰 기준, 처음 한 번만 묻는다) */
+    var notifyAsked: Boolean
+        get() = prefs?.getBoolean("notify_asked", false) ?: false
+        set(value) { prefs?.edit()?.putBoolean("notify_asked", value)?.apply() }
+
     /** 서버 주소 바꾸기. 바꾼 뒤 앱을 다시 켜야 적용된다. 빈 값이면 기본 주소로 */
     fun setServerUrl(url: String?) {
         prefs?.edit()?.apply {
@@ -31,12 +36,17 @@ object AppContainer {
         }?.commit()
     }
 
-    /** "172.30.1.5" 처럼 IP 만 넣어도 http://172.30.1.5:8000/api/ 로 맞춘다 */
+    /**
+     * "172.30.1.5" 처럼 IP 만 넣어도 http://172.30.1.5:8000/api/ 로 맞춘다.
+     * "onroad-api.onrender.com" 처럼 주소 이름이면 https 로, 포트 없이 (https://onroad-api.onrender.com/api/)
+     */
     fun normalizeServerUrl(raw: String): String {
         var u = raw.trim()
-        if (!u.startsWith("http://") && !u.startsWith("https://")) u = "http://$u"
+        val bare = u.substringAfter("://").substringBefore("/").substringBefore(":")
+        val local = bare == "localhost" || bare.matches(Regex("""\d{1,3}(\.\d{1,3}){3}"""))
+        if (!u.startsWith("http://") && !u.startsWith("https://")) u = (if (local) "http://" else "https://") + u
         val hostPart = u.substringAfter("://").substringBefore("/")
-        if (!hostPart.contains(":")) u = u.replaceFirst(hostPart, "$hostPart:8000")
+        if (local && !hostPart.contains(":")) u = u.replaceFirst(hostPart, "$hostPart:8000")
         if (!u.trimEnd('/').endsWith("/api")) u = u.trimEnd('/') + "/api"
         return "$u/"
     }
@@ -54,6 +64,9 @@ object AppContainer {
     /** 문서 AI (서버 전용): 서류 작성 화면·체크리스트 신청서 쓰기·상담 핸드오프 */
     val documents: DocumentRepository by lazy { DocumentRepository(service) { session.userId.orEmpty() } }
 
+    /** 진로 외부 정보 (직업 정보 · 직무 · 시험 일정 · 훈련 과정). 서버 전용 */
+    val careerInfo: CareerInfoRepo by lazy { CareerInfoRepo(service) }
+
     /** 코치: 롤플레잉·서류 양식·초안은 서버, 흥미 탐색·직업 추천·로드맵·양식 올리기는 앱에서 처리 */
     val coachApi: CoachApi by lazy { if (USE_REMOTE) RemoteCoachApi(service) else FakeCoachApi() }
 
@@ -64,8 +77,11 @@ object AppContainer {
             session = SessionStore(context.applicationContext)
         }
         ActivityStore.init(context)
+        MyConditions.init(context)
+        CareerPlan.init(context)
         ActivityStore.useAccount(session.userId)
         FormParser.init(context)
+        com.project.on_road.notification.DueReminder.init(context)
         AppState.load(session)
     }
 
@@ -110,6 +126,7 @@ object AppContainer {
      */
     fun applyProfile(user: UserProfile) {
         session.save(user.userId, user.name, user.stage)
+        ProfileStore.set(user)
         session.status = user.status
         if (USE_REMOTE) session.leaveDate = user.dDate
         AppState.updateStage(user.stage)

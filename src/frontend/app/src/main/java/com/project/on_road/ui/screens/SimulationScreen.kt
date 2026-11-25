@@ -1,5 +1,6 @@
 package com.project.on_road.ui.screens
 
+import com.project.on_road.ui.components.smoothSwap
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
@@ -155,7 +156,7 @@ fun BudgetSimulationScreen(
             title = if (result == null) "생활비 배분" else "생활비 배분 결과",
             onBack = { if (vm.result != null) vm.backToInput() else onBack() },
         )
-        AnimatedContent(targetState = result, label = "simulation", modifier = Modifier.weight(1f)) { r ->
+        AnimatedContent(targetState = result, transitionSpec = { smoothSwap() }, label = "simulation", modifier = Modifier.weight(1f)) { r ->
             if (r == null) SimulationInput(vm)
             else SimulationResultView(
                 r,

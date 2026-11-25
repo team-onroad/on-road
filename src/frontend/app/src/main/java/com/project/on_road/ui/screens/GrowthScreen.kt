@@ -153,7 +153,7 @@ fun GrowthContent(
             Modifier
                 .weight(1f)
                 .reveal()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(com.project.on_road.ui.components.rememberTabScrollState())
                 .padding(horizontal = OnRoadDimens.ScreenPadding),
         ) {
             header?.invoke(this)
@@ -210,6 +210,9 @@ fun GrowthContent(
                             Spacer(Modifier.height(8.dp))
                             RoadmapProgressCard(it)
                         }
+                        // 진로 로드맵: 관심 직업이 되는 길 · 시험 일정 · 훈련 과정을 한 화면에서
+                        Spacer(Modifier.height(8.dp))
+                        RecordRow("나의 진로 보기", "되는 길, 시험 일정, 훈련 과정", onClick = { onNavigate(Routes.CAREER_ROADMAP) })
                         if (kidLiked.isNotEmpty()) {
                             Spacer(Modifier.height(8.dp))
                             KidLikedCard(kidLiked)
@@ -224,6 +227,7 @@ fun GrowthContent(
             TabSwitch(tab, label = "growth-tab") { t -> sections[t]() }
 
             Spacer(Modifier.height(40.dp))
+            com.project.on_road.ui.components.TabBarSpacer()
         }
     }
 }

@@ -27,6 +27,8 @@ object DdayNotifier {
     const val EXTRA_BODY = "body"
     /** 알림을 누르면 열 화면 (앱 안 경로) */
     const val EXTRA_ROUTE = "route"
+    /** 알림 채널 (없으면 퇴소 D-day 채널) */
+    const val EXTRA_CHANNEL = "channel"
     private const val TIMELINE_ROUTE = "sim/timeline"
 
     fun ensureChannel(context: Context) {

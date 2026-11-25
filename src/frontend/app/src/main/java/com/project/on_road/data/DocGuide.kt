@@ -31,4 +31,47 @@ object DocGuide {
         val n = name.replace(" ", "")
         return guides.firstOrNull { (words, _) -> words.any { n.contains(it.replace(" ", "")) } }?.second
     }
+
+    /**
+     * "하나만 내면 되는 서류"의 선택지 한 개 안내 (정책 상세 펼침).
+     * org: 발급 기관 (이름 앞에서 떼어 냄), title: 서류 이름, way: 받는 방식 태그 (온라인 · 상담, 모르면 null),
+     * rows: 어디서 · 어떻게 · 문의 줄. 확인한 안내가 없는 서류는 rows 가 비어 있다.
+     */
+    data class Option(val org: String?, val title: String, val way: String?, val rows: List<Pair<String, String>>)
+
+    private val ORGS = listOf("국가아동권리보장원", "아동권리보장원", "서민금융진흥원", "국민연금공단", "한국장학재단", "국민건강보험공단", "근로복지공단", "한국주택금융공사", "한국토지주택공사")
+
+    /** 공식 안내(지자체 · 기관 안내문)로 확인한 선택지 설명. 이름에 들어 있는 낱말로 찾는다 */
+    private val OPTIONS: List<Triple<List<String>, String?, List<Pair<String, String>>>> = listOf(
+        Triple(listOf("서민금융진흥원", "자립교육"), "온라인", listOf(
+            "어디서" to "금융교육포털 edu.kinfa.or.kr",
+            "어떻게" to "‘보호종료아동 자립교육’ 강의를 듣고 이수증을 출력해요",
+        )),
+        Triple(listOf("아동권리보장원", "자립교육"), "온라인", listOf(
+            "어디서" to "아동복지통합서비스 사이버교육센터",
+            "어떻게" to "보호종료(예정)아동 온라인 자립교육을 마치고 이수증을 받아요",
+        )),
+        Triple(listOf("희망출발", "재무상담"), "상담", listOf(
+            "어떻게" to "국민연금공단 재무상담을 받고 확인서를 받아요",
+            "문의" to "국민연금 고객센터 1355",
+        )),
+        Triple(listOf("주민등록증"), null, listOf("어디서" to "주민센터에서 발급해요")),
+        Triple(listOf("여권"), null, listOf("확인" to "유효기간이 남아 있어야 해요")),
+        Triple(listOf("운전면허증"), null, listOf("어디서" to "운전면허시험장이나 경찰서에서 발급해요")),
+        Triple(listOf("장애인등록증"), null, listOf("어디서" to "주민센터에서 발급해요")),
+    )
+
+    fun option(raw: String): Option {
+        val name = raw.trim()
+        val org = ORGS.firstOrNull { name.startsWith(it) }
+        val title = org?.let { name.removePrefix(it).trim() }?.ifBlank { null } ?: name
+        val key = name.replace(" ", "")
+        val hit = OPTIONS.firstOrNull { (words, _, _) -> words.all { key.contains(it.replace(" ", "")) } }
+        val way = hit?.second ?: when {
+            key.contains("온라인") || key.contains("사이버") -> "온라인"
+            else -> null
+        }
+        val rows = hit?.third ?: explain(name)?.let { listOf("안내" to it) }.orEmpty()
+        return Option(org = if (org == "아동권리보장원") "국가아동권리보장원" else org, title = title, way = way, rows = rows)
+    }
 }

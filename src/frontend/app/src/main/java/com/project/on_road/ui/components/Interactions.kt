@@ -59,6 +59,10 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -79,7 +83,7 @@ import kotlinx.coroutines.delay
 
 /**
  * clickable 대신 쓰는 누르기. 누르는 동안 살짝 작아졌다가 돌아오고(pressScale), 물결 표시도 그대로 나온다.
- * [haptic] 을 켜면 체크·완료처럼 상태가 바뀌는 곳에서 짧게 진동한다.
+ * [haptic] 은 예전 코드 호환용으로만 남겨 둔다 (앱에서 진동은 쓰지 않는다).
  */
 fun Modifier.tap(
     enabled: Boolean = true,
@@ -91,7 +95,6 @@ fun Modifier.tap(
     onClick: () -> Unit,
 ): Modifier = composed {
     val source = remember { MutableInteractionSource() }
-    val feedback = LocalHapticFeedback.current
     this
         .pressScale(source, enabled = enabled, pressed = pressed)
         .clickable(
@@ -99,18 +102,187 @@ fun Modifier.tap(
             indication = if (ripple) LocalIndication.current else null,
             enabled = enabled,
             onClickLabel = onClickLabel,
-        ) {
-            if (haptic) feedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            onClick()
-        }
+        ) { onClick() }
 }
 
-/** 상태가 바뀌는 순간(완료·체크·북마크) 짧은 진동. 컴포저블 안에서 받아 두고 콜백에서 부른다 */
+/** 예전에는 상태가 바뀌는 순간 짧게 진동했다. 앱에서 진동은 쓰지 않아서 지금은 아무것도 하지 않는다 (부르는 곳 호환용) */
 @Composable
-fun rememberTick(): () -> Unit {
-    val feedback = LocalHapticFeedback.current
-    return remember(feedback) { { feedback.performHapticFeedback(HapticFeedbackType.TextHandleMove) } }
+fun rememberTick(): () -> Unit = remember { {} }
+
+/**
+ * 연타 방지 클릭: 마지막으로 받은 뒤 [gapMs] 안에 또 눌리면 무시한다.
+ * 버튼 모양·반응(눌림·물결)은 그대로이고, 실제 동작만 한 번 실행된다.
+ */
+@Composable
+fun rememberGuardedClick(onClick: () -> Unit, gapMs: Long = CLICK_GUARD_MS): () -> Unit {
+    val latest = androidx.compose.runtime.rememberUpdatedState(onClick)
+    val last = remember { longArrayOf(0L) }
+    return remember(gapMs) {
+        {
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - last[0] >= gapMs) {
+                last[0] = now
+                latest.value()
+            }
+        }
+    }
 }
+
+/** 같은 버튼을 두 번 누른 것으로 보는 간격 */
+const val CLICK_GUARD_MS = 500L
+
+/**
+ * 모달(창)이 열릴 때 툭 나타나지 않고 아주 살짝 커지며 서서히 보인다.
+ * [closing] 이 켜지면 반대로 살짝 작아지며 흐려진다 (그 뒤에 창을 닫는다).
+ * 다 열린 뒤의 모양·크기는 원래와 똑같다.
+ */
+fun Modifier.dialogEnter(closing: Boolean = false): Modifier = composed {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val p by animateFloatAsState(
+        if (shown && !closing) 1f else 0f,
+        if (closing) tween(DIALOG_CLOSE_MS.toInt(), easing = OnRoadMotion.ExitEasing)
+        else tween(OnRoadMotion.FAST, easing = OnRoadMotion.EmphasizedDecelerate),
+        label = "dialog-enter",
+    )
+    this.graphicsLayer {
+        alpha = p
+        val s = 0.96f + 0.04f * p
+        scaleX = s
+        scaleY = s
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/*  당겨서 새로고침 · 좌우로 밀어 칸 넘기기 · 빈 곳 누르면 키보드 내리기          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 맨 위에서 아래로 당기면 새로 불러온다. 표시는 흰 동그라미 + 메인 색 (앱 색 그대로).
+ * 안의 내용은 세로 스크롤이어야 한다.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun RefreshArea(
+    refreshing: Boolean,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val state = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
+    val tick = rememberTick()
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = { tick(); onRefresh() },
+        modifier = modifier,
+        state = state,
+        indicator = {
+            androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator(
+                state = state,
+                isRefreshing = refreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = Color.White,
+                color = OnRoadColors.Primary,
+            )
+        },
+    ) { content() }
+}
+
+/** 새로고침 표시가 너무 짧게 깜빡이지 않도록 최소로 보여 주는 시간 */
+const val REFRESH_MIN_MS = 600L
+
+/**
+ * 칸(탭)이 나뉜 화면에서 좌우로 밀면 옆 칸으로 넘어간다. 안쪽의 가로 스크롤 · 세로 스크롤이 먼저 받으므로 겹치지 않는다.
+ */
+fun Modifier.swipeToSwitch(index: Int, count: Int, onSwitch: (Int) -> Unit): Modifier = composed {
+    val current = androidx.compose.runtime.rememberUpdatedState(index)
+    val switch = androidx.compose.runtime.rememberUpdatedState(onSwitch)
+    val tick = rememberTick()
+    val threshold = with(androidx.compose.ui.platform.LocalDensity.current) { 72.dp.toPx() }
+    this.pointerInput(count, threshold) {
+        var total = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { total = 0f },
+            onDragCancel = { total = 0f },
+            onDragEnd = {
+                val i = current.value
+                val next = when {
+                    total < -threshold && i < count - 1 -> i + 1
+                    total > threshold && i > 0 -> i - 1
+                    else -> null
+                }
+                if (next != null) { tick(); switch.value(next) }
+                total = 0f
+            },
+        ) { change, dx ->
+            total += dx
+            change.consume()
+        }
+    }
+}
+
+/**
+ * 빈 곳(버튼 · 입력칸이 아닌 곳)을 누르면 키보드를 내린다.
+ * 버튼 · 입력칸 · 스크롤이 먼저 받은 터치는 건드리지 않는다 (가장 마지막 단계에서 남은 터치만 본다).
+ */
+fun Modifier.clearFocusOnTapOutside(): Modifier = composed {
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
+    this.pointerInput(Unit) {
+        awaitEachGesture {
+            val final = androidx.compose.ui.input.pointer.PointerEventPass.Final
+            val down = awaitFirstDown(requireUnconsumed = false, pass = final)
+            if (down.isConsumed) return@awaitEachGesture
+            val up = waitForUpOrCancellation(pass = final)
+            if (up != null && !up.isConsumed) focus.clearFocus()
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/*  하단 탭 다시 누르기: 지금 보고 있는 탭을 또 누르면 맨 위로 부드럽게 올라간다    */
+/* ------------------------------------------------------------------ */
+
+object TabReselect {
+    var count by androidx.compose.runtime.mutableIntStateOf(0)
+        private set
+    fun fire() { count++ }
+}
+
+/**
+ * rememberScrollState() 대신 탭 첫 화면의 세로 스크롤에 쓴다.
+ * 탭 첫 화면일 때만, 화면이 열린 뒤에 탭을 다시 누른 경우에만 맨 위로 올라간다 (돌아왔을 때 보던 자리는 그대로).
+ */
+@Composable
+fun rememberTabScrollState(): androidx.compose.foundation.ScrollState {
+    val state = androidx.compose.foundation.rememberScrollState()
+    val root = LocalTabRoot.current
+    val opened = remember { TabReselect.count }
+    val n = TabReselect.count
+    LaunchedEffect(n) {
+        if (root && n != opened && state.value > 0) state.animateScrollTo(0, OnRoadMotion.move())
+    }
+    return state
+}
+
+/** 목록(LazyColumn)용 [rememberTabScrollState] */
+@Composable
+fun rememberTabLazyListState(): androidx.compose.foundation.lazy.LazyListState {
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    val root = LocalTabRoot.current
+    val opened = remember { TabReselect.count }
+    val n = TabReselect.count
+    LaunchedEffect(n) {
+        if (root && n != opened && (state.firstVisibleItemIndex > 0 || state.firstVisibleItemScrollOffset > 0)) {
+            // 멀리 내려가 있으면 가까이 옮긴 뒤 부드럽게 올린다 (긴 목록을 다 훑으며 올라가지 않게)
+            if (state.firstVisibleItemIndex > 8) state.scrollToItem(8)
+            state.animateScrollToItem(0)
+        }
+    }
+    return state
+}
+
+/** 모달이 닫히는 움직임 시간. 이 시간 뒤에 실제로 창을 닫는다 */
+const val DIALOG_CLOSE_MS = 220L
 
 /** 펼치기·접기 화살표: 열리면 부드럽게 뒤집힌다 */
 fun Modifier.flipWhen(open: Boolean): Modifier = composed {
@@ -120,7 +292,7 @@ fun Modifier.flipWhen(open: Boolean): Modifier = composed {
 
 /** 목록 항목이 위에서부터 차례로 올라오며 나타난다 (처음 한 번만, 너무 길어지지 않게 8개까지만 늦춘다) */
 @Composable
-fun Modifier.stagger(index: Int): Modifier = this.reveal(delayMs = index.coerceAtMost(6) * 35)
+fun Modifier.stagger(index: Int): Modifier = this.reveal(delayMs = index.coerceAtMost(6) * RevealMotion.Step)
 
 /** 상태가 바뀌면 한 번 '톡' 커졌다 돌아온다 (북마크·체크 등) */
 fun Modifier.popOn(key: Any?, enabled: Boolean = true): Modifier = composed {
@@ -231,6 +403,11 @@ fun BoxScope.ToastHost() {
     var text by remember { mutableStateOf("") }
     LaunchedEffect(msg) {
         if (msg == null) return@LaunchedEffect
+        // 이미 떠 있으면 먼저 부드럽게 내렸다가 새 글로 다시 올린다 (글자만 툭 바뀌지 않게)
+        if (visible) {
+            visible = false
+            delay(OnRoadMotion.FAST.toLong())
+        }
         text = msg.second
         visible = true
         delay(if (msg.second.length > 28) 3200 else 2200)
@@ -263,9 +440,16 @@ fun BoxScope.ToastHost() {
 val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
 val LocalNavAnimScope = staticCompositionLocalOf<AnimatedVisibilityScope?> { null }
 
-/** 같은 [key] 를 단 두 화면의 요소가 화면 전환 때 이어져 움직인다. 범위 밖에서는 아무 일도 하지 않는다 */
+/**
+ * 예전에는 같은 [key] 를 단 두 화면의 제목이 화면 전환 때 이어져 움직였다 (목록 제목이 상세 제목 자리로 날아감).
+ * 정책을 누를 때 제목 위치가 바뀌어 보기 불편해서 끈다. 부르는 곳은 그대로 두고 아무 일도 하지 않는다
+ */
+@Suppress("UNUSED_PARAMETER")
+fun Modifier.sharedTitle(key: String): Modifier = this
+
+/** 예전 동작 (제목이 이어져 움직임). 다시 쓰려면 sharedTitle 대신 부른다 */
 @OptIn(ExperimentalSharedTransitionApi::class)
-fun Modifier.sharedTitle(key: String): Modifier = composed {
+fun Modifier.sharedTitleMove(key: String): Modifier = composed {
     val shared = LocalSharedScope.current
     val anim = LocalNavAnimScope.current
     if (shared == null || anim == null) {
@@ -390,12 +574,17 @@ fun StepRail(total: Int, done: Int, modifier: Modifier = Modifier, labels: List<
 /**
  * [text] 를 앞에서부터 조금씩 늘려 [content] 에 넘긴다. 길어도 [maxMs] 안에 끝난다.
  * [animate] 가 false 면 처음부터 전부 보여 준다 (지난 대화·다시 그릴 때).
+ * 스트리밍처럼 글이 뒤에 계속 붙으면 이미 보인 곳부터 이어서 흘러나온다 (처음부터 다시 쓰지 않음).
+ * 앞부분이 바뀐 글이면 처음부터 다시.
  */
 @Composable
 fun RevealText(text: String, animate: Boolean, maxMs: Int = 1400, onDone: () -> Unit = {}, content: @Composable (String) -> Unit) {
-    var shown by remember(text, animate) { mutableStateOf(if (animate) 0 else text.length) }
+    var shown by remember(animate) { mutableStateOf(if (animate) 0 else text.length) }
+    val prev = remember { arrayOf(text) }
     LaunchedEffect(text, animate) {
         if (!animate) return@LaunchedEffect
+        if (!text.startsWith(prev[0].take(shown))) shown = 0
+        prev[0] = text
         val steps = (maxMs / 16).coerceAtLeast(1)
         val per = (text.length / steps).coerceAtLeast(1)
         while (shown < text.length) {
@@ -404,7 +593,7 @@ fun RevealText(text: String, animate: Boolean, maxMs: Int = 1400, onDone: () -> 
         }
         onDone()
     }
-    content(if (shown >= text.length) text else text.take(shown))
+    content(if (!animate || shown >= text.length) text else text.take(shown))
 }
 
 /** 길게 누르면 글을 복사하고 짧게 진동 + "복사했어요" */

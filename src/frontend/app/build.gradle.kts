@@ -16,12 +16,11 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
-            useSupportLibrary = true
         }
 
         // 백엔드 주소 (끝에 / 필수)
         // 에뮬레이터: 10.0.2.2 = PC의 localhost / 실기기: PC의 IP (같은 Wi-Fi, 서버는 --host 0.0.0.0)
-        buildConfigField("String", "BASE_URL", "\"http://172.30.1.92:8000/api/\"")
+        buildConfigField("String", "BASE_URL", "\"https://onroad-api.onrender.com/api/\"")
     }
 
     buildTypes {

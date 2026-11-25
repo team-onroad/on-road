@@ -64,8 +64,10 @@ fun ProfileChangeCard(changes: List<ProfileChange>, key: String, modifier: Modif
                 OnRoadButton(
                     "바꾸기",
                     {
-                        state = "saving"
-                        scope.launch { state = if (runCatching { ProfileChanges.apply(changes) }.isSuccess) "applied" else "failed" }
+                        if (state != "saving") {
+                            state = "saving"
+                            scope.launch { state = if (runCatching { ProfileChanges.apply(changes) }.isSuccess) "applied" else "failed" }
+                        }
                     },
                     Modifier.weight(1f),
                     height = 36.dp,

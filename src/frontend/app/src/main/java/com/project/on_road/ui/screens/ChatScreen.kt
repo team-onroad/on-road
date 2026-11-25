@@ -16,6 +16,7 @@ import androidx.compose.animation.animateColorAsState
 
 
 import com.project.on_road.ui.components.tap
+import com.project.on_road.ui.components.dialogEnter
 import com.project.on_road.ui.components.reveal
 import com.project.on_road.ui.components.TypingDots
 
@@ -54,6 +55,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -215,6 +218,14 @@ class ChatViewModel : ViewModel() {
 
     /** 방금 도착해 글자가 흘러나오는 중인 답변 id (끝나면 null) */
     var revealId by mutableStateOf<Long?>(null)
+    /** 서버에서 문장이 오는 중인 답변 id (다 오면 null). 이때는 '입력 중' 점 대신 답이 바로 자란다 */
+    var streamingId by mutableStateOf<Long?>(null)
+        private set
+
+    /** 흘러나오는 중에는 다 보였다는 신호를 무시한다 (다음 문장이 이어서 흘러나오게) */
+    fun revealDone(id: Long) {
+        if (revealId == id && streamingId != id) revealId = null
+    }
     /** 불러오지 못한 답변 id → 다시 보낼 질문 */
     val retryOf = mutableStateMapOf<Long, String>()
     private var job: kotlinx.coroutines.Job? = null
@@ -235,17 +246,44 @@ class ChatViewModel : ViewModel() {
         job = viewModelScope.launch {
             sending = true
             var failed = false
+            // 고민 상담 답은 문장이 오는 대로 말풍선을 먼저 만들고 이어 붙인다 (첫 문장이 1초 안에 보인다)
+            var liveId: Long? = null
+            val history = messages.toList()
             val reply = runCatching {
-                AppContainer.chatApi.reply(AppContainer.session.userId.orEmpty(), messages.toList(), t)
+                AppContainer.chatApi.reply(AppContainer.session.userId.orEmpty(), history, t) { partial ->
+                    val id = liveId
+                    if (id == null) {
+                        val first = ChatMessage(nextId++, ChatRole.ASSISTANT, partial, kind = ChatKind.COUNSEL)
+                        liveId = first.id
+                        streamingId = first.id
+                        revealId = first.id
+                        times[first.id] = nowLabel()
+                        messages.add(first)
+                    } else {
+                        val i = messages.indexOfFirst { it.id == id }
+                        if (i >= 0) messages[i] = messages[i].copy(text = partial)
+                    }
+                }
             }.getOrElse {
                 if (it is kotlinx.coroutines.CancellationException) throw it
                 failed = true
                 ChatMessage(0L, ChatRole.ASSISTANT, "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.", needsCheck = true, kind = ChatKind.LOCAL)
             }
-            val msg = reply.copy(id = nextId++)
-            messages.add(msg)
-            times[msg.id] = nowLabel()
-            if (failed) retryOf[msg.id] = t else revealId = msg.id
+            val id = liveId
+            val i = if (id != null) messages.indexOfFirst { it.id == id } else -1
+            val msg: ChatMessage
+            if (i >= 0) {
+                // 흘러나온 말풍선을 최종 답으로 (같은 글이면 그대로 이어서, 바뀐 글이면 다시 흘러나온다)
+                msg = reply.copy(id = id!!)
+                messages[i] = msg
+            } else {
+                msg = reply.copy(id = nextId++)
+                messages.add(msg)
+                times[msg.id] = nowLabel()
+                if (!failed) revealId = msg.id
+            }
+            streamingId = null
+            if (failed) retryOf[msg.id] = t
             sending = false
             persist()
         }
@@ -256,6 +294,7 @@ class ChatViewModel : ViewModel() {
         if (!sending) return
         job?.cancel()
         sending = false
+        streamingId = null
         val msg = ChatMessage(nextId++, ChatRole.ASSISTANT, "답변을 멈췄어요. 궁금한 걸 다시 보내 주세요.", kind = ChatKind.LOCAL)
         messages.add(msg)
         times[msg.id] = nowLabel()
@@ -292,9 +331,41 @@ fun ChatScreen(
     var showHelp by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
 
-    LaunchedEffect(vm.messages.size, vm.sending) {
-        // 마지막 항목(안내 문구) 위치 = 메시지 수 + 입력 중 표시
-        listState.animateScrollToItem(vm.messages.size + if (vm.sending) 1 else 0)
+    // 스크롤 규칙: 답의 '끝'이 아니라 '처음'에 맞춘다.
+    // - 내가 보내면: 내 말과 입력 중 표시가 보이게 맨 아래로 한 번
+    // - 답이 자라는 동안(문장이 오거나 글자가 나타나며 말풍선이 커질 때): 아래로 따라가되,
+    //   답의 첫 줄이 화면 위쪽에 닿으면 멈춘다. 그 뒤로는 처음부터 읽고 직접 내려 본다
+    // - 손으로 굴리면 따라가기를 멈춘다 (읽는 중에 끌려가지 않게)
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val answerTop = with(density) { ChatSpace.AnswerTop.roundToPx() }
+    var following by remember { mutableStateOf(false) }
+    var loaded by remember { mutableStateOf(false) }
+    val dragged by listState.interactionSource.collectIsDraggedAsState()
+    LaunchedEffect(dragged) { if (dragged) following = false }
+    LaunchedEffect(vm.messages.size) {
+        val last = vm.messages.lastOrNull() ?: return@LaunchedEffect
+        androidx.compose.runtime.withFrameNanos { }
+        when {
+            // 이전 상담을 불러왔을 때: 마지막 대화가 보이게 바로 (애니메이션 없이)
+            !loaded -> { loaded = true; listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1) }
+            last.role == ChatRole.USER -> { following = true; listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1) }
+        }
+    }
+    LaunchedEffect(listState) {
+        androidx.compose.runtime.snapshotFlow {
+            val i = vm.messages.lastIndex
+            val bot = vm.messages.lastOrNull()?.role != ChatRole.USER
+            val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == i }
+            Triple(bot, item?.offset, item?.size)
+        }.collect { (bot, offset, size) ->
+            if (!following || !bot || offset == null || size == null || dragged) return@collect
+            val info = listState.layoutInfo
+            val hidden = offset + size - info.viewportEndOffset // 답이 화면 아래로 가려진 만큼
+            val room = offset - info.viewportStartOffset - answerTop // 답 첫 줄이 위쪽에 닿기까지 남은 거리
+            val by = minOf(hidden, room)
+            if (by > 0) listState.scrollBy(by.toFloat())
+            if (room <= by) following = false // 답 첫 줄이 위쪽에 닿았다: 여기서 멈춘다
+        }
     }
 
     Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
@@ -354,14 +425,19 @@ fun ChatScreen(
                         onPrepare = onPrepare,
                         onAskMore = { runCatching { inputFocus.requestFocus() } },
                         onWriteDocument = { onWriteDocument(it, msg.handoffContext) },
+                        onOpenSchedule = {
+                            // 신청 관리 '일정' 탭을 '정책 신청' 필터로
+                            com.project.on_road.data.ScheduleJump.policyFilter = true
+                            onNavigate(com.project.on_road.ui.screens.navigation.Routes.CHECKLISTS)
+                        },
                         reveal = msg.id == vm.revealId,
-                        onRevealDone = { if (vm.revealId == msg.id) vm.revealId = null },
+                        onRevealDone = { vm.revealDone(msg.id) },
                         onRetry = if (msg.id in vm.retryOf) ({ vm.retry(msg.id) }) else null,
                     )
                 }
                 }
             }
-            if (vm.sending) item(key = "typing") { Box(Modifier.animateItem().reveal()) { TypingBubble() } }
+            if (vm.sending && vm.streamingId == null) item(key = "typing") { Box(Modifier.animateItem().reveal()) { TypingBubble() } }
             // 마지막 답 아래: 이야기한 분야로 이어서 해 볼 것 (위기 상담 중에는 띄우지 않는다)
             val lastBot = vm.messages.lastOrNull()?.takeIf { it.role != ChatRole.USER && it.kind != ChatKind.CRISIS }
             val lastQuestion = vm.messages.lastOrNull { it.role == ChatRole.USER }?.text
@@ -406,6 +482,8 @@ fun ChatScreen(
 private object ChatSpace {
     /** 말 사이 */
     val MessageGap = 28.dp
+    /** 답을 따라 내려가다 멈추는 자리: 답 첫 줄이 화면 위에서 이만큼 아래 (바로 위 내 말 끝이 조금 보이게) */
+    val AnswerTop = 56.dp
     /** AI 답변 행간 (13sp 글씨 기준, 기본 21.7) */
     val AnswerLineHeight = 20.sp
     /** 첫 인사 → 자주 묻는 주제 */
@@ -423,17 +501,26 @@ private fun ChatDialog(
     title: String,
     sub: String?,
     onDismiss: () -> Unit,
-    bottom: (@Composable () -> Unit)? = null,
-    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+    bottom: (@Composable (closeThen: (() -> Unit) -> Unit) -> Unit)? = null,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.(closeThen: (() -> Unit) -> Unit) -> Unit,
 ) {
+    // 닫기: 바로 없애지 않고 작아지며 흐려지는 움직임을 먼저 보여 준 뒤 실제로 닫는다 (고른 상담 열기 · 새 상담도 같게)
+    var closingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val closeThen: (() -> Unit) -> Unit = { action -> if (closingAction == null) closingAction = action }
+    LaunchedEffect(closingAction) {
+        val action = closingAction ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(com.project.on_road.ui.components.DIALOG_CLOSE_MS)
+        action()
+    }
     androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { closeThen(onDismiss) },
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Column(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = ChatSpace.DialogSide)
+                .then(Modifier.dialogEnter(closing = closingAction != null))
                 .clip(OnRoadShapes.Card)
                 .background(Color.White)
                 .padding(horizontal = 20.dp, vertical = 22.dp),
@@ -441,7 +528,7 @@ private fun ChatDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = OnRoadType.Title3, color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
                 Box(
-                    Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).tap(onClickLabel = "닫기", onClick = onDismiss),
+                    Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).tap(onClickLabel = "닫기") { closeThen(onDismiss) },
                     contentAlignment = Alignment.Center,
                 ) { Icon(Icons.Filled.Close, "닫기", tint = OnRoadColors.TextTertiary, modifier = Modifier.size(18.dp)) }
             }
@@ -450,10 +537,10 @@ private fun ChatDialog(
                 Text(it, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
             }
             Spacer(Modifier.height(16.dp))
-            content()
+            content(closeThen)
             bottom?.let {
                 Spacer(Modifier.height(16.dp))
-                it()
+                it(closeThen)
             }
         }
     }
@@ -493,8 +580,8 @@ private fun HistoryDialog(onPick: (Long) -> Unit, onNew: () -> Unit, onDismiss: 
         title = "지난 상담",
         sub = if (chats.isEmpty()) "질문하면 이 휴대폰에 대화가 남아요." else "이어서 할 상담을 골라요",
         onDismiss = onDismiss,
-        bottom = { OnRoadButton("새 상담 시작", onNew, Modifier.fillMaxWidth()) },
-    ) {
+        bottom = { closeThen -> OnRoadButton("새 상담 시작", { closeThen(onNew) }, Modifier.fillMaxWidth()) },
+    ) { closeThen ->
         if (chats.isNotEmpty()) {
             LazyColumn(Modifier.heightIn(max = 340.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(chats, key = { it.id }) { c ->
@@ -502,7 +589,7 @@ private fun HistoryDialog(onPick: (Long) -> Unit, onNew: () -> Unit, onDismiss: 
                         c.title,
                         "${dayLabel(c.updatedAt)} · 질문 ${c.questionCount}개" +
                             if (c.topics.isNotEmpty()) " · " + c.topics.joinToString(", ") { it.label } else "",
-                    ) { onPick(c.id) }
+                    ) { closeThen { onPick(c.id) } }
                 }
             }
         }
@@ -532,7 +619,7 @@ private fun HelpStrip(onClick: () -> Unit) {
 @Composable
 private fun HelpDialog(onDismiss: () -> Unit) {
     val uri = LocalUriHandler.current
-    ChatDialog(title = "도움 연락처", sub = "누르면 전화 화면으로 연결돼요.", onDismiss = onDismiss) {
+    ChatDialog(title = "도움 연락처", sub = "누르면 전화 화면으로 연결돼요.", onDismiss = onDismiss) { _ ->
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             helpContacts.forEach { c ->
                 DialogRow(
@@ -561,6 +648,98 @@ private fun BotAvatar() {
     ) { LogoSlot(size = 18.dp) }
 }
 
+private fun planWon(won: Long): String =
+    if (won % 10_000 == 0L) "${"%,d".format(won / 10_000)}만 원" else "${"%,d".format(won)}원"
+
+/**
+ * 상담 답 아래 '내 조건 기준' 카드. 위계: 라벨(12 회색) → 현금 합계(22 굵게) → 보조(13 회색) → 정책 줄 → 버튼.
+ * 정책 줄은 이름(14) 아래에 언제 신청 · 받는 것(12 회색). 돈이 아닌 정책은 받는 내용을 보여 준다
+ */
+@Composable
+private fun PlanCard(
+    plan: com.project.on_road.data.ChatPlan,
+    onOpenPolicy: (String) -> Unit,
+    onWriteDocument: (DocCandidate) -> Unit,
+    onOpenSchedule: () -> Unit,
+) {
+    val goal = com.project.on_road.data.DDate.isGoal(AppContainer.session.status)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(OnRoadShapes.Item)
+            .background(OnRoadColors.SurfaceSubtle)
+            .border(1.dp, OnRoadColors.Border, OnRoadShapes.Item)
+            .padding(horizontal = 16.dp, vertical = 18.dp),
+    ) {
+        Text(
+            listOfNotNull("내 조건 기준", plan.dDay?.takeIf { it >= 0 }?.let { "퇴소 D-$it" }).joinToString(" · "),
+            style = OnRoadType.Caption2,
+            color = OnRoadColors.TextTertiary,
+        )
+        Spacer(Modifier.height(2.dp))
+        val big = when {
+            // 같은 종류(자립수당 · 정착금)는 하나만 센 최대 금액
+            plan.monthlyWon > 0 -> "최대 월 ${planWon(plan.monthlyWon)}"
+            plan.onceWon > 0 -> "최대 ${planWon(plan.onceWon)}"
+            else -> null
+        }
+        if (big != null) {
+            Text(big, style = OnRoadType.Title1, color = OnRoadColors.TextPrimary)
+            if (plan.monthlyWon > 0 && plan.onceWon > 0) {
+                Spacer(Modifier.height(4.dp))
+                Text("한 번에 받는 돈 최대 ${planWon(plan.onceWon)}", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+            }
+        } else {
+            Text("조건이 맞는 정책 ${plan.matchCount}개", style = OnRoadType.Headline, color = OnRoadColors.TextPrimary)
+        }
+        Spacer(Modifier.height(16.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            plan.items.take(3).forEach { item ->
+                val whenText = item.applyFrom?.let { d ->
+                    "${d.monthValue}월 ${d.dayOfMonth}일부터" + if ("미리" in item.applyNote) " 미리 신청" else " 신청"
+                } ?: "지금 신청"
+                Column(Modifier.fillMaxWidth().clip(OnRoadShapes.Chip).tap(onClickLabel = "${item.name} 정책 보기") { onOpenPolicy(item.policyId) }) {
+                    Text(item.name, style = OnRoadType.Body3.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary)
+                    Text(
+                        listOfNotNull(whenText, item.amountText ?: item.benefit).joinToString(" · "),
+                        style = OnRoadType.Caption2,
+                        color = OnRoadColors.TextTertiary,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        val form = plan.items.firstOrNull { it.hasForm }
+        if (form != null || !goal) {
+            Spacer(Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                form?.let { f ->
+                    OnRoadButton(
+                        "신청서 쓰기",
+                        { onWriteDocument(DocCandidate("${f.name} 신청서", f.policyId.toLongOrNull(), null)) },
+                        Modifier.weight(1f),
+                        variant = ButtonVariant.Outline,
+                        height = 40.dp,
+                        textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                        borderColor = OnRoadColors.BorderChip,
+                    )
+                }
+                // 퇴소 후(목표일) 사용자는 일정이 퇴소일 기준이 아니라서 버튼을 두지 않는다
+                if (!goal) {
+                    OnRoadButton(
+                        "일정 보기",
+                        onOpenSchedule,
+                        Modifier.weight(1f),
+                        height = 40.dp,
+                        textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun Bubble(content: @Composable () -> Unit) {
     // AI 말은 상자 없이 글만 (버튼 · 근거는 그 아래에 이어서)
@@ -578,6 +757,7 @@ private fun BotMessage(
     onPrepare: (String) -> Unit,
     onAskMore: () -> Unit = {},
     onWriteDocument: (DocCandidate) -> Unit = {},
+    onOpenSchedule: () -> Unit = {},
     reveal: Boolean = false,
     onRevealDone: () -> Unit = {},
     onRetry: (() -> Unit)? = null,
@@ -617,6 +797,12 @@ private fun BotMessage(
                         textStyle = OnRoadType.Caption,
                         borderColor = OnRoadColors.BorderChip,
                     )
+                }
+
+                // 넓은 정책 질문: 내 조건 기준 요약 (금액 · 언제 신청)
+                msg.plan?.let { plan ->
+                    Spacer(Modifier.height(14.dp))
+                    PlanCard(plan, onOpenPolicy = onOpenPolicy, onWriteDocument = onWriteDocument, onOpenSchedule = onOpenSchedule)
                 }
 
                 // 문서 AI 로 넘기기: 쓸 서류 고르기
@@ -666,7 +852,9 @@ private fun BotMessage(
                     }
                 }
 
-                msg.policies.forEachIndexed { i, p ->
+                // 답변 근거 정책 → 바로가기 버튼. 비슷한 정책(근거 아님)은 아래에 제목을 따로 달아 묶는다
+                val (answered, similar) = msg.policies.partition { !it.related }
+                answered.forEachIndexed { i, p ->
                     Spacer(Modifier.height(if (i == 0) 12.dp else 8.dp))
                     OnRoadButton(
                         text = "${p.name} 자세히 보기",
@@ -677,6 +865,21 @@ private fun BotMessage(
                         trailingIcon = Icons.Filled.NorthEast,
                     )
                 }
+                if (similar.isNotEmpty()) {
+                    Spacer(Modifier.height(16.dp))
+                    Text("비슷한 정책", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextTertiary)
+                    similar.forEach { p ->
+                        Spacer(Modifier.height(8.dp))
+                        OnRoadButton(
+                            text = "${p.name} 자세히 보기",
+                            onClick = { onOpenPolicy(p.id) },
+                            modifier = Modifier.fillMaxWidth(),
+                            variant = ButtonVariant.Outline,
+                            textStyle = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                            trailingIcon = Icons.Filled.NorthEast,
+                        )
+                    }
+                }
             }
 
             // 대화에서 바뀐 것 같은 내 정보 → 확인 카드 (승인할 때만 반영)
@@ -686,8 +889,10 @@ private fun BotMessage(
             }
 
 
-            if (msg.policies.isNotEmpty()) {
-                val first = msg.policies.first()
+            // 체크리스트 제안은 답변 근거 정책으로만 (비슷한 정책뿐이면 묻지 않는다)
+            val firstAnswered = msg.policies.firstOrNull { !it.related }
+            if (firstAnswered != null) {
+                val first = firstAnswered
                 Spacer(Modifier.height(12.dp))
                 com.project.on_road.ui.components.OnRoadCard(
                     Modifier.fillMaxWidth(),
@@ -742,6 +947,13 @@ private fun BotMessage(
                         )
                     }
                 }
+                // 대화 내용은 서버를 거쳐 외부 AI 로 간다. 서버가 번호·주소를 가리지만 다 잡지는 못해서 처음에 한 번 알린다
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "전화번호·주소·계좌번호 같은 개인정보는 적지 말아 주세요. 질문 내용은 답변을 만들기 위해 AI 서비스로 전달돼요.",
+                    style = OnRoadType.Caption2,
+                    color = OnRoadColors.TextTertiary,
+                )
             }
         }
     }

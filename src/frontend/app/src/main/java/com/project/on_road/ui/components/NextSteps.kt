@@ -28,13 +28,15 @@ fun NextStepList(
     onOpen: (NextStep) -> Unit,
     modifier: Modifier = Modifier,
     title: String = "이어서 해 보기",
+    /** 끝난 화면(연습 결과 · 서류 완성)용: 묶음 제목 17 · 한 줄 카드 (종류 줄 없이) */
+    compact: Boolean = false,
 ) {
     if (steps.isEmpty()) return
     Column(modifier.fillMaxWidth()) {
-        SubHeader(title)
+        if (compact) GroupTitle(title) else SubHeader(title)
         Spacer(Modifier.height(NextStepSpace.TitleGap))
         Column(verticalArrangement = Arrangement.spacedBy(NextStepSpace.RowGap)) {
-            steps.forEach { s -> NextStepRow(s) { onOpen(s) } }
+            steps.forEach { s -> NextStepRow(s, compact = compact) { onOpen(s) } }
         }
     }
 }
@@ -47,29 +49,33 @@ object NextStepSpace {
     val RowGap = 8.dp
     /** 카드 안 위아래 */
     val RowPadV = 14.dp
+    /** 한 줄 카드(제목만) 안 위아래 */
+    val CompactPadV = 11.dp
 }
 
 @Composable
-fun NextStepRow(step: NextStep, onClick: () -> Unit) {
+fun NextStepRow(step: NextStep, compact: Boolean = false, onClick: () -> Unit) {
     OnRoadCard(
         Modifier.fillMaxWidth(),
         background = OnRoadColors.SurfaceSubtle,
         borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
         shape = OnRoadShapes.Item,
-        contentPadding = PaddingValues(start = 16.dp, end = 10.dp, top = NextStepSpace.RowPadV, bottom = NextStepSpace.RowPadV),
+        contentPadding = PaddingValues(start = 16.dp, end = 10.dp, top = if (compact) NextStepSpace.CompactPadV else NextStepSpace.RowPadV, bottom = if (compact) NextStepSpace.CompactPadV else NextStepSpace.RowPadV),
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
                     step.label,
-                    style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                    style = OnRoadType.Body2.copy(fontWeight = if (compact) FontWeight.Medium else FontWeight.Bold),
                     color = OnRoadColors.TextPrimary,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(2.dp))
-                Text(Links.stepKindLabel(step.kind), style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
+                if (!compact) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(Links.stepKindLabel(step.kind), style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
+                }
             }
             Spacer(Modifier.width(8.dp))
             Icon(

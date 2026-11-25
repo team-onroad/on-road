@@ -71,16 +71,42 @@ class RiskCheckViewModel : ViewModel() {
         error = null
     }
 
+    /**
+     * 서류 읽기는 오래 걸려서 앱 전체 작업으로 → 화면을 나가도 계속 읽고, 끝나면 알림.
+     * 결과는 서버에 남지 않으니, 나가 있는 동안 끝나도 다시 들어오면 결과를 보여 준다
+     */
     fun upload(context: Context, uri: Uri) {
         val d = doc ?: return
-        loading = true
+        if (loading) return
         error = null
+        val app = context.applicationContext
+        val riskContext = contextFor(d)
+        com.project.on_road.data.BackgroundWork.start<Pair<RiskDoc, RiskCheckDto>>(
+            RISK_KEY,
+            onAwayDone = { r ->
+                com.project.on_road.ui.components.OnRoadToast.show(
+                    if (r.isSuccess) "‘${d.title}’ 확인이 끝났어요. 계약서 위험 찾기에서 결과를 볼 수 있어요."
+                    else "‘${d.title}’ 읽기에 실패했어요. 다시 올려 주세요.",
+                )
+            },
+        ) {
+            val file = FormUpload.prepare(app, uri)
+            d to AppContainer.documents.riskCheck(file, d.code, riskContext)
+        }
+        followRisk()
+    }
+
+    private var watching = false
+
+    /** 돌고 있거나 끝난 확인이 있으면 받아서 보여 준다 */
+    private fun followRisk() {
+        val job = com.project.on_road.data.BackgroundWork.find<Pair<RiskDoc, RiskCheckDto>>(RISK_KEY) ?: return
+        if (!watching) { com.project.on_road.data.BackgroundWork.watch(RISK_KEY); watching = true }
+        loading = !job.isCompleted
         viewModelScope.launch {
-            runCatching {
-                val file = FormUpload.prepare(context, uri)
-                if (file.isHwp) throw FormUpload.NotSupported()
-                AppContainer.documents.riskCheck(file, d.code, contextFor(d))
-            }.onSuccess { result = it }
+            val r = job.await()
+            com.project.on_road.data.BackgroundWork.consume(RISK_KEY)
+            r.onSuccess { (d, res) -> doc = d; result = res }
                 .onFailure {
                     error = when (it) {
                         is FormUpload.TooBig, is FormUpload.NotSupported -> it.message
@@ -89,6 +115,15 @@ class RiskCheckViewModel : ViewModel() {
                 }
             loading = false
         }
+    }
+
+    override fun onCleared() {
+        if (watching) com.project.on_road.data.BackgroundWork.unwatch(RISK_KEY)
+        super.onCleared()
+    }
+
+    private companion object {
+        const val RISK_KEY = "risk-check"
     }
 
     private fun contextFor(d: RiskDoc): RiskContextDto? {
@@ -113,6 +148,10 @@ class RiskCheckViewModel : ViewModel() {
     fun again() {
         result = null
         error = null
+    }
+    // 맨 끝에 둔다: 위의 상태가 다 만들어진 뒤에 이어 받아야 해서
+    init {
+        followRisk()  // 나갔다 다시 들어와도 읽던 서류 · 결과를 이어서 보여 준다
     }
 }
 

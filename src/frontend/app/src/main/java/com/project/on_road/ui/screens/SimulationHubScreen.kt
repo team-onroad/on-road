@@ -58,7 +58,7 @@ fun SimulationHubScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
         Modifier
             .fillMaxSize()
             .background(OnRoadColors.Background)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(com.project.on_road.ui.components.rememberTabScrollState())
             .padding(horizontal = OnRoadDimens.ScreenPadding),
     ) {
         Spacer(Modifier.height(GuideSpace.TitleTop))
@@ -104,10 +104,12 @@ fun SimulationHubScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
         Spacer(Modifier.height(GuideSpace.GroupGap))
         GroupTitle("진로")
         Spacer(Modifier.height(GuideSpace.HeaderGap))
-        Box(Modifier.stagger(3)) {
+        Column(Modifier.stagger(3), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CareerCard { onNavigate(Routes.INTEREST) }
+            CalcRow("나의 진로", "취업, 진학, 직업훈련") { onNavigate(Routes.CAREER_ROADMAP) }
         }
         Spacer(Modifier.height(32.dp))
+        com.project.on_road.ui.components.TabBarSpacer()
     }
 }
 

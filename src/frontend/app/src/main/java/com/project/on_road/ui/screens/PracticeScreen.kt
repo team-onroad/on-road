@@ -1,5 +1,6 @@
 package com.project.on_road.ui.screens
 
+import com.project.on_road.ui.components.smoothSwap
 import androidx.compose.foundation.layout.Box
 
 import androidx.compose.animation.AnimatedContent
@@ -168,6 +169,7 @@ fun PracticePlayScreen(
         }
         AnimatedContent(
             targetState = if (vm.finished) -1 else vm.stepIndex,
+            transitionSpec = { smoothSwap() },
             label = "practiceStep",
             modifier = Modifier.weight(1f).reveal(),
         ) { index ->
@@ -276,7 +278,11 @@ private fun PracticeStepView(
                                 modifier = Modifier.weight(1f),
                             )
                         }
-                        AnimatedVisibility(visible = picked, enter = fadeIn(OnRoadMotion.enter())) {
+                        AnimatedVisibility(
+                            visible = picked,
+                            enter = androidx.compose.animation.expandVertically(OnRoadMotion.spatialSize, expandFrom = Alignment.Top) + fadeIn(OnRoadMotion.enter()),
+                            exit = androidx.compose.animation.shrinkVertically(OnRoadMotion.collapse(), shrinkTowards = Alignment.Top) + androidx.compose.animation.fadeOut(OnRoadMotion.exit()),
+                        ) {
                             // 풀이: 행간을 좁히고 한 단계 옅게 (선택지 글보다 뒤로)
                             Text(
                                 choice.feedback,
@@ -292,7 +298,11 @@ private fun PracticeStepView(
         }
 
         // 4. 아래 고정 버튼 (고른 뒤에만)
-        AnimatedVisibility(visible = selected != null, enter = fadeIn(OnRoadMotion.enter())) {
+        AnimatedVisibility(
+            visible = selected != null,
+            enter = androidx.compose.animation.expandVertically(OnRoadMotion.spatialSize, expandFrom = Alignment.Top) + fadeIn(OnRoadMotion.enter()),
+            exit = androidx.compose.animation.shrinkVertically(OnRoadMotion.collapse(), shrinkTowards = Alignment.Top) + androidx.compose.animation.fadeOut(OnRoadMotion.exit()),
+        ) {
             Box(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = OnRoadDimens.ScreenPadding).padding(top = 8.dp, bottom = 12.dp)) {
                 OnRoadButton(
                     text = if (index == scenario.steps.lastIndex) "정리 보기" else "다음 상황",

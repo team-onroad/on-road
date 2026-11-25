@@ -97,7 +97,7 @@ import java.time.YearMonth
 
 /** DDATE: 퇴소 예정이면 퇴소 예정일, 퇴소 후면 목표일(건너뛰기 가능). 시설 생활이면 건너뜀 */
 /** LOGIN: 이 휴대폰에서 써 본 계정(또는 아이디)으로 다시 들어가기 */
-enum class OnboardStep { INTRO, LOGIN, WHO, NAME, BIRTH, REGION, STATUS, DDATE, DONE }
+enum class OnboardStep { INTRO, LOGIN, WHO, NAME, BIRTH, REGION, DISTRICT, STATUS, DDATE, DONE }
 
 /** 단계별 만 나이 범위 (서버 규칙: 10세 이하 아동, 11~17세 청소년, 18세 이상 자립준비청년) */
 private fun ageRange(stage: UserStage): IntRange = when (stage) {
@@ -123,6 +123,9 @@ class OnboardingViewModel : ViewModel() {
     var birthDay by mutableStateOf<Int?>(null)
         private set
     var region by mutableStateOf<String?>(null)
+        private set
+    /** 시 · 군 · 구 (시/도를 바꾸면 지운다) */
+    var district by mutableStateOf<String?>(null)
         private set
     var status by mutableStateOf<LivingStatus?>(null)
         private set
@@ -150,7 +153,10 @@ class OnboardingViewModel : ViewModel() {
     // 아동(만 10세 이하) 화면은 뺐다: 청소년 · 자립준비청년만 고를 수 있다
     private val flow: List<OnboardStep>
         get() = listOfNotNull(
-            OnboardStep.INTRO, OnboardStep.WHO, OnboardStep.NAME, OnboardStep.BIRTH, OnboardStep.REGION, OnboardStep.STATUS,
+            OnboardStep.INTRO, OnboardStep.WHO, OnboardStep.NAME, OnboardStep.BIRTH, OnboardStep.REGION,
+            // 시 · 군 · 구 정책을 정확히 고르려고 묻는다 (세종처럼 시 · 군 · 구가 없으면 건너뛴다)
+            OnboardStep.DISTRICT.takeIf { com.project.on_road.data.Districts.of(region).isNotEmpty() },
+            OnboardStep.STATUS,
             // 퇴소 예정 · 퇴소 후일 때만 날짜를 묻는다
             OnboardStep.DDATE.takeIf { status == LivingStatus.LEAVING_SOON || status == LivingStatus.LEFT },
             OnboardStep.DONE,
@@ -269,7 +275,12 @@ class OnboardingViewModel : ViewModel() {
         cheer++
     }
 
-    fun selectRegion(r: String) { region = r; cheer++ }
+    fun selectRegion(r: String) {
+        if (r != region) district = null
+        region = r
+        cheer++
+    }
+    fun selectDistrict(d: String) { district = d; cheer++ }
     fun selectStatus(s: LivingStatus) { status = s; cheer++ }
 
     fun canNext(): Boolean = when (step) {
@@ -280,6 +291,7 @@ class OnboardingViewModel : ViewModel() {
         OnboardStep.NAME -> name.isNotBlank()
         OnboardStep.BIRTH -> birthDate != null && birthHint == null
         OnboardStep.REGION -> region != null
+        OnboardStep.DISTRICT -> district != null
         OnboardStep.STATUS -> status != null
         // 퇴소 예정일은 꼭 골라야 하고, 목표일은 비워 두거나 다 골라야 함
         OnboardStep.DDATE -> dDateHint == null && (if (dDateRequired) dDate != null else (dDate != null || (dYear == null && dMonth == null && dDay == null)))
@@ -367,6 +379,7 @@ class OnboardingViewModel : ViewModel() {
                     status = st,
                     phone = phone,
                     dDate = if (st == LivingStatus.IN_FACILITY) null else dDate,
+                    district = district?.takeIf { it in com.project.on_road.data.Districts.of(reg) },
                 )
                 // user_id · 단계 · 상황 · 퇴소일을 앱에 저장 (홈·타임라인 D-day 가 같은 날짜를 씀)
                 AppContainer.applyProfile(profile)
@@ -525,7 +538,7 @@ private fun IntroLogo(reveal: () -> Float, drop: () -> Float) {
 @Composable
 private fun LoginPage(vm: OnboardingViewModel) {
     var accounts by remember { mutableStateOf(AppContainer.session.accounts) }
-    var idText by remember { mutableStateOf("") }
+    var idText by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<com.project.on_road.data.SavedAccount?>(null) }
 
     Column(Modifier.fillMaxSize()) {
@@ -623,7 +636,7 @@ internal fun DeleteAccountDialog(name: String, onCancel: () -> Unit, onConfirm: 
         title = { Text("‘$name’ 계정을 지울까요?", style = OnRoadType.Title3, color = OnRoadColors.TextPrimary) },
         text = {
             Text(
-                "이 휴대폰에서 계정과 상담·기록장 같은 기록이 지워져요. 지운 뒤에는 목록에서 다시 고를 수 없어요.",
+                "이 휴대폰에서 계정과 상담·기록장 같은 기록이 지워져요. 서버 계정은 남아서 아이디로 다시 불러올 수 있어요.",
                 style = OnRoadType.Caption,
                 color = OnRoadColors.TextTertiary,
             )
@@ -709,6 +722,7 @@ private fun question(step: OnboardStep, status: LivingStatus?): Question = when 
     OnboardStep.NAME -> Question("이름을 알려 주세요", "앱에서 불러 드릴 이름이에요.")
     OnboardStep.BIRTH -> Question("생년월일을 선택해 주세요", "만 나이로 나에게 맞는 제도를 찾아요.")
     OnboardStep.REGION -> Question("지금 사는 지역은 어디인가요?", "시·도 기준으로 지원 정보를 골라 드려요.")
+    OnboardStep.DISTRICT -> Question("어느 시·군·구에 사나요?", "시·군·구에서 주는 지원도 같이 찾아 드려요.")
     OnboardStep.STATUS -> Question("지금 어떤 상황인가요?", "상황에 맞는 할 일과 제도를 먼저 보여 드려요.")
     OnboardStep.DDATE -> if (status == LivingStatus.LEAVING_SOON) {
         Question("퇴소 예정일이 언제인가요?", "자립까지 남은 날(D-day)을 계산해 드려요.")
@@ -772,6 +786,14 @@ private fun QuestionPage(vm: OnboardingViewModel) {
                             columns = 4,
                             height = 46.dp,
                             onSelect = vm::selectRegion,
+                        )
+                        OnboardStep.DISTRICT -> ChipGrid(
+                            items = com.project.on_road.data.Districts.of(vm.region),
+                            label = { it },
+                            selected = vm.district,
+                            columns = 3,
+                            height = 46.dp,
+                            onSelect = vm::selectDistrict,
                         )
                         OnboardStep.STATUS -> StatusStep(vm)
                         OnboardStep.DDATE -> DDateStep(vm)

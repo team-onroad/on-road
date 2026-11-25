@@ -132,7 +132,7 @@ fun DocumentScreen(onBack: () -> Unit, vm: DocumentViewModel = viewModel()) {
                 }
                 else -> {
                     // AI 초안 안내 (1.6)
-                    NoticeBox("${d.notice}\n직접 확인하고 고쳐서 쓰세요.", title = "AI가 만든 초안이에요")
+                    NoticeBox("${d.notice}\n직접 확인하고 고쳐서 쓰세요.")
                     vm.error?.let {
                         Spacer(Modifier.height(12.dp))
                         NoticeBox(it, title = "다시 만들지 못했어요", tone = NoticeTone.Warning)

@@ -1,6 +1,8 @@
 package com.project.on_road.ui.screens
 
 
+import com.project.on_road.data.remote.userMessage
+import com.project.on_road.ui.components.smoothSwap
 import com.project.on_road.ui.components.sharedTitle
 import com.project.on_road.ui.components.policyTitleKey
 
@@ -78,6 +80,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.on_road.data.ActivityStore
+import com.project.on_road.data.receives
 import com.project.on_road.data.AppContainer
 import com.project.on_road.ui.components.reveal
 import com.project.on_road.ui.components.ErrorState
@@ -110,6 +113,7 @@ import com.project.on_road.ui.theme.OnRoadDimens
 import com.project.on_road.ui.theme.OnRoadShapes
 import com.project.on_road.ui.theme.OnRoadType
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 
 /**
  * 정책 검색 화면 여백 조절값. 숫자만 바꾸면 된다 (단위 dp).
@@ -139,17 +143,18 @@ private fun keywordsFor(stage: UserStage): List<String> = when (stage) {
 }
 
 /** 분야별로 보기: 검색어를 넣지 않아도 분야를 고르면 그 분야 정책을 보여 준다 (서버 검색에 분야 이름으로 묻는다) */
-private data class BrowseCategory(val label: String, val query: String)
+/** 분야별로 보기 칩. code = 서버 정책 분야 코드 (null = 전체). 카드에 보이는 분야와 똑같이 나뉜다 */
+private data class BrowseCategory(val label: String, val code: String?)
 
 private val browseCategories = listOf(
-    BrowseCategory("전체", "자립준비청년 지원 정책"),
-    BrowseCategory("주거", "주거 지원 정책"),
-    BrowseCategory("생활비", "생활비 지원 정책"),
-    BrowseCategory("금융", "자산 형성 금융 지원 정책"),
-    BrowseCategory("취업", "취업 지원 정책"),
-    BrowseCategory("교육", "장학금 교육 지원 정책"),
-    BrowseCategory("의료", "의료비 건강 지원 정책"),
-    BrowseCategory("자립", "자립준비청년 자립 지원 정책"),
+    BrowseCategory("전체", null),
+    BrowseCategory("주거", "housing"),
+    BrowseCategory("생활비", "living_cost"),
+    BrowseCategory("금융", "finance"),
+    BrowseCategory("취업", "employment"),
+    BrowseCategory("교육", "education"),
+    BrowseCategory("의료", "medical"),
+    BrowseCategory("자립", "independence"),
 )
 
 /**
@@ -164,6 +169,7 @@ private val popularSearches = listOf(
 
 class PolicySearchViewModel : ViewModel() {
     private val api = AppContainer.api
+    private val saveLock = kotlinx.coroutines.sync.Mutex()
     private val userId: String get() = AppContainer.session.userId.orEmpty()
 
     var query by mutableStateOf("")
@@ -199,7 +205,7 @@ class PolicySearchViewModel : ViewModel() {
         viewModelScope.launch {
             categoryLoading = true
             categoryError = false
-            runCatching { api.searchPolicies(userId, c.query) }
+            runCatching { api.browsePolicies(userId, c.code) }
                 .onSuccess { categoryPolicies[label] = it.policies }
                 .onFailure { if (category == label) categoryError = true }
             categoryLoading = false
@@ -262,7 +268,8 @@ class PolicySearchViewModel : ViewModel() {
             // 비교 담기는 검색을 바꿔도 유지한다 (다른 검색어로 찾은 정책끼리도 비교할 수 있게)
             evidenceIds.clear()
             try {
-                result = api.searchPolicies(userId, q)
+                // 이 화면은 카드가 본문이라 AI 답변 문장을 쓰지 않는다 → 답변 없이 받아 빠르게
+                result = api.searchPolicies(userId, q, withAnswer = false)
             } catch (e: ApiException) {
                 error = if (e.code == "RAG_UNAVAILABLE") "지금은 공식 자료 검색을 잠시 쓸 수 없어요. 잠시 후 다시 시도해 주세요."
                 else "검색하지 못했어요. 잠시 후 다시 시도해 주세요."
@@ -295,7 +302,18 @@ class PolicySearchViewModel : ViewModel() {
         if (save) savedIds.add(id) else savedIds.remove(id)
         com.project.on_road.ui.components.OnRoadToast.show(if (save) "관심 정책에 담았어요" else "관심 정책에서 뺐어요")
         if (save) result?.policies?.firstOrNull { it.id == id }?.let { ActivityStore.logPolicySaved(it.category, it.name) }
-        viewModelScope.launch { runCatching { api.savePolicy(userId, id, save) } }
+        // 빠르게 여러 번 눌러도 누른 순서대로 서버에 보낸다 (마지막 상태가 서버와 같게)
+        viewModelScope.launch {
+            saveLock.withLock {
+                com.project.on_road.data.BackgroundWork.write { api.savePolicy(userId, id, save) }.await().onFailure {
+                    // 화면에는 담겼는데 서버엔 저장되지 않았으면 되돌린다 (그 사이 다시 누르지 않았을 때만)
+                    if ((id in savedIds) == save) { if (save) savedIds.remove(id) else savedIds.add(id) }
+                    com.project.on_road.ui.components.OnRoadToast.show(
+                        it.userMessage(if (save) "관심 정책에 담지 못했어요." else "관심 정책에서 빼지 못했어요."),
+                    )
+                }
+            }
+        }
     }
 
     private fun toggle(list: MutableList<String>, id: String) {
@@ -394,7 +412,7 @@ fun PolicySearchScreen(
                 searching -> LazyColumn(
                     // 아래로 끌어내리면 키보드를 닫고 처음 화면(안내 문장 · 태그)으로 돌아간다
                     modifier = Modifier.weight(1f).nestedScroll(swipeDownToClose),
-                    contentPadding = PaddingValues(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, bottom = 32.dp),
+                    contentPadding = PaddingValues(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, bottom = 32.dp + com.project.on_road.ui.components.tabBarPad),
                 ) {
                     item { SearchSuggestions(vm, onPick = submit) }
                 }
@@ -427,7 +445,7 @@ fun PolicySearchScreen(
                     val list = vm.categoryPolicies[vm.category]
                     LazyColumn(
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = 4.dp, bottom = 32.dp),
+                        contentPadding = PaddingValues(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = 4.dp, bottom = 32.dp + com.project.on_road.ui.components.tabBarPad),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         when {
@@ -440,11 +458,17 @@ fun PolicySearchScreen(
                             }
                             else -> itemsIndexed(list.orEmpty(), key = { _, it -> "browse-${vm.category}-${it.id}" }) { i, p ->
                                 Box(Modifier.animateItem().stagger(i)) {
+                                  Column {
+                                    // 서버가 가족 대상 정책(자녀 · 동생 나이 기준)을 맨 뒤로 보낸다 → 처음 나오는 곳에 제목
+                                    if (p.forFamily && list.orEmpty().getOrNull(i - 1)?.forFamily != true) {
+                                        SubHeader("가족 대상 정책", Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp))
+                                    }
                                     SmallPolicyCard(
                                         policy = p,
                                         showCategory = vm.category == browseCategories.first().label,
                                         onOpen = { PolicyCache.put(p); onOpen(p.id) },
                                     )
+                                  }
                                 }
                             }
                         }
@@ -452,13 +476,16 @@ fun PolicySearchScreen(
                 }
 
                 else -> LazyColumn(
+                    state = com.project.on_road.ui.components.rememberTabLazyListState(),
                     modifier = Modifier.weight(1f).reveal(),
                     contentPadding = PaddingValues(
                         start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = 0.dp,
-                        bottom = if (vm.compareIds.isNotEmpty()) 120.dp else 32.dp,
+                        bottom = (if (vm.compareIds.isNotEmpty()) 120.dp else 32.dp) + com.project.on_road.ui.components.tabBarPad,
                     ),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
+                    // 훈련 · 자격증 · 취업을 찾으면 진로 쪽(훈련 과정 · 시험 일정 · 내일배움카드)으로 잇는다
+                    if (careerWords.any { vm.query.contains(it) }) item(key = "career-hint") { CareerSearchHint(onNavigate) }
                     item {
                         if (result.grounded) {
                             Column {
@@ -494,6 +521,20 @@ fun PolicySearchScreen(
                     }
                     itemsIndexed(result.policies, key = { _, it -> it.id }) { i, p ->
                         Box(Modifier.animateItem().stagger(i)) {
+                        Column {
+                        // 묶음이 바뀌는 곳에 제목: 가족 대상 정책(자녀 · 동생 나이 기준) → 비슷한 정책(답변 근거 아님)
+                        val prev = result.policies.getOrNull(i - 1)
+                        val groupTitle = when {
+                            p.related && prev?.related != true -> "비슷한 정책"
+                            !p.related && p.forFamily && prev?.forFamily != true -> "가족 대상 정책"
+                            else -> null
+                        }
+                        groupTitle?.let {
+                            SubHeader(
+                                it,
+                                Modifier.padding(horizontal = SearchSpace.ResultHeaderInset).padding(top = 12.dp, bottom = 4.dp),
+                            )
+                        }
                         PolicyCard(
                             policy = p,
                             easy = p.id !in vm.originalIds,
@@ -508,6 +549,7 @@ fun PolicySearchScreen(
                             onPrepare = { onPrepare(p.id) },
                             onOpen = { PolicyCache.put(p); onOpen(p.id) },
                         )
+                        }
                         }
                     }
                     // 찾은 분야로 이어서 해 볼 것 (연습 · 생활비 · 상담)
@@ -713,11 +755,11 @@ private fun SmallPolicyCard(policy: Policy, showCategory: Boolean, onOpen: () ->
             }
         }
         val category = policy.category.takeIf { showCategory && it.isNotBlank() }
-        if (policy.amount.isNotBlank() || category != null) {
+        if (policy.receives.isNotBlank() || category != null) {
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    policy.amount,
+                    policy.receives,
                     style = OnRoadType.Caption,
                     color = OnRoadColors.TextSecondary,
                     maxLines = 1,
@@ -901,7 +943,7 @@ fun PolicyCard(
             Spacer(Modifier.height(10.dp))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 when (policy.eligibility) {
-                    "match" -> OnRoadTag("기본 조건 해당 · 세부 조건은 공식 원문에서 확인", style = TagStyle.PrimarySoft)
+                    "match" -> OnRoadTag("기본 조건 해당", style = TagStyle.PrimarySoft)
                     "needs_check" -> OnRoadTag("조건 확인 필요", style = TagStyle.Warning)
                 }
                 if (policy.isOutdated) {
@@ -925,7 +967,7 @@ fun PolicyCard(
                 .border(1.dp, OnRoadColors.BorderSlate, OnRoadShapes.Field)
                 .padding(16.dp),
         ) {
-            AnimatedContent(targetState = easy, label = "summary") { isEasy ->
+            AnimatedContent(targetState = easy, transitionSpec = { smoothSwap() }, label = "summary") { isEasy ->
                 if (isEasy) {
                     // 3.23 단계별 쉬운 말 (서버에 없으면 easySummary)
                     EasyTextPanel(policyId = policy.id, fallback = policy.easySummary)
@@ -946,9 +988,6 @@ fun PolicyCard(
                 // 서버 짧은 요약 (지원 대상·받을 수 없는 경우·지원 내용·지원 기간·신청 방법)
                 cs.sections.forEach { sec -> SummaryRow(sec.label, sec.items) }
                 cs.notice?.let { Text(it, style = OnRoadType.Tiny, color = OnRoadColors.TextMuted) }
-                if (!cs.verified) {
-                    Text("AI가 원문에서 정리한 요약이에요. 원문과 함께 확인해 주세요.", style = OnRoadType.Tiny, color = OnRoadColors.TextMuted)
-                }
             } else {
                 // 요약이 없으면 원문 첫 문장만 두 줄까지, 누르면 전체를 펼친다
                 ShortInfoRow("지원 대상 & 자격요건", policy.target)
@@ -957,6 +996,8 @@ fun PolicyCard(
             }
         }
 
+        // 비슷한 정책(답변 근거 아님)은 근거 원문이 없어 이 칸을 숨긴다
+        if (policy.evidence.isNotEmpty()) {
         Spacer(Modifier.height(16.dp))
         val arrow by animateFloatAsState(if (evidenceOpen) 180f else 0f, label = "evidenceArrow")
         Column(
@@ -989,6 +1030,7 @@ fun PolicyCard(
                     }
                 }
             }
+        }
         }
 
         // 공식 원문 링크 (명세: source_url 항상 포함)
@@ -1173,7 +1215,7 @@ private fun CompactPolicyCard(
             Spacer(Modifier.height(12.dp))
             Text(line, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        if (policy.amount.isNotBlank()) {
+        if (policy.receives.isNotBlank()) {
             Spacer(Modifier.height(12.dp))
             Row(
                 Modifier
@@ -1185,7 +1227,7 @@ private fun CompactPolicyCard(
             ) {
                 Text("지원 내용", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
                 Spacer(Modifier.width(12.dp))
-                Text(policy.amount, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(policy.receives, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -1208,6 +1250,39 @@ private fun CompactPolicyCard(
             Spacer(Modifier.weight(1f))
             Text("자세히 보기", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.Primary)
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.Primary, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+
+/** 정책이 아닌 진로 쪽에서 찾는 말 (국민내일배움카드는 정책 목록에 없고 고용24에서 신청한다) */
+private val careerWords = listOf("내일배움", "훈련", "자격증", "취업", "진로", "직업", "일자리", "학원")
+
+@Composable
+private fun CareerSearchHint(onNavigate: (String) -> Unit) {
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        com.project.on_road.ui.screens.InfoCard(Modifier.fillMaxWidth(), onClick = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.CAREER_ROADMAP) }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("나의 진로에서 보기", style = OnRoadType.Body2.copy(fontWeight = FontWeight.SemiBold), color = OnRoadColors.TextPrimary)
+                    Spacer(Modifier.height(3.dp))
+                    Text("관심 직업의 훈련 과정, 자격증 시험 일정", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+                }
+                com.project.on_road.ui.screens.ExpandChevron(false)
+            }
+        }
+        com.project.on_road.ui.screens.InfoCard(Modifier.fillMaxWidth(), onClick = {
+            runCatching { uri.openUri("https://www.work24.go.kr/hr/h/a/1100/selectIssuGudn.do") }
+        }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("국민내일배움카드 신청하기", style = OnRoadType.Body2.copy(fontWeight = FontWeight.SemiBold), color = OnRoadColors.TextPrimary)
+                    Spacer(Modifier.height(3.dp))
+                    Text("고용24 발급 안내, 훈련비 일부를 지원받아요", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+                }
+                com.project.on_road.ui.screens.ExpandChevron(false)
+            }
         }
     }
 }

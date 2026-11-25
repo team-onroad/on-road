@@ -11,13 +11,62 @@ enum class Riasec(val label: String, val kidLabel: String, val description: Stri
     C("관습형", "정리하는 걸 좋아해요", "계획을 세우고 꼼꼼하게 정리하는 걸 좋아해요")
 }
 
-data class InterestOption(val text: String, val types: List<Riasec>)
+/** 고른 답. weight: 유형 점수 (좋아요 2 · 보통 1 · 별로 0) */
+data class InterestOption(val text: String, val types: List<Riasec>, val weight: Int = 2)
 
-data class InterestQuestion(val id: String, val prompt: String, val options: List<InterestOption>)
+/** 질문 하나. activity: 흥미 문항의 활동 이름 (좋아요로 고르면 결과 근거에 쓴다) */
+data class InterestQuestion(val id: String, val prompt: String, val options: List<InterestOption>, val activity: String? = null)
 
-data class InterestProfile(val scores: Map<Riasec, Int>) {
-    val top: List<Riasec> get() = scores.entries.sortedByDescending { it.value }.take(2).map { it.key }
+/** 일을 시작하기 전에 준비할 수 있는 기간 */
+enum class PrepTime(val label: String, val short: String, val months: Int) {
+    NOW("바로 일하고 싶어요", "바로 시작", 0),
+    SHORT("6개월 안쪽 훈련은 괜찮아요", "6개월 안", 6),
+    MID("1~2년 학교나 훈련도 괜찮아요", "1~2년 준비", 24),
+    LONG("4년 대학도 생각하고 있어요", "4년 준비", 48),
+}
+
+/** 일하고 싶은 곳 */
+enum class WorkPlace(val label: String) {
+    OFFICE("실내 사무실"),
+    PEOPLE("매장이나 손님 앞"),
+    FIELD("현장, 바깥"),
+    ANY("상관없어요"),
+}
+
+/** 일에서 중요한 것 (최대 3개) */
+enum class WorkValue(val label: String) {
+    HELP("사람에게 도움이 되는 일"),
+    HANDS("손으로 결과가 보이는 일"),
+    STABLE("안정적인 일"),
+    MONEY("돈을 많이 버는 일"),
+    LEARN("새로운 걸 배우는 일"),
+    FREE("내 생각대로 하는 일"),
+    REGULAR("정해진 시간에 끝나는 일"),
+    LEAD("인정받고 앞서는 일"),
+}
+
+/**
+ * 흥미 탐색 결과.
+ * likes: 유형별 '좋아요' 고른 문항 수, liked: 유형별 '좋아요' 고른 활동, asked: 유형별 문항 수
+ * values · prep · place: 일에서 중요한 것 · 준비 기간 · 일하고 싶은 곳 (직업 추천 순서에 쓴다)
+ */
+data class InterestProfile(
+    val scores: Map<Riasec, Int>,
+    val likes: Map<Riasec, Int> = emptyMap(),
+    val liked: Map<Riasec, List<String>> = emptyMap(),
+    val asked: Map<Riasec, Int> = emptyMap(),
+    val values: List<WorkValue> = emptyList(),
+    val prep: PrepTime? = null,
+    val place: WorkPlace? = null,
+) {
+    val top: List<Riasec> get() = ranked.take(2)
+    /** 점수 높은 순 세 유형 (같으면 R I A S E C 순) */
+    val top3: List<Riasec> get() = ranked.take(3)
+    /** 3글자 유형 코드 (예: SAR) */
+    val code: String get() = top3.joinToString("") { it.name }
     val max: Int get() = scores.values.maxOrNull()?.coerceAtLeast(1) ?: 1
+    private val ranked: List<Riasec>
+        get() = Riasec.entries.sortedWith(compareByDescending<Riasec> { scores[it] ?: 0 }.thenBy { it.ordinal })
 }
 
 data class JobRecommendation(
@@ -28,6 +77,10 @@ data class JobRecommendation(
     val types: List<Riasec>,
     /** 적합도 % (서버 계산). null 이면 앱에서 계산 */
     val match: Int? = null,
+    /** 일을 시작하기까지 걸리는 기간 */
+    val prep: PrepTime? = null,
+    /** 자격 태그 (국가자격 · 민간자격 · 시험 · 자격 없이 …) */
+    val certTag: String? = null,
 )
 
 /** 직업 상세: 하는 일 · 되는 길 · 자격증 · 관련 지원 찾기(정책 검색어) · 해 볼 연습 */
@@ -41,6 +94,8 @@ data class JobDetail(
     val certificates: List<String>,
     val policyQuery: String?,
     val practices: List<JobPractice>,
+    /** 훈련 과정 · 직무 정보를 찾을 검색어 (예: 제과제빵) */
+    val keyword: String? = null,
 )
 
 data class JobPractice(val scenarioId: String, val title: String)
@@ -125,6 +180,10 @@ data class Readiness(
     val recent: List<String> = emptyList(),
     /** 다음 단계 이름과 남은 점수 (맨 위면 null) */
     val nextLevel: Pair<String, Int>? = null,
+    /** 행동 기록으로 본 판단 근거: 다시 볼 것 (최대 2) */
+    val watch: List<String> = emptyList(),
+    /** 행동 기록으로 본 판단 근거: 잘하는 것 */
+    val good: List<String> = emptyList(),
 )
 
 data class ReadinessArea(
@@ -248,8 +307,10 @@ interface CoachApi {
     suspend fun roleplayStart(scenarioId: String, stage: UserStage, variantId: String? = null): RoleplayStart =
         RoleplayStart(roleplayOpening(scenarioId, stage), RoleplayPlan.NONE)
 
+    /** onPartial: 상대 말이 만들어지는 대로 지금까지의 글 (화면 스레드에서 불림. 음성은 첫 문장부터 읽는다) */
     suspend fun roleplayReplyWith(
         userId: String, scenarioId: String, stage: UserStage, history: List<RoleplayTurn>, plan: RoleplayPlan,
+        onPartial: ((String) -> Unit)? = null,
     ): RoleplayReply = roleplayReply(userId, scenarioId, stage, history)
 
     suspend fun roleplayFeedbackWith(

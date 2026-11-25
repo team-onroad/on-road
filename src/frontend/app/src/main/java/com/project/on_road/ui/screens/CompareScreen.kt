@@ -94,7 +94,10 @@ class CompareViewModel : ViewModel() {
         fetch(ids)
     }
 
-    fun retry(ids: List<String>) = fetch(ids)
+    fun retry(ids: List<String>) {
+        if (loading) return
+        fetch(ids)
+    }
 
     private fun fetch(ids: List<String>) {
         viewModelScope.launch {

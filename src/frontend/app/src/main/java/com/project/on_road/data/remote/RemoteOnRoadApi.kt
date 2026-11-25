@@ -9,6 +9,7 @@ import com.google.gson.JsonObject
 import com.project.on_road.data.BudgetCategory
 import com.project.on_road.data.ApplyMethod
 import com.project.on_road.data.ChatApi
+import com.project.on_road.data.FamilyMember
 import com.project.on_road.data.ChatKind
 import com.project.on_road.data.ChatMessage
 import com.project.on_road.data.ChatRole
@@ -52,6 +53,7 @@ import com.project.on_road.data.StepType
 import com.project.on_road.data.UserProfile
 import com.project.on_road.data.UserStage
 import com.project.on_road.data.UserUpdate
+import com.project.on_road.data.serverCode
 import com.project.on_road.data.NextStep
 import com.project.on_road.data.Readiness
 import com.project.on_road.data.ReadinessArea
@@ -81,6 +83,7 @@ class RemoteOnRoadApi(
         status: LivingStatus,
         phone: String?,
         dDate: LocalDate?,
+        district: String?,
     ): UserProfile = Network.call {
         service.createUser(
             UserCreateDto(
@@ -90,6 +93,7 @@ class RemoteOnRoadApi(
                 status = status.toCode(),
                 phone = phone?.takeIf { it.isNotBlank() },
                 dDate = dDate?.toString(), // YYYY-MM-DD
+                district = district,
             )
         ).toProfile()
     }
@@ -100,9 +104,31 @@ class RemoteOnRoadApi(
             update.name?.let { addProperty("name", it) }
             update.region?.let { addProperty("region", it) }
             update.phone?.let { addProperty("phone", it) }
+            update.birthDate?.let { addProperty("birth_date", it.toString()) }
             when {
                 update.clearDDate -> add("d_date", JsonNull.INSTANCE) // null 을 보내야 지워진다
                 update.dDate != null -> addProperty("d_date", update.dDate.toString())
+            }
+            when {
+                update.clearWork -> add("work", JsonNull.INSTANCE)
+                update.work != null -> addProperty("work", update.work.serverCode())
+            }
+            when {
+                update.clearDistrict -> add("district", JsonNull.INSTANCE)
+                update.district != null -> addProperty("district", update.district)
+            }
+            update.interestCode?.let { addProperty("interest_code", it) }
+            update.interestTags?.let { tags -> add("interest_tags", com.google.gson.JsonArray().apply { tags.forEach { add(it) } }) }
+            update.family?.let { list ->
+                add("family", com.google.gson.JsonArray().apply {
+                    list.forEach { m ->
+                        add(JsonObject().apply {
+                            addProperty("relation", m.relation)
+                            if (m.gender != null) addProperty("gender", m.gender) else add("gender", JsonNull.INSTANCE)
+                            addProperty("birth_date", m.birthDate.toString())
+                        })
+                    }
+                })
             }
         }
         val json = GsonBuilder().serializeNulls().create().toJson(body)
@@ -111,7 +137,7 @@ class RemoteOnRoadApi(
 
     override suspend fun getUser(userId: String): UserProfile? =
         try {
-            Network.call { service.getUser(userId).toProfile() }
+            Network.call { service.getUser(userId).also { it.syncWork(session()) }.toProfile() }
         } catch (e: ApiException) {
             if (e.code == "USER_NOT_FOUND") null else throw e
         }
@@ -120,6 +146,8 @@ class RemoteOnRoadApi(
 
     override suspend fun getDashboard(userId: String): Dashboard {
         val res = Network.call { service.getDashboard(userId) }
+        // 신청 예정일 알림을 서버 값으로 맞춘다
+        runCatching { com.project.on_road.notification.DueReminder.sync(res.checklists.map { it.toSummary() }) }
         return Dashboard(
             user = DashboardUser(
                 name = res.user.name,
@@ -144,9 +172,10 @@ class RemoteOnRoadApi(
 
     // ---------------- 정책 (3.5, 3.6) ----------------
 
-    override suspend fun searchPolicies(userId: String, question: String): SearchResult {
-        val res = Network.call { service.search(SearchRequestDto(userId, question)) }
-        val policies = res.results.map { it.toPolicy() }
+    override suspend fun searchPolicies(userId: String, question: String, withAnswer: Boolean): SearchResult {
+        val res = Network.call { service.search(SearchRequestDto(userId, question, answer = withAnswer)) }
+        // 순서: 답변 근거(내 정책 → 가족 대상 정책) → 비슷한 정책. 화면은 묶음이 바뀌는 곳에 제목을 단다
+        val policies = res.results.map { it.toPolicy() }.sortedBy { if (it.related) 2 else if (it.forFamily) 1 else 0 }
         val grounded = res.answerStatus == "answered" && policies.isNotEmpty()
         return SearchResult(
             question = question,
@@ -155,6 +184,18 @@ class RemoteOnRoadApi(
             policies = policies,
             // 정책 검색 화면은 카드가 본문이라, 맨 위 답변은 RAG 답변 대신 확인 안내 한 줄만 보여준다 (상담 화면은 RAG 답변 그대로)
             answer = if (grounded) AnswerFormat.SEARCH_NOTICE else null,
+        )
+    }
+
+    override suspend fun browsePolicies(userId: String, category: String?): SearchResult {
+        val res = Network.call { service.listPolicies(userId, category) }
+        val policies = res.results.map { it.toPolicy() }
+        return SearchResult(
+            question = category.orEmpty(),
+            grounded = policies.isNotEmpty(),
+            message = if (policies.isNotEmpty()) "정책 ${policies.size}개" else "이 분야 정책이 없어요.",
+            policies = policies,
+            answer = null,
         )
     }
 
@@ -199,17 +240,54 @@ class RemoteOnRoadApi(
     }
 
     // 저장한 정책(찜): 서버 API 없음 → 앱에 저장
+    /** 관심 정책은 서버에 저장한다 (다른 휴대폰 · 다시 설치해도 남음). 휴대폰에도 같이 적어 두고 서버가 안 될 때 쓴다 */
     override suspend fun savePolicy(userId: String, policyId: String, saved: Boolean) {
-        val store = session() ?: return
-        store.savedPolicyIds = if (saved) store.savedPolicyIds + policyId else store.savedPolicyIds - policyId
+        val id = policyId.toLongOrNull() ?: throw ApiException(404, "POLICY_NOT_FOUND", "정책을 찾을 수 없습니다.")
+        Network.call {
+            if (saved) service.savePolicy(userId, SavePolicyDto(id))
+            else service.unsavePolicy(userId, policyId).also { if (!it.isSuccessful) throw retrofit2.HttpException(it) }
+        }
+        session()?.let { it.savedPolicyIds = if (saved) it.savedPolicyIds + policyId else it.savedPolicyIds - policyId }
+        savedCache.clear()
     }
 
-    override suspend fun getSavedPolicyIds(userId: String): Set<String> = session()?.savedPolicyIds.orEmpty()
+    /** 홈 · 비교 · 서류가 여러 번 부르니 1분 동안 다시 쓴다 (담기 · 빼기 하면 바로 비움) */
+    private val savedCache = MemoCache<String, Set<String>>(60 * 1000L)
+
+    override suspend fun getSavedPolicyIds(userId: String): Set<String> {
+        val local = session()?.savedPolicyIds.orEmpty()
+        return runCatching {
+            savedCache.getOrLoad(userId) {
+                var ids = Network.call { service.savedPolicies(userId) }.policies.map { it.policy.policyId.toString() }.toSet()
+                // 예전에 휴대폰에만 담아 둔 정책은 처음 한 번만 서버로 옮긴다
+                val store = session()
+                if (store != null && !store.savedPoliciesSynced) {
+                    val moved = (local - ids).filter { pid ->
+                        val n = pid.toLongOrNull() ?: return@filter false
+                        runCatching { Network.call { service.savePolicy(userId, SavePolicyDto(n)) } }.isSuccess
+                    }
+                    ids = ids + moved
+                    store.savedPoliciesSynced = true
+                }
+                session()?.savedPolicyIds = ids
+                ids
+            }
+        }.getOrDefault(local) // 서버가 안 되면 휴대폰에 적어 둔 것
+    }
 
     // ---------------- 체크리스트 (3.9 ~ 3.11) ----------------
 
     /** 체크리스트 목록은 홈(3.4)의 checklists 전체를 쓴다 */
     override suspend fun getChecklists(userId: String): List<ChecklistSummary> = getDashboard(userId).checklists
+
+    override suspend fun deleteChecklist(userId: String, checklistId: Long) {
+        Network.call { service.deleteChecklist(checklistId, userId).also { if (!it.isSuccessful) throw retrofit2.HttpException(it) } }
+    }
+
+    override suspend fun deleteAccount(userId: String) {
+        Network.call { service.deleteUser(userId).also { if (!it.isSuccessful) throw retrofit2.HttpException(it) } }
+        savedCache.clear()
+    }
 
     override suspend fun openChecklist(userId: String, policyId: String): Checklist {
         val id = policyId.toLongOrNull() ?: throw ApiException(404, "POLICY_NOT_FOUND", "정책을 찾을 수 없습니다.")
@@ -218,6 +296,12 @@ class RemoteOnRoadApi(
 
     override suspend fun getChecklist(userId: String, checklistId: Long): Checklist =
         Network.call { service.getChecklist(checklistId, userId) }.toChecklist()
+
+    override suspend fun setDueDate(userId: String, checklistId: Long, date: LocalDate?): Checklist {
+        val json = GsonBuilder().serializeNulls().create().toJson(mapOf("due_date" to date?.toString()))
+        val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
+        return Network.call { service.setDueDate(checklistId, userId, body) }.toChecklist()
+    }
 
     override suspend fun updateChecklistItem(
         userId: String,
@@ -270,6 +354,20 @@ class RemoteOnRoadApi(
         Network.call { service.postActivity(userId, ActivityDto(kind, ref, data)) }
     }
 
+    override suspend fun getPolicyRoadmap(userId: String): com.project.on_road.data.PolicyRoadmap =
+        Network.call { service.getPolicyRoadmap(userId) }.toRoadmap()
+
+    override suspend fun getRecommendedPolicies(userId: String): List<com.project.on_road.data.RecommendedPolicy> =
+        Network.call { service.getRecommendedPolicies(userId) }.map {
+            com.project.on_road.data.RecommendedPolicy(
+                it.policyId.toString(), it.name, categoryLabel(it.category), it.eligibility, it.whenText,
+                it.amountUnit, it.amountValue, it.benefit,
+            )
+        }
+
+    override suspend fun getCareerRoadmap(userId: String): com.project.on_road.data.CareerRoadmap =
+        Network.call { service.getCareerRoadmap(userId) }.toCareer()
+
     override suspend fun getReadiness(userId: String): Readiness {
         val res = Network.call { service.getReadiness(userId) }
         fun FollowUpDto.toStep() = NextStep(kind, label, query, scenarioId)
@@ -290,6 +388,8 @@ class RemoteOnRoadApi(
             history = res.history.orEmpty().sortedByDescending { it.weeksAgo }.map { it.score },
             recent = res.recent.orEmpty(),
             nextLevel = res.nextLevel?.let { it.label to it.points },
+            watch = res.insights.orEmpty().filter { it.tone == "watch" }.map { it.text },
+            good = res.insights.orEmpty().filter { it.tone == "good" }.map { it.text },
         )
     }
 
@@ -321,20 +421,23 @@ class RemoteOnRoadApi(
  * type: policy(정책 답변) / counsel(고민·진로 상담) / crisis(위기 안내 + 연락처)
  */
 class RemoteChatApi(private val service: OnRoadService) : ChatApi {
-    override suspend fun reply(userId: String, history: List<ChatMessage>, message: String): ChatMessage {
+    override suspend fun reply(userId: String, history: List<ChatMessage>, message: String, onPartial: ((String) -> Unit)?): ChatMessage {
         val text = message.trim().take(MESSAGE_MAX)
         // 방금 보낸 내 말은 message 로 따로 보내므로 이전 대화에서 뺀다
         val last = history.lastOrNull()
         val prior = if (last != null && last.role == ChatRole.USER && last.text.trim() == message.trim()) history.dropLast(1) else history
+        val req = ChatRequestDto(
+            userId = userId,
+            message = text,
+            history = historyOf(prior.filter { it.kind != ChatKind.LOCAL }.map { (it.role == ChatRole.USER) to it.text }),
+        )
         val res = try {
-            Network.call {
-                service.chat(
-                    ChatRequestDto(
-                        userId = userId,
-                        message = text,
-                        history = historyOf(prior.filter { it.kind != ChatKind.LOCAL }.map { (it.role == ChatRole.USER) to it.text }),
-                    )
-                )
+            // 스트리밍: 고민 상담 답은 문장이 나오는 대로 onPartial 로. 서버에 아직 스트리밍 주소가 없으면 보통 요청
+            try {
+                Sse.read(Network.call { service.chatStream(req) }, ChatResponseDto::class.java, onPartial).first
+            } catch (e: ApiException) {
+                if (!e.noStreamRoute()) throw e
+                Network.call { service.chat(req) }
             }
         } catch (e: ApiException) {
             if (e.code != "AI_UNAVAILABLE" && e.code != "RAG_UNAVAILABLE") throw e
@@ -384,11 +487,13 @@ class RemoteChatApi(private val service: OnRoadService) : ChatApi {
                             "질문을 조금 더 구체적으로 해 주시거나, 보건복지상담센터(129)에 확인해 보세요."),
                     // 근거는 청크 전체 대신 답변과 겹치는 부분만 짧게
                     evidence = search?.results.orEmpty()
+                        .filterNot { it.related }
                         .flatMap { r -> r.evidences.map { AnswerFormat.evidence(it.content, r.name, answer.orEmpty()) } }
                         .take(3),
                     policies = policies,
                     needsCheck = answer == null,
                     kind = ChatKind.POLICY,
+                    plan = res.plan?.toPlan(),
                 )
             }
         }
@@ -458,6 +563,12 @@ private fun formatChecked(date: String): String =
 private fun formatCreated(dateTime: String): String =
     runCatching { OffsetDateTime.parse(dateTime).format(CREATED_FORMAT) }.getOrDefault(dateTime)
 
+/** 서버에 지금 하는 일이 있고 휴대폰엔 없으면 받아 둔다 (다른 휴대폰에서 정한 값) */
+private fun UserDto.syncWork(store: com.project.on_road.data.SessionStore?) {
+    if (store == null || store.workStatus != null) return
+    store.workStatus = com.project.on_road.data.WorkStatus.entries.firstOrNull { it.serverCode() == work }
+}
+
 private fun UserDto.toProfile() = UserProfile(
     userId = userId,
     name = name,
@@ -468,6 +579,12 @@ private fun UserDto.toProfile() = UserProfile(
     phone = phone,
     dDate = dDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
     dDay = dDay,
+    district = district,
+    family = family.orEmpty().mapNotNull { m ->
+        runCatching { FamilyMember(m.relation, m.gender, LocalDate.parse(m.birthDate), m.age) }.getOrNull()
+    },
+    interestCode = interestCode,
+    interestTags = interestTags.orEmpty(),
 )
 
 private fun SearchResultDto.toPolicy() = Policy(
@@ -478,18 +595,22 @@ private fun SearchResultDto.toPolicy() = Policy(
     checkedAt = formatChecked(checkedAt),
     summary = originalText,
     easySummary = easyText,
-    target = targetDescription,
-    amount = supportAmount ?: supportContent,
-    period = supportPeriod ?: "공식 원문에서 확인",
+    target = GovText.clean(targetDescription).orEmpty(),
+    amount = GovText.amount(supportAmount) ?: GovText.clean(supportContent).orEmpty(),
+    period = GovText.clean(supportPeriod) ?: "공식 원문에서 확인",
     howToApply = "",
     applyUrl = sourceUrl,
     requiredDocs = emptyList(),
-    evidence = evidences.map { AnswerFormat.evidence(it.content, "$agency · $name") },
+    // 비슷한 정책은 답변 근거가 아니므로 근거 문장으로 보여 주지 않는다
+    evidence = if (related) emptyList() else evidences.map { AnswerFormat.evidence(it.content, "$agency · $name") },
     keywords = emptyList(),
     isOutdated = isOutdated,
     sourceUrl = sourceUrl,
     eligibility = eligibility.status,
     cardSummary = this.summary?.toModel(),
+    amountShort = GovText.amount(supportAmount).orEmpty(),
+    related = related,
+    forFamily = forFamily,
 )
 
 private fun PolicyDetailDto.toPolicy() = Policy(
@@ -500,10 +621,10 @@ private fun PolicyDetailDto.toPolicy() = Policy(
     checkedAt = formatChecked(checkedAt),
     summary = originalText,
     easySummary = easyText,
-    target = targetDescription,
-    amount = supportAmount ?: supportContent,
-    period = supportPeriod ?: "공식 원문에서 확인",
-    howToApply = applyMethod,
+    target = GovText.clean(targetDescription).orEmpty(),
+    amount = GovText.amount(supportAmount) ?: GovText.clean(supportContent).orEmpty(),
+    period = GovText.clean(supportPeriod) ?: "공식 원문에서 확인",
+    howToApply = GovText.clean(applyMethod).orEmpty(),
     applyUrl = applyUrl ?: sourceUrl,
     requiredDocs = requiredDocs.mapNotNull { it.toRequiredDoc() },
     evidence = listOf(Evidence("$agency · 공식 원문", originalText)),
@@ -511,6 +632,80 @@ private fun PolicyDetailDto.toPolicy() = Policy(
     isOutdated = isOutdated,
     sourceUrl = sourceUrl,
     eligibility = eligibility?.status,
+    amountShort = amountText ?: GovText.amount(supportAmount).orEmpty(),
+    contact = contact.orEmpty(),
+    region = region,
+    ageMin = ageMin,
+    ageMax = ageMax,
+    amountWon = amountWon,
+    amountCycle = amountCycle,
+    periodYears = periodYears,
+    relatedPolicies = related.orEmpty().map {
+        com.project.on_road.data.RelatedPolicyItem(it.policyId.toString(), it.name, it.agency, categoryLabel(it.category), it.amountText, it.benefit)
+    },
+    benefit = benefit,
+    conditions = conditions.orEmpty(),
+    exclusions = exclusions.orEmpty(),
+    applyWays = applyWays.orEmpty().mapNotNull { w -> w.way?.takeIf { it.isNotBlank() }?.let { it to w.lines.orEmpty() } },
+    applyDeadline = applyDeadline,
+    applySteps = applySteps.orEmpty(),
+    docFacts = docFacts.orEmpty(),
+)
+
+private fun String?.toDate(): LocalDate? = this?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+internal fun PolicyRoadmapDto.toRoadmap() = com.project.on_road.data.PolicyRoadmap(
+    baseDate = baseDate.toDate(),
+    dDay = dDay,
+    monthlyWon = summary.monthlyWon,
+    onceWon = summary.onceWon,
+    matchCount = summary.matchCount,
+    stages = stages.map { s ->
+        com.project.on_road.data.RoadmapStage(s.stage, s.title, s.items.map { i ->
+            com.project.on_road.data.RoadmapItem(
+                i.policyId.toString(), i.name, i.agency, i.category, i.eligibility, i.amountText, i.benefit, i.applyFrom.toDate(), i.applyNote,
+                until = i.until.toDate(),
+                ageUntil = i.ageUntil.toDate(),
+                ageMax = i.ageMax,
+                region = i.region ?: "전국",
+                kindTitle = i.kindTitle,
+                pickReason = i.pickReason,
+                alternatives = i.alternatives.orEmpty().map { a ->
+                    com.project.on_road.data.RoadmapAlternative(a.policyId.toString(), a.name, a.region, a.amountText)
+                },
+            )
+        })
+    },
+)
+
+internal fun ChatPlanDto.toPlan() = com.project.on_road.data.ChatPlan(
+    baseDate = baseDate.toDate(),
+    dDay = dDay,
+    monthlyWon = monthlyWon,
+    onceWon = onceWon,
+    matchCount = matchCount,
+    items = items.map {
+        com.project.on_road.data.ChatPlanItem(
+            it.policyId.toString(), it.name, it.amountText, it.benefit, it.applyFrom.toDate(), it.applyNote, it.hasForm,
+        )
+    },
+)
+
+internal fun CareerRoadmapDto.toCareer() = com.project.on_road.data.CareerRoadmap(
+    recommended = recommended,
+    paths = paths.map { p ->
+        com.project.on_road.data.CareerPathPlan(
+            p.path, p.title,
+            // 예전 서버(step_id 없음)는 방향 + 순서로 이름을 만든다
+            p.steps.mapIndexed { i, it ->
+                com.project.on_road.data.CareerStep(
+                    it.stepId ?: "${p.path}-$i", it.kind, it.title, it.detail, it.scenarioId, it.templateId, it.url, it.phone, it.target, it.query,
+                    it.guide.orEmpty(), it.reason,
+                )
+            },
+            p.policies.map { com.project.on_road.data.CareerPolicy(it.policyId.toString(), it.name, it.agency, it.eligibility, it.amountText, it.benefit) },
+        )
+    },
 )
 
 /** 필요 서류 한 개: {"name","condition"} 또는 예전 형식 "신분증" */
@@ -565,6 +760,7 @@ private fun DashboardChecklistDto.toSummary() = ChecklistSummary(
     doneSteps = progress.checkedSteps,
     totalSteps = progress.totalSteps,
     nextStep = nextStep.toStepType(),
+    dueDate = parseDue(dueDate),
 )
 
 private fun GrowthChecklistDto.toSummary() = ChecklistSummary(
@@ -573,7 +769,10 @@ private fun GrowthChecklistDto.toSummary() = ChecklistSummary(
     doneSteps = progress.checkedSteps,
     totalSteps = progress.totalSteps,
     nextStep = nextStep.toStepType(),
+    dueDate = parseDue(dueDate),
 )
+
+private fun parseDue(date: String?): LocalDate? = date?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
 /** 조건 판정 표시 (1.3). "신청 가능"으로 확정하지 않는다 */
 /** 서버가 판정한 나이·지역만 결과를 쓰고, DB 에 없는 나머지 조건은 확인 필요로 둔다 */
@@ -594,7 +793,7 @@ private val METHOD_LABEL = Regex("""(방문|온라인|우편·팩스|우편|팩�
 
 /** "방문: … 온라인: … 우편·팩스: …" → 방법별로 나눈다. 구분이 없으면 통째로 하나 */
 private fun applyMethods(text: String?): List<ApplyMethod> {
-    val src = text?.trim().orEmpty()
+    val src = GovText.clean(text).orEmpty()
     if (src.isEmpty()) return emptyList()
     val marks = METHOD_LABEL.findAll(src).toList()
     if (marks.isEmpty()) return listOf(ApplyMethod("신청 방법", src))
@@ -627,11 +826,11 @@ private fun ChecklistDto.toChecklist(): Checklist {
             val type = StepType.of(st.stepKey) ?: return@mapNotNull null
             val d = st.detail
             val description = when (type) {
-                StepType.TARGET -> d?.targetDescription ?: st.label
-                StepType.CONDITION -> d?.targetDescription ?: st.label
+                StepType.TARGET -> GovText.clean(d?.targetDescription) ?: st.label
+                StepType.CONDITION -> GovText.clean(d?.targetDescription) ?: st.label
                 StepType.DOCS -> if (docs.isEmpty()) "필요한 서류는 공식 원문에서 확인해 주세요."
                 else "아래 서류를 하나씩 챙겨요. 서류를 다 챙기면 이 단계도 완료로 표시해 주세요."
-                StepType.APPLY -> d?.applyMethod ?: "신청 방법은 공식 원문에서 확인해 주세요."
+                StepType.APPLY -> GovText.clean(d?.applyMethod) ?: "신청 방법은 공식 원문에서 확인해 주세요."
             }
             ChecklistStep(
                 itemId = st.itemId,
@@ -646,6 +845,7 @@ private fun ChecklistDto.toChecklist(): Checklist {
             )
         },
         docs = docs,
+        dueDate = parseDue(dueDate),
     )
 }
 

@@ -50,7 +50,12 @@ object Network {
             }
             .apply {
                 if (BuildConfig.DEBUG) {
-                    addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
+                    val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
+                    // 스트리밍 요청은 로그를 남기지 않는다 (BODY 로그는 응답을 끝까지 모아서 글이 한 번에 나온다)
+                    addInterceptor { chain ->
+                        if (chain.request().url.encodedPath.endsWith("/stream")) chain.proceed(chain.request())
+                        else logging.intercept(chain)
+                    }
                 }
             }
             .build()
@@ -81,6 +86,15 @@ object Network {
 
 /** 화면에 보여 줄 오류 문구 (api.md 1.1 에러 코드 기준). 모르는 오류는 fallback */
 fun Throwable.userMessage(fallback: String = "잠시 후 다시 시도해 주세요."): String =
+    when {
+        // 연결 문제는 '잠시 후 다시'보다 무엇을 확인하면 되는지 알려 준다
+        this is java.net.SocketTimeoutException -> "응답이 늦어지고 있어요. 잠시 후 다시 시도해 주세요."
+        this is java.net.UnknownHostException || this is java.net.ConnectException || this is java.net.NoRouteToHostException ->
+            "서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요."
+        else -> apiMessage(fallback)
+    }
+
+private fun Throwable.apiMessage(fallback: String): String =
     when ((this as? ApiException)?.code) {
         "AI_UNAVAILABLE" -> "지금은 AI 답변을 잠시 쓸 수 없어요. 잠시 후 다시 시도해 주세요."
         "RAG_UNAVAILABLE" -> "지금은 공식 자료 검색을 잠시 쓸 수 없어요. 잠시 후 다시 시도해 주세요."

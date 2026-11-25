@@ -10,9 +10,26 @@ import java.io.File
  */
 class DocumentRepository(private val service: OnRoadService, private val userId: () -> String) {
 
-    /** 정책 신청서 항목이 준비된 정책인지 (체크리스트에서 '신청서 쓰기' 버튼을 보일지) */
-    suspend fun hasPolicyForm(policyId: Long): Boolean =
-        runCatching { Network.call { service.getFormGuide(policyId, userId()) } }.isSuccess
+    /**
+     * 정책 신청서 항목이 준비된 정책인지 (체크리스트에서 '신청서 쓰기' 버튼을 보일지, 서류 고르기에서 정부 신청서로 열지).
+     * 서버가 "없다"고 답할 때만 false. 서버가 깨어나는 중이거나 잠깐 끊긴 경우는 한 번 더 묻고, 그래도 안 되면 예외를 던진다
+     * (예전에는 실패를 false 로 봐서 자립수당 신청서가 몰래 간단 양식으로 열렸다)
+     */
+    suspend fun hasPolicyForm(policyId: Long): Boolean {
+        repeat(2) { attempt ->
+            try {
+                Network.call { service.getFormGuide(policyId, userId()) }
+                return true
+            } catch (e: ApiException) {
+                if (e.httpStatus == 404) return false
+                if (attempt == 1) throw e
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException || attempt == 1) throw e
+            }
+            kotlinx.coroutines.delay(1500)
+        }
+        return false
+    }
 
     suspend fun startTemplate(templateId: String, context: String? = null): WriterDocumentDto =
         Network.call { service.createWriterDocument(DocumentCreateDto(userId(), "template", sourceId = templateId, context = context)) }
@@ -39,6 +56,11 @@ class DocumentRepository(private val service: OnRoadService, private val userId:
     suspend fun list(): List<DocumentSummaryDto> = Network.call { service.listDocuments(userId()) }.documents
 
     suspend fun get(documentId: Long): WriterDocumentDto = Network.call { service.getDocument(documentId, userId()) }
+
+    /** 서류 지우기 (칸까지 모두). 되돌릴 수 없다 */
+    suspend fun delete(documentId: Long) {
+        Network.call { service.deleteDocument(documentId, userId()).also { if (!it.isSuccessful) throw retrofit2.HttpException(it) } }
+    }
 
     suspend fun saveValue(documentId: Long, fieldId: String, value: String, complete: Boolean? = null): FieldResponseDto =
         Network.call { service.updateField(documentId, fieldId, userId(), FieldUpdateDto(value = value, isCompleted = complete)) }

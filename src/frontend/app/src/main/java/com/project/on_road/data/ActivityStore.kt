@@ -79,7 +79,7 @@ data class SavedChat(
     val messages: List<ChatMessage>,
 ) {
     val title: String
-        get() = messages.firstOrNull { it.role == ChatRole.USER }?.text?.let { if (it.length > 28) it.take(28) + "…" else it } ?: "새 상담"
+        get() = messages.firstOrNull { it.role == ChatRole.USER }?.text?.let { if (it.length > 28) it.take(28).substringBeforeLast(' ').ifBlank { it.take(28) } else it } ?: "새 상담"
     val questionCount: Int get() = messages.count { it.role == ChatRole.USER }
     val topics: List<Topic>
         get() = messages.filter { it.role == ChatRole.USER }.flatMap { Topic.classify(it.text) }.distinct()
@@ -111,7 +111,18 @@ data class InterestSnapshot(val at: Long, val scores: Map<Riasec, Int>) {
     val top: List<Riasec> get() = scores.entries.sortedByDescending { it.value }.take(2).map { it.key }
 }
 
-data class SavedRoadmap(val at: Long, val jobName: String, val steps: List<RoadmapStep>, val done: Set<Int>) {
+/** 고른 관심 분야 하나 (흥미 탐색 추천 직업이면 jobId 가 있다) */
+data class CareerTag(val name: String, val jobId: String? = null, val types: List<Riasec> = emptyList())
+
+data class SavedRoadmap(
+    val at: Long,
+    val jobName: String,
+    val steps: List<RoadmapStep>,
+    val done: Set<Int>,
+    /** 흥미 탐색에서 고른 직업 id (예전에 저장한 것은 null) */
+    val jobId: String? = null,
+    val jobTypes: List<Riasec> = emptyList(),
+) {
     val progress: Float get() = if (steps.isEmpty()) 0f else done.size / steps.size.toFloat()
     val nextIndex: Int? get() = steps.indices.firstOrNull { it !in done }
 }
@@ -265,7 +276,7 @@ object ActivityStore {
         .put("kind", kind.name)
         .put("check", needsCheck)
         .put("ev", JSONArray().also { a -> evidence.forEach { a.put(JSONObject().put("s", it.source).put("x", it.snippet)) } })
-        .put("pol", JSONArray().also { a -> policies.forEach { a.put(JSONObject().put("id", it.id).put("name", it.name).put("cat", it.category)) } })
+        .put("pol", JSONArray().also { a -> policies.forEach { a.put(JSONObject().put("id", it.id).put("name", it.name).put("cat", it.category).put("rel", it.related)) } })
         .put("tel", JSONArray().also { a -> contacts.forEach { a.put(JSONObject().put("n", it.name).put("p", it.phone)) } })
 
     private fun chatMessageOf(o: JSONObject, id: Long): ChatMessage {
@@ -277,7 +288,7 @@ object ActivityStore {
             role = ChatRole.valueOf(o.getString("role")),
             text = o.optString("text"),
             evidence = (0 until ev.length()).map { ev.getJSONObject(it).let { e -> Evidence(e.optString("s"), e.optString("x")) } },
-            policies = (0 until pol.length()).map { pol.getJSONObject(it).let { p -> stubPolicy(p.optString("id"), p.optString("name"), p.optString("cat")) } },
+            policies = (0 until pol.length()).map { pol.getJSONObject(it).let { p -> stubPolicy(p.optString("id"), p.optString("name"), p.optString("cat")).copy(related = p.optBoolean("rel")) } },
             needsCheck = o.optBoolean("check"),
             kind = runCatching { ChatKind.valueOf(o.optString("kind")) }.getOrDefault(ChatKind.POLICY),
             contacts = (0 until tel.length()).map { tel.getJSONObject(it).let { c -> HelpLine(c.optString("n"), c.optString("p")) } },
@@ -395,9 +406,36 @@ object ActivityStore {
         InterestSnapshot(o.getLong("t"), Riasec.entries.associateWith { s.optInt(it.name, 0) })
     }.sortedByDescending { it.at }
 
+    /** 고른 관심 분야 (직업). 서버에는 이름만 저장되므로 직업 id · 유형은 여기 둔다. 직접 넣은 분야는 id 가 null */
+    fun saveCareerTags(tags: List<CareerTag>) {
+        val p = prefs ?: return
+        val a = JSONArray()
+        tags.forEach { t ->
+            a.put(JSONObject().put("name", t.name).put("id", t.jobId ?: "").put("types", JSONArray().also { x -> t.types.forEach { x.put(it.name) } }))
+        }
+        p.edit().putString(KEY_TAGS, a.toString()).apply()
+        version++
+    }
+
+    fun careerTags(): List<CareerTag> {
+        val raw = prefs?.getString(KEY_TAGS, null) ?: return emptyList()
+        return runCatching {
+            val a = JSONArray(raw)
+            (0 until a.length()).map { i ->
+                val o = a.getJSONObject(i)
+                CareerTag(
+                    name = o.getString("name"),
+                    jobId = o.optString("id").ifBlank { null },
+                    types = o.optJSONArray("types")?.let { t -> (0 until t.length()).mapNotNull { runCatching { Riasec.valueOf(t.getString(it)) }.getOrNull() } }.orEmpty(),
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
     fun saveRoadmap(r: Roadmap) {
         val p = prefs ?: return
-        val o = JSONObject().put("t", now()).put("job", r.job.name)
+        val o = JSONObject().put("t", now()).put("job", r.job.name).put("jobId", r.job.id)
+            .put("types", JSONArray().also { a -> r.job.types.forEach { a.put(it.name) } })
             .put("steps", JSONArray().also { a -> r.steps.forEach { a.put(JSONObject().put("p", it.period).put("ti", it.title).put("d", it.detail)) } })
             .put("done", JSONArray())
         p.edit().putString(KEY_ROADMAP, o.toString()).apply()
@@ -413,6 +451,8 @@ object ActivityStore {
             SavedRoadmap(
                 at = o.optLong("t"),
                 jobName = o.getString("job"),
+                jobId = o.optString("jobId").ifBlank { null },
+                jobTypes = o.optJSONArray("types")?.let { a -> (0 until a.length()).mapNotNull { runCatching { Riasec.valueOf(a.getString(it)) }.getOrNull() } }.orEmpty(),
                 steps = (0 until steps.length()).map { steps.getJSONObject(it).let { s -> RoadmapStep(s.optString("p"), s.optString("ti"), s.optString("d")) } },
                 done = (0 until done.length()).map { done.getInt(it) }.toSet(),
             )
@@ -521,6 +561,7 @@ object ActivityStore {
     private const val KEY_DOC_PROGRESS = "docs_progress"
     private const val KEY_INTEREST = "interest"
     private const val KEY_ROADMAP = "roadmap"
+    private const val KEY_TAGS = "career_tags"
     private const val KEY_BASICS = "basics"
     private const val KEY_KID_LOG = "kid_log"
     private const val KEY_MOODS = "kid_moods"

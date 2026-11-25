@@ -46,6 +46,18 @@ fun <S> FadeSwitch(
 }
 
 /**
+ * 나중에 받은 데이터로 채워지는 묶음: keys 가 바뀌면(비어 있다가 채워지면) 그 묶음만 살짝 올라오며 서서히 나타난다.
+ * 높이 변화는 감싼 화면의 animateContentSize 가 부드럽게 맞춘다.
+ */
+@Composable
+fun Appear(vararg keys: Any?, content: @Composable ColumnScope.() -> Unit) {
+    // key(*keys) 처럼 펼쳐 넘기면 Compose 컴파일러가 멈춘다 (IR lowering 오류) → 목록 하나로 묶어서 넘긴다
+    androidx.compose.runtime.key(keys.toList()) {
+        Column(Modifier.fillMaxWidth().reveal(), content = content)
+    }
+}
+
+/**
  * 처음 나타날 때 살짝 올라오며 서서히 보인다.
  * 불러오는 중 표시가 사라지고 내용이 '띡' 하고 바뀌던 곳(내용이 준비되면 그때 그리는 화면)에 붙인다.
  */
@@ -55,12 +67,12 @@ fun Modifier.reveal(delayMs: Int = 0): Modifier {
     androidx.compose.runtime.LaunchedEffect(Unit) { shown = true }
     val p by androidx.compose.animation.core.animateFloatAsState(
         if (shown) 1f else 0f,
-        androidx.compose.animation.core.tween(OnRoadMotion.CONTENT, delayMs, OnRoadMotion.EmphasizedDecelerate),
+        androidx.compose.animation.core.tween(RevealMotion.Duration, delayMs, OnRoadMotion.Soft),
         label = "reveal",
     )
     return this.graphicsLayer {
         alpha = p
-        translationY = (1f - p) * 10.dp.toPx()
+        translationY = (1f - p) * RevealMotion.Rise.toPx()
     }
 }
 
@@ -85,4 +97,25 @@ fun TabSwitch(
         },
         label = label,
     ) { i -> Column(Modifier.fillMaxWidth()) { content(i) } }
+}
+
+/**
+ * AnimatedContent 기본 전환 대신 쓰는 앱 공통 전환 (FadeSwitch 와 같은 움직임).
+ * 기본값은 옛 내용이 0.09초 만에 사라지고 새 내용이 작게 시작해 커져서 '뚝' 바뀌어 보였다.
+ * 다 바뀐 뒤 모양은 같고, 바뀌는 과정만 부드럽다.
+ */
+fun <S> androidx.compose.animation.AnimatedContentTransitionScope<S>.smoothSwap(clip: Boolean = true): androidx.compose.animation.ContentTransform =
+    (fadeIn(OnRoadMotion.enter()) +
+        slideInVertically(OnRoadMotion.spatialOffset) { h -> (h / 20).coerceAtMost(48) }) togetherWith
+        androidx.compose.animation.fadeOut(OnRoadMotion.exit()) using
+        SizeTransform(clip = clip) { _, _ -> OnRoadMotion.spatialSize }
+
+/** 화면 내용이 떠오르는 움직임 (reveal · stagger 공통) */
+object RevealMotion {
+    /** 떠오르는 시간 (1초는 화면을 연 뒤에도 한참 움직여 보였다) */
+    const val Duration = 320
+    /** 아래에서 올라오는 거리 */
+    val Rise = 8.dp
+    /** stagger 한 칸 사이 시간 (줄줄이 늦게 나타나지 않게 짧게) */
+    const val Step = 40
 }

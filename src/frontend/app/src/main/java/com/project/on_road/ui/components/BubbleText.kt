@@ -6,7 +6,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.Constraints
@@ -38,6 +43,23 @@ private val SENTENCE_END = Regex("""(?<=[^\d\s][.?!]|[.?!]['")])\s+""")
 /** 짧은 안내(문장 3개 이하)만 문장마다 나눈다. AI 초안 같은 긴 문단은 문단 그대로 */
 private const val MAX_SPLIT_SENTENCES = 3
 
+/** 따옴표로 감싼 칸 이름 · 값 ('성명', '홍길동'). 한 줄 안, 40자까지 */
+private val QUOTED = Regex("""'([^'\n]{1,40})'""")
+
+/** 따옴표 부분을 따옴표 없이 굵게: "'성명'은 '홍길동'(으)로 할까요?" → **성명**은 **홍길동**(으)로 할까요? */
+fun String.boldQuoted(weight: FontWeight = QuotedWeight): AnnotatedString = buildAnnotatedString {
+    var last = 0
+    for (m in QUOTED.findAll(this@boldQuoted)) {
+        append(this@boldQuoted.substring(last, m.range.first))
+        withStyle(SpanStyle(fontWeight = weight)) { append(m.groupValues[1]) }
+        last = m.range.last + 1
+    }
+    append(this@boldQuoted.substring(last))
+}
+
+/** 굵게 보이는 칸 이름 · 값의 굵기 */
+val QuotedWeight = FontWeight.Bold
+
 /** 말풍선 글: 줄 길이를 고르게 (마지막 줄에 한두 글자만 남지 않게) */
 private val BubbleLineBreak = LineBreak(
     strategy = LineBreak.Strategy.Balanced,
@@ -57,6 +79,8 @@ fun BubbleText(
     color: Color,
     modifier: Modifier = Modifier,
     style: TextStyle = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight),
+    /** true: 따옴표로 감싼 칸 이름 · 값을 따옴표 없이 굵게 (서류 작성 대화) */
+    boldQuotes: Boolean = false,
 ) {
     val measurer = rememberTextMeasurer()
     val lineStyle = remember(style) { style.copy(lineBreak = BubbleLineBreak) }
@@ -72,6 +96,7 @@ fun BubbleText(
                 else sentences.joinToString("\n") { it.trim().keepWords() }
             }
         }
-        Text(shown, style = lineStyle, color = color)
+        if (boldQuotes) Text(shown.boldQuoted(), style = lineStyle, color = color)
+        else Text(shown, style = lineStyle, color = color)
     }
 }

@@ -23,6 +23,9 @@ object PlanData {
         private set
     var weak by mutableStateOf<PlanWeakArea?>(null)
         private set
+    /** 맞춤 신청 로드맵 (서버 3.32). 일정 탭의 '정책 신청' 일정과 현금 합계 */
+    var roadmap by mutableStateOf<PolicyRoadmap?>(null)
+        private set
     /** 자립 준비도 (홈 카드 · 준비도 화면이 같이 쓴다) */
     var readiness by mutableStateOf<Readiness?>(null)
         private set
@@ -44,6 +47,7 @@ object PlanData {
         region = null
         policies = emptyList()
         weak = null
+        roadmap = null
         readiness = ScreenCache.get("readiness")
         lastRefresh = 0L
     }
@@ -72,6 +76,7 @@ object PlanData {
             policies = mine + saved
         }
         if (force || now - lastRefresh >= REFRESH_MS) {
+            runCatching { api.getPolicyRoadmap(userId) }.getOrNull()?.let { roadmap = it }
             val r = runCatching { api.getReadiness(userId) }.getOrNull()
             if (r != null) {
                 readiness = r
@@ -84,11 +89,43 @@ object PlanData {
         lastRefresh = now
     }
 
-    /** 내 할 일 전체 (끝낸 일 포함). 퇴소일이 없으면 비어 있다 */
-    fun all(today: LocalDate, leaveDate: LocalDate? = AppContainer.session.leaveDate): List<PlanTask> {
+    /** 퇴소일을 바꾼 뒤: 신청 시작일이 퇴소일 기준이라 로드맵을 다시 받는다 */
+    suspend fun refreshRoadmap() {
         sync()
-        leaveDate ?: return emptyList()
-        return TimelinePlanner.plan(PlanInput(leaveDate, today, region, AppContainer.session.workStatus, policies, weak))
+        val userId = AppContainer.session.userId ?: return
+        runCatching { AppContainer.api.getPolicyRoadmap(userId) }.getOrNull()?.let { roadmap = it }
+    }
+
+    /** 맞춤 신청 로드맵 일정 (이미 신청을 시작했거나 저장한 정책은 뺀다) */
+    fun roadmapTasks(today: LocalDate): List<PlanTask> =
+        RoadmapTimeline.tasks(roadmap, today, policies.map { it.policyId }.toSet(), baseDate(today))
+
+    /** 퇴소 후: d_date 를 내가 정한 목표일로 쓰는 사람 (일정은 같은 타임라인으로 본다) */
+    val goalMode: Boolean get() = DDate.isGoal(AppContainer.session.status)
+
+    /** 타임라인 기준일: 퇴소 전 = 퇴소 예정일 / 퇴소 후 = 퇴소한 날 (모르면 오늘) */
+    fun baseDate(today: LocalDate): LocalDate? =
+        if (goalMode) MyConditions.leftDate ?: today else AppContainer.session.leaveDate
+
+    /** 퇴소 후 내가 추가한 일정 */
+    fun goalTasks(): List<PlanTask> = AppContainer.session.goalTasks.map { g ->
+        PlanTask("goal-${g.id}", null, g.date, g.title, "내가 추가한 일정")
+    }
+
+    /**
+     * 내 할 일 전체 (끝낸 일 포함), 날짜순.
+     * 퇴소 전: 퇴소일 기준 할 일 / 퇴소 후: 퇴소한 날 이후 할 일 + 내 일정. 둘 다 진로 할 일 · 넣어 둔 시험을 같이 본다.
+     */
+    fun all(today: LocalDate, leaveDate: LocalDate? = baseDate(today)): List<PlanTask> {
+        sync()
+        // 진로 로드맵에서 일정에 넣은 할 일은 퇴소일이 없어도 보인다
+        val career = CareerPlan.tasks()
+        val goal = if (goalMode) goalTasks() else emptyList()
+        val base = leaveDate?.let { TimelinePlanner.plan(PlanInput(it, today, region, AppContainer.session.workStatus, policies, weak)) }
+            .orEmpty()
+            // 퇴소 후에는 퇴소 전 준비(퇴소일보다 앞선 할 일)는 빼고 본다
+            .let { list -> if (goalMode) list.filter { (it.offsetDays ?: 0) >= 0 } else list }
+        return (base + goal + career).sortedBy { it.date }
     }
 
     /** 신청을 끝낸 정책 때문에 자동으로 끝난 할 일 (id → 까닭) */
@@ -127,10 +164,9 @@ object PlanData {
     /**
      * 기능을 끝냈을 때 그 기능으로 하는 할 일 하나를 자동으로 끝낸다.
      * 같은 기능을 쓰는 할 일이 여럿이면 (서류 위험 찾기: 집 계약 · 근로계약 등) 오늘과 날짜가 가장 가까운 것 하나만.
-     * 끝낸 할 일을 돌려준다 (없으면 null). 퇴소 후 목표 화면을 쓰는 사람은 타임라인이 달라서 건드리지 않는다.
+     * 끝낸 할 일을 돌려준다 (없으면 null).
      */
     fun completeBy(go: PlanGo, today: LocalDate = LocalDate.now()): PlanTask? {
-        if (DDate.isGoal(AppContainer.session.status)) return null
         val t = open(today)
             .filter { it.kind != PlanKind.POLICY && it.actions.any { a -> a.go == go } }
             .minByOrNull { kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(today, it.date)) }
@@ -147,4 +183,9 @@ object PlanData {
     }
 
     private const val REFRESH_MS = 30_000L
+}
+
+/** 상담 요약 카드의 '일정 보기': 신청 관리 '일정' 탭을 '정책 신청' 필터로 연다 (한 번 쓰고 지운다) */
+object ScheduleJump {
+    var policyFilter by mutableStateOf(false)
 }

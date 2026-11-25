@@ -135,6 +135,10 @@ fun OnRoadTopBar(
     trailing: (@Composable () -> Unit)? = null,
     /** 아래 구분선 (바로 밑에 다른 줄이 붙는 화면은 끈다) */
     divider: Boolean = true,
+    /** 제목 아래 작은 회색 한 줄 (실전 연습 통화 중: 목표 · 챙김 수). 말줄임 없이 */
+    subtitle: String? = null,
+    /** subtitle 이 있을 때 제목 · 작은 줄 바를 누르면 (실전 연습: 챙길 것 펼치기) */
+    onTitleClick: (() -> Unit)? = null,
 ) {
     val tabRoot = LocalTabRoot.current
     val onBack = if (tabRoot) null else onBack
@@ -143,7 +147,7 @@ fun OnRoadTopBar(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(OnRoadDimens.TopBarHeight)
+                .height(if (subtitle != null) OnRoadDimens.TopBarHeight + TopBarSubtitleExtra else OnRoadDimens.TopBarHeight)
                 .padding(horizontal = 12.dp),
         ) {
             if (onBack != null) {
@@ -155,7 +159,29 @@ fun OnRoadTopBar(
                     )
                 }
             }
-            Text(
+            if (subtitle != null) {
+                // 제목 + 작은 한 줄: 뒤로 버튼 바로 옆에 왼쪽 정렬. 말줄임표 없이 (글은 데이터에서 짧게 맞춘다)
+                // 바(제목 · 작은 줄)를 누르면 onTitleClick
+                Column(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = TopBarSubtitleStart, end = TopBarSubtitleSide)
+                        .then(if (onTitleClick != null) Modifier.clip(OnRoadShapes.Chip).tap(pressed = 1f, ripple = false, onClick = onTitleClick) else Modifier),
+                ) {
+                    Text(title, style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Clip)
+                    // 작은 줄이 바뀌면 (챙김 1/3 → 2/3) 툭 바뀌지 않고 위로 밀리며 바뀐다
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = subtitle,
+                        transitionSpec = {
+                            (androidx.compose.animation.slideInVertically(com.project.on_road.ui.theme.OnRoadMotion.enter()) { it / 2 } +
+                                androidx.compose.animation.fadeIn(com.project.on_road.ui.theme.OnRoadMotion.enter())) togetherWith
+                                (androidx.compose.animation.slideOutVertically(com.project.on_road.ui.theme.OnRoadMotion.exit()) { -it / 2 } +
+                                    androidx.compose.animation.fadeOut(com.project.on_road.ui.theme.OnRoadMotion.exit()))
+                        },
+                        label = "top-subtitle",
+                    ) { sub -> Text(sub, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Clip) }
+                }
+            } else Text(
                 text = title,
                 style = OnRoadType.Headline.copy(fontWeight = FontWeight.Bold),
                 color = OnRoadColors.TextPrimary,
@@ -173,6 +199,12 @@ fun OnRoadTopBar(
         if (divider) HorizontalDivider(thickness = 1.dp, color = OnRoadColors.Divider)
     }
 }
+
+/** 위 바에 작은 한 줄이 붙을 때 늘어나는 높이 · 가운데 글자 칸 양쪽 여백 (뒤로 · 끝내기 버튼 자리) */
+private val TopBarSubtitleExtra = 14.dp
+private val TopBarSubtitleSide = 72.dp
+/** 왼쪽 정렬일 때 글 시작선 (뒤로 버튼 다음) */
+val TopBarSubtitleStart = 48.dp
 
 /** 상단바 + 세로 스크롤 본문 (+ 하단 고정 버튼). 대부분의 하위 화면이 이 뼈대를 쓴다. */
 /** 상단 바의 홈 버튼: 글자 없이 하단 메뉴와 같은 채운 홈 아이콘 (NavIcons.homeSelected) */
@@ -216,6 +248,7 @@ fun OnRoadScreen(
                     content = content,
                 )
                 Spacer(Modifier.height(32.dp))
+                TabBarSpacer()
             }
             // 아래 그라데이션: 버튼이 있으면 버튼 영역 바로 위에서(구분선 대신), 없으면 화면 맨 아래 여백 쪽으로 내용이 사라진다
             // 하단 메뉴가 떠 있는 탭 화면은 메뉴 그라데이션 하나만 (두 겹 방지)
@@ -398,6 +431,8 @@ fun OnRoadTag(
     textStyle: TextStyle = OnRoadType.Caption2,
     @Suppress("UNUSED_PARAMETER") shape: Shape = OnRoadShapes.Tag,
     @Suppress("UNUSED_PARAMETER") contentPadding: PaddingValues = TagPadding,
+    /** 한 단계 큰 태그 (글자 13 · 여백 9×5). 실전 연습처럼 태그가 내용의 주인공일 때만 */
+    large: Boolean = false,
 ) {
     val neutral = TagColors(Color(0x4DF4F4F5), OnRoadColors.BorderChip, OnRoadColors.TextSecondary)
     val primary = TagColors(Color.White, OnRoadColors.Primary, OnRoadColors.Primary)
@@ -409,19 +444,25 @@ fun OnRoadTag(
         TagStyle.PrimaryFilled -> TagColors(OnRoadColors.Primary, null, Color.White)
     }
     val shape = OnRoadShapes.Tag
+    // 같은 태그의 상태가 바뀌면 (챙김 등) 색이 툭 바뀌지 않고 부드럽게 넘어간다
+    val bg by androidx.compose.animation.animateColorAsState(c.bg, com.project.on_road.ui.theme.OnRoadMotion.move(), label = "tag-bg")
+    val line by androidx.compose.animation.animateColorAsState(c.border ?: Color.Transparent, com.project.on_road.ui.theme.OnRoadMotion.move(), label = "tag-line")
+    val fg by androidx.compose.animation.animateColorAsState(c.fg, com.project.on_road.ui.theme.OnRoadMotion.move(), label = "tag-fg")
     Box(
         modifier
             .clip(shape)
-            .background(c.bg)
-            .then(if (c.border != null) Modifier.border(1.dp, c.border, shape) else Modifier)
-            .padding(TagPadding),
+            .background(bg)
+            .then(if (c.border != null) Modifier.border(1.dp, line, shape) else Modifier)
+            .padding(if (large) TagPaddingLarge else TagPadding),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = OnRoadType.Caption2.copy(fontWeight = textStyle.fontWeight ?: FontWeight.Medium), color = c.fg, maxLines = 1)
+        val base = if (large) OnRoadType.Caption else OnRoadType.Caption2
+        Text(text, style = base.copy(fontWeight = textStyle.fontWeight ?: FontWeight.Medium), color = fg, maxLines = 1)
     }
 }
 
 private val TagPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+private val TagPaddingLarge = PaddingValues(horizontal = 9.dp, vertical = 5.dp)
 
 /* ------------------------------------------------------------------ */
 /*  버튼                                                                */
@@ -451,6 +492,8 @@ fun OnRoadButton(
     }
     val active = enabled && !loading
     val press = remember { MutableInteractionSource() }
+    // 연타 방지: 한 번 누른 뒤 아주 짧은 시간 안에 또 눌린 건 무시한다 (요청이 두 번 가거나 화면이 두 번 열리지 않게)
+    val guardedClick = rememberGuardedClick(onClick)
     // 켜짐 ↔ 꺼짐이 툭 바뀌지 않게 바탕을 서서히 바꾼다
     val bgColor by animateColorAsState(if (enabled) bg else bg.copy(alpha = 0.35f), OnRoadMotion.move(), label = "button-bg")
     Box(
@@ -460,7 +503,7 @@ fun OnRoadButton(
             .clip(shape)
             .background(bgColor)
             .then((borderColor ?: variantBorder)?.let { Modifier.border(1.dp, it, shape) } ?: Modifier)
-            .clickable(interactionSource = press, indication = LocalIndication.current, enabled = active, onClick = onClick)
+            .clickable(interactionSource = press, indication = LocalIndication.current, enabled = active, onClick = guardedClick)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -499,6 +542,7 @@ fun SmallBoxButton(
     trailingIcon: ImageVector? = null,
 ) {
     val press = remember { MutableInteractionSource() }
+    val guardedClick = rememberGuardedClick(onClick)
     Row(
         modifier
             .height(28.dp)
@@ -506,7 +550,7 @@ fun SmallBoxButton(
             .clip(OnRoadShapes.Badge)
             .background(background)
             .border(1.dp, borderColor, OnRoadShapes.Badge)
-            .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onClick)
+            .clickable(interactionSource = press, indication = LocalIndication.current, onClick = guardedClick)
             .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -759,7 +803,7 @@ fun OnRoadTextField(
             enabled = enabled,
             textStyle = OnRoadType.Body2.copy(color = OnRoadColors.TextPrimary, textAlign = textAlign),
             cursorBrush = SolidColor(OnRoadColors.Primary),
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = if (singleLine) ImeAction.Done else ImeAction.Default),
             modifier = Modifier.weight(1f),
             decorationBox = { inner ->
                 Box {
@@ -957,9 +1001,10 @@ private fun CheckPop(visible: Boolean, size: Dp) {
 
 @Composable
 fun OnRoadSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabled: Boolean = true) {
+    val tick = rememberTick()
     Switch(
         checked = checked,
-        onCheckedChange = onCheckedChange,
+        onCheckedChange = { tick(); onCheckedChange(it) },
         enabled = enabled,
         colors = SwitchDefaults.colors(
             checkedTrackColor = OnRoadColors.Primary,

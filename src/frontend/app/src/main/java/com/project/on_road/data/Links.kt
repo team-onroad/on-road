@@ -40,10 +40,12 @@ object Links {
             NextStep("practice", "수상한 전화 대처 연습하기", scenarioId = "scam-call"),
         )
         Topic.JOB -> listOf(
+            NextStep("career", "나의 진로에서 훈련 과정, 시험 일정 보기"),
             NextStep("practice", "취업 면접 연습하기", scenarioId = "job"),
             NextStep("practice", "고용센터 취업 상담 연습하기", scenarioId = "jobcenter"),
         )
         Topic.STUDY -> listOf(
+            NextStep("career", "나의 진로에서 진학 준비 보기"),
             NextStep("practice", "진학 면접 연습하기", scenarioId = "school"),
             NextStep("search", "장학금 찾아보기", query = "자립준비청년 장학금 교육 지원"),
         )
@@ -68,8 +70,11 @@ object Links {
             Topic.HEALTH -> NextStep("practice", "병원 진료 받기 연습하기", scenarioId = "hospital")
             else -> null
         }
+        // 취업 · 진학 지원은 진로 로드맵(관심 직업 · 훈련 · 시험 일정)으로 잇는다
+        val career = if (topic == Topic.JOB || topic == Topic.STUDY) NextStep("career", "나의 진로와 같이 보기") else null
         return listOfNotNull(
             NextStep("chat", "‘$name’ 궁금한 점 물어보기", query = "‘$name’ 신청할 때 주의할 점이랑 자주 묻는 것 알려줘"),
+            career,
             practice,
             NextStep("forms", "신청서 같이 쓰기"),
             if (topic == Topic.MONEY || topic == Topic.HOUSING) NextStep("month", "이 지원을 받으면서 한 달 살아보기") else null,
@@ -103,7 +108,7 @@ object Links {
     fun afterCareer(jobName: String?): List<NextStep> = listOfNotNull(
         NextStep("practice", "아르바이트 면접 연습하기", scenarioId = "parttime"),
         NextStep("practice", "취업 면접 연습하기", scenarioId = "job"),
-        jobName?.let { NextStep("search", "‘$it’ 관련 훈련·취업 지원 찾아보기", query = "$it 직업훈련 취업 지원 청년") },
+        NextStep("search", "훈련, 취업 지원 찾아보기", query = "직업훈련 취업 지원"),
     )
 
     /** 실전 연습 상황 → 관심 분야 */
@@ -123,6 +128,8 @@ object Links {
         "month" -> "한 달 살아보기"
         "forms" -> "서류 작성"
         "chat" -> "AI 상담"
+        "career" -> "나의 진로"
+        "interest" -> "흥미 탐색"
         else -> "바로 가기"
     }
 }

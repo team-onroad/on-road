@@ -90,6 +90,27 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
+    /**
+     * 이어 읽기: 앞 말을 끊지 않고 뒤에 붙인다 (스트리밍으로 문장이 하나씩 올 때).
+     * 아직 엔진이 준비 전이면 기다리던 말에 이어 붙이고, 끝 콜백은 마지막 것만 남긴다.
+     */
+    fun enqueue(text: String, onFinished: (() -> Unit)? = null) {
+        if (failed) {
+            onFinished?.let { main.post(it) }
+            return
+        }
+        if (!ready) {
+            val p = pending
+            pending = (if (p == null) text else "${p.first} $text") to onFinished
+            return
+        }
+        val id = "onroad-${++seq}"
+        if (onFinished != null) onDone[id] = onFinished
+        if (tts.speak(text, TextToSpeech.QUEUE_ADD, null, id) != TextToSpeech.SUCCESS) {
+            onDone.remove(id)?.let { main.post(it) }
+        }
+    }
+
     fun stop() {
         pending = null
         onDone.clear()

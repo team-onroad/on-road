@@ -1,5 +1,6 @@
 package com.project.on_road.ui.screens.navigation
 
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import com.project.on_road.ui.components.LocalTabRoot
 
@@ -21,6 +22,8 @@ import com.project.on_road.ui.components.OnRoadBottomBar
 import com.project.on_road.ui.components.bottomTabs
 
 import com.project.on_road.ui.components.ToastHost
+import com.project.on_road.ui.components.clearFocusOnTapOutside
+import com.project.on_road.ui.components.RefreshArea
 import com.project.on_road.ui.components.SharedScreens
 import com.project.on_road.ui.components.ProvideNavAnimScope
 
@@ -84,6 +87,7 @@ import com.project.on_road.ui.screens.FormHelperScreen
 import com.project.on_road.ui.screens.GrowthScreen
 import com.project.on_road.ui.screens.HousingScreen
 import com.project.on_road.ui.screens.InterestScreen
+import com.project.on_road.ui.screens.CareerRoadmapScreen
 import com.project.on_road.ui.screens.NextActionScreen
 import com.project.on_road.ui.screens.NotificationScreen
 import com.project.on_road.ui.screens.OnboardingScreen
@@ -98,6 +102,7 @@ import com.project.on_road.ui.screens.RoleplayListScreen
 import com.project.on_road.ui.screens.RoleplayPlayScreen
 import com.project.on_road.ui.screens.SavingsScreen
 import com.project.on_road.ui.screens.SettingsScreen
+import com.project.on_road.ui.screens.MyConditionsScreen
 import com.project.on_road.ui.screens.SimulationHubScreen
 import com.project.on_road.ui.screens.TimelineScreen
 import com.project.on_road.ui.theme.OnRoadColors
@@ -106,6 +111,8 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val DASHBOARD = "dashboard"
     const val SETTINGS = "settings"
+    /** 나의 자립 조건 (나이 · 지역 · 상황 · 퇴소일 · 가족 · 확인한 조건) */
+    const val MY_CONDITIONS = "settings/my-conditions"
     const val POLICY = "policy?policyId={policyId}&q={q}"
     const val POLICY_DETAIL = "policy/detail/{policyId}"
     const val MY = "my"
@@ -131,6 +138,8 @@ object Routes {
     const val GROWTH = "growth"
     const val CHAT = "chat?q={q}&cid={cid}"
     const val INTEREST = "coach/interest"
+    /** 진로 로드맵 (취업 · 진학 · 직업훈련) */
+    const val CAREER_ROADMAP = "coach/career-roadmap"
     const val ROLEPLAY = "coach/roleplay"
     const val ROLEPLAY_PLAY = "coach/roleplay/{id}?from={from}"
     const val FORMS = "coach/forms"
@@ -222,6 +231,10 @@ fun stepRoute(step: NextStep): String = when (step.kind) {
     "month" -> Routes.monthLife(step.query?.toIntOrNull())
     "forms" -> Routes.DOCS
     "chat" -> Routes.chat(question = step.query)
+    "career" -> Routes.CAREER_ROADMAP
+    "interest" -> Routes.INTEREST
+    // 서류를 다 쓰고 그 정책 체크리스트로 돌아가기 (query = 정책 id)
+    "checklist" -> step.query?.let(Routes::checklist) ?: Routes.CHECKLISTS
     else -> Routes.DASHBOARD
 }
 
@@ -276,7 +289,10 @@ fun OnRoadNavHost() {
     }
     // 두 번 눌러 같은 화면이 두 번 열리는 것만 막는다 (아주 짧은 간격만 무시).
     // 예전에는 화면 전환이 끝날 때까지 누른 걸 모두 무시해서, 새 화면에서 바로 누르면 반응이 없었다
-    val gate = remember { TapGate() }
+    // 화면이 넘어가는 중에 또 이동하면 진행 중이던 전환이 중간에 '뚝' 끊긴다.
+    // 그래서 전환 중에 누른 건 버리지 않고, 전환이 거의 끝났을 때 이어서 실행한다 (누른 건 반드시 실행된다)
+    val navScope = androidx.compose.runtime.rememberCoroutineScope()
+    val gate = remember { TapGate(navScope) }
     /**
      * 탭 첫 화면으로 옮기기: 홈 위에 그 탭 하나만 남긴다.
      * 예전에는 탭을 옮길 때 보던 자리를 저장 · 복원했는데, 한 탭 안에서 다른 탭 화면을 열면
@@ -298,9 +314,8 @@ fun OnRoadNavHost() {
     // 화면 안 버튼이 탭 첫 화면(검색어 없는 정책 찾기 · 신청 관리 · 생활 가이드 · 마이 · 홈)을 열면 탭을 옮긴 것과 똑같이 처리한다
     val go: (String) -> Unit = remember(nav) {
         { route ->
-            if (gate.open()) {
-                if (route in TAB_TARGETS) toTabRoot(route) else nav.navigate(route) { launchSingleTop = true }
-            }
+            if (route in TAB_TARGETS) gate.run(OnRoadMotion.CONTENT) { toTabRoot(route) }
+            else gate.run(OnRoadMotion.SCREEN_IN) { nav.navigate(route) { launchSingleTop = true } }
         }
     }
     // 알림을 눌러 열었으면 그 화면으로 (로그인한 상태일 때만)
@@ -312,10 +327,29 @@ fun OnRoadNavHost() {
     }
     // 전환 중 뒤로가기를 또 누르면 두 화면이 한꺼번에 닫히거나 첫 화면에서 빈 화면이 되던 것을 막는다
     val back: () -> Unit = remember(nav) {
-        { if (gate.open() && nav.previousBackStackEntry != null) nav.popBackStack(); Unit }
+        { gate.run(OnRoadMotion.SCREEN_OUT) { if (nav.previousBackStackEntry != null) nav.popBackStack() }; Unit }
     }
     // 하단 메뉴: 탭을 옮겨도 홈 위에 한 겹만 쌓인다
     val currentEntry by nav.currentBackStackEntryAsState()
+    // 알림 권한: 가입(로그인) 뒤 처음 한 번만 묻고, 허용하면 알림(D-day · 오늘 챙길 것 · 신청 예정일)을 켠다
+    val notifyContext = androidx.compose.ui.platform.LocalContext.current
+    val notifyAsk = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { granted -> if (granted) com.project.on_road.notification.Notifications.setEnabled(notifyContext, true) }
+    LaunchedEffect(currentEntry?.destination?.route) {
+        if (AppContainer.notifyAsked || AppContainer.session.userId == null) return@LaunchedEffect
+        AppContainer.notifyAsked = true
+        if (AppContainer.session.ddayAlarm) return@LaunchedEffect
+        val needs = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            androidx.core.content.ContextCompat.checkSelfPermission(notifyContext, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        when {
+            needs -> notifyAsk.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            // 안드로이드 12 이하는 권한을 묻지 않고 기본으로 허용이라 켜 둔다 (이미 허용했는데 꺼 둔 경우는 그대로)
+            android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU ->
+                com.project.on_road.notification.Notifications.setEnabled(notifyContext, true)
+        }
+    }
     // 홈 버튼은 탭 첫 화면에서 두 단계 이상 들어갔을 때만 (한 단계면 뒤로 한 번이면 메뉴가 보인다)
     val stack by nav.currentBackStack.collectAsState()
     val showHomeFor: (String) -> Boolean = { id ->
@@ -325,17 +359,26 @@ fun OnRoadNavHost() {
         i >= 0 && lastTab >= 0 && i - lastTab >= 2
     }
     val currentRoute = currentEntry?.destination?.route
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    LaunchedEffect(currentEntry?.id) { focusManager.clearFocus(force = true) }
     val tabs = remember { bottomTabs(Routes.DASHBOARD, Routes.POLICY, Routes.CHECKLISTS, Routes.SIMULATION, Routes.MY) }
     val selectTab: (BottomTab) -> Unit = remember(nav) {
         { tab ->
             val now = nav.currentBackStackEntry?.destination?.route
-            if (tab.route != now) {
-                toTabRoot(if (tab.route == Routes.POLICY) Routes.policy() else tab.route)
+            // 지금 탭을 또 누르면 맨 위로
+            if (tab.route == now) com.project.on_road.ui.components.TabReselect.fire()
+            else {
+                gate.run(OnRoadMotion.CONTENT) {
+                    // 기다리는 사이 이미 그 탭이 됐으면 다시 열지 않는다
+                    if (nav.currentBackStackEntry?.destination?.route != tab.route) {
+                        toTabRoot(if (tab.route == Routes.POLICY) Routes.policy() else tab.route)
+                    }
+                }
             }
         }
     }
     val goHome: () -> Unit = remember(nav) {
-        { if (gate.open()) nav.popBackStack(Routes.DASHBOARD, inclusive = false); Unit }
+        { gate.run(OnRoadMotion.SCREEN_OUT) { nav.popBackStack(Routes.DASHBOARD, inclusive = false) }; Unit }
     }
 
     val navGap = WindowInsets.navigationBarsIgnoringVisibility.asPaddingValues().calculateBottomPadding() * 0.6f
@@ -347,7 +390,17 @@ fun OnRoadNavHost() {
     androidx.compose.runtime.SideEffect { com.project.on_road.ui.components.BarShown.value = barOn }
 
     ProvideVoice {
-        CompositionLocalProvider(LocalGoHome provides goHome, LocalShowHome provides showHomeFor) {
+        // 화면마다 아래에 화면이 남아 있는지 (시스템 뒤로가기를 연타 방지 문으로 보낼지 정한다)
+        val canBackFor: (String) -> Boolean = { id ->
+            val list = stack.filter { it.destination.route != null }
+            list.indexOfFirst { it.id == id } > 0
+        }
+        CompositionLocalProvider(
+            LocalGoHome provides goHome,
+            LocalShowHome provides showHomeFor,
+            LocalGatedBack provides back,
+            LocalCanBack provides canBackFor,
+        ) {
             Box(
                 Modifier
                     .fillMaxSize()
@@ -357,14 +410,15 @@ fun OnRoadNavHost() {
                     // 키보드나 시스템 바가 올라와 이미 아래가 띄워져 있으면 더하지 않는다
                     .padding(bottom = (navGap - safeBottom).coerceAtLeast(0.dp)),
             ) {
-                Column(Modifier.fillMaxSize()) {
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize()) {
                         // 화면 사이에 같은 요소(정책 이름)가 이어져 움직이도록 전체를 한 번 감싼다
                         SharedScreens { OnRoadGraph(nav, start, go, back) }
                     }
-                    // 하단 메뉴: 네 탭의 첫 화면에서만 보이고, 들어가고 나올 때 아래로 접히며 사라진다
+                    // 하단 메뉴: 네 탭의 첫 화면에서만 내용 위에 떠 있고, 들어가고 나올 때 아래로 접히며 사라진다
                     AnimatedVisibility(
                         visible = currentRoute in TAB_ROUTES && !imeVisible,
+                        modifier = Modifier.align(Alignment.BottomCenter),
                         // clip = false: 메뉴 위로 그리는 흐려지는 띠가 잘리지 않게
                         enter = expandVertically(OnRoadMotion.spatialSize, expandFrom = Alignment.Top, clip = false) + fadeIn(OnRoadMotion.enter()),
                         exit = shrinkVertically(OnRoadMotion.spatialSize, shrinkTowards = Alignment.Top, clip = false) + fadeOut(OnRoadMotion.exit()),
@@ -442,19 +496,21 @@ private fun OnRoadGraph(
     NavHost(
         navController = nav,
         startDestination = start,
-        // 앞으로: 새 화면이 오른쪽 끝에서 밀려 들어오고, 지금 화면은 왼쪽으로 조금 물러난다 (보통 앱처럼 '넘어가는' 느낌).
-        // 뒤로: 지금 화면이 오른쪽으로 밀려 나가고, 아래 있던 화면이 제자리로 돌아온다.
-        // (예전에는 조금만 움직이고 흐려지기만 해서 '띡' 바뀌는 것처럼 보였다)
-        // 화면마다 바탕을 꽉 채워 두어(screen) 밀리는 동안 두 화면이 겹쳐 비치지 않는다.
+        // 앞으로: 새 화면이 오른쪽에서 조금(폭의 1/8) 밀려 들어오며 나타나고, 지금 화면은 왼쪽으로 살짝 물러난다.
+        // 뒤로: 지금 화면이 오른쪽으로 조금 밀리며 사라지고, 아래 있던 화면이 제자리로 돌아온다.
+        // 폭 전체를 0.5초 넘게 밀면 눈이 따라가느라 어지러워서, 짧은 거리 + 0.3초로 '넘어가는' 느낌만 남겼다.
+        // 화면마다 바탕을 꽉 채워 두어(screen) 겹치는 동안 아래 화면이 비치지 않는다.
         // 하단 메뉴로 탭끼리 옮길 때는 밀지 않고 겹쳐서 바꾼다 (같은 높이의 화면이라는 느낌)
         enterTransition = {
             if (isTabSwitch()) fadeIn(tween(OnRoadMotion.CONTENT, easing = OnRoadMotion.EmphasizedDecelerate))
-            else slideInHorizontally(OnRoadMotion.spatialOffset) { w -> w }
+            // 화면 폭 전체가 아니라 조금만 밀려 들어오며 나타난다 (눈이 덜 따라가게)
+            else slideInHorizontally(tween(OnRoadMotion.SCREEN_IN, easing = OnRoadMotion.Emphasized)) { w -> w / OnRoadMotion.SCREEN_SHIFT } +
+                fadeIn(tween(OnRoadMotion.SCREEN_IN, easing = OnRoadMotion.Emphasized))
         },
         exitTransition = {
             if (isTabSwitch()) fadeOut(tween(OnRoadMotion.FAST))
             // 물러나는 화면은 살짝 어두워지듯 옅어져서 새 화면이 위에 올라오는 느낌
-            else slideOutHorizontally(OnRoadMotion.spatialOffset) { w -> -w / OnRoadMotion.BACK_SHIFT } +
+            else slideOutHorizontally(tween(OnRoadMotion.SCREEN_IN, easing = OnRoadMotion.Emphasized)) { w -> -w / OnRoadMotion.BACK_SHIFT } +
                 fadeOut(tween(OnRoadMotion.SCREEN_IN, easing = OnRoadMotion.Emphasized), targetAlpha = OnRoadMotion.BACK_ALPHA)
         },
         // 뒤로: 두 화면이 같은 시간 · 같은 곡선으로 함께 움직인다 (예전엔 스프링과 시간이 섞여 따로 놀고,
@@ -466,17 +522,23 @@ private fun OnRoadGraph(
         },
         popExitTransition = {
             if (isTabSwitch()) fadeOut(tween(OnRoadMotion.FAST))
-            else slideOutHorizontally(tween(OnRoadMotion.SCREEN_OUT, easing = OnRoadMotion.Emphasized)) { w -> w }
+            else slideOutHorizontally(tween(OnRoadMotion.SCREEN_OUT, easing = OnRoadMotion.Emphasized)) { w -> w / OnRoadMotion.SCREEN_SHIFT } +
+                fadeOut(tween(OnRoadMotion.SCREEN_OUT, easing = OnRoadMotion.Emphasized))
         },
     ) {
         screen(Routes.ONBOARDING) {
             OnboardingScreen(onDone = {
-                nav.navigate(Routes.DASHBOARD) { popUpTo(Routes.ONBOARDING) { inclusive = true } }
+                // 마지막 버튼을 두 번 눌러도 홈이 두 겹으로 쌓이지 않게
+                nav.navigate(Routes.DASHBOARD) { popUpTo(Routes.ONBOARDING) { inclusive = true }; launchSingleTop = true }
             })
         }
 
         // 대상은 퇴소 전후 자립준비청년 하나로 좁혔다 (청소년·아동 전용 화면은 뺐다)
-        screen(Routes.DASHBOARD) { DashboardScreen(go) }
+        screen(Routes.DASHBOARD) {
+            // 홈 화면과 같은 뷰모델 (이 화면 단위로 하나)
+            val vm: com.project.on_road.ui.screens.DashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            RefreshArea(vm.refreshing, vm::refresh, Modifier.fillMaxSize()) { DashboardScreen(go, vm) }
+        }
 
         screen(Routes.MY) { MyScreen(onNavigate = go) }
         screen(Routes.DOCS) { DocsHubScreen(onBack = back, onNavigate = go) }
@@ -491,8 +553,10 @@ private fun OnRoadGraph(
                 },
                 // 계정을 바꾸면 그 계정 단계의 홈으로 새로 연다
                 onSwitched = { nav.navigate(Routes.DASHBOARD) { popUpTo(nav.graph.id) { inclusive = true } } },
+                onOpenConditions = { go(Routes.MY_CONDITIONS) },
             )
         }
+        screen(Routes.MY_CONDITIONS) { MyConditionsScreen(onBack = back) }
 
         screen(
             Routes.POLICY,
@@ -520,6 +584,9 @@ private fun OnRoadGraph(
                 policyId = entry.arguments?.getString("policyId").orEmpty(),
                 onBack = back,
                 onPrepare = { go(Routes.checklist(it)) },
+                onWrite = { id -> go(Routes.docWriter(policyId = id.toLongOrNull())) },
+                onAsk = { q -> go(Routes.chat(question = q)) },
+                onOpenPolicy = { go(Routes.policyDetail(it)) },
             )
         }
 
@@ -546,8 +613,8 @@ private fun OnRoadGraph(
         screen(Routes.SIM_SAVINGS) { SavingsScreen(onBack = back, onOpenPolicy = { go(Routes.policy(it)) }, onNavigate = go) }
         screen(Routes.SIM_TIMELINE) {
             // 퇴소 전: 퇴소일 기준 타임라인 / 퇴소 후: 내가 정한 목표 D-day (같은 d_date 를 다른 뜻으로 쓰므로 화면을 나눈다)
-            if (DDate.isGoal(AppContainer.session.status)) GoalTimelineScreen(onBack = back, onLink = { go(timelineRoute(it)) })
-            else TimelineScreen(onBack = back, onNavigate = go)
+            // 퇴소 후(목표 D-day)도 같은 타임라인: 목표 카드 · 내 일정 · 퇴소 후 할 일 · 정책 · 진로가 한 줄에
+            TimelineScreen(onBack = back, onNavigate = go)
         }
 
         screen(Routes.PRACTICE) { PracticeListScreen(onBack = back, onOpen = { go(Routes.practice(it)) }) }
@@ -637,7 +704,20 @@ private fun OnRoadGraph(
             )
         }
 
-        screen(Routes.INTEREST) { InterestScreen(onBack = back, onRoleplay = { go(Routes.ROLEPLAY) }, onNavigate = go) }
+        // 관심 분야를 고르면 흥미 탐색을 닫고 나의 진로로 (뒤로 가면 흥미 탐색이 다시 나오지 않게)
+        screen(Routes.INTEREST) {
+            InterestScreen(
+                onBack = back, onRoleplay = { go(Routes.ROLEPLAY) }, onNavigate = go,
+                onCareer = { nav.navigate(Routes.CAREER_ROADMAP) { popUpTo(Routes.INTEREST) { inclusive = true }; launchSingleTop = true } },
+            )
+        }
+        // 관심 분야가 없으면 나의 진로 대신 흥미 탐색부터
+        screen(Routes.CAREER_ROADMAP) {
+            CareerRoadmapScreen(
+                onBack = back, onNavigate = go,
+                onStartInterest = { nav.navigate(Routes.INTEREST) { popUpTo(Routes.CAREER_ROADMAP) { inclusive = true }; launchSingleTop = true } },
+            )
+        }
         screen(Routes.ROLEPLAY) { RoleplayListScreen(onBack = back, onOpen = { go(Routes.roleplay(it)) }) }
         screen(
             Routes.ROLEPLAY_PLAY,
@@ -697,17 +777,44 @@ private fun OnRoadGraph(
     }
 }
 
-/** 연달아 누른 것 걸러 내기: 마지막으로 통과한 뒤 [TAP_GAP_MS] 안에 다시 누르면 무시 */
-private class TapGate {
-    private var last = 0L
+/**
+ * 화면 이동 문.
+ *  - 같은 걸 연달아 두 번 누른 것([TAP_GAP_MS] 안)은 버린다.
+ *  - 화면이 넘어가는 중에 누른 건 버리지 않고, 진행 중인 전환이 거의 끝났을 때 실행한다
+ *    (전환 도중에 새 이동을 시작하면 지금 움직임이 중간에 뚝 끊기기 때문).
+ *  - 기다리는 동안 또 다른 걸 누르면 마지막에 누른 것만 실행한다.
+ */
+private class TapGate(private val scope: kotlinx.coroutines.CoroutineScope) {
+    private var lastTap = 0L
+    private var busyUntil = 0L
+    private var pending: kotlinx.coroutines.Job? = null
 
-    fun open(): Boolean {
+    /** [durationMs]: 이 이동이 만드는 전환 시간 */
+    fun run(durationMs: Int, action: () -> Unit) {
         val now = android.os.SystemClock.uptimeMillis()
-        if (now - last < TAP_GAP_MS) return false
-        last = now
-        return true
+        if (now - lastTap < TAP_GAP_MS) return
+        lastTap = now
+        pending?.cancel()
+        val wait = busyUntil - now
+        if (wait <= 0) {
+            start(durationMs, action)
+        } else {
+            pending = scope.launch {
+                kotlinx.coroutines.delay(wait)
+                start(durationMs, action)
+            }
+        }
+    }
+
+    private fun start(durationMs: Int, action: () -> Unit) {
+        // 곡선 끝부분(거의 멈춘 구간)까지는 기다리지 않는다: 남은 움직임이 눈에 띄지 않을 만큼만
+        busyUntil = android.os.SystemClock.uptimeMillis() + (durationMs * SETTLE_RATIO).toLong()
+        action()
     }
 }
+
+/** 전환이 이만큼 지나면 다음 이동을 이어도 끊겨 보이지 않는다 */
+private const val SETTLE_RATIO = 0.85f
 
 /** 두 번 누름으로 보는 간격. 화면 전환(OnRoadMotion.SCREEN_IN)보다 조금 짧게 */
 private const val TAP_GAP_MS = 250L
@@ -724,9 +831,14 @@ private fun androidx.navigation.NavGraphBuilder.screen(
     val scope = this
     val tabRoot = entry.destination.route in TAB_ROUTES
     val home = if (!tabRoot && LocalShowHome.current(entry.id)) LocalGoHome.current else null
+    // 휴대폰 뒤로가기도 화면 안 뒤로 버튼과 같은 문을 지나게 한다 (전환 중 연타로 움직임이 끊기지 않게).
+    // 화면 안에서 따로 정한 뒤로가기(검색창 닫기 등)는 나중에 등록되므로 그쪽이 먼저 받는다
+    val gatedBack = LocalGatedBack.current
+    val canBack = LocalCanBack.current(entry.id)
+    androidx.activity.compose.BackHandler(enabled = gatedBack != null && canBack) { gatedBack?.invoke() }
     ProvideNavAnimScope(scope) {
         CompositionLocalProvider(LocalTabRoot provides tabRoot, LocalGoHome provides home) {
-            Box(Modifier.fillMaxSize().background(OnRoadColors.Background)) { scope.content(entry) }
+            Box(Modifier.fillMaxSize().background(OnRoadColors.Background).then(Modifier.clearFocusOnTapOutside())) { scope.content(entry) }
         }
     }
 }
@@ -739,6 +851,11 @@ private val TAB_ROUTES = setOf(Routes.DASHBOARD, Routes.POLICY, Routes.CHECKLIST
 
 private fun androidx.compose.animation.AnimatedContentTransitionScope<androidx.navigation.NavBackStackEntry>.isTabSwitch(): Boolean =
     initialState.destination.route in TAB_ROUTES && targetState.destination.route in TAB_ROUTES
+
+/** 연타 방지 문을 지나는 뒤로가기 */
+private val LocalGatedBack = androidx.compose.runtime.staticCompositionLocalOf<(() -> Unit)?> { null }
+/** 이 화면 아래에 돌아갈 화면이 있는지 */
+private val LocalCanBack = androidx.compose.runtime.compositionLocalOf<(String) -> Boolean> { { false } }
 
 /** 화면마다 홈 버튼을 보일지 (back stack 깊이로 정한다) */
 private val LocalShowHome = androidx.compose.runtime.compositionLocalOf<(String) -> Boolean> { { false } }

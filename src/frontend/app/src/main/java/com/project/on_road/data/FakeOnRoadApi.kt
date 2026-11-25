@@ -44,6 +44,7 @@ class FakeOnRoadApi(
         status: LivingStatus,
         phone: String?,
         dDate: LocalDate?,
+        district: String?,
     ): UserProfile {
         latency(700)
         val user = UserProfile(
@@ -56,6 +57,7 @@ class FakeOnRoadApi(
             phone = phone,
             dDate = dDate,
             dDay = dDate?.let { java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() },
+            district = district,
         )
         users[user.userId] = user
         return user
@@ -73,6 +75,8 @@ class FakeOnRoadApi(
             status = update.status ?: old.status,
             dDate = dDate,
             dDay = dDate?.let { java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() },
+            interestCode = update.interestCode ?: old.interestCode,
+            interestTags = update.interestTags ?: old.interestTags,
         )
         users[userId] = user
         return user
@@ -117,7 +121,9 @@ class FakeOnRoadApi(
             DashboardUser(it.name, stageOf(it.birthDate), it.status, it.dDate, it.dDate?.let { d -> daysUntil(d) })
         }
         val latest = simulations[userId]?.lastOrNull()?.let { LatestSimulation(it.id, it.shortages.size, it.createdAt) }
-        return Dashboard(user, summaries(userId), latest)
+        val list = summaries(userId)
+        runCatching { com.project.on_road.notification.DueReminder.sync(list) }
+        return Dashboard(user, list, latest)
     }
 
     override suspend fun getNextActions(userId: String, dashboard: Dashboard?): List<NextAction> {
@@ -152,9 +158,13 @@ class FakeOnRoadApi(
         doneSteps = doneCount,
         totalSteps = steps.size,
         nextStep = steps.firstOrNull { !it.done }?.type,
+        dueDate = dueDate,
     )
 
-    override suspend fun searchPolicies(userId: String, question: String): SearchResult {
+    override suspend fun browsePolicies(userId: String, category: String?): SearchResult =
+        searchPolicies(userId, category ?: "", withAnswer = false)
+
+    override suspend fun searchPolicies(userId: String, question: String, withAnswer: Boolean): SearchResult {
         latency(900)
         val q = question.replace(" ", "")
         val matched = SamplePolicies.all
@@ -203,6 +213,17 @@ class FakeOnRoadApi(
         return summaries(userId)
     }
 
+    override suspend fun deleteChecklist(userId: String, checklistId: Long) {
+        latency(300)
+        checklists[userId]?.entries?.removeAll { it.value.id == checklistId }
+    }
+
+    override suspend fun deleteAccount(userId: String) {
+        latency(300)
+        users.remove(userId)
+        checklists.remove(userId)
+    }
+
     override suspend fun openChecklist(userId: String, policyId: String): Checklist {
         latency(400)
         checklists[userId]?.get(policyId)?.let { return it }
@@ -216,6 +237,17 @@ class FakeOnRoadApi(
     override suspend fun getChecklist(userId: String, checklistId: Long): Checklist {
         latency(300)
         return checklists[userId]?.values?.find { it.id == checklistId } ?: error("체크리스트 없음: $checklistId")
+    }
+
+    override suspend fun setDueDate(userId: String, checklistId: Long, date: LocalDate?): Checklist {
+        latency(300)
+        if (date != null && date.isBefore(LocalDate.now())) throw com.project.on_road.data.remote.ApiException(422, "VALIDATION_ERROR", "요청 값이 올바르지 않습니다. (due_date)")
+        val map = checklists[userId] ?: error("체크리스트 없음: $checklistId")
+        val entry = map.entries.find { it.value.id == checklistId } ?: error("체크리스트 없음: $checklistId")
+        val updated = entry.value.copy(dueDate = date)
+        map[entry.key] = updated
+        touched[updated.id] = ++clock
+        return updated
     }
 
     override suspend fun updateChecklistItem(

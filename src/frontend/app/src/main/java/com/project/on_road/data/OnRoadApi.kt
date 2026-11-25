@@ -19,6 +19,8 @@ interface OnRoadApi {
         phone: String? = null,
         /** D-day 기준일: 퇴소 전이면 퇴소 예정일, 퇴소 후면 목표일 (선택) */
         dDate: LocalDate? = null,
+        /** 시 · 군 · 구 (선택). 시 · 군 · 구 정책을 맞게 고를 때 쓴다 */
+        district: String? = null,
     ): UserProfile
 
     /** 3.12 회원정보 수정 (퇴소 처리, 퇴소일·목표일 바꾸기). 바꿀 값만 채워서 보낸다 */
@@ -39,7 +41,10 @@ interface OnRoadApi {
 
     // ───── 정책 (3.5, 3.6) ─────
 
-    suspend fun searchPolicies(userId: String, question: String): SearchResult
+    /** withAnswer = false: 답변 문장 없이 정책 목록만 (분야별로 보기, 빠름) */
+    suspend fun searchPolicies(userId: String, question: String, withAnswer: Boolean = true): SearchResult
+    /** 분야별로 보기. category: housing · living_cost · finance · employment · education · medical · independence, null 이면 전체 */
+    suspend fun browsePolicies(userId: String, category: String?): SearchResult
     suspend fun getPolicy(policyId: String): Policy?
     suspend fun getPolicies(ids: List<String>): List<Policy>
 
@@ -57,12 +62,19 @@ interface OnRoadApi {
 
     /** 체크리스트 목록 (홈 3.4 의 checklists 전체) */
     suspend fun getChecklists(userId: String): List<ChecklistSummary>
+    /** 신청 준비 지우기 (여기서 시작한 서류는 남고 연결만 끊김) */
+    suspend fun deleteChecklist(userId: String, checklistId: Long)
+    /** 탈퇴: 서버에서 이 사용자의 기록을 모두 지운다 */
+    suspend fun deleteAccount(userId: String)
 
     /** 3.9 이 정책의 체크리스트를 열기 (있으면 그대로, 없으면 새로 만듦) */
     suspend fun openChecklist(userId: String, policyId: String): Checklist
 
     /** 3.10 체크리스트 다시 불러오기 */
     suspend fun getChecklist(userId: String, checklistId: Long): Checklist
+
+    /** 신청 예정일 정하기 (null 이면 지움). 오늘 이전 날짜는 서버가 422 */
+    suspend fun setDueDate(userId: String, checklistId: Long, date: java.time.LocalDate?): Checklist
 
     /**
      * 3.11 항목 체크. checked 와 notApplicable 중 하나만 넣는다.
@@ -95,6 +107,15 @@ interface OnRoadApi {
 
     /** 자립 준비도. 서버가 없으면 null */
     suspend fun getReadiness(userId: String): Readiness? = null
+
+    /** 홈 '나에게 맞는 지원 정책' (추천 순서). 서버가 없으면 빈 목록 */
+    suspend fun getRecommendedPolicies(userId: String): List<RecommendedPolicy> = emptyList()
+
+    /** 3.32 맞춤 신청 로드맵. 서버가 없으면 null */
+    suspend fun getPolicyRoadmap(userId: String): PolicyRoadmap? = null
+
+    /** 3.33 진로 로드맵. 서버가 없으면 null */
+    suspend fun getCareerRoadmap(userId: String): CareerRoadmap? = null
 }
 
 /**

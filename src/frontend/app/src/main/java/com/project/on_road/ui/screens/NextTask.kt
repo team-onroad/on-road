@@ -50,6 +50,10 @@ fun planRoute(go: PlanGo): String = when (go) {
     PlanGo.MonthLife -> Routes.SIM_MONTH
     PlanGo.Forms -> Routes.DOCS
     is PlanGo.Chat -> Routes.chat(question = go.question)
+    is PlanGo.Policy -> Routes.policyDetail(go.policyId)
+    is PlanGo.Document -> Routes.docWriter(templateId = go.templateId)
+    PlanGo.Interest -> Routes.INTEREST
+    PlanGo.Career -> Routes.CAREER_ROADMAP
 }
 
 /** 할 일을 누르면 갈 곳: 첫 번째 '바로 하기', 없으면 타임라인 */
@@ -70,7 +74,7 @@ fun PlanTask.whenText(today: LocalDate): String {
  * 결과 화면 끝에 붙는 '다음 할 일'.
  * [finished] 를 주면 그 기능으로 하는 할 일 하나를 자동으로 끝내고 "끝냈어요"를 보여 준다.
  * 이어서 남은 할 일 중 가장 먼저 할 일을 바로 시작할 수 있게 한다 → 기능이 따로 놀지 않고 다음으로 이어진다.
- * 퇴소일이 없거나 퇴소 후 목표 화면을 쓰면 보이지 않는다.
+ * 퇴소 전인데 퇴소일이 없으면 보이지 않는다.
  */
 @Composable
 fun NextTaskBlock(
@@ -81,7 +85,7 @@ fun NextTaskBlock(
     finishedPolicy: Pair<String, String>? = null,
 ) {
     val session = AppContainer.session
-    if (session.leaveDate == null || DDate.isGoal(session.status)) return
+    if (!PlanData.goalMode && session.leaveDate == null) return
     // 화면에 다시 돌아와도 한 번만 끝내도록 저장해 둔다
     var ran by rememberSaveable { mutableStateOf(false) }
     var doneTitle by rememberSaveable { mutableStateOf<String?>(null) }

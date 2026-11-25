@@ -11,6 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -64,6 +65,29 @@ class FormHelperViewModel : ViewModel() {
         viewModelScope.launch { documents = runCatching { AppContainer.documents.list() }.getOrDefault(emptyList()) }
     }
 
+    /** 지우는 중인 서류 (접히는 동안) */
+    val removing = androidx.compose.runtime.mutableStateListOf<Long>()
+
+    /** 쓰던 서류 지우기 (확인 창에서 '지우기'를 누른 뒤) */
+    fun deleteDocument(id: Long) {
+        viewModelScope.launch {
+            com.project.on_road.data.BackgroundWork.write { AppContainer.documents.delete(id) }.await()
+                .onSuccess {
+                    // 카드가 접히며 사라진 뒤 목록에서 뺀다
+                    removing.add(id)
+                    kotlinx.coroutines.delay(com.project.on_road.ui.components.SwipeSpace.COLLAPSE.toLong())
+                    removing.remove(id)
+                    documents = documents.filterNot { it.documentId == id }
+                    OnRoadToast.show("서류를 지웠어요")
+                }
+                .onFailure { OnRoadToast.show(it.userMessage("서류를 지우지 못했어요. 잠시 후 다시 시도해 주세요.")) }
+        }
+    }
+
+    private companion object {
+        const val UPLOAD_KEY = "form-upload"
+    }
+
     init {
         viewModelScope.launch {
             templates = runCatching { AppContainer.coachApi.formTemplates(stage) }
@@ -85,37 +109,59 @@ class FormHelperViewModel : ViewModel() {
     }
 
     /**
-     * 받은 양식 올리기. 사진·PDF → 서버 AI 가 칸을 읽어 문서 AI 로 (대화로 채우기·칸별로 쓰기).
-     * 한글(hwp·hwpx)은 예전처럼 앱 안에서 항목만 나눈다
+     * 받은 양식 올리기. 사진 · PDF · 한글(hwp · hwpx) 모두 서버 AI 가 칸을 읽어 문서 AI 로 (대화로 채우기 · 칸별로 쓰기).
+     * 예전에는 한글만 앱 안에서 따로 나눠 다른 화면으로 갔다 (내보내기 · 이어 쓰기 · 체크리스트 연결이 안 됐음)
      */
     fun upload(context: android.content.Context, uri: android.net.Uri) {
         if (analyzing) return
-        analyzing = true
         error = null
+        val app = context.applicationContext
+        // 양식 읽기는 오래 걸려서 앱 전체 작업으로 → 화면을 나가도 계속 읽고, 끝나면 알림
+        com.project.on_road.data.BackgroundWork.start<Long>(
+            UPLOAD_KEY,
+            onAwayDone = { r ->
+                OnRoadToast.show(
+                    if (r.isSuccess) "받은 양식을 다 읽었어요. 서류 작성 도우미의 이어서 쓰기에서 열 수 있어요."
+                    else "받은 양식을 읽지 못했어요. 다시 올려 주세요.",
+                )
+            },
+        ) {
+            val file = FormUpload.prepare(app, uri)
+            AppContainer.documents.upload(file).documentId
+        }
+        followUpload()
+    }
+
+    /** 돌고 있거나 끝난 양식 읽기가 있으면 받아서 반영. 나가 있는 동안 끝났으면 바로 열지 않고 목록만 새로 받는다 */
+    private fun followUpload() {
+        val job = com.project.on_road.data.BackgroundWork.find<Long>(UPLOAD_KEY) ?: return
+        val away = job.isCompleted && com.project.on_road.data.BackgroundWork.finishedAway(UPLOAD_KEY)
+        if (!watching) { com.project.on_road.data.BackgroundWork.watch(UPLOAD_KEY); watching = true }
+        analyzing = !job.isCompleted
         viewModelScope.launch {
-            runCatching {
-                val file = FormUpload.prepare(context, uri)
-                if (file.isHwp) {
-                    val d = AppContainer.coachApi.analyzeUpload(userId, file.bytes, file.mime)
-                    val name = file.name?.substringBeforeLast('.')?.takeIf { it.isNotBlank() }
-                    values.clear()
-                    draft = if (d.title == "올린 양식" && name != null) d.copy(title = name) else d
-                } else {
-                    opened = AppContainer.documents.upload(file).documentId
-                    loadDocuments()
+            val r = job.await()
+            com.project.on_road.data.BackgroundWork.consume(UPLOAD_KEY)
+            r.onSuccess { id -> if (!away) opened = id; loadDocuments() }
+                .onFailure {
+                    if (!away) error = when (it) {
+                        is FormUpload.TooBig, is FormUpload.NotSupported -> it.message
+                        is FormParser.ReadError -> it.message
+                        else -> it.userMessage("양식을 읽지 못했어요. 양식 전체가 밝게 나오게 다시 찍어 주세요.")
+                    }
                 }
-            }.onFailure {
-                error = when (it) {
-                    is FormUpload.TooBig, is FormUpload.NotSupported -> it.message
-                    is FormParser.ReadError -> it.message
-                    else -> it.userMessage("양식을 읽지 못했어요. 양식 전체가 밝게 나오게 다시 찍어 주세요.")
-                }
-            }
             analyzing = false
         }
     }
 
+    private var watching = false
+
+    override fun onCleared() {
+        if (watching) com.project.on_road.data.BackgroundWork.unwatch(UPLOAD_KEY)
+        super.onCleared()
+    }
+
     private fun load(failMessage: String, block: suspend () -> FormDraft) {
+        if (analyzing) return
         analyzing = true
         error = null
         viewModelScope.launch {
@@ -144,6 +190,10 @@ class FormHelperViewModel : ViewModel() {
                 appendLine()
             }
         }.trim()
+    }
+    // 맨 끝에 둔다: 위의 상태(opened · watching …)가 다 만들어진 뒤에 이어 받아야 해서
+    init {
+        followUpload()  // 나갔다 다시 들어와도 읽던 양식을 이어서 보여 준다
     }
 }
 
@@ -220,6 +270,8 @@ fun FormHelperContent(
             vm.error,
             documents = vm.documents,
             onOpenDocument = onOpenDocument,
+            onDeleteDocument = vm::deleteDocument,
+            removing = vm.removing,
             onPick = onStartTemplate ?: vm::openTemplate,
             onTakePhoto = uploader.takePhoto,
             onPickFile = uploader.pickFile,
@@ -230,6 +282,8 @@ fun FormHelperContent(
             vm.error,
             documents = vm.documents,
             onOpenDocument = onOpenDocument,
+            onDeleteDocument = vm::deleteDocument,
+            removing = vm.removing,
             onPick = onStartTemplate ?: vm::openTemplate,
             onTakePhoto = uploader.takePhoto,
             onPickFile = uploader.pickFile,
@@ -245,12 +299,25 @@ private fun TemplateList(
     error: String?,
     documents: List<DocumentSummaryDto>,
     onOpenDocument: (Long) -> Unit,
+    onDeleteDocument: (Long) -> Unit,
+    /** 지우는 중(접히는 중)인 서류 id */
+    removing: List<Long> = emptyList(),
     onPick: (String) -> Unit,
     onTakePhoto: () -> Unit,
     onPickFile: () -> Unit,
     onRiskCheck: (() -> Unit)? = null,
     onActivityDraft: (() -> Unit)? = null,
 ) {
+    var deleting by remember { mutableStateOf<DocumentSummaryDto?>(null) }
+    deleting?.let { d ->
+        ConfirmDeleteDialog(
+            title = "이 서류를 지울까요?",
+            text = "쓴 내용이 모두 지워지고 되돌릴 수 없어요.",
+            detail = d.title,
+            onCancel = { deleting = null },
+            onConfirm = { deleting = null; onDeleteDocument(d.documentId) },
+        )
+    }
     Column(
         Modifier
             .fillMaxSize()
@@ -291,11 +358,14 @@ private fun TemplateList(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 documents.forEach { d ->
                     val state = if (d.status == "exported") "PDF로 내보냄" else "${d.progress.completed}/${d.progress.total}칸 작성"
-                    GrayRow(d.title, state) {
-                        // 서류 화면 제목 바에 바로 보이게
-                        com.project.on_road.data.ScreenCache.put("title:doc:${d.documentId}", d.title)
-                        onOpenDocument(d.documentId)
-                    }
+                    // 왼쪽으로 밀면 '지우기'
+                    androidx.compose.runtime.key(d.documentId) { Collapsing(d.documentId in removing) { SwipeToDelete(key = "doc-${d.documentId}", onDelete = { deleting = d }) {
+                        GrayRow(d.title, state) {
+                            // 서류 화면 제목 바에 바로 보이게
+                            com.project.on_road.data.ScreenCache.put("title:doc:${d.documentId}", d.title)
+                            onOpenDocument(d.documentId)
+                        }
+                    } } }
                 }
             }
         }
@@ -446,12 +516,25 @@ private fun CompactDocList(
     error: String?,
     documents: List<DocumentSummaryDto>,
     onOpenDocument: (Long) -> Unit,
+    onDeleteDocument: (Long) -> Unit,
+    /** 지우는 중(접히는 중)인 서류 id */
+    removing: List<Long> = emptyList(),
     onPick: (String) -> Unit,
     onTakePhoto: () -> Unit,
     onPickFile: () -> Unit,
     onRiskCheck: (() -> Unit)?,
     onActivityDraft: (() -> Unit)?,
 ) {
+    var deleting by remember { mutableStateOf<DocumentSummaryDto?>(null) }
+    deleting?.let { d ->
+        ConfirmDeleteDialog(
+            title = "이 서류를 지울까요?",
+            text = "쓴 내용이 모두 지워지고 되돌릴 수 없어요.",
+            detail = d.title,
+            onCancel = { deleting = null },
+            onConfirm = { deleting = null; onDeleteDocument(d.documentId) },
+        )
+    }
     Column(
         Modifier
             .fillMaxSize()
@@ -495,18 +578,20 @@ private fun CompactDocList(
             NoticeBox(it, title = "읽지 못했어요", tone = NoticeTone.Warning)
         }
 
-        // 쓰던 서류 (있을 때만)
+        // 쓰던 서류 (있을 때만): 화면 폭 가로형 카드를 아래로. 이름 · 'n/m칸' · 진행 막대로 얼마나 썼는지 한눈에
         if (documents.isNotEmpty()) {
             Spacer(Modifier.height(36.dp))
-            SubHeader("쓰던 서류")
+            SubHeader("이어서 쓰기")
             Spacer(Modifier.height(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 documents.forEach { d ->
-                    val state = if (d.status == "exported") "내보냄" else "${d.progress.completed}/${d.progress.total}칸"
-                    DocCard(d.title, state, null) {
-                        com.project.on_road.data.ScreenCache.put("title:doc:${d.documentId}", d.title)
-                        onOpenDocument(d.documentId)
-                    }
+                    // 왼쪽으로 밀면 '지우기'
+                    androidx.compose.runtime.key(d.documentId) { Collapsing(d.documentId in removing) { SwipeToDelete(key = "doc-${d.documentId}", onDelete = { deleting = d }) {
+                        DraftCard(d) {
+                            com.project.on_road.data.ScreenCache.put("title:doc:${d.documentId}", d.title)
+                            onOpenDocument(d.documentId)
+                        }
+                    } } }
                 }
             }
         }
@@ -618,6 +703,46 @@ private fun UploadCard(
 /** 올리기 카드 높이 · 아이콘 투명도(0.07~0.10) */
 private val UploadCardHeight = 88.dp
 private const val UploadIconAlpha = 0.08f
+
+/** 쓰던 서류 카드: 흰 카드 · 칩 테두리, 이름(두 줄까지) → 진행 막대 → 'n/m칸 작성' (다 쓰면 '내보냄') */
+@Composable
+private fun DraftCard(d: DocumentSummaryDto, onClick: () -> Unit) {
+    val total = d.progress.total.coerceAtLeast(1)
+    val done = d.progress.completed.coerceIn(0, total)
+    val exported = d.status == "exported"
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        borderColor = OnRoadColors.BorderChip,
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(horizontal = DraftCardPadH, vertical = DraftCardPadV),
+        onClick = onClick,
+    ) {
+        // 첫 줄: 이름(굵게) · 오른쪽 'n/m칸 작성'
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                d.title,
+                style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                color = OnRoadColors.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                if (exported) "내보냄" else "${done}/${total}칸 작성",
+                style = OnRoadType.Caption2,
+                color = OnRoadColors.TextTertiary,
+            )
+        }
+        Spacer(Modifier.height(DraftCardGap))
+        ProgressBar(if (exported) 1f else done / total.toFloat(), Modifier.fillMaxWidth(), color = OnRoadColors.Point)
+    }
+}
+
+/** 쓰던 서류 카드 (화면 폭 가로형) 여백 */
+private val DraftCardPadH = 20.dp
+private val DraftCardPadV = 16.dp
+private val DraftCardGap = 12.dp  // 이름 줄과 진행 막대 사이
 
 /** 키워드 태그 모양 버튼 (정책 검색 키워드 태그와 같음) */
 @Composable

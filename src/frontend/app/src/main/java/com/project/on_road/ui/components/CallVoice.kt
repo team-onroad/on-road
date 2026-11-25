@@ -192,10 +192,11 @@ class CallListener(context: Context, private val onText: (text: String, others: 
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-            // 생각하며 말하는 사람도 끊기지 않게 침묵을 넉넉히 기다린다
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500L)
+            // 말이 끝난 뒤 기다리는 시간: 길면 통화가 뚝뚝 끊기고, 짧으면 생각하며 말하는 사람이 잘린다.
+            // 잘려도 '이어 말하기'로 붙일 수 있어서 통화처럼 바로 이어지는 쪽으로 (예전 2.5초 → 1.8초)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1000L)
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, app.packageName)
         }
         runCatching { r.startListening(intent) }.onFailure {

@@ -61,8 +61,8 @@ class DocPickerViewModel : ViewModel() {
         uploadError = null
         viewModelScope.launch {
             runCatching {
+                // 사진 · PDF · 한글(hwp · hwpx) 모두 서버가 칸을 읽어 같은 문서 AI 로 연다
                 val file = FormUpload.prepare(context, uri)
-                if (file.isHwp) throw FormUpload.NotSupported()
                 AppContainer.documents.upload(file, checklistItemId = itemId, policyId = loadedFor?.toLongOrNull())
             }.onSuccess { opened = it.documentId }
                 .onFailure {
@@ -257,7 +257,7 @@ private fun IssuedDocCard(
         }
         if (uploading) {
             Spacer(Modifier.height(10.dp))
-            Text("양식에서 쓸 칸을 읽고 있어요…", style = OnRoadType.Micro, color = OnRoadColors.Primary)
+            Text("양식에서 쓸 칸을 읽고 있어요", style = OnRoadType.Micro, color = OnRoadColors.Primary)
         } else if (open) {
             Spacer(Modifier.height(10.dp))
             UploadButtons(onTakePhoto, onPickFile, enabled = !busy)

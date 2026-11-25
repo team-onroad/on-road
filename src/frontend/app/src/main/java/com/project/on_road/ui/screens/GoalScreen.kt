@@ -1,5 +1,6 @@
 package com.project.on_road.ui.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Box
 
 import android.app.Application
@@ -85,7 +86,7 @@ class GoalViewModel(app: Application) : AndroidViewModel(app) {
         val userId = session.userId ?: return
         viewModelScope.launch {
             val update = if (date == null) UserUpdate(clearDDate = true) else UserUpdate(dDate = date)
-            runCatching { AppContainer.api.updateUser(userId, update) }
+            com.project.on_road.data.BackgroundWork.write { AppContainer.api.updateUser(userId, update) }.await()
                 .onSuccess { AppContainer.applyProfile(it) }
                 .onFailure { com.project.on_road.ui.components.OnRoadToast.show("서버에 저장하지 못했어요. 인터넷 연결을 확인해 주세요.") }
         }
@@ -189,10 +190,10 @@ fun ColumnScope.GoalTimelineBody(
                 }
             }
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                sorted.forEachIndexed { si, t -> Box(Modifier.stagger(si)) {
+            Column(Modifier.animateContentSize(com.project.on_road.ui.theme.OnRoadMotion.spatialSize), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                sorted.forEachIndexed { si, t -> androidx.compose.runtime.key(t.id) { Box(Modifier.stagger(si)) {
                     GoalTaskRow(t, ChronoUnit.DAYS.between(today, t.date), onToggle = { vm.toggleTask(t.id) }, onRemove = { vm.removeTask(t.id) })
-                } }
+                } } }
             }
         }
 
@@ -339,7 +340,7 @@ private fun DateField(date: LocalDate?, placeholder: String, onPick: (LocalDate)
             todayDateBorderColor = OnRoadColors.Primary,
             todayContentColor = OnRoadColors.Primary,
         )
-        DatePickerDialog(
+        com.project.on_road.ui.components.OnRoadDatePickerDialog(
             onDismissRequest = { picking = false },
             colors = colors,
             confirmButton = {
@@ -356,7 +357,7 @@ private fun DateField(date: LocalDate?, placeholder: String, onPick: (LocalDate)
 }
 
 @Composable
-private fun GoalEditDialog(title: String, date: LocalDate?, onDismiss: () -> Unit, onSave: (String, LocalDate?) -> Unit) {
+internal fun GoalEditDialog(title: String, date: LocalDate?, onDismiss: () -> Unit, onSave: (String, LocalDate?) -> Unit) {
     var t by remember { mutableStateOf(title) }
     var d by remember { mutableStateOf(date) }
     AlertDialog(
@@ -396,7 +397,7 @@ private fun GoalEditDialog(title: String, date: LocalDate?, onDismiss: () -> Uni
 }
 
 @Composable
-private fun TaskAddDialog(onDismiss: () -> Unit, onSave: (String, LocalDate) -> Unit) {
+internal fun TaskAddDialog(onDismiss: () -> Unit, onSave: (String, LocalDate) -> Unit) {
     var t by remember { mutableStateOf("") }
     var d by remember { mutableStateOf<LocalDate?>(null) }
     AlertDialog(

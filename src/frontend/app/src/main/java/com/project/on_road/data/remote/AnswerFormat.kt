@@ -56,7 +56,6 @@ object AnswerFormat {
             val next = if (sb.isEmpty()) line else "$sb $line"
             if (next.length > SNIPPET_MAX) {
                 if (sb.isEmpty()) sb.append(line.take(SNIPPET_MAX).trimEnd())
-                sb.append(" …")
                 break
             }
             sb.clear().append(next)

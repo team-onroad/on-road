@@ -17,14 +17,14 @@ class UploadFile(val bytes: ByteArray, val name: String?, val isHwp: Boolean = f
 /**
  * 고른 사진·PDF 를 서버에 올릴 형태로 (POST /documents/upload, 10MB 이하).
  * - 사진: 긴 변 1400px 로 줄이고, 돌아간 사진은 바로 세우고, JPG 로 다시 만든다 (위치 정보 등 EXIF 없음, HEIC 도 JPG 로)
- * - PDF: 그대로. 한글(hwp·hwpx)은 isHwp (서버 대신 앱 안에서 항목만 나눈다)
+ * - PDF · 한글(hwp · hwpx): 그대로 (서버가 글자를 꺼내 칸을 찾는다)
  */
 object FormUpload {
     private const val MAX_SIDE = 1400 // 서버가 1280px 로 다시 줄인다. 크게 보내면 올리는 시간만 길어진다
     const val MAX_BYTES = 10 * 1024 * 1024
 
     class TooBig : Exception("파일이 너무 커요. 10MB 이하로 올려 주세요.")
-    class NotSupported : Exception("사진이나 PDF 파일만 올릴 수 있어요.")
+    class NotSupported : Exception("사진, PDF, 한글(hwp·hwpx) 파일만 올릴 수 있어요.")
 
     suspend fun prepare(context: Context, uri: Uri): UploadFile = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
@@ -37,7 +37,10 @@ object FormUpload {
         val lower = name.orEmpty().lowercase()
         val raw = resolver.openInputStream(uri)?.use { it.readBytes() } ?: throw NotSupported()
         when {
-            lower.endsWith(".hwp") || lower.endsWith(".hwpx") -> UploadFile(raw, name, isHwp = true, mime = mime)
+            lower.endsWith(".hwp") || lower.endsWith(".hwpx") -> {
+                if (raw.size > MAX_BYTES) throw TooBig()
+                UploadFile(raw, name, isHwp = true, mime = mime)
+            }
             mime == "application/pdf" || lower.endsWith(".pdf") -> {
                 if (raw.size > MAX_BYTES) throw TooBig()
                 UploadFile(raw, name, mime = "application/pdf")

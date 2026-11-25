@@ -5,6 +5,7 @@ import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 import retrofit2.http.Headers
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import okhttp3.RequestBody
 import retrofit2.http.GET
 import retrofit2.http.PATCH
@@ -37,6 +38,30 @@ interface OnRoadService {
     @POST("search")
     suspend fun search(@Body body: SearchRequestDto): SearchResponseDto
 
+    // 지우기 (성공 204). 없거나 다른 사용자 것이면 404
+    @DELETE("users/{userId}")
+    suspend fun deleteUser(@Path("userId") userId: String): retrofit2.Response<Unit>
+
+    @DELETE("documents/{documentId}")
+    suspend fun deleteDocument(@Path("documentId") documentId: Long, @Query("user_id") userId: String): retrofit2.Response<Unit>
+
+    @DELETE("checklists/{checklistId}")
+    suspend fun deleteChecklist(@Path("checklistId") checklistId: Long, @Query("user_id") userId: String): retrofit2.Response<Unit>
+
+    // 정책 저장 (관심 정책). 저장 · 취소는 여러 번 보내도 같은 결과
+    @GET("users/{userId}/saved-policies")
+    suspend fun savedPolicies(@Path("userId") userId: String): SavedPolicyListDto
+
+    @POST("users/{userId}/saved-policies")
+    suspend fun savePolicy(@Path("userId") userId: String, @Body body: SavePolicyDto): JsonObject
+
+    @DELETE("users/{userId}/saved-policies/{policyId}")
+    suspend fun unsavePolicy(@Path("userId") userId: String, @Path("policyId") policyId: String): retrofit2.Response<Unit>
+
+    // 분야별로 보기: 내 연령 · 지역에 맞는 정책을 분야 코드로 (검색 · AI 없이, category 없으면 전체)
+    @GET("policies")
+    suspend fun listPolicies(@Query("user_id") userId: String, @Query("category") category: String?): SearchResponseDto
+
     // 3.6 정책 상세 (user_id 없으면 eligibility null)
     @GET("policies/{policyId}")
     suspend fun getPolicy(
@@ -45,6 +70,7 @@ interface OnRoadService {
     ): PolicyDetailDto
 
     // 3.23 쉬운 말 단계별 보기 (level 없으면 서버가 나이로 추천)
+    @Headers("${Network.TIMEOUT_HEADER}: 60") // AI 가 여러 번 이어서 답하는 요청: 느린 날에도 끊기지 않게
     @GET("policies/{policyId}/easy-text")
     suspend fun getEasyText(
         @Path("policyId") policyId: Long,
@@ -53,6 +79,7 @@ interface OnRoadService {
     ): EasyTextDto
 
     // 3.24 신청서 작성 도우미
+    @Headers("${Network.TIMEOUT_HEADER}: 60") // AI 가 여러 번 이어서 답하는 요청: 느린 날에도 끊기지 않게
     @GET("policies/{policyId}/form-guide")
     suspend fun getFormGuide(
         @Path("policyId") policyId: Long,
@@ -78,6 +105,14 @@ interface OnRoadService {
         @Query("user_id") userId: String,
     ): ChecklistDto
 
+    // 신청 예정일 정하기 · 지우기. 본문 {"due_date": "YYYY-MM-DD" | null} (null 을 그대로 보내야 해서 본문을 직접 만든다). 오늘 이전은 422
+    @PATCH("checklists/{checklistId}")
+    suspend fun setDueDate(
+        @Path("checklistId") checklistId: Long,
+        @Query("user_id") userId: String,
+        @Body body: RequestBody,
+    ): ChecklistDto
+
     // 3.11 항목 체크 토글. 본문은 {"is_checked": bool} 또는 {"is_not_applicable": bool} 중 하나
     @PATCH("checklists/{checklistId}/items/{itemId}")
     suspend fun updateChecklistItem(
@@ -99,6 +134,16 @@ interface OnRoadService {
     @GET("users/{userId}/readiness")
     suspend fun getReadiness(@Path("userId") userId: String): ReadinessDto
 
+    // 3.32 맞춤 신청 로드맵 · 3.33 진로 로드맵
+    @GET("users/{userId}/policy-roadmap")
+    suspend fun getPolicyRoadmap(@Path("userId") userId: String): PolicyRoadmapDto
+
+    @GET("users/{userId}/recommended-policies")
+    suspend fun getRecommendedPolicies(@Path("userId") userId: String): List<RecommendedPolicyDto>
+
+    @GET("users/{userId}/career-roadmap")
+    suspend fun getCareerRoadmap(@Path("userId") userId: String): CareerRoadmapDto
+
     // 3.14 시뮬레이션 결과 조회
     @GET("simulations/{simulationId}")
     suspend fun getSimulation(
@@ -107,8 +152,15 @@ interface OnRoadService {
     ): SimulationDto
 
     // 3.15 AI 상담 채팅
+    @Headers("${Network.TIMEOUT_HEADER}: 60") // AI 가 여러 번 이어서 답하는 요청: 느린 날에도 끊기지 않게
     @POST("chat")
     suspend fun chat(@Body body: ChatRequestDto): ChatResponseDto
+
+    /** 상담 스트리밍: 고민 상담 답은 문장마다 온다 (text/event-stream). 받는 쪽은 Sse.read */
+    @Headers("${Network.TIMEOUT_HEADER}: 60")
+    @retrofit2.http.Streaming
+    @POST("chat/stream")
+    suspend fun chatStream(@Body body: ChatRequestDto): okhttp3.ResponseBody
 
     // 3.16 롤플레잉 상황 목록
     @GET("coach/roleplay/scenarios")
@@ -123,13 +175,24 @@ interface OnRoadService {
     ): RoleplayOpeningDto
 
     // 3.18 대화 한 턴
+    @Headers("${Network.TIMEOUT_HEADER}: 60") // AI 가 여러 번 이어서 답하는 요청: 느린 날에도 끊기지 않게
     @POST("coach/roleplay/{scenarioId}/reply")
     suspend fun roleplayReply(
         @Path("scenarioId") scenarioId: String,
         @Body body: RoleplayReplyRequestDto,
     ): RoleplayReplyDto
 
+    /** 실전 연습 대답 스트리밍: 상대 말이 문장마다 온다 (음성은 첫 문장부터 읽기 시작) */
+    @Headers("${Network.TIMEOUT_HEADER}: 60")
+    @retrofit2.http.Streaming
+    @POST("coach/roleplay/{scenarioId}/reply/stream")
+    suspend fun roleplayReplyStream(
+        @Path("scenarioId") scenarioId: String,
+        @Body body: RoleplayReplyRequestDto,
+    ): okhttp3.ResponseBody
+
     // 대화 중 힌트 ("뭐라고 하지?", LLM 안 씀)
+    @Headers("${Network.TIMEOUT_HEADER}: 60") // AI 가 여러 번 이어서 답하는 요청: 느린 날에도 끊기지 않게
     @POST("coach/roleplay/{scenarioId}/hint")
     suspend fun roleplayHint(
         @Path("scenarioId") scenarioId: String,
@@ -137,6 +200,7 @@ interface OnRoadService {
     ): RoleplayHintDto
 
     // 3.19 피드백 (save = true 면 성장 기록에 남김)
+    @Headers("${Network.TIMEOUT_HEADER}: 60") // AI 가 여러 번 이어서 답하는 요청: 느린 날에도 끊기지 않게
     @POST("coach/roleplay/{scenarioId}/feedback")
     suspend fun roleplayFeedback(
         @Path("scenarioId") scenarioId: String,
@@ -195,9 +259,11 @@ interface OnRoadService {
         @Query("user_id") userId: String,
     ): FieldResponseDto
 
+    @Headers("${Network.TIMEOUT_HEADER}: 60") // AI 가 여러 번 이어서 답하는 요청: 느린 날에도 끊기지 않게
     @POST("documents/{documentId}/assist")
     suspend fun assist(@Path("documentId") documentId: Long, @Body body: AssistRequestDto): AssistResponseDto
 
+    @Headers("${Network.TIMEOUT_HEADER}: 60") // AI 가 여러 번 이어서 답하는 요청: 느린 날에도 끊기지 않게
     @POST("documents/{documentId}/interview")
     suspend fun interview(@Path("documentId") documentId: Long, @Body body: InterviewRequestDto): InterviewResponseDto
 
@@ -214,6 +280,30 @@ interface OnRoadService {
         @Query("user_id") userId: String,
         @Query("format") format: String = "pdf",
     ): ResponseBody
+
+    // 3.35 진로 외부 정보 (큐넷 · 고용24 · 커리어넷)
+    @GET("career/job-info")
+    suspend fun careerJobInfo(@Query("name") name: String): JobInfoDto
+
+    @GET("career/duties")
+    suspend fun careerDuties(@Query("keyword") keyword: String): DutiesDto
+
+    @GET("career/exams")
+    suspend fun careerExams(@Query("cert") cert: String): ExamsDto
+
+    @GET("career/trainings")
+    suspend fun careerTrainings(
+        @Query("keyword") keyword: String,
+        @Query("region") region: String?,
+        @Query("district") district: String? = null,
+    ): TrainingsDto
+
+    @GET("career/trainings/detail")
+    suspend fun careerTrainingDetail(
+        @Query("id") id: String,
+        @Query("round") round: String,
+        @Query("institution") institution: String,
+    ): TrainingDetailDto
 }
 
 // ---------------- 사용자 ----------------
@@ -225,6 +315,7 @@ data class UserCreateDto(
     val region: String,
     val status: String,
     @SerializedName("d_date") val dDate: String? = null,
+    val district: String? = null,
 )
 
 data class UserDto(
@@ -240,6 +331,21 @@ data class UserDto(
     @SerializedName("d_day") val dDay: Int?,
     @SerializedName("created_at") val createdAt: String,
     @SerializedName("updated_at") val updatedAt: String,
+    /** 지금 하는 일 (student · working · job_seeking · resting, 서버가 예전 버전이면 없음) */
+    val work: String? = null,
+    /** 거주 시 · 군 · 구 (서버가 예전 버전이면 없음) */
+    val district: String? = null,
+    /** 자녀 · 동생 (서버가 예전 버전이면 없음) */
+    val family: List<FamilyMemberDto>? = null,
+    @SerializedName("interest_code") val interestCode: String? = null,
+    @SerializedName("interest_tags") val interestTags: List<String>? = null,
+)
+
+data class FamilyMemberDto(
+    val relation: String,
+    val gender: String?,
+    @SerializedName("birth_date") val birthDate: String,
+    val age: Int,
 )
 
 // ---------------- 정책 ----------------
@@ -250,9 +356,19 @@ data class EligibilityDto(
     val region: String,
 )
 
+data class SavePolicyDto(@SerializedName("policy_id") val policyId: Long)
+
+data class SavedPolicyListDto(val count: Int, val policies: List<SavedPolicyDto>)
+
+data class SavedPolicyDto(val policy: SavedPolicyRefDto)
+
+data class SavedPolicyRefDto(@SerializedName("policy_id") val policyId: Long)
+
 data class SearchRequestDto(
     @SerializedName("user_id") val userId: String,
     val question: String,
+    /** false: 답변 문장 없이 정책 카드만 (분야별로 보기). 서버가 답변 AI 를 부르지 않아 빠르다 */
+    val answer: Boolean = true,
 )
 
 data class EvidenceDto(val content: String)
@@ -276,6 +392,10 @@ data class SearchResultDto(
     val evidences: List<EvidenceDto>,
     /** 카드용 짧은 요약 (3.5). null 이면 target_description 등으로 표시 */
     val summary: PolicySummaryDto? = null,
+    /** 답변 근거가 아니라 질문과 뜻이 가까워 덧붙인 정책 (3.5). 앱은 '비슷한 정책'으로 따로 보여 준다 */
+    val related: Boolean = false,
+    /** 본인 나이로는 아니지만 가족(자녀 · 동생) 나이가 맞는 아동 대상 정책 (3.5) */
+    @SerializedName("for_family") val forFamily: Boolean = false,
 )
 
 data class SearchResponseDto(
@@ -308,6 +428,134 @@ data class PolicyDetailDto(
     @SerializedName("checked_at") val checkedAt: String,
     @SerializedName("is_outdated") val isOutdated: Boolean,
     val eligibility: EligibilityDto?,
+    /** 서버가 support_amount 를 읽어 맞춘 금액 (읽지 못하면 null) */
+    @SerializedName("amount_won") val amountWon: Long? = null,
+    @SerializedName("amount_cycle") val amountCycle: String? = null,
+    @SerializedName("amount_text") val amountText: String? = null,
+    @SerializedName("period_years") val periodYears: Int? = null,
+    /** 받는 것 한 줄 (카드 요약의 지원 내용) */
+    val benefit: String? = null,
+    /** 나이 · 지역 말고 따로 확인할 대상 조건 · 받을 수 없는 경우 (카드 요약) */
+    val conditions: List<String>? = null,
+    val exclusions: List<String>? = null,
+    @SerializedName("apply_ways") val applyWays: List<ApplyWayDto>? = null,
+    @SerializedName("apply_deadline") val applyDeadline: String? = null,
+    @SerializedName("apply_steps") val applySteps: List<String>? = null,
+    @SerializedName("doc_facts") val docFacts: List<String>? = null,
+    /** 같이 보면 좋은 정책 (같은 분야 · 받을 수 있는 정책, 최대 3개) */
+    val related: List<DetailRelatedDto>? = null,
+)
+
+/** 정책 상세의 같이 보면 좋은 정책 (시뮬레이션의 RelatedPolicyDto 와 이름이 겹치지 않게 따로 둔다) */
+data class DetailRelatedDto(
+    @SerializedName("policy_id") val policyId: Long,
+    val name: String,
+    val agency: String,
+    val category: String,
+    @SerializedName("amount_text") val amountText: String?,
+    val benefit: String? = null,
+)
+
+// ---------------- 3.32 맞춤 신청 로드맵 · 3.33 진로 로드맵 ----------------
+
+data class PolicyRoadmapDto(
+    @SerializedName("base_date") val baseDate: String?,
+    @SerializedName("d_day") val dDay: Int?,
+    val summary: RoadmapSummaryDto,
+    val stages: List<RoadmapStageDto>,
+)
+
+data class RoadmapSummaryDto(
+    @SerializedName("monthly_won") val monthlyWon: Long,
+    @SerializedName("once_won") val onceWon: Long,
+    @SerializedName("policy_count") val policyCount: Int,
+    @SerializedName("match_count") val matchCount: Int,
+)
+
+data class RoadmapStageDto(val stage: String, val title: String, val items: List<RoadmapItemDto>)
+
+data class RoadmapItemDto(
+    @SerializedName("policy_id") val policyId: Long,
+    val name: String,
+    val agency: String,
+    val category: String,
+    val eligibility: String,
+    @SerializedName("amount_text") val amountText: String?,
+    val benefit: String? = null,
+    @SerializedName("apply_from") val applyFrom: String?,
+    @SerializedName("apply_note") val applyNote: String,
+    val until: String? = null,
+    @SerializedName("age_until") val ageUntil: String? = null,
+    @SerializedName("age_max") val ageMax: Int? = null,
+    val region: String? = null,
+    @SerializedName("kind_title") val kindTitle: String? = null,
+    @SerializedName("pick_reason") val pickReason: String? = null,
+    val alternatives: List<RoadmapAlternativeDto>? = null,
+)
+
+data class RoadmapAlternativeDto(
+    @SerializedName("policy_id") val policyId: Long,
+    val name: String,
+    val region: String,
+    @SerializedName("amount_text") val amountText: String?,
+)
+
+data class ChatPlanDto(
+    @SerializedName("base_date") val baseDate: String?,
+    @SerializedName("d_day") val dDay: Int?,
+    @SerializedName("monthly_won") val monthlyWon: Long,
+    @SerializedName("once_won") val onceWon: Long,
+    @SerializedName("match_count") val matchCount: Int,
+    val items: List<ChatPlanItemDto>,
+)
+
+data class ChatPlanItemDto(
+    @SerializedName("policy_id") val policyId: Long,
+    val name: String,
+    @SerializedName("amount_text") val amountText: String?,
+    val benefit: String? = null,
+    @SerializedName("apply_from") val applyFrom: String?,
+    @SerializedName("apply_note") val applyNote: String,
+    @SerializedName("has_form") val hasForm: Boolean,
+)
+
+data class RecommendedPolicyDto(
+    @SerializedName("policy_id") val policyId: Long,
+    val name: String,
+    val category: String,
+    val eligibility: String,
+    @SerializedName("when_text") val whenText: String,
+    @SerializedName("amount_unit") val amountUnit: String?,
+    @SerializedName("amount_value") val amountValue: String?,
+    val benefit: String? = null,
+)
+
+data class CareerRoadmapDto(val recommended: String, val paths: List<CareerPathDto>)
+
+data class CareerPathDto(val path: String, val title: String, val steps: List<CareerStepDto>, val policies: List<CareerPolicyDto>)
+
+data class CareerStepDto(
+    @SerializedName("step_id") val stepId: String?,
+    val kind: String,
+    val title: String,
+    val detail: String,
+    @SerializedName("scenario_id") val scenarioId: String?,
+    @SerializedName("template_id") val templateId: String?,
+    val url: String?,
+    val phone: String?,
+    val target: String? = null,
+    val query: String? = null,
+    val guide: List<String>? = null,
+    val reason: String? = null,
+)
+
+data class CareerPolicyDto(
+    @SerializedName("policy_id") val policyId: Long,
+    val name: String,
+    val agency: String,
+    val eligibility: String,
+    @SerializedName("amount_text") val amountText: String?,
+    val benefit: String? = null,
 )
 
 /** 3.6 필요 서류. condition 이 있으면 경우에 따라 필요한 서류 */
@@ -362,6 +610,7 @@ data class DashboardChecklistDto(
     val progress: ProgressDto,
     @SerializedName("next_step") val nextStep: NextStepDto?,
     @SerializedName("updated_at") val updatedAt: String,
+    @SerializedName("due_date") val dueDate: String? = null,
 )
 
 data class LatestSimulationDto(
@@ -424,6 +673,7 @@ data class ChecklistDto(
     val progress: ProgressDto,
     @SerializedName("document_progress") val documentProgress: DocumentProgressDto,
     val steps: List<ChecklistStepDto>,
+    @SerializedName("due_date") val dueDate: String? = null,
 )
 
 data class ChecklistItemDto(
@@ -470,6 +720,7 @@ data class GrowthChecklistDto(
     @SerializedName("next_step") val nextStep: NextStepDto?,
     @SerializedName("created_at") val createdAt: String,
     @SerializedName("updated_at") val updatedAt: String,
+    @SerializedName("due_date") val dueDate: String? = null,
 )
 
 data class SimulationSummaryDto(
@@ -592,6 +843,8 @@ data class ChatResponseDto(
     val handoff: HandoffDto? = null,
     /** 대화에서 찾은 프로필 변경 후보 (확인 카드). 승인할 때만 회원정보 수정 */
     @SerializedName("profile_changes") val profileChanges: List<ProfileChangeDto>? = null,
+    /** 넓은 정책 질문일 때만: 내 조건 요약 */
+    val plan: ChatPlanDto? = null,
 )
 
 data class ProfileChangeDto(
@@ -721,7 +974,12 @@ data class ReadinessDto(
     val history: List<ReadinessPointDto>? = null,
     val recent: List<String>? = null,
     @SerializedName("next_level") val nextLevel: ReadinessLevelDto? = null,
+    /** 행동 기록으로 본 판단 근거 (서버가 예전 버전이면 없음) */
+    val insights: List<ReadinessInsightDto>? = null,
 )
+
+/** tone: good(잘하는 것) · watch(다시 볼 것) */
+data class ReadinessInsightDto(val area: String, val tone: String, val text: String)
 
 data class RoleplayCheckDto(val label: String, val ok: Boolean, val kind: String, val example: String?)
 
@@ -873,3 +1131,6 @@ data class PolicySummaryDto(
     val notice: String?,
     val verified: Boolean,
 )
+
+/** 신청 방법 정리본 한 갈래 (방문 · 온라인 …) */
+data class ApplyWayDto(val way: String? = null, val lines: List<String>? = null)

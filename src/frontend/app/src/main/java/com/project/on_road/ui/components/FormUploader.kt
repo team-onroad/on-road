@@ -44,7 +44,7 @@ fun rememberFormUploader(onPicked: (Uri) -> Unit): FormUploader {
                 photoUri = uri
                 camera.launch(uri)
             },
-            pickFile = { files.launch(arrayOf("image/*", "application/pdf", "application/x-hwp", "application/haansofthwp", "application/octet-stream")) },
+            pickFile = { files.launch(arrayOf("image/*", "application/pdf", "application/x-hwp", "application/haansofthwp", "application/hwp+zip", "application/haansofthwpx", "application/vnd.hancom.hwpx", "application/octet-stream")) },
         )
     }
 }

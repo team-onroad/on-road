@@ -109,6 +109,7 @@ class SessionStore(private val context: Context) {
         writeAccounts(accounts.filter { it.userId != id })
         forUser(id).edit().clear().apply()
         ActivityStore.deleteAccount(id)
+        com.project.on_road.notification.DueReminder.forget(id)
         if (root.getString(KEY_CURRENT, null) == id) clear()
     }
 
@@ -196,6 +197,11 @@ class SessionStore(private val context: Context) {
         get() = prefs.getStringSet(KEY_SAVED_POLICIES, emptySet()).orEmpty().toSet()
         set(value) = prefs.edit().putStringSet(KEY_SAVED_POLICIES, value).apply()
 
+    /** 예전에 휴대폰에만 담아 둔 관심 정책을 서버로 한 번 옮겼는지 */
+    var savedPoliciesSynced: Boolean
+        get() = prefs.getBoolean(KEY_SAVED_SYNCED, false)
+        set(value) = prefs.edit().putBoolean(KEY_SAVED_SYNCED, value).apply()
+
     /** 신청 결과 (정책 id → ApplyStatus 이름). 서버 API 가 없어서 앱에 저장한다 */
     var applyResults: Map<String, String>
         get() = prefs.getStringSet(KEY_APPLY_RESULTS, emptySet()).orEmpty()
@@ -259,6 +265,7 @@ class SessionStore(private val context: Context) {
         const val KEY_OWNED_STICKERS = "owned_stickers"
         const val KEY_PLACED_STICKERS = "placed_stickers"
         const val KEY_SAVED_POLICIES = "saved_policies"
+        const val KEY_SAVED_SYNCED = "saved_policies_synced"
         const val KEY_APPLY_RESULTS = "apply_results"
         const val KEY_RECENT_SEARCHES = "recent_searches"
     }

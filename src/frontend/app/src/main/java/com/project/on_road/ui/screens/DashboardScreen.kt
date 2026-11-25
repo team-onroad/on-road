@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,6 +82,8 @@ import com.project.on_road.ui.components.SectionHeader
 import com.project.on_road.ui.components.TagStyle
 import com.project.on_road.ui.components.stagger
 import com.project.on_road.ui.components.tap
+import com.project.on_road.ui.components.reveal
+import androidx.compose.animation.animateContentSize
 import com.project.on_road.ui.screens.navigation.Routes
 import com.project.on_road.ui.theme.OnRoadColors
 import com.project.on_road.ui.theme.OnRoadDimens
@@ -104,32 +107,146 @@ class DashboardViewModel : ViewModel() {
     var checklists by mutableStateOf<List<ChecklistSummary>>(emptyList())
         private set
     /** 나의 자립 조건 (나이 · 지역 · 상태) */
-    var profile by mutableStateOf<UserProfile?>(null)
+    var profile by mutableStateOf<UserProfile?>(com.project.on_road.data.ProfileStore.current)
+        private set
+    /** 나에게 맞는 지원 정책 (서버 추천 순서). null 이면 아직 받는 중. 받아 둔 게 있으면 그걸 먼저 보여 준다 */
+    var recommended by mutableStateOf<List<HomePolicy>?>(userId?.let { com.project.on_road.data.HomeCache.get<HomePolicy>(it) })
         private set
 
     fun load() {
         val id = userId ?: return
-        viewModelScope.launch {
-            val dash = runCatching { AppContainer.api.getDashboard(id) }.getOrNull()
-            if (dash != null) {
-                dash.user?.let { AppContainer.applyDashboardUser(it) }
-                dDay = dash.user?.dDay
-                loaded = true
-                checklists = dash.checklists
-                latestSimulation = dash.latestSimulation
+        viewModelScope.launch { fetchDashboard(id) }
+        viewModelScope.launch { fetchProfile(id) }
+        viewModelScope.launch { fetchRecommended(id) }
+    }
+
+    /**
+     * 홈 추천 정책: 조건 맞음 > 신청 시기 가까움 > 현금이 큰 순 (서버 점수 순서 그대로).
+     * 추천 API 를 못 쓰면(서버가 아직 예전 버전 · 연결 실패) 조건으로 고른 정책 목록을 받아 앱에서 같은 기준으로 줄 세운다.
+     */
+    private suspend fun fetchRecommended(id: String) {
+        val list = runCatching { AppContainer.api.getRecommendedPolicies(id) }.getOrNull()
+            ?.takeIf { it.isNotEmpty() }
+            ?.map { r ->
+                HomePolicy(
+                    id = r.policyId,
+                    category = r.category,
+                    name = r.name,
+                    whenText = r.whenText,
+                    // 현금이 아닌 지원(주거 · 상담 · 의료)은 금액 자리에 무엇을 받는지 분야로
+                    unit = r.amountUnit ?: "지원",
+                    amount = r.amountValue ?: NON_CASH_WORD[r.category] ?: r.category,
+                )
             }
-            // 타임라인 · 알림이 쓰는 할 일 목록도 함께 새로 고친다
-            PlanData.refresh(dash?.checklists)
+            ?: runCatching { AppContainer.api.browsePolicies(id, null).policies }.getOrNull()?.let { fromBrowse(it) }
+            ?: run {
+                // 둘 다 못 받으면 받아 둔 목록 그대로. 받아 둔 것도 없으면 빈 자리 대신 안내를 보여 준다
+                if (recommended == null && id == userId) recommended = emptyList()
+                return
+            }
+        if (id != userId) return // 그 사이 계정을 바꿨으면 버린다
+        recommended = list
+        com.project.on_road.data.HomeCache.put(id, list)
+    }
+
+    /** 조건으로 고른 정책 목록 → 홈 카드 (기본 조건 해당 > 매월 받는 돈 > 한 번 받는 돈 > 나머지, 8개) */
+    private fun fromBrowse(policies: List<com.project.on_road.data.Policy>): List<HomePolicy> =
+        policies
+            .filter { !it.forFamily }
+            .sortedWith(
+                compareBy<com.project.on_road.data.Policy> { if (it.eligibility == "match") 0 else 1 }
+                    .thenBy { amountRank(it.amountShort) }
+            )
+            .take(8)
+            .map { p ->
+                val (unit, amount) = splitAmount(p.amountShort)
+                HomePolicy(
+                    id = p.id,
+                    category = p.category,
+                    name = p.name,
+                    whenText = p.agency,
+                    unit = unit ?: "지원",
+                    amount = amount ?: NON_CASH_WORD[p.category] ?: p.category,
+                )
+            }
+
+    private fun amountRank(text: String): Int = when (splitAmount(text).first) {
+        "매월" -> 0
+        null -> 2
+        else -> 1
+    }
+
+    /**
+     * 금액 글에서 카드에 넣을 첫 금액만: "월 50만 원 (인/월)" → ("매월", "50만 원"), "최대 2,000만 원 이내" → ("최대", "2,000만 원").
+     * 금액이 없으면 (null, null)
+     */
+    private fun splitAmount(text: String): Pair<String?, String?> {
+        val m = MONEY.find(text) ?: return null to null
+        val before = text.substring(0, m.range.first)
+        // 내가 내는 돈(임대료 · 본인부담)은 받는 돈이 아니다
+        if (PAID.any { before.contains(it) }) return null to null
+        val unit = when {
+            Regex("(매\\s?월|월)\\s*$").containsMatchIn(before) || text.contains("/월") || text.contains("(인/월)") -> "매월"
+            Regex("(매\\s?년|연)\\s*$").containsMatchIn(before) -> "매년"
+            before.contains("최대") -> "최대"
+            else -> "지원"
         }
-        viewModelScope.launch { profile = runCatching { AppContainer.api.getUser(id) }.getOrNull() }
+        return unit to m.value.trim()
+    }
+
+    private val PAID = listOf("임대료", "본인부담")
+    private val MONEY = Regex("""\d[\d,]*\s?(?:억\s?(?:\d[\d,]*\s?만\s?)?|만\s?)?원""")
+
+    /** 당겨서 새로고침: load() 와 같은 것을 받고, 다 받을 때까지 새로고침 표시를 보여 준다 */
+    var refreshing by mutableStateOf(false)
+        private set
+
+    fun refresh() {
+        val id = userId ?: return
+        if (refreshing) return
+        refreshing = true
+        viewModelScope.launch {
+            val started = android.os.SystemClock.uptimeMillis()
+            kotlinx.coroutines.coroutineScope {
+                launch { fetchDashboard(id) }
+                launch { fetchProfile(id) }
+                launch { fetchRecommended(id) }
+            }
+            val rest = com.project.on_road.ui.components.REFRESH_MIN_MS - (android.os.SystemClock.uptimeMillis() - started)
+            if (rest > 0) kotlinx.coroutines.delay(rest)
+            refreshing = false
+        }
+    }
+
+    private suspend fun fetchDashboard(id: String) {
+        val dash = runCatching { AppContainer.api.getDashboard(id) }.getOrNull()
+        if (dash != null) {
+            dash.user?.let { AppContainer.applyDashboardUser(it) }
+            dDay = dash.user?.dDay
+            loaded = true
+            checklists = dash.checklists
+            latestSimulation = dash.latestSimulation
+        }
+        // 타임라인 · 알림이 쓰는 할 일 목록도 함께 새로 고친다
+        PlanData.refresh(dash?.checklists)
+    }
+
+    private suspend fun fetchProfile(id: String) {
+        val p = com.project.on_road.data.ProfileStore.refresh() ?: return
+        if (p.userId == id) profile = p
     }
 }
 
+/** 현금이 아닌 지원의 금액 자리 글 (분야 이름 → 받는 것) */
+private val NON_CASH_WORD = mapOf(
+    "주거" to "주거", "건강" to "의료비", "자립" to "자립 관리", "취업" to "취업 지원", "교육" to "교육비", "생활·금융" to "생활 지원",
+)
+
 /**
- * 나에게 맞는 지원 정책 (목업). 맞춤 추천 기능이 아직 없어서 화면용 값을 둔다.
+ * 나에게 맞는 지원 정책 카드 한 개 (서버 추천 · 화면 확인용 목업 공통).
  * id 가 있으면 정책 상세로, 없으면 이름으로 정책 검색을 연다.
  */
-private data class HomePolicy(
+data class HomePolicy(
     val id: String?,
     val category: String,
     val name: String,
@@ -162,6 +279,8 @@ private object HomeSpace {
     val PolicyWidth = 298.dp
     val PolicyHeight = 112.dp
     val PolicyGap = 10.dp
+    /** 정책 카드: 분야 → 제목 */
+    val CategoryGap = 4.dp
     /** 정책 카드 분야 아이콘: 크기 · 돌린 각도 · 바깥으로 나간 정도 · 진하기 (메인 색 카드는 2배) */
     val ArtSize = 80.dp
     const val ArtRotate = -25f
@@ -191,13 +310,16 @@ fun DashboardScreen(
     vm: DashboardViewModel = viewModel(),
 ) {
     LaunchedEffect(Unit) { vm.load() }
+    // 설정에서 지역 · 시군구 · 상황을 바꾸면 추천도 다시 받는다
+    val profileVersion = com.project.on_road.data.ProfileStore.version
+    LaunchedEffect(profileVersion) { if (profileVersion > 0) vm.load() }
     val pad = Modifier.padding(horizontal = OnRoadDimens.ScreenPadding)
 
     Column(
         Modifier
             .fillMaxSize()
             .background(OnRoadColors.Background)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(com.project.on_road.ui.components.rememberTabScrollState()),
     ) {
         HomeHeader(
             stageLabel = UserStage.YOUNG_ADULT.label,
@@ -218,7 +340,7 @@ fun DashboardScreen(
         // 나의 자립 조건
         Column(pad.stagger(1)) {
             Spacer(Modifier.height(HomeSpace.SectionTop))
-            SectionHeader("나의 자립 조건", actionText = "내 정보 수정", onAction = { onNavigate(Routes.SETTINGS) })
+            SectionHeader("나의 자립 조건", actionText = "내 정보 수정", onAction = { onNavigate(Routes.MY_CONDITIONS) })
             Spacer(Modifier.height(HomeSpace.TitleBottom))
             ConditionTags(vm.profile)
         }
@@ -233,7 +355,21 @@ fun DashboardScreen(
                 onAction = { onNavigate(Routes.policy()) },
             )
             Spacer(Modifier.height(HomeSpace.TitleBottom))
-            PolicyRail(MockPolicies) { p -> onNavigate(p.id?.let(Routes::policyDetail) ?: Routes.policy(query = p.name)) }
+            // 서버 추천 (조건 맞음 > 신청 시기 > 현금 순). 서버가 없는 화면 확인 모드에서만 목업
+            val list = vm.recommended ?: if (AppContainer.api is com.project.on_road.data.FakeOnRoadApi) MockPolicies else null
+            // 빈 자리 → 카드로 바뀔 때 서서히 (추천 순서가 바뀌어도 같은 방식)
+            com.project.on_road.ui.components.FadeSwitch(list, label = "home-recommend") { shown ->
+                when {
+                    shown == null -> PolicyRailLoading()
+                    shown.isEmpty() -> EmptyState(
+                        "조건에 맞는 정책을 찾지 못했어요.",
+                        modifier = pad,
+                        actionLabel = "정책 찾기",
+                        onAction = { onNavigate(Routes.policy()) },
+                    )
+                    else -> PolicyRail(shown) { p -> onNavigate(p.id?.let(Routes::policyDetail) ?: Routes.policy(query = p.name)) }
+                }
+            }
         }
 
         // 진행 중인 신청
@@ -241,7 +377,10 @@ fun DashboardScreen(
             Spacer(Modifier.height(HomeSpace.SectionTop))
             SectionHeader("진행 중인 신청", actionText = "전체보기", onAction = { onNavigate(Routes.CHECKLISTS) })
             Spacer(Modifier.height(HomeSpace.TitleBottom))
-            Applications(vm.checklists, onNavigate)
+            // 진행 중인 신청은 받아 온 뒤에 서서히 (받기 전에 '없어요'가 먼저 뜨지 않게)
+            com.project.on_road.ui.components.FadeSwitch(vm.loaded, label = "home-applications") { ready ->
+                if (ready) Applications(vm.checklists, onNavigate) else Spacer(Modifier.height(HomeSpace.PolicyHeight))
+            }
         }
 
         // 자립 준비도 함께해요
@@ -258,6 +397,7 @@ fun DashboardScreen(
                 }
             }
             Spacer(Modifier.height(HomeSpace.Bottom))
+            com.project.on_road.ui.components.TabBarSpacer()
         }
     }
 }
@@ -298,7 +438,7 @@ private fun HomeHeader(
 /** 홈 검색창: 정책 검색 화면 검색창과 같은 모양 (흰 바탕 · 회색 테두리, 누르면 테두리가 메인 색) */
 @Composable
 private fun HomeSearchField(onSearch: (String) -> Unit) {
-    var value by remember { mutableStateOf("") }
+    var value by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
     val shape = OnRoadShapes.Inner
     val line by androidx.compose.animation.animateColorAsState(
@@ -360,12 +500,21 @@ private fun ConditionTags(profile: UserProfile?) {
     val session = AppContainer.session
     val tags = buildList {
         profile?.let { add("만 ${Period.between(it.birthDate, LocalDate.now()).years}세") }
-        profile?.region?.takeIf { it.isNotBlank() }?.let { add("$it 거주") }
+        profile?.region?.takeIf { it.isNotBlank() }?.let { add(listOfNotNull(it, profile?.district).joinToString(" ") + " 거주") }
         add((profile?.stage ?: session.stage).label)
         (profile?.status ?: session.status)?.let { add(it.label.replace(" ", "")) }
+        // 퇴소 후: 직접 넣은 퇴소한 날 (기간 조건 계산 기준)
+        if (com.project.on_road.data.MyConditions.version >= 0 && (profile?.status ?: session.status) == com.project.on_road.data.LivingStatus.LEFT) {
+            com.project.on_road.data.MyConditions.leftDate?.let { add("${it.year}.${it.monthValue}.${it.dayOfMonth} 퇴소") }
+        }
     }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        tags.forEach { OnRoadTag(it, style = TagStyle.Neutral) }
+    FlowRow(
+        Modifier.animateContentSize(com.project.on_road.ui.theme.OnRoadMotion.move()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // 내 정보를 받아 새로 생긴 태그만 서서히 나타난다
+        tags.forEach { t -> androidx.compose.runtime.key(t) { OnRoadTag(t, Modifier.reveal(), style = TagStyle.Neutral) } }
     }
 }
 
@@ -379,8 +528,28 @@ private fun PolicyRail(policies: List<HomePolicy>, onOpen: (HomePolicy) -> Unit)
         contentPadding = PaddingValues(horizontal = OnRoadDimens.ScreenPadding),
         horizontalArrangement = Arrangement.spacedBy(HomeSpace.PolicyGap),
     ) {
-        items(policies, key = { it.name }) { p ->
+        // 이름이 같은 정책(기관만 다른 것)이 있어도 겹치지 않게 id 로 (id 가 없으면 순서로). 같은 key 가 두 번 나오면 앱이 꺼진다
+        itemsIndexed(policies, key = { i, it -> it.id ?: "p$i" }) { _, p ->
             PolicyCard(p, main = p === policies.first()) { onOpen(p) }
+        }
+    }
+}
+
+/** 추천을 받는 동안: 카드와 같은 크기의 빈 자리 (받고 나서 아래 섹션이 밀려 내려가지 않게) */
+@Composable
+private fun PolicyRailLoading() {
+    Row(
+        Modifier.padding(horizontal = OnRoadDimens.ScreenPadding),
+        horizontalArrangement = Arrangement.spacedBy(HomeSpace.PolicyGap),
+    ) {
+        repeat(2) {
+            Box(
+                Modifier
+                    .width(HomeSpace.PolicyWidth)
+                    .height(HomeSpace.PolicyHeight)
+                    .clip(OnRoadShapes.Card)
+                    .background(OnRoadColors.SurfaceSubtle),
+            )
         }
     }
 }
@@ -412,8 +581,12 @@ private fun PolicyCard(p: HomePolicy, main: Boolean, onClick: () -> Unit) {
         )
         Row(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp)) {
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
-                Text(p.category, style = OnRoadType.Micro, color = sub, maxLines = 1)
-                Text(p.name, style = OnRoadType.Body1.copy(fontWeight = FontWeight.Bold), color = fg, maxLines = 1, overflow = TextOverflow.Clip)
+                // 분야는 제목 바로 위에 붙여서 한 묶음으로 (신청 시기는 아래 끝)
+                Column {
+                    Text(p.category, style = OnRoadType.Micro, color = sub, maxLines = 1)
+                    Spacer(Modifier.height(HomeSpace.CategoryGap))
+                    Text(p.name, style = OnRoadType.Body1.copy(fontWeight = FontWeight.Bold), color = fg, maxLines = 1, overflow = TextOverflow.Clip)
+                }
                 Text(p.whenText, style = OnRoadType.Caption2, color = sub, maxLines = 1, overflow = TextOverflow.Clip)
             }
             Spacer(Modifier.width(8.dp))
@@ -457,11 +630,25 @@ private fun Applications(checklists: List<ChecklistSummary>, onNavigate: (String
             )
         }
         Spacer(Modifier.height(3.dp))
-        Text(
-            "${first.totalSteps}단계 중 ${first.doneSteps}단계 끝냈어요",
-            style = OnRoadType.Caption,
-            color = OnRoadColors.TextTertiary,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "${first.totalSteps}단계 중 ${first.doneSteps}단계 끝냈어요",
+                style = OnRoadType.Caption,
+                color = OnRoadColors.TextTertiary,
+                modifier = Modifier.weight(1f),
+            )
+            // 신청 예정일 (신청 관리 목록 카드와 같은 표시)
+            first.dueDate?.takeIf { !first.completed }?.let { due ->
+                val urgent = com.project.on_road.ui.components.DueDate.urgent(due)
+                Text(
+                    if (urgent) com.project.on_road.ui.components.DueDate.dText(due)
+                    else "${com.project.on_road.ui.components.DueDate.day(due)} · ${com.project.on_road.ui.components.DueDate.dText(due)}",
+                    style = if (urgent) OnRoadType.Caption.copy(fontWeight = FontWeight.Bold) else OnRoadType.Caption,
+                    color = com.project.on_road.ui.components.DueDate.color(due),
+                    maxLines = 1,
+                )
+            }
+        }
         Spacer(Modifier.height(16.dp))
         OnRoadButton(
             text = first.nextStep?.let { "${it.title}하기" } ?: "신청 결과 확인하기",
@@ -477,13 +664,14 @@ private fun Applications(checklists: List<ChecklistSummary>, onNavigate: (String
         ApplicationRow(
             name = c.policyName,
             state = c.nextStep?.let { "지금 · ${it.title}" } ?: ApplyResults.statusOf(c.policyId, c.completed).label,
+            due = c.dueDate?.takeIf { !c.completed },
         ) { onNavigate(Routes.checklist(c.policyId)) }
     }
 }
 
 /** 한 줄 신청: 이름(굵게) · 오른쪽 상태 · › */
 @Composable
-private fun ApplicationRow(name: String, state: String, onClick: () -> Unit) {
+private fun ApplicationRow(name: String, state: String, due: java.time.LocalDate? = null, onClick: () -> Unit) {
     val shape = OnRoadShapes.Inner
     Row(
         Modifier
@@ -504,6 +692,17 @@ private fun ApplicationRow(name: String, state: String, onClick: () -> Unit) {
             overflow = TextOverflow.Clip,
             modifier = Modifier.weight(1f),
         )
+        // 신청 예정일이 있으면 상태 앞에 D-day만 짧게
+        if (due != null) {
+            val urgent = com.project.on_road.ui.components.DueDate.urgent(due)
+            Text(
+                com.project.on_road.ui.components.DueDate.dText(due),
+                style = if (urgent) OnRoadType.Caption.copy(fontWeight = FontWeight.Bold) else OnRoadType.Caption,
+                color = com.project.on_road.ui.components.DueDate.color(due),
+                maxLines = 1,
+            )
+            Spacer(Modifier.width(8.dp))
+        }
         Text(state, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1)
         Spacer(Modifier.width(8.dp))
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))

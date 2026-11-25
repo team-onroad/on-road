@@ -33,6 +33,22 @@ data class UserProfile(
     val dDate: LocalDate? = null,
     /** dDate 까지 남은 날 (오늘 0, 지나면 음수). dDate 없으면 null */
     val dDay: Int? = null,
+    /** 거주 시 · 군 · 구 ("서초구"). 없으면 null → 시 · 군 · 구 정책은 '조건 확인 필요' */
+    val district: String? = null,
+    /** 자녀 · 동생 (아동 대상 정책 판정) */
+    val family: List<FamilyMember> = emptyList(),
+    /** 흥미 탐색 상위 유형 ("RA"). 아직 안 했으면 null */
+    val interestCode: String? = null,
+    /** 고른 관심 분야 (최대 3개, 직업 이름) */
+    val interestTags: List<String> = emptyList(),
+)
+
+/** 자녀 · 동생 한 명. relation: child | sibling, gender: male | female | null */
+data class FamilyMember(
+    val relation: String,
+    val gender: String?,
+    val birthDate: LocalDate,
+    val age: Int = 0,
 )
 
 /** 회원정보 수정에서 바꿀 값. null 이면 그대로 둔다 */
@@ -48,7 +64,30 @@ data class UserUpdate(
     val region: String? = null,
     /** 휴대폰 번호 (하이픈 없이) */
     val phone: String? = null,
+    /** 생년월일 (서류 대화에서 고친 생일을 내 정보에도 반영할 때) */
+    val birthDate: LocalDate? = null,
+    /** 지금 하는 일 */
+    val work: WorkStatus? = null,
+    /** true 면 지금 하는 일을 지운다 (work 보다 우선) */
+    val clearWork: Boolean = false,
+    /** 시 · 군 · 구 (null 이면 그대로, clearDistrict 면 지움) */
+    val district: String? = null,
+    val clearDistrict: Boolean = false,
+    /** 가족 목록 (보내면 통째로 바뀜, null 이면 그대로) */
+    val family: List<FamilyMember>? = null,
+    /** 흥미 탐색 상위 유형 (null 이면 그대로) */
+    val interestCode: String? = null,
+    /** 관심 분야 (보내면 통째로 바뀜, null 이면 그대로) */
+    val interestTags: List<String>? = null,
 )
+
+/** 서버 work 코드 (student · working · job_seeking · resting) */
+fun WorkStatus.serverCode(): String = when (this) {
+    WorkStatus.STUDENT -> "student"
+    WorkStatus.WORKING -> "working"
+    WorkStatus.JOB_SEEKING -> "job_seeking"
+    WorkStatus.RESTING -> "resting"
+}
 
 data class Evidence(val source: String, val snippet: String)
 
@@ -82,6 +121,170 @@ data class Policy(
     val eligibility: String? = null,
     /** 서버 짧은 요약 (검색 결과에만 있음). null 이면 target·amount·period 로 표시 */
     val cardSummary: PolicySummary? = null,
+    /** 카드 한 줄 금액 (support_amount 정리). 금액이 없는 정책은 빈 값 → 카드에서 줄을 숨긴다 */
+    val amountShort: String = "",
+    /** 답변 근거가 아닌 비슷한 정책 (검색 · 상담 결과에서 따로 묶어 보여 준다) */
+    val related: Boolean = false,
+    /** 가족(자녀 · 동생) 나이로 보이는 아동 대상 정책 (따로 묶는다) */
+    val forFamily: Boolean = false,
+    /** 문의처 원문 ("보건복지상담센터 129 / 주소지 행정복지센터"). 상세에서만 채워진다 */
+    val contact: String = "",
+    /** 정책 지역 ("전국", "서울" …). 상세에서만 채워진다 */
+    val region: String = "",
+    /** 나이 조건 (만 나이). 없으면 null */
+    val ageMin: Int? = null,
+    val ageMax: Int? = null,
+    /** 서버가 맞춘 금액 (원). amountCycle: monthly · yearly · once · null */
+    val amountWon: Long? = null,
+    val amountCycle: String? = null,
+    /** 지원 기간 (년). "보호종료 후 5년" 같은 표현에서만 */
+    val periodYears: Int? = null,
+    /** 같이 보면 좋은 정책 (상세에서만) */
+    val relatedPolicies: List<RelatedPolicyItem> = emptyList(),
+    /** 받는 것 한 줄 ("주거(오피스텔) 지원"). 돈이 아닌 정책도 있어서 금액이 없으면 이걸 보여 준다. 상세에서만 */
+    val benefit: String? = null,
+    /** 나이 · 지역 말고 따로 확인할 대상 조건 (상세에서만) */
+    val conditions: List<String> = emptyList(),
+    /** 받을 수 없는 경우 (상세에서만) */
+    val exclusions: List<String> = emptyList(),
+    /** 신청 방법 정리본: (갈래 이름, 쉬운 문장들). 상세에서만. 비어 있으면 applySteps → howToApply 순으로 쓴다 */
+    val applyWays: List<Pair<String, List<String>>> = emptyList(),
+    /** 신청 기한 (정리본에 있을 때만) */
+    val applyDeadline: String? = null,
+    /** 신청 방법을 짧게 나눈 구절 (상세에서만). 비어 있으면 howToApply 원문을 정리해서 쓴다 */
+    val applySteps: List<String> = emptyList(),
+    /** 필요 서류를 짧게 정리한 구절 (상세에서만). 괄호 안은 언제 내는지. 비어 있으면 requiredDocs */
+    val docFacts: List<String> = emptyList(),
+)
+
+/**
+ * 받는 것 한 줄 (목록 · 카드용). 돈이 아닌 정책(주거 · 의료 · 상담)이 많아서 금액만 보여 주지 않는다.
+ * 금액이 있으면 금액, 없으면 지원 내용 (상세의 benefit → 검색 카드 요약의 '지원 내용')
+ */
+val Policy.receives: String
+    get() = amountShort.ifBlank {
+        benefit ?: cardSummary?.sections?.firstOrNull { it.label == "지원 내용" }?.items?.firstOrNull().orEmpty()
+    }
+
+/** 정책 상세의 같이 보면 좋은 정책 한 개 */
+data class RelatedPolicyItem(
+    val id: String,
+    val name: String,
+    val agency: String,
+    val category: String,
+    val amountText: String?,
+    /** 받는 것 한 줄 (금액이 없을 때 대신 보여 준다) */
+    val benefit: String? = null,
+)
+
+/** 홈 '나에게 맞는 지원 정책' 한 개 (서버가 추천 순서대로 준다). category 는 분야 이름 ("주거" …) */
+data class RecommendedPolicy(
+    val policyId: String,
+    val name: String,
+    val category: String,
+    val eligibility: String,
+    val whenText: String,
+    /** 현금이면 "매월" · "매년" · "한 번"과 "50만 원". 현금이 아니면 null */
+    val amountUnit: String?,
+    val amountValue: String?,
+    val benefit: String?,
+)
+
+/** 맞춤 신청 로드맵 (3.32): 받을 수 있는 정책을 신청 시점별로. stage: before_leave · at_leave · now */
+data class PolicyRoadmap(
+    val baseDate: LocalDate?,
+    val dDay: Int?,
+    /** 조건이 맞는 정책의 현금 합계 (원) */
+    val monthlyWon: Long,
+    val onceWon: Long,
+    val matchCount: Int,
+    val stages: List<RoadmapStage>,
+)
+
+data class RoadmapStage(val stage: String, val title: String, val items: List<RoadmapItem>)
+
+data class RoadmapItem(
+    val policyId: String,
+    val name: String,
+    val agency: String,
+    /** 분야 코드 (housing · medical …) */
+    val category: String,
+    /** match · needs_check */
+    val eligibility: String,
+    val amountText: String?,
+    val benefit: String?,
+    /** 신청 시작일 (퇴소 예정일 기준). null 이면 지금 */
+    val applyFrom: LocalDate?,
+    val applyNote: String,
+    /** 지원이 끝나는 날 (퇴소 예정일 + 기간) */
+    val until: LocalDate? = null,
+    /** 나이 상한으로 신청할 수 있는 마지막 날 · 상한 (만 29세) */
+    val ageUntil: LocalDate? = null,
+    val ageMax: Int? = null,
+    /** 정책 지역 ("전국", "인천") */
+    val region: String = "전국",
+    /** 같은 종류 이름 ("자립정착금"). 같은 종류가 없으면 null */
+    val kindTitle: String? = null,
+    /** 같은 종류 중 이걸 고른 까닭 */
+    val pickReason: String? = null,
+    /** 같은 종류의 다른 정책 (받는 돈이 큰 순서) */
+    val alternatives: List<RoadmapAlternative> = emptyList(),
+)
+
+data class RoadmapAlternative(val policyId: String, val name: String, val region: String, val amountText: String?)
+
+/** 상담 정책 답변에 붙는 내 조건 요약 (넓은 질문일 때만) */
+data class ChatPlan(
+    val baseDate: LocalDate?,
+    val dDay: Int?,
+    val monthlyWon: Long,
+    val onceWon: Long,
+    val matchCount: Int,
+    val items: List<ChatPlanItem>,
+)
+
+data class ChatPlanItem(
+    val policyId: String,
+    val name: String,
+    val amountText: String?,
+    val benefit: String?,
+    val applyFrom: LocalDate?,
+    val applyNote: String,
+    /** 신청서 작성 도우미 양식이 있음 */
+    val hasForm: Boolean,
+)
+
+/** 진로 로드맵 (3.33). path: job · college · training */
+data class CareerRoadmap(val recommended: String, val paths: List<CareerPathPlan>)
+
+data class CareerPathPlan(val path: String, val title: String, val steps: List<CareerStep>, val policies: List<CareerPolicy>)
+
+/** kind: roleplay(scenarioId) · document(templateId) · link(url, phone) · app(target: interest · risk) · search(query) */
+data class CareerStep(
+    /** 바뀌지 않는 이름 ("job-jobcenter"). 끝낸 일 · 일정 id 에 쓴다 */
+    val stepId: String,
+    val kind: String,
+    val title: String,
+    val detail: String,
+    val scenarioId: String?,
+    val templateId: String?,
+    val url: String?,
+    val phone: String?,
+    val target: String? = null,
+    val query: String? = null,
+    /** 펼치면 보이는 '이렇게 해요' 줄 */
+    val guide: List<String> = emptyList(),
+    /** 내 조건 때문에 더한 할 일이면 그 까닭 */
+    val reason: String? = null,
+)
+
+data class CareerPolicy(
+    val policyId: String,
+    val name: String,
+    val agency: String,
+    val eligibility: String,
+    val amountText: String?,
+    val benefit: String?,
 )
 
 /** 정책 짧은 요약: 지원 대상 / 받을 수 없는 경우 / 지원 내용 / 지원 기간 / 신청 방법 */
@@ -180,6 +383,8 @@ data class Checklist(
     /** 항상 4단계: 대상 확인 → 조건 확인 → 서류 준비 → 신청 */
     val steps: List<ChecklistStep>,
     val docs: List<ChecklistDoc>,
+    /** 신청 예정일 (사용자가 정함). 없으면 null */
+    val dueDate: java.time.LocalDate? = null,
 ) {
     val policyId: String get() = policy.id
     val policyName: String get() = policy.name
@@ -204,6 +409,8 @@ data class ChecklistSummary(
     val totalSteps: Int,
     /** 체크하지 않은 첫 단계. null 이면 4단계 모두 완료 */
     val nextStep: StepType?,
+    /** 신청 예정일. 없으면 null */
+    val dueDate: java.time.LocalDate? = null,
 ) {
     val policyId: String get() = policy.id
     val policyName: String get() = policy.name

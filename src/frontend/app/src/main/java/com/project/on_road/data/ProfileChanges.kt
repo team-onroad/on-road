@@ -17,20 +17,18 @@ fun ProfileChangeDto.toChange() = ProfileChange(field, label, current, proposed,
 object ProfileChanges {
     /** 승인한 변경을 한 번에 회원정보 수정(PATCH /users/{id})으로 보내고, 앱 상태(단계·D-day)도 맞춘다 */
     suspend fun apply(changes: List<ProfileChange>): UserProfile {
-        // 지금 하는 일은 서버에 없는 값이라 기기에만 저장한다 (타임라인 개인화)
+        // 지금 하는 일은 서버에도 저장하고, 타임라인 개인화를 위해 기기에도 둔다
         changes.firstOrNull { it.field == "work" }?.let { c -> workOf(c.proposed)?.let { AppContainer.session.workStatus = it } }
-        val toServer = changes.filter { it.field != "work" }
         val userId = AppContainer.session.userId.orEmpty()
-        if (toServer.isEmpty()) {
-            return AppContainer.api.getUser(userId) ?: error("사용자 정보를 찾지 못했어요")
-        }
-        val update = toServer.fold(UserUpdate()) { u, c ->
+        val update = changes.fold(UserUpdate()) { u, c ->
             when (c.field) {
                 "name" -> u.copy(name = c.proposed)
                 "region" -> u.copy(region = c.proposed)
                 "phone" -> u.copy(phone = c.proposed)
+                "birth_date" -> u.copy(birthDate = runCatching { LocalDate.parse(c.proposed) }.getOrNull() ?: u.birthDate)
                 "status" -> u.copy(status = statusOf(c.proposed) ?: u.status)
                 "d_date" -> u.copy(dDate = runCatching { LocalDate.parse(c.proposed) }.getOrNull() ?: u.dDate)
+                "work" -> u.copy(work = workOf(c.proposed) ?: u.work)
                 else -> u
             }
         }

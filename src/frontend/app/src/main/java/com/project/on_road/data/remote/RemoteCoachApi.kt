@@ -54,7 +54,7 @@ class RemoteCoachApi(
     }
 
     override suspend fun roleplayReply(userId: String, scenarioId: String, stage: UserStage, history: List<RoleplayTurn>): RoleplayReply =
-        roleplayReplyWith(userId, scenarioId, stage, history, RoleplayPlan.NONE)
+        roleplayReplyWith(userId, scenarioId, stage, history, RoleplayPlan.NONE, null)
 
     // POST /coach/roleplay/{id}/reply : 마지막 내 말은 message, 그 앞은 history (1개 이상)
     override suspend fun roleplayReplyWith(
@@ -63,23 +63,26 @@ class RemoteCoachApi(
         stage: UserStage,
         history: List<RoleplayTurn>,
         plan: RoleplayPlan,
+        onPartial: ((String) -> Unit)?,
     ): RoleplayReply {
         val last = history.lastOrNull()
         require(last != null && last.fromUser) { "마지막은 내 말이어야 해요" }
         val prior = historyOf(history.dropLast(1).map { it.fromUser to it.text })
         require(prior.isNotEmpty()) { "첫 대사가 있어야 해요" }
-        val res = Network.call {
-            service.roleplayReply(
-                scenarioId,
-                RoleplayReplyRequestDto(
-                    userId = userId,
-                    stage = stage.toCode(),
-                    message = last.text.trim().take(MESSAGE_MAX),
-                    history = prior,
-                    variantId = plan.variantId,
-                    surpriseIds = plan.surpriseIds,
-                ),
-            )
+        val req = RoleplayReplyRequestDto(
+            userId = userId,
+            stage = stage.toCode(),
+            message = last.text.trim().take(MESSAGE_MAX),
+            history = prior,
+            variantId = plan.variantId,
+            surpriseIds = plan.surpriseIds,
+        )
+        // 스트리밍: 상대 말이 문장마다 onPartial 로 (음성은 첫 문장부터 읽는다). 서버에 아직 없으면 보통 요청
+        val res = try {
+            Sse.read(Network.call { service.roleplayReplyStream(scenarioId, req) }, RoleplayReplyDto::class.java, onPartial).first
+        } catch (e: ApiException) {
+            if (!e.noStreamRoute()) throw e
+            Network.call { service.roleplayReply(scenarioId, req) }
         }
         return RoleplayReply(res.reply, res.isFinished)
     }

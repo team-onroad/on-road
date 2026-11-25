@@ -169,6 +169,8 @@ private fun CategoryToggle(items: List<String>, selected: String, onSelect: (Str
 private object RoleplaySpace {
     /** 위 바 → 큰 카드 */
     val HeroTop = 0.dp
+    /** 준비 화면 '대화하면서 챙길 것' 태그 줄 사이 */
+    val CheckTagGap = 8.dp
     /** 큰 카드 → 상황 고르기 */
     val GroupGap = 28.dp
     /** 묶음 제목 → 분야 */
@@ -299,10 +301,14 @@ class RoleplayViewModel : ViewModel() {
     /** 이번 연습의 전개·돌발 상황 (서버가 첫 대사와 함께 정함) */
     var plan by mutableStateOf(RoleplayPlan.NONE)
         private set
+    /** 연습을 새로 시작할 때마다 바뀐다 (같은 첫 대사로 다시 해도 처음부터 읽게) */
+    var session by mutableStateOf(0)
+        private set
 
     fun start(id: String, variantId: String? = null) {
         if (scenarioId == id) return
         scenarioId = id
+        session++
         error = null
         viewModelScope.launch {
             if (scenario?.id != id) {
@@ -373,9 +379,20 @@ class RoleplayViewModel : ViewModel() {
         error = null
         viewModelScope.launch {
             waiting = true
-            runCatching { AppContainer.coachApi.roleplayReplyWith(userId, scenarioId, stage, turns.toList(), plan) }
+            // 상대 말은 문장이 오는 대로 자막에 먼저 붙이고 (음성은 첫 문장부터 읽는다), 다 오면 최종 대사로 바꾼다
+            var live = -1
+            runCatching {
+                AppContainer.coachApi.roleplayReplyWith(userId, scenarioId, stage, turns.toList(), plan) { partial ->
+                    if (live < 0) {
+                        turns.add(RoleplayTurn(false, partial))
+                        live = turns.lastIndex
+                    } else if (live < turns.size) {
+                        turns[live] = RoleplayTurn(false, partial)
+                    }
+                }
+            }
                 .onSuccess { r ->
-                    turns.add(RoleplayTurn(false, r.text))
+                    if (live in turns.indices) turns[live] = RoleplayTurn(false, r.text) else turns.add(RoleplayTurn(false, r.text))
                     refreshChecks()
                     // 상대역이 대화를 마무리하면 바로 피드백
                     if (r.finished) {
@@ -384,7 +401,8 @@ class RoleplayViewModel : ViewModel() {
                     }
                 }
                 .onFailure {
-                    // 보내지 못한 말은 입력창으로 돌려놓는다
+                    // 중간까지 온 상대 말은 지우고, 보내지 못한 말은 입력창으로 돌려놓는다
+                    if (live in turns.indices && !turns[live].fromUser) turns.removeAt(live)
                     if (turns.lastOrNull()?.fromUser == true) turns.removeAt(turns.lastIndex)
                     input = t
                     error = it.userMessage("대답을 받지 못했어요. 잠시 후 다시 보내 주세요.")
@@ -405,16 +423,7 @@ class RoleplayViewModel : ViewModel() {
                     com.project.on_road.data.ActivityStore.logPractice(
                         scenarioId, scenario?.title ?: "실전 연습", it.good.size, it.missed.size,
                     )
-                    // 서버에도 남겨 자립 준비도에 반영 (대화 내용은 보내지 않음, 실패해도 그대로)
-                    val fb = it
-                    viewModelScope.launch {
-                        runCatching {
-                            AppContainer.api.logActivity(
-                                userId, "practice", scenarioId,
-                                mapOf("good" to fb.good.size.coerceAtMost(100), "missed" to fb.missed.size.coerceAtMost(100), "score" to fb.score),
-                            )
-                        }
-                    }
+                    // 서버 기록은 피드백을 받을 때 서버가 직접 남긴다 (앱에서 따로 보내면 두 번 기록됨)
                 }
                 .onFailure { error = it.userMessage("피드백을 만들지 못했어요. 잠시 후 다시 끝내기를 눌러 주세요.") }
             finishing = false
@@ -451,6 +460,9 @@ class RoleplayViewModel : ViewModel() {
         start(id, variant)
     }
 }
+
+/** 들은 말을 보여 주고 자동으로 보내기까지 (ms) */
+private const val AUTO_SEND_MS = 1500L
 
 /** 대사 길이 (3.18 message 1~500자) */
 private const val MESSAGE_LIMIT = 500
@@ -523,26 +535,48 @@ fun RoleplayPlayScreen(
         else listen()
     }
 
-    // 상대 대사가 오면 읽어 주고, 다 읽으면 내 차례 (마이크 자동으로 켜짐)
-    LaunchedEffect(vm.turns.size, ready) {
+    // 상대 대사가 오면 읽어 준다. 문장이 하나씩 오면(스트리밍) 첫 문장부터 읽고 뒤 문장은 이어서 읽는다
+    val lastTurn = vm.turns.lastOrNull()
+    var spokenKey by remember { mutableStateOf("") }      // 읽고 있는 대사 (연습 회차:순서)
+    var spokenText by remember { mutableStateOf("") }     // 그 대사에서 이미 읽기로 넘긴 글
+    var queuedChunks by remember { mutableIntStateOf(0) } // 읽기로 넘긴 조각 수
+    var finishedChunks by remember { mutableIntStateOf(0) } // 다 읽은 조각 수
+    LaunchedEffect(vm.turns.size, lastTurn?.text, ready) {
         if (!ready) return@LaunchedEffect
+        val last = lastTurn ?: return@LaunchedEffect
+        if (last.fromUser || vm.feedback != null) return@LaunchedEffect
+        val key = "${vm.session}:${vm.turns.lastIndex}"
+        // 새 대사이거나, 마지막에 앞부분이 바뀐 대사(드묾)면 처음부터 다시 읽는다
+        val fresh = key != spokenKey || !last.text.startsWith(spokenText)
+        if (fresh) {
+            spokenKey = key
+            spokenText = ""
+            listener.cancel()
+        }
+        val piece = last.text.drop(spokenText.length).trim()
+        if (piece.isEmpty()) return@LaunchedEffect
+        spokenText = last.text
+        if (speaker == null) return@LaunchedEffect
+        speaking = true
+        val n = ++queuedChunks
+        val done = { finishedChunks = n }
+        if (fresh) speaker.speak(piece, done) else speaker.enqueue(piece, done)
+    }
+    // 대답을 다 받았고 다 읽었으면 내 차례 (마이크 자동으로 켜짐)
+    LaunchedEffect(finishedChunks, vm.waiting, ready) {
+        if (!ready || vm.waiting) return@LaunchedEffect
         val last = vm.turns.lastOrNull() ?: return@LaunchedEffect
         if (last.fromUser || vm.feedback != null) return@LaunchedEffect
-        listener.cancel()
-        if (speaker != null) {
-            speaking = true
-            speaker.speak(last.text) {
-                speaking = false
-                if (vm.canSend && !vm.finishing && !typing) talk()
-            }
-        } else if (!typing) talk()
+        if (speaker != null && finishedChunks != queuedChunks) return@LaunchedEffect
+        speaking = false
+        if (vm.canSend && !vm.finishing && !typing) talk()
     }
     LaunchedEffect(draft, autoSend) {
         if (draft == null || !autoSend) return@LaunchedEffect
-        for (i in 3 downTo 1) {
-            countdown = i
-            kotlinx.coroutines.delay(1000)
-        }
+        // 들은 말을 잠깐 보여 주고 보낸다 (잘못 들었으면 눌러서 멈춤). 예전 3초 → 1.5초
+        countdown = 1
+        kotlinx.coroutines.delay(AUTO_SEND_MS)
+        countdown = 0
         sendDraft()
     }
     // 통화 시간
@@ -568,12 +602,15 @@ fun RoleplayPlayScreen(
     }
 
     val phase = when {
-        vm.waiting -> CallPhase.THINKING
         speaking -> CallPhase.SPEAKING
+        vm.waiting -> CallPhase.THINKING
         listener.state == ListenState.LISTENING -> CallPhase.LISTENING
         else -> CallPhase.MY_TURN
     }
     val partner = vm.scenario?.partner ?: "상대역"
+    // 통화 중 (준비 화면 · 결과 화면이 아닐 때). 위 바를 누르면 챙길 것을 펼친다
+    val inCall = ready && vm.feedback == null && !vm.finishing
+    var showChecks by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
         OnRoadTopBar(
@@ -582,6 +619,12 @@ fun RoleplayPlayScreen(
             // 홈 버튼 대신 오른쪽에 '끝내기' (한 마디라도 해야 눌린다)
             onClose = null,
             divider = false,
+            // 통화 중에는 제목 아래 작은 한 줄: 목표 · 챙김 수 (예전 회색 띠 대신)
+            subtitle = vm.scenario?.takeIf { inCall }?.let { s ->
+                if (vm.checks.isEmpty()) s.goal else "${s.goal} · 챙김 ${vm.checks.count { it.ok }}/${vm.checks.size}"
+            },
+            // 제목 · 목표 바를 누르면 아래로 챙길 것 태그가 펼쳐진다
+            onTitleClick = { showChecks = !showChecks },
             trailing = if (vm.feedback == null && ready) {
                 {
                     val canFinish = vm.turns.any { it.fromUser } && !vm.finishing
@@ -619,8 +662,14 @@ fun RoleplayPlayScreen(
                     onDone = onBack,
                     doneLabel = doneLabel,
                     onStep = { onNavigate(com.project.on_road.ui.screens.navigation.stepRoute(it)) },
-                    next = { NextTaskBlock(onNavigate, finished = com.project.on_road.data.PlanGo.Practice(scenarioId)) },
                 )
+                // 일정(퇴소 타임라인)의 연습 할 일은 화면에 따로 카드 없이 끝냄으로 표시한다
+                LaunchedEffect(Unit) {
+                    val s = AppContainer.session
+                    if (s.leaveDate != null && !com.project.on_road.data.DDate.isGoal(s.status)) {
+                        runCatching { com.project.on_road.data.PlanData.completeBy(com.project.on_road.data.PlanGo.Practice(scenarioId)) }
+                    }
+                }
             }
             return@Column
         }
@@ -649,8 +698,23 @@ fun RoleplayPlayScreen(
             return@Column
         }
 
-        // ── 위: 목표 한 줄 + 챙길 것 한 줄 (눌러야 상황 설명이 펼쳐진다) ──
-        vm.scenario?.let { s -> SituationBar(s.setting, s.goal, vm.checks) }
+        // 목표 · 챙김 수는 위 바 제목 아래 작은 한 줄로. 바를 누르면 챙길 것 태그가 한 줄에 하나씩 펼쳐진다
+        ExpandArea(inCall && showChecks && vm.checks.isNotEmpty()) {
+            Column(
+                Modifier.fillMaxWidth().padding(start = CallSpace.ChecksStart, end = OnRoadDimens.ScreenPadding, bottom = CallSpace.ChecksBottom),
+                verticalArrangement = Arrangement.spacedBy(RoleplaySpace.CheckTagGap),
+            ) {
+                vm.checks.filter { it.kind != "surprise" || it.ok }.forEach { c ->
+                    OnRoadTag(
+                        c.label + if (c.kind == "surprise") " (돌발)" else "",
+                        style = if (c.ok) TagStyle.PrimaryOutline else TagStyle.Neutral,
+                        textStyle = OnRoadType.Caption2.copy(fontWeight = if (c.ok) FontWeight.Medium else FontWeight.Normal),
+                        large = true,
+                    )
+                }
+            }
+        }
+        val notice = vm.error ?: listener.errorMessage
 
         // ── 가운데: 자막 (위로 올라간 자막은 위쪽에서 흐려지며 사라진다) ──
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -663,6 +727,7 @@ fun RoleplayPlayScreen(
                             live = listener.partial.takeIf { phase == CallPhase.LISTENING }
                                 ?.let { p -> if (appending && draft != null) "$draft $p".trim() else p },
                         )
+                        CallNotice(notice, Modifier.align(Alignment.Center).offset(y = CallSpace.NoticeLift))
                         Box(
                             Modifier
                                 .fillMaxWidth()
@@ -678,6 +743,7 @@ fun RoleplayPlayScreen(
                 } else {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("자막을 껐어요. 소리로 들어 보세요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+                        CallNotice(notice, Modifier.offset(y = CallSpace.NoticeLift))
                     }
                 }
             }
@@ -768,9 +834,9 @@ fun RoleplayPlayScreen(
                     vm.askHint()
                 },
                 typing = typing,
-                // 들은 말 확인 · 힌트 · 글 입력 카드가 떠 있을 땐 안내 · 상태 글씨를 숨긴다 (한 번에 하나만)
-                notice = (vm.error ?: listener.errorMessage).takeIf { panel == 0 },
-                showStatus = panel == 0,
+                // 상태 글씨는 쓰지 않는다. '잘 듣지 못했어요' 같은 안내는 자막 가운데 위 알림으로
+                notice = null,
+                showStatus = false,
                 onSwitch = {
                     if (typing) {
                         typing = false
@@ -859,11 +925,9 @@ private fun Briefing(
                 when (state) {
                     0 -> SkeletonList(rows = 3)
                     1 -> Text("대화를 시작하면 챙길 것을 하나씩 알려 드려요.", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
-                    else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        checks.filter { it.kind != "surprise" }.forEach { c ->
-                            // 목록의 상황 카드와 같은 연회색 카드 (누르는 동작은 없음)
-                            DataListCard(title = c.label, onClick = null, titleBold = false)
-                        }
+                    // 앱 기본 태그를 한 줄에 하나씩 (통화 화면 위 챙길 것 칩 · 연습 끝 결과 태그와 같은 모양)
+                    else -> Column(verticalArrangement = Arrangement.spacedBy(RoleplaySpace.CheckTagGap)) {
+                        checks.filter { it.kind != "surprise" }.forEach { c -> OnRoadTag(c.label, large = true) }
                     }
                 }
             }
@@ -877,15 +941,14 @@ private fun Briefing(
         // 아래 고정 버튼 (구분선 없이)
         Column(Modifier.background(Color.White).padding(horizontal = OnRoadDimens.ScreenPadding).padding(top = 8.dp, bottom = 12.dp)) {
             OnRoadButton(
-                if (loading) "상대역 준비 중…" else "통화 시작",
+                if (loading) "상대역 준비 중" else "대화 시작",
                 onStartTalk,
                 Modifier.fillMaxWidth(),
                 enabled = !loading && error == null,
                 loading = loading,
-                leadingIcon = if (loading) null else Icons.Outlined.Mic,
             )
             Text(
-                "말하기 어렵다면 글로 연습하기",
+                "글로 연습하기",
                 style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
                 color = OnRoadColors.TextTertiary,
                 textAlign = TextAlign.Center,
@@ -1022,8 +1085,49 @@ private fun CallControls(
     }
 }
 
+/**
+ * 통화 중 안내 ('잘 듣지 못했어요' 등): 자막 칸 가운데 조금 위에 알림처럼 떴다가 3초 뒤 사라진다.
+ * 메인 색 바탕 · 흰 글씨 둥근 띠 (앱 알림 토스트와 같은 모양)
+ */
+@Composable
+private fun CallNotice(text: String?, modifier: Modifier = Modifier) {
+    var shown by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(text) {
+        shown = text
+        if (text != null) {
+            kotlinx.coroutines.delay(CallSpace.NoticeMs)
+            shown = null
+        }
+    }
+    androidx.compose.animation.AnimatedVisibility(
+        visible = shown != null,
+        modifier = modifier,
+        enter = androidx.compose.animation.fadeIn(com.project.on_road.ui.theme.OnRoadMotion.enter()) +
+            androidx.compose.animation.slideInVertically(com.project.on_road.ui.theme.OnRoadMotion.enter()) { it / 3 },
+        exit = androidx.compose.animation.fadeOut(com.project.on_road.ui.theme.OnRoadMotion.exit()),
+    ) {
+        Text(
+            (shown ?: text).orEmpty().keepWords(),
+            style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .padding(horizontal = OnRoadDimens.ScreenPadding)
+                .clip(OnRoadShapes.Chip)
+                .background(OnRoadColors.Primary.copy(alpha = 0.92f))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        )
+    }
+}
+
 /** 통화 화면 크기 (숫자만 바꿔서 조절) */
 private object CallSpace {
+    /** 안내 알림: 자막 칸 가운데에서 위로 올리는 만큼 · 보이는 시간 */
+    val NoticeLift = (-48).dp
+    /** 펼친 챙길 것 태그 시작선 = 위 바 제목 시작선 (바 안쪽 여백 12 + 뒤로 버튼 자리) */
+    val ChecksStart = 12.dp + TopBarSubtitleStart
+    val ChecksBottom = 14.dp
+    const val NoticeMs = 3000L
     /** 자막 · 다시 듣기 · 힌트 · 글로 쓰기 버튼 크기 */
     val ToolSize = 48.dp
     /** 위 목표 띠 위아래 여백 */
@@ -1144,7 +1248,7 @@ private fun HeardCard(
                 .padding(16.dp),
         ) {
             Text(
-                if (countdown != null && countdown > 0) "${countdown}초 뒤 보내요" else "이렇게 들었어요",
+                if (countdown != null && countdown > 0) "곧 보내요 · 누르면 멈춰요" else "이렇게 들었어요",
                 style = OnRoadType.Caption2,
                 color = OnRoadColors.TextTertiary,
             )
@@ -1242,18 +1346,23 @@ private val CAPTION_TEXT = OnRoadType.Body2.copy(lineHeight = OnRoadType.Body3.l
 @Composable
 private fun Captions(turns: List<RoleplayTurn>, partner: String, live: String?) {
     val list = rememberLazyListState()
-    val count = turns.size + if (live != null) 1 else 0
-    LaunchedEffect(count, live) { if (count > 0) list.animateScrollToItem(count - 1) }
+    // 맨 아래(최근 말)에 붙여 둔다: 아래 카드가 뜨거나 상대 말이 길어져 칸이 줄어도 마지막 말이 가려지지 않게.
+    // (예전에는 대사 수가 바뀔 때만 내려가서, 카드가 뜨면 마지막 말이 아래로 숨어 손으로 올려야 했다)
+    val last = turns.lastOrNull()?.text?.length ?: 0
+    LaunchedEffect(turns.size, last, !live.isNullOrBlank()) { list.animateScrollToItem(0) }
     LazyColumn(
         state = list,
         modifier = Modifier.fillMaxSize(),
+        reverseLayout = true,
         contentPadding = PaddingValues(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = 24.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp, Alignment.Bottom),
     ) {
-        itemsIndexed(turns) { _, t -> CaptionLine(partner, t.text, mine = t.fromUser) }
-        if (live != null) {
-            item(key = "live") { CaptionLine(partner, live.ifBlank { "…" }, mine = true, live = true) }
+        // 듣는 중인 말: 글자가 들리기 시작하면 연한 말풍선으로 (빈 칸 · 말줄임표는 보여 주지 않는다)
+        if (!live.isNullOrBlank()) {
+            item(key = "live") { CaptionLine(partner, live, mine = true, live = true) }
         }
+        val shown = turns.withIndex().reversed()
+        items(shown.size, key = { shown[it].index }) { i -> CaptionLine(partner, shown[i].value.text, mine = shown[i].value.fromUser) }
     }
 }
 
@@ -1461,6 +1570,20 @@ private object ResultSpace {
     val Top = 16.dp
     /** 묶음 사이 (배경 없는 글머리 목록 뒤에서도 묶음이 확실히 나뉘게 조금 넓게) */
     val GroupGap = 36.dp
+    /** 결과 · 다음엔 이렇게 · 이어서 해 보기 덩어리 사이 */
+    val BlockGap = 48.dp
+    /** 다음엔 이렇게: 항목 사이 */
+    val TipGap = 22.dp
+    /** 항목 이름 → 내가 한 말 */
+    val TipNameGap = 8.dp
+    /** 줄 사이 (점수 → 챙긴 개수, 내가 한 말 → 이렇게) */
+    val LineGap = 4.dp
+    /** 왼쪽 라벨 폭 ('내가 한 말') */
+    val TipLabelWidth = 64.dp
+    /** 챙긴 개수 → 태그 */
+    val TagTop = 10.dp
+    /** 태그 사이 */
+    val TagGap = 6.dp
     /** 묶음 제목 → 첫 카드 */
     val HeaderGap = 12.dp
     /** 카드 사이 */
@@ -1476,11 +1599,14 @@ private object ResultSpace {
 }
 
 /**
- * 연습 결과: 실전 연습 목록 · 준비 화면과 같은 부품만 쓴다.
- * 1. 결과 카드 (흰 카드 · 칩 테두리): 상황 → 점수(가장 큰 글씨) · 한 줄 평 → 챙긴 개수 / 성장 기록에 남기기
- * 2. 묶음 제목(GroupTitle) + 연회색 목록 카드: 다음엔 챙길 것 → 잘 챙긴 것 → 바꿔 말하기 → 챙겨 갈 서류
- * 3. 이어서 해 보기 · 다음 할 일 → 큰 버튼 하나 + 글자 버튼
+ * 연습 결과. 위계: 점수(32 굵게) → 묶음 제목(17 굵게) → 항목 이름(13 굵게 회색) → 추천 문장(15 메인 색) · 내가 한 말(14 회색) · 라벨(12 연회색).
+ * 굵은 글은 점수 · 묶음 제목 · 항목 이름뿐. 덩어리 사이 48, 항목 사이 22, 줄 사이 4.
+ * 1. 결과: 점수 · 오른쪽 끝 '기록에 남기기' / 챙긴 개수 / 항목 태그 (챙김 = 메인 색 테두리, 못 챙김 = 회색)
+ * 2. 다음엔 이렇게 말해 봐요: 항목마다 내가 한 말 ↔ 이렇게 (배경 없이 글로)
+ * 3. 이어서 해 보기: 누르는 것만 연회색 카드 (최대 2개, 온 곳으로 돌아가기가 먼저)
+ * 아래 고정: 같은 상황 다시 하기 + 글자 버튼
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun FeedbackPage(
     fb: RoleplayFeedback,
@@ -1492,152 +1618,173 @@ private fun FeedbackPage(
     onDone: () -> Unit,
     doneLabel: String = "목록으로",
     onStep: (NextStep) -> Unit = {},
-    /** 타임라인 할 일 자동 완료 + 다음 할 일 */
-    next: @Composable () -> Unit = {},
 ) {
-    // 챙길 것 목록 (서버가 items 를 주면 그걸, 아니면 good · missed 글자 목록)
-    val missedItems: List<Pair<String, String?>> =
-        if (fb.items.isNotEmpty()) fb.items.filter { !it.ok }.map { (it.label + if (it.kind == "surprise") " (돌발)" else "") to it.example }
-        else fb.missed.map { it to null }
-    val goodItems: List<String> =
-        if (fb.items.isNotEmpty()) fb.items.filter { it.ok }.map { it.label + if (it.kind == "surprise") " (돌발)" else "" }
-        else fb.good
-    val total = missedItems.size + goodItems.size
+    // 항목 (서버가 items 를 주면 그걸, 아니면 good · missed 글자 목록)
+    val checks: List<RoleplayCheck> =
+        fb.items.ifEmpty { fb.good.map { RoleplayCheck(it, true, "base", null) } + fb.missed.map { RoleplayCheck(it, false, "base", null) } }
+    val good = checks.count { it.ok }
+    // 다음엔 이렇게: 못 챙긴 항목(예시 말이 있을 때) + 내가 한 말을 더 또렷하게
+    val tips: List<FeedbackTip> =
+        checks.filter { !it.ok && !it.example.isNullOrBlank() }.map { FeedbackTip(it.label, null, it.example!!) } +
+            fb.better.map { (before, after) -> FeedbackTip("더 또렷하게 말하기", before, after) }
+    // 이어서 해 보기: 신청 관리 · 일정에서 왔으면 그곳으로 돌아가기가 먼저
+    val fromPlace = doneLabel != "목록으로"
+    val steps = fb.nextSteps.take(if (fromPlace) 1 else 2)
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = OnRoadDimens.ScreenPadding),
-    ) {
-        Spacer(Modifier.height(ResultSpace.Top))
-
-        // 1. 결과 카드
-        OnRoadCard(
-            Modifier.fillMaxWidth(),
-            borderColor = OnRoadColors.BorderChip,
-            shape = OnRoadShapes.Item,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+    Column(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = OnRoadDimens.ScreenPadding),
         ) {
-            Text(
-                fb.situation ?: "연습 결과",
-                style = OnRoadType.Caption2,
-                color = OnRoadColors.TextTertiary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(6.dp))
-            val score = fb.score
-            Row(verticalAlignment = Alignment.Bottom) {
-                if (score != null) {
-                    com.project.on_road.ui.components.AnimatedNumber(score.toLong(), { "$it" }, style = OnRoadType.Display, color = OnRoadColors.TextPrimary, durationMs = 900)
-                    Text("점", style = OnRoadType.Body2, color = OnRoadColors.TextSecondary, modifier = Modifier.padding(start = 2.dp, bottom = 4.dp))
-                    fb.grade?.let {
-                        Spacer(Modifier.width(10.dp))
-                        Text(it, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
-                    }
-                } else {
-                    Text("수고했어요", style = OnRoadType.Display, color = OnRoadColors.TextPrimary)
-                }
-            }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(ResultSpace.Top))
+            // 결과 → 다음엔 이렇게 → 이어서 해 보기가 아래에서 차례로 올라온다 (처음 한 번)
+            // 1. 결과
+            Column(Modifier.stagger(0)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (total > 0) "챙김 ${goodItems.size}/$total" else "",
-                    style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
-                    color = OnRoadColors.TextTertiary,
-                    modifier = Modifier.weight(1f),
-                )
-                // 성장 기록에 남기기: 오른쪽 작은 글자 버튼 (남기면 '남겼어요')
+                val score = fb.score
+                if (score != null) {
+                    com.project.on_road.ui.components.AnimatedNumber(score.toLong(), { "${it}점" }, style = OnRoadType.Hero, color = OnRoadColors.TextPrimary, durationMs = 900)
+                } else {
+                    Text("수고했어요", style = OnRoadType.Hero, color = OnRoadColors.TextPrimary)
+                }
+                Spacer(Modifier.weight(1f))
                 val saved = fb.roleplayId != null
                 Text(
                     when {
-                        saved -> "성장 기록에 남겼어요"
-                        saving -> "남기는 중…"
-                        else -> "성장 기록에 남기기 ›"
+                        saved -> "기록에 남겼어요"
+                        saving -> "남기는 중"
+                        else -> "기록에 남기기 ›"
                     },
                     style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
                     color = if (saved) OnRoadColors.TextQuaternary else OnRoadColors.TextSecondary,
                     modifier = Modifier
                         .clip(OnRoadShapes.Chip)
                         .tap(enabled = !saved && !saving, onClick = onSave)
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
                 )
             }
             saveError?.let {
-                Spacer(Modifier.height(4.dp))
                 Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
             }
-        }
-
-        // 2. 다음엔 챙길 것 (놓친 것 먼저)
-        if (missedItems.isNotEmpty()) {
-            ResultGroup("다음엔 이것도 챙겨요", gap = ResultSpace.BulletGap) {
-                // 배경 없이 글머리 기호 목록
-                missedItems.forEach { (label, example) -> BulletLine(label, example?.let { "“$it”" }) }
-            }
-        }
-        if (goodItems.isNotEmpty()) {
-            ResultGroup("잘 챙겼어요") {
-                goodItems.forEach { label ->
-                    DataListCard(
-                        title = label,
-                        onClick = null,
-                        titleBold = false,
-                        // 챙김 표시: 타임라인 '끝냄'과 같은 포인트 색
-                        trailing = { Icon(Icons.Filled.Check, "챙김", tint = OnRoadColors.Point, modifier = Modifier.size(18.dp)) },
-                    )
-                }
-            }
-        }
-
-        // 내가 한 말 → 이렇게 바꿔 말하기
-        if (fb.better.isNotEmpty()) {
-            ResultGroup("이렇게 바꿔 말해 봐요") {
-                fb.better.forEach { (before, after) ->
-                    OnRoadCard(
-                        Modifier.fillMaxWidth(),
-                        background = OnRoadColors.SurfaceSubtle,
-                        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
-                        shape = OnRoadShapes.Item,
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 15.dp),
-                    ) {
-                        Text("내가 한 말 · $before", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
-                        Spacer(Modifier.height(4.dp))
-                        Text(after, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+            if (checks.isNotEmpty()) {
+                Spacer(Modifier.height(ResultSpace.LineGap))
+                Text("${checks.size}개 중 ${good}개를 챙겼어요", style = OnRoadType.Body3, color = OnRoadColors.TextTertiary)
+                Spacer(Modifier.height(ResultSpace.TagTop))
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(ResultSpace.TagGap),
+                    verticalArrangement = Arrangement.spacedBy(ResultSpace.TagGap),
+                ) {
+                    // 챙긴 것 먼저, 못 챙긴 것은 회색
+                    checks.sortedBy { !it.ok }.forEach { c ->
+                        val label = c.label + if (c.kind == "surprise") " (돌발)" else ""
+                        com.project.on_road.ui.components.OnRoadTag(
+                            label,
+                            style = if (c.ok) com.project.on_road.ui.components.TagStyle.PrimaryOutline else com.project.on_road.ui.components.TagStyle.Neutral,
+                            textStyle = OnRoadType.Caption2.copy(fontWeight = if (c.ok) FontWeight.Medium else FontWeight.Normal),
+                            large = true,
+                        )
                     }
                 }
             }
-        }
 
-        if (fb.documents.isNotEmpty()) {
-            ResultGroup("챙겨 갈 서류", gap = ResultSpace.BulletGap) {
-                fb.documents.forEach { BulletLine(it) }
             }
-        }
 
-        // 3. 이어서
-        if (fb.nextSteps.isNotEmpty()) {
-            Spacer(Modifier.height(ResultSpace.GroupGap))
-            NextStepList(fb.nextSteps, onStep)
-        }
-        Spacer(Modifier.height(ResultSpace.GroupGap))
-        next()
-        Spacer(Modifier.height(ResultSpace.GroupGap))
-        // 큰 버튼은 하나만. 나머지는 아래 글자 버튼으로
-        OnRoadButton("같은 상황 다시 하기", onRetrySame, Modifier.fillMaxWidth())
-        Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            listOf("다른 전개로 연습하기" to onRetryNew, doneLabel to onDone).forEach { (label, act) ->
-                Text(
-                    label,
-                    style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
-                    color = OnRoadColors.TextTertiary,
-                    modifier = Modifier.clip(OnRoadShapes.Chip).tap(onClick = act).padding(horizontal = 14.dp, vertical = 12.dp),
-                )
+            // 2. 다음엔 이렇게 말해 봐요
+            if (tips.isNotEmpty()) Column(Modifier.stagger(1)) {
+                Spacer(Modifier.height(ResultSpace.BlockGap))
+                GroupTitle("다음엔 이렇게 말해 봐요")
+                Spacer(Modifier.height(ResultSpace.HeaderGap))
+                // 항목마다 연회색 카드: 항목 이름(13 회색) → 내가 한 말(14 연회색, 없으면 줄 없음) → 추천하는 말(15 진하게)
+                Column(verticalArrangement = Arrangement.spacedBy(ResultSpace.CardGap)) {
+                    tips.forEach { t ->
+                        OnRoadCard(
+                            Modifier.fillMaxWidth(),
+                            background = OnRoadColors.SurfaceSubtle,
+                            borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+                            shape = OnRoadShapes.Item,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                        ) {
+                            Text(t.label, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+                            t.mine?.let {
+                                Spacer(Modifier.height(ResultSpace.TipNameGap))
+                                Text(it.keepWords(), style = OnRoadType.Body3, color = OnRoadColors.TextQuaternary)
+                            }
+                            Spacer(Modifier.height(if (t.mine != null) 2.dp else ResultSpace.TipNameGap))
+                            Text(t.better.keepWords(), style = OnRoadType.Body2, color = OnRoadColors.TextPrimary)
+                        }
+                    }
+                }
             }
+
+            // 3. 이어서 해 보기 (누르는 것만 카드)
+            if (fromPlace || steps.isNotEmpty()) Column(Modifier.stagger(2)) {
+                Spacer(Modifier.height(ResultSpace.BlockGap))
+                GroupTitle("이어서 해 보기")
+                Spacer(Modifier.height(ResultSpace.HeaderGap))
+                Column(verticalArrangement = Arrangement.spacedBy(ResultSpace.CardGap)) {
+                    if (fromPlace) NextLine(doneLabel, onDone)
+                    steps.forEach { st -> NextLine(st.label) { onStep(st) } }
+                }
+            }
+            Spacer(Modifier.height(24.dp))
         }
-        Spacer(Modifier.height(20.dp))
+        // 아래 고정: 큰 버튼은 하나만
+        Column(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = OnRoadDimens.ScreenPadding).padding(top = 10.dp)) {
+            OnRoadButton("같은 상황 다시 하기", onRetrySame, Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                listOf("다른 전개로 연습하기" to onRetryNew, (if (fromPlace) "목록으로" else doneLabel) to onDone).forEach { (label, act) ->
+                    Text(
+                        label,
+                        style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                        color = OnRoadColors.TextTertiary,
+                        modifier = Modifier.clip(OnRoadShapes.Chip).tap(onClick = act).padding(horizontal = 14.dp, vertical = 10.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+        }
+    }
+}
+
+/** 다음엔 이렇게: 항목 이름 · 내가 한 말(없으면 null) · 추천하는 말 */
+private data class FeedbackTip(val label: String, val mine: String?, val better: String)
+
+/** 왼쪽 라벨(12 연회색, 폭 고정) + 오른쪽 문장. 추천하는 말이 내가 한 말보다 크고 진하다 */
+@Composable
+private fun TipLine(label: String, text: String, mine: Boolean) {
+    Row {
+        Text(
+            label,
+            style = OnRoadType.Caption2,
+            color = OnRoadColors.TextQuaternary,
+            modifier = Modifier.width(ResultSpace.TipLabelWidth).padding(top = if (mine) 2.dp else 3.dp),
+        )
+        Text(
+            text.keepWords(),
+            style = if (mine) OnRoadType.Body3 else OnRoadType.Body2.copy(fontWeight = FontWeight.Medium),
+            color = if (mine) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/** 이어서 해 보기 한 줄: 연회색 카드 · 이름 하나 · 오른쪽 › */
+@Composable
+private fun NextLine(label: String, onClick: () -> Unit) {
+    OnRoadCard(
+        Modifier.fillMaxWidth(),
+        background = OnRoadColors.SurfaceSubtle,
+        borderColor = OnRoadColors.Border.copy(alpha = 0.7f),
+        shape = OnRoadShapes.Item,
+        contentPadding = PaddingValues(start = 16.dp, end = 10.dp, top = com.project.on_road.ui.components.NextStepSpace.CompactPadV, bottom = com.project.on_road.ui.components.NextStepSpace.CompactPadV),
+        onClick = onClick,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(20.dp))
+        }
     }
 }
 
