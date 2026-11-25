@@ -8,7 +8,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
 
 from app.body_limit import BodyLimitMiddleware
-from app.api import chat, checklists, forms, health, policies, risk, roleplay, simulations, users, writer
+from app.api import career_info, chat, checklists, forms, health, policies, risk, roleplay, simulations, users, writer
 from app.config import get_settings
 from app.criteria import get_criteria
 from app.errors import register_error_handlers
@@ -88,6 +88,7 @@ def create_app() -> FastAPI:
     app.include_router(forms.router, prefix="/api")
     app.include_router(writer.router, prefix="/api")
     app.include_router(risk.router, prefix="/api")
+    app.include_router(career_info.router, prefix="/api")
     return app
 
 

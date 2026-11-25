@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     # 오래된 서류의 개인정보 칸 비우기 (services/writer.py clear_stale)
     doc_keep_exported_days: int = 90  # 내보낸 뒤
     doc_keep_writing_days: int = 180  # 쓰다가 손대지 않은 채로
+    # 진로 외부 정보 (app/services/external.py). 키가 없으면 해당 항목은 available=false 로 응답
+    qnet_service_key: str | None = None  # 공공데이터포털 큐넷 국가자격 시험일정
+    careernet_api_key: str | None = None  # 커리어넷 OpenAPI 직업백과·학과정보
+    work24_training_key: str | None = None  # 고용24 국민내일배움카드 훈련과정
+    work24_jobs_key: str | None = None  # 고용24 채용정보
+    external_timeout_seconds: float = 8.0
 
 
 @lru_cache

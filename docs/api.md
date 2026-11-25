@@ -143,6 +143,10 @@
 | 문서 AI | POST | `/documents/{document_id}/assist` | 프롬프트 → 선택한 칸 작성 (3.29) |
 | 문서 AI | GET | `/documents/{document_id}/check` | 내보내기 전 검사 (3.30) |
 | 문서 AI | POST | `/documents/{document_id}/export` | 내보내기·체크리스트 체크 (3.31) |
+| 진로 외부 정보 | GET | `/career/exams?cert=` | 자격증 시험 일정, 큐넷 (3.35) |
+| 진로 외부 정보 | GET | `/career/trainings?keyword=&region=` | 내일배움카드 훈련과정, 고용24 (3.35) |
+| 진로 외부 정보 | GET | `/career/job-info?name=` | 직업 정보, 커리어넷 (3.35) |
+| 진로 외부 정보 | GET | `/career/postings?keyword=&region=` | 채용 공고, 고용24 (3.35) |
 
 <br/>
 
@@ -998,6 +1002,32 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 - 점수: 조건이 맞음(`match`) +100 → 신청 시기 (퇴소 전 사전신청 60일 안 +40, 그 밖의 사전신청 +25, 지금 +30, 퇴소하면 +15) → 현금 (월 환산 2만 원당 1점, 최대 30 · 1회 금액 100만 원당 1점, 최대 15)
 - `amount_unit` · `amount_value`: 현금이 아니면 null (앱은 분야 이름을 대신 보여 준다)
 - 사용자가 없으면 404 `USER_NOT_FOUND`
+
+<br/>
+
+### 3.35 `GET /career/*` — 진로 외부 정보
+
+앱 안에서 시험 일정 · 훈련과정 · 직업 정보 · 채용 공고를 보여 주려고 공공 API 를 서버가 대신 부른다. 같은 질의는 6시간 동안 서버 메모리에 담아 둔다.
+
+| 경로 | 쿼리 | 바깥 API | 서버 환경변수 |
+|---|---|---|---|
+| `/career/exams` | `cert` 자격증 이름 | 공공데이터포털 큐넷 국가자격 시험일정 | `QNET_SERVICE_KEY` |
+| `/career/trainings` | `keyword`, `region`(선택, 시·도) | 고용24 국민내일배움카드 훈련과정 | `WORK24_TRAINING_KEY` |
+| `/career/job-info` | `name` 직업 이름 | 커리어넷 직업백과 | `CAREERNET_API_KEY` |
+| `/career/postings` | `keyword`, `region`(선택, 시·도) | 고용24 채용정보 | `WORK24_JOBS_KEY` |
+
+공통 응답
+
+```json
+{"available": true, "source": "고용24 국민내일배움카드 훈련과정", "items": [], "message": null, "total": 2, "url": "https://www.work24.go.kr"}
+```
+
+- `available: false`: 키가 없거나 바깥 서버가 실패했다. `message` 를 그대로 보여 주면 된다 (실패한 응답은 캐시하지 않는다)
+- `exams`: `grade` (기능사 · 산업기사 · 기사 · 기능장 · 기술사, 이름 끝으로 판단. 없으면 null 이고 items 는 빈 배열). 끝나지 않은 회차만, 최대 6개. 항목: `name`, `year`, `round`, `written_apply_start/end`, `written_exam_start/end`, `written_pass`, `practical_apply_start/end`, `practical_exam_start/end`, `practical_pass` (YYYY-MM-DD 또는 null)
+- `trainings`: 오늘부터 6개월 안에 시작하는 과정, 최대 20개. 내 지역(`nearby: true`) 먼저, 그다음 시작일 순. 항목: `id`, `round`, `title`, `institution`, `address`, `phone`, `start`, `end`, `cost`(훈련비), `my_cost`(실제 내는 돈), `certificate`, `employment_rate`, `url`
+- `job-info`: `items` 대신 `job` (없으면 null). `id`, `name`, `summary`, `works`, `abilities`, `aptitudes`, `interests`, `certificates`, `majors`, `related_jobs`, `prepare {recruit, certificate, training, curriculum}`, `forecast`, `wage`, `wage_source`, `satisfaction`, `work_life_balance`, `orgs [{name, url}]`, `url`
+- `postings`: 최대 20개. 내 지역 먼저, 그다음 최근 등록 순. 항목: `id`, `company`, `title`, `pay_type`, `pay`, `region`, `education`, `career`, `holiday`, `registered`, `close`, `url`(모바일 공고 주소)
+- 쿼리 이름이 비었거나 40자를 넘으면 422 `VALIDATION_ERROR`
 
 <br/>
 
