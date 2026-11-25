@@ -147,11 +147,11 @@ def grade_of(cert: str) -> str | None:
     return None
 
 
-def _qnet_rounds(year: int) -> list[dict[str, Any]]:
+def _qnet_page(year: int, page: int) -> tuple[list[dict[str, Any]], int]:
     s = get_settings()
     raw = _get(QNET_URL, {
         # 포털이 주는 키가 인코딩된 것(%2B 등)이든 아니든 같은 값으로 보낸다
-        "serviceKey": urllib.parse.unquote(s.qnet_service_key or ""), "numOfRows": 100, "pageNo": 1,
+        "serviceKey": urllib.parse.unquote(s.qnet_service_key or ""), "numOfRows": QNET_PAGE_SIZE, "pageNo": page,
         "dataFormat": "json", "implYy": year, "qualgbCd": "T",
     })
     try:
@@ -167,6 +167,21 @@ def _qnet_rounds(year: int) -> list[dict[str, Any]]:
         items = items.get("item") or []
     if isinstance(items, dict):
         items = [items]
+    return items, _int(body.get("totalCount")) or len(items)
+
+
+QNET_PAGE_SIZE = 50  # 큐넷 한 페이지 최대 50개 (넘으면 930 오류)
+
+
+def _qnet_rounds(year: int) -> list[dict[str, Any]]:
+    items, total = _qnet_page(year, 1)
+    page = 1
+    while len(items) < total and page < 6:
+        page += 1
+        more, _ = _qnet_page(year, page)
+        if not more:
+            break
+        items += more
     return items
 
 
@@ -207,8 +222,16 @@ def exam_schedule(cert: str, today: date) -> dict[str, Any]:
                 if last and last < today.isoformat():
                     continue
                 rounds.append(r)
-        rounds.sort(key=lambda r: r["written_apply_start"] or r["practical_apply_start"] or "9999")
-        return _result("exams", rounds[:6], grade=grade, url="https://www.q-net.or.kr")
+        def next_date(r: dict[str, Any]) -> str:
+            # 아직 오지 않은 날짜 중 가장 이른 것 (접수 → 시험 → 발표 순서로 본다)
+            keys = ("written_apply_start", "written_apply_end", "written_exam_start", "written_pass",
+                    "practical_apply_start", "practical_apply_end", "practical_exam_start", "practical_pass")
+            upcoming = [r[k] for k in keys if r[k] and r[k] >= today.isoformat()]
+            return min(upcoming) if upcoming else "9999"
+
+        rounds.sort(key=next_date)
+        return _result("exams", rounds[:4], grade=grade, url="https://www.q-net.or.kr",
+                       note="기능사 등급 전체의 회차입니다. 종목마다 시행 회차가 다를 수 있어 큐넷에서 확인해 주세요.")
 
     return _cached(("exams", grade, today.isoformat()), make)
 

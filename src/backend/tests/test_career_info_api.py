@@ -333,3 +333,29 @@ def test_qnet_error_header_is_reported(client, keys, monkeypatch):
     res = external.exam_schedule("제빵기능사", date(2026, 11, 25))
     assert res["available"] is False
     assert res["reason"] == "30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR"
+
+
+def test_qnet_pages_by_50_and_sorts_by_next_date(client, keys, monkeypatch):
+    from datetime import date
+
+    def item(seq, **d):
+        base = {"implYy": "2026", "implSeq": seq, "description": f"국가기술자격 기능사 (2026년도 제{seq}회)"}
+        return {**base, **d}
+
+    page1 = [item(107, pracRegStartDt="20261127", pracExamStartDt="20261207", pracPassDt="20261222")]
+    page1 += [item(i, pracPassDt="20260101") for i in range(49)]  # 끝난 회차
+    page2 = [item(41, docRegStartDt="20261215", docExamStartDt="20261221", docPassDt="20261221")]
+    calls = []
+
+    def fake(url, params):
+        calls.append((params["implYy"], params["pageNo"], params["numOfRows"]))
+        if params["implYy"] != 2026:
+            return json.dumps({"header": {"resultCode": "00"}, "body": {"items": [], "totalCount": 0}}).encode()
+        items = page1 if params["pageNo"] == 1 else page2
+        return json.dumps({"header": {"resultCode": "00"}, "body": {"items": items, "totalCount": 51}}).encode()
+
+    monkeypatch.setattr(external, "_get", fake)
+    res = external.exam_schedule("제빵기능사", date(2026, 11, 25))
+    assert (2026, 1, 50) in calls and (2026, 2, 50) in calls
+    assert [r["round"] for r in res["items"]] == [107, 41]
+    assert res["note"]
