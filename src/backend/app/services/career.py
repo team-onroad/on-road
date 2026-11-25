@@ -27,46 +27,72 @@ _KEYWORDS = {
     "training": re.compile(r"훈련|교육비|자격|능력개발|학습|역량"),
 }
 
-# 공식 사이트 (공공기관 누리집 첫 화면 · 공식 안내 화면만. 11/24 확인)
+# 공식 사이트 (공공기관 누리집 첫 화면 · 공식 안내 화면만. 11/24 · 11/25 확인)
 CAREERNET = ("커리어넷", "https://www.career.go.kr", None)  # 한국직업능력연구원
 WORK24 = ("고용24", "https://www.work24.go.kr", "1350")  # 고용노동부
 CARD_GUIDE = ("고용24 국민내일배움카드 발급 안내", "https://www.work24.go.kr/hr/h/a/1100/selectIssuGudn.do", "1350")
 KOSAF = ("한국장학재단", "https://www.kosaf.go.kr", "1599-2000")
 QNET = ("큐넷", "https://www.q-net.or.kr", "1644-8000")  # 한국산업인력공단
+JARIPON = ("자립정보ON", "https://jaripon.ncrc.or.kr", "1855-2455")  # 아동권리보장원 · 자립준비청년 상담센터 전화
+ADIGA = ("대입정보포털 어디가", "https://www.adiga.kr", "1600-1615")  # 한국대학교육협의회 대입 상담 전화
 
 
-def _link(site: tuple[str, str, str | None], title: str, detail: str) -> CareerStep:
-    return CareerStep(kind="link", title=title, detail=f"{site[0]} · {detail}", url=site[1], phone=site[2])
+def _link(step_id: str, site: tuple[str, str, str | None], title: str, detail: str) -> CareerStep:
+    return CareerStep(step_id=step_id, kind="link", title=title, detail=f"{site[0]}, {detail}", url=site[1], phone=site[2])
 
 
-def _roleplay(scenario_id: str, title: str, detail: str) -> CareerStep:
-    return CareerStep(kind="roleplay", title=title, detail=detail, scenario_id=scenario_id)
+def _roleplay(step_id: str, scenario_id: str, title: str, detail: str) -> CareerStep:
+    return CareerStep(step_id=step_id, kind="roleplay", title=title, detail=detail, scenario_id=scenario_id)
 
 
-def _document(template_id: str, title: str, detail: str) -> CareerStep:
-    return CareerStep(kind="document", title=title, detail=detail, template_id=template_id)
+def _document(step_id: str, template_id: str, title: str, detail: str) -> CareerStep:
+    return CareerStep(step_id=step_id, kind="document", title=title, detail=detail, template_id=template_id)
 
 
+def _app(step_id: str, target: str, title: str, detail: str) -> CareerStep:
+    return CareerStep(step_id=step_id, kind="app", title=title, detail=detail, target=target)
+
+
+def _search(step_id: str, query: str, title: str, detail: str) -> CareerStep:
+    return CareerStep(step_id=step_id, kind="search", title=title, detail=detail, query=query)
+
+
+# 방향마다 순서대로: 나를 알기 → 상담 받기 → 준비 · 신청 → 연습 → 일을 시작한 뒤 챙길 것
 STEPS: dict[str, list[CareerStep]] = {
     "job": [
-        _link(CAREERNET, "하고 싶은 일 찾기", "직업정보 · 진로검사"),
-        _roleplay("jobcenter", "고용센터 상담 연습", "처음 방문해서 할 말을 미리 연습"),
-        _link(WORK24, "구직 등록", "채용 정보 검색 · 청년 지원 신청"),
-        _document("resume-form", "입사지원서 쓰기", "기본형 이력서 양식"),
-        _roleplay("parttime", "아르바이트 면접 연습", "자주 나오는 질문으로 연습"),
-        _roleplay("job", "취업 면접 연습", "실전 면접 질문으로 연습"),
+        _app("job-interest", "interest", "흥미 탐색으로 맞는 일 찾기", "어울리는 직업과 그 직업이 되는 길"),
+        _link("job-careernet", CAREERNET, "직업 정보 더 알아보기", "직업정보, 진로검사"),
+        _link("job-jaripon", JARIPON, "자립 상담 받기", "선배 자립준비청년 상담사가 취업 고민을 같이 봐요"),
+        _roleplay("job-jobcenter", "jobcenter", "고용센터 상담 연습", "처음 방문해서 할 말을 미리 연습"),
+        _link("job-work24", WORK24, "구직 등록", "채용 정보 검색, 청년 지원 신청"),
+        _document("job-resume", "resume-form", "입사지원서 쓰기", "기본형 이력서 양식"),
+        _roleplay("job-parttime", "parttime", "아르바이트 면접 연습", "자주 나오는 질문으로 연습"),
+        _roleplay("job-interview", "job", "취업 면접 연습", "실전 면접 질문으로 연습"),
+        _app("job-contract", "risk", "근로계약서 확인", "서류 위험 찾기로 빠진 내용 찾기"),
+        _roleplay("job-bank", "bank", "급여 받을 통장 만들기", "은행 계좌 개설 연습"),
+        _roleplay("job-wage", "wage", "임금을 못 받았을 때", "밀린 알바비 받기 연습"),
     ],
     "college": [
-        _link(CAREERNET, "학과 찾기", "학과정보 · 진로검사"),
-        _link(KOSAF, "국가장학금 신청", "학기마다 신청 기간 확인"),
-        _document("scholarship", "장학금 신청서 쓰기", "학교 · 재단 장학금 양식"),
-        _roleplay("school", "진학 면접 연습", "입시 면접 질문으로 연습"),
+        _app("college-interest", "interest", "흥미 탐색으로 맞는 길 찾기", "어울리는 직업과 관련 학과"),
+        _link("college-adiga", ADIGA, "학과와 대학 찾기", "학과정보, 입학 상담"),
+        _link("college-careernet", CAREERNET, "학과 정보 더 알아보기", "학과정보, 진로검사"),
+        _link("college-jaripon", JARIPON, "자립 상담 받기", "선배 자립준비청년 상담사가 진학 고민을 같이 봐요"),
+        _link("college-kosaf", KOSAF, "국가장학금 신청", "학기마다 신청 기간 확인"),
+        _search("college-scholarship-search", "자립준비청년 장학금", "받을 수 있는 장학금 찾기", "내 조건에 맞는 장학 · 등록금 지원"),
+        _document("college-scholarship", "scholarship", "장학금 신청서 쓰기", "학교, 재단 장학금 양식"),
+        _roleplay("college-interview", "school", "진학 면접 연습", "입시 면접 질문으로 연습"),
+        _search("college-housing", "대학생 전세임대", "학교 다닐 집 찾기", "대학생 주거 지원"),
     ],
     "training": [
-        _roleplay("jobcenter", "고용센터 상담 연습", "훈련 상담 때 할 말을 미리 연습"),
-        _link(CARD_GUIDE, "국민내일배움카드 발급", "훈련비 지원 카드 · 훈련과정 검색"),
-        _link(QNET, "자격증 시험 일정 확인", "국가기술자격 원서접수 · 시험일정"),
-        _document("resume-form", "입사지원서 쓰기", "훈련 뒤 지원할 때 쓰는 기본형 양식"),
+        _app("training-interest", "interest", "흥미 탐색으로 맞는 일 찾기", "어울리는 직업과 필요한 자격"),
+        _link("training-jaripon", JARIPON, "자립 상담 받기", "선배 자립준비청년 상담사가 훈련 고민을 같이 봐요"),
+        _roleplay("training-jobcenter", "jobcenter", "고용센터 상담 연습", "훈련 상담 때 할 말을 미리 연습"),
+        _link("training-card", CARD_GUIDE, "국민내일배움카드 발급", "훈련비 지원 카드"),
+        _link("training-course", WORK24, "훈련과정 찾기", "훈련과정 검색, 수강 신청"),
+        _link("training-qnet", QNET, "자격증 시험 일정 확인", "국가기술자격 원서접수, 시험일정"),
+        _document("training-resume", "resume-form", "입사지원서 쓰기", "훈련 뒤 지원할 때 쓰는 기본형 양식"),
+        _roleplay("training-interview", "job", "취업 면접 연습", "실전 면접 질문으로 연습"),
+        _app("training-contract", "risk", "근로계약서 확인", "서류 위험 찾기로 빠진 내용 찾기"),
     ],
 }
 
