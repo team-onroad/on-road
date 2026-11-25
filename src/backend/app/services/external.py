@@ -257,8 +257,16 @@ def _upcoming(rounds: list[dict[str, Any]], today: date, limit: int = 4) -> list
         upcoming = [r[k] for k in _DATE_KEYS if r[k] and r[k] >= t]
         return min(upcoming) if upcoming else "9999"
 
-    alive = [r for r in rounds if next_date(r) != "9999"]
-    return sorted(alive, key=next_date)[:limit]
+    alive = sorted((r for r in rounds if next_date(r) != "9999"), key=next_date)
+    # 같은 회차가 접수 기간만 달리해 두 번 오면 (예: 기사 제3회) 날짜가 가까운 것 하나만
+    seen: set[tuple[Any, Any, Any]] = set()
+    out = []
+    for r in alive:
+        k = (r["year"], r["round"], r["name"])
+        if k not in seen:
+            seen.add(k)
+            out.append(r)
+    return out[:limit]
 
 
 def exam_schedule(cert: str, today: date) -> dict[str, Any]:

@@ -401,3 +401,12 @@ def test_cert_codes_are_fetched_once(client, keys, fake_get):
     assert len([1 for u, _ in fake_get if u == external.QNET_CODES_URL]) == 1
     assert external.find_cert_code("한식조리") == ("7910", "한식조리기능사", "T")
     assert external.find_cert_code("없는자격") is None
+
+
+def test_same_round_twice_is_shown_once():
+    from datetime import date
+
+    a = {"name": "기사 제3회", "year": 2026, "round": 3, **{k: None for k in external._DATE_KEYS}}
+    b = dict(a, practical_pass="2026-12-11", written_apply_start="2026-08-01")
+    c = dict(a, practical_pass="2026-12-11", written_apply_start="2026-07-20")
+    assert len(external._upcoming([b, c], date(2026, 11, 25))) == 1
