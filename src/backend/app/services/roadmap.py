@@ -393,7 +393,7 @@ def _has_final(word: str) -> bool:
 _KIND_RULE = {
     "allowance": "함께 받을 수 없어서 하나만 받아요",
     "settlement": "지역마다 하나씩 있어서 내 지역 것을 받아요",
-    "challenge": "지역마다 따로 있어서 내 지역 것을 받아요",
+    "challenge": "지역마다 대상 나이와 조건이 조금씩 달라서 내 지역 것을 받아요",
     "college": "비슷한 지원이라 내 조건에 맞는 것을 받아요",
     "scholarship": "비슷한 지원이라 내 조건에 맞는 것을 받아요",
     "lease": "비슷한 지원이라 내 조건에 맞는 것을 받아요",
@@ -414,6 +414,8 @@ def _short_reason(item: RoadmapItem, mine_count: int) -> str:
         return "받는 돈이 가장 커서 이걸 골랐어요"
     if item.region != "전국":
         return "내 지역 정책이라 이걸 골랐어요"
+    if item.kind == "challenge":
+        return "내 지역 사업이 없어서 전국 사업을 골랐어요"
     if item.kind == "allowance":
         return "자립수당은 하나만 받을 수 있어요"
     return "내 조건에 가장 잘 맞아서 이걸 골랐어요"
