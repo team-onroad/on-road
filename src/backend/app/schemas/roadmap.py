@@ -11,6 +11,16 @@ RoadmapStage = Literal["before_leave", "at_leave", "now"]
 AmountCycle = Literal["monthly", "yearly", "once"]
 
 
+class RoadmapAlternative(BaseModel):
+    """같은 종류라 함께 받기 어려운 다른 정책 (고른 정책 카드를 펼치면 보인다)"""
+
+    policy_id: int
+    name: str
+    region: str
+    amount_text: str | None
+    eligibility: EligibilityValue
+
+
 class RoadmapItem(BaseModel):
     policy_id: int
     policy_key: str
@@ -26,6 +36,13 @@ class RoadmapItem(BaseModel):
     max_total_won: int | None  # 월 금액 × 12 × 기간(년), 연 금액 × 기간, 1회 · 주기 없는 금액은 그대로. 읽지 못하면 null
     apply_from: date | None  # 이날부터 신청할 수 있음. 퇴소 예정일을 모르면 null
     until: date | None  # 지원이 끝나는 날 (퇴소 예정일 + 기간). 모르면 null
+    age_until: date | None = None  # 나이 상한으로 신청할 수 있는 마지막 날 (만 N+1세 생일 전날). 상한이 없거나 아동 정책이면 null
+    age_max: int | None = None  # 나이 상한 (18세 이상만). "만 29세까지" 표시용
+    region: str = "전국"  # 정책 지역
+    kind: str | None = None  # 같은 종류 묶음 (allowance · settlement · challenge · college · scholarship · lease). 묶인 게 없으면 null
+    kind_title: str | None = None  # "자립정착금"
+    pick_reason: str | None = None  # 같은 종류 중 이걸 고른 까닭 ("같은 종류 3개 중 받는 돈이 가장 커요")
+    alternatives: list[RoadmapAlternative] = []  # 같은 종류의 다른 정책 (받는 돈이 큰 순서)
     apply_note: str  # "퇴소 30일 전부터 미리 신청" 같은 한 줄
 
 

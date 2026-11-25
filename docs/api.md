@@ -214,6 +214,7 @@
 
 - `age`: 오늘(한국 시간) 기준 만 나이. 저장하지 않고 응답할 때 계산
 - `d_day`: `d_date`까지 남은 일수. 오늘이면 `0`, 지났으면 음수, `d_date`가 없으면 `null`. 화면에는 "D-39"처럼 표시
+- `interest_code` · `interest_tags`: 흥미 탐색 상위 유형("RA", R · I · A · S · E · C 1~3글자)과 고른 관심 분야(최대 3개, 하나에 20자, `#` · 공백 · 중복은 정리). 수정(3.3)에서 `interest_tags`는 보낸 목록으로 통째로 바꾸고(null 불가, 빈 목록이면 지움), `interest_code`는 null · 빈 문자열이면 지운다
 - `district`: 거주 시 · 군 · 구 ("서초구", 시 · 군 · 구로 끝나는 이름). 없으면 `null`. 수정(3.3)에서 `null` · 빈 문자열이면 지운다. `region` 을 바꾸면서 `district` 를 보내지 않으면 지워진다. 있으면 다른 시 · 군 · 구 정책은 목록 · 검색에서 빠진다
 - `family`: 자녀 · 동생 목록. 요청 항목은 `relation`(`child` / `sibling`), `gender`(`male` / `female` / `null`), `birth_date`(YYYY-MM-DD). 응답에는 `age`(만 나이)가 더 붙는다. 수정(3.3)에서는 보낸 목록으로 통째로 바뀐다 (빈 목록이면 모두 지움, `null` 불가, 10명까지). 가족 중 한 명의 나이가 맞는 아동 대상 정책(나이 상한 17세 이하)은 목록 · 검색에 `for_family = true` 로 나온다. `gender` 는 저장만 한다 (정책 데이터에 성별 조건이 없음)
 - 예시는 2026-10-04 기준 계산값이다.
@@ -929,12 +930,17 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 | `apply_from` | 신청 시작일. `before_leave` = 퇴소 예정일 - N일, `at_leave` = 퇴소 예정일. 오늘보다 앞이면 오늘. `now`는 null |
 | `until` | 퇴소 예정일 + `period_years`. 둘 중 하나라도 없으면 null |
 | `max_total_won` | 월 금액 × 12 × 기간, 연 금액 × 기간, 1회·주기 없는 금액은 그대로. 월·연 금액인데 기간을 읽지 못하면 null |
+| `age_until` · `age_max` | 나이 상한(만 18세 이상)으로 신청할 수 있는 마지막 날(만 `age_max`+1세 생일 전날)과 상한. 없으면 null |
+| `region` | 정책 지역 ("전국", "인천") |
+| `kind` · `kind_title` | 같은 종류 묶음 (`allowance` 자립수당, `settlement` 자립정착금, `challenge` 청년도전지원사업, `college` 대학 진학 자금, `scholarship` 장학금, `lease` 전세임대). 같은 종류가 2개 이상일 때만 값이 있다 |
+| `pick_reason` | 같은 종류 중 이걸 고른 까닭 ("같은 종류 3개 중 받는 돈이 가장 커요") |
+| `alternatives` | 같은 종류의 다른 정책 `[{policy_id, name, region, amount_text, eligibility}]`, 받는 돈이 큰 순서 |
 | `amount_*`, `period_years`, `benefit` | 3.6 과 같음 |
 
 - 빈 단계는 `stages`에서 빠진다. 순서는 `before_leave` → `at_leave` → `now`
 - 퇴소일이 있으면 퇴소일 나이로도 한 번 더 고른다. 오늘 나이로는 안 되지만 퇴소할 때 나이로는 되는 정책(만 18세 이상 조건 등)은 `at_leave`(사전신청이면 `before_leave`)에 넣고, `eligibility`도 퇴소일 기준
 - 아직 보호 중(`in_care` · `leaving_soon`)인데 `d_date`가 없으면, 퇴소해야 받는 정책(사전신청 · 대상에 보호종료 · 퇴소 · 자립준비)은 `at_leave`에 `apply_from: null`, `apply_note: "퇴소하면 신청"`으로 넣는다
-- 자립수당은 전국 같은 제도가 정부24 · 지자체마다 따로 있어 목록에는 하나만 남긴다 (P001 → 조건이 맞는 것 → 사전신청 단계 → 번호 순)
+- 같은 종류(`kind`)는 함께 받기 어렵다고 보고 목록에 하나만 남긴다. 고르는 순서: 조건이 맞는 것 → (자립수당은 P001) → 받는 돈이 큰 것 → 내 지역 정책 → 먼저 신청 → 번호 순. 나머지는 `alternatives`
 - 후보 정책 공통(3.5 · 3.32 · 3.33): 퇴소한 사용자(`left_care`)에게는 지금 보호받는 아동 전용 정책(가정위탁아동 지원 등, 이름 · 대상 문장으로 판단)을 빼고, 보호 중인 사용자에게는 소년소녀가정 전용 정책을 뺀다. 자녀 · 동생 나이가 맞는 아동 정책(`for_family`)은 그대로 둔다
 - 단계 안 정렬: `match` 먼저 → `apply_from` 빠른 순 → 월 환산 금액 큰 순 → 최대 총액 큰 순
 - 금액·기간은 원문에서 읽은 값이라 화면에 "공식 자료 기준, 실제 금액은 기관 확인"을 함께 표시한다
@@ -1028,7 +1034,7 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 
 - `available: false`: 키가 없거나 바깥 서버가 실패했다. `message` 를 그대로 보여 주면 된다 (실패한 응답은 캐시하지 않는다). 실패하면 `reason` 에 바깥 서버의 오류 사유(예: `HTTP 401`, `30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR`)
 - `exams`: 자격증 이름을 큐넷 종목 목록(국가자격 종목 목록 정보 API, 하루 캐시)에서 찾아 그 종목(`code`, `cert`)의 회차만 받는다. 끝나지 않은 회차만, 다가오는 날짜 순 최대 4개. 종목을 못 찾으면 `grade`(기능사 · 산업기사 · 기사 · 기능장 · 기술사, 이름 끝으로 판단) 전체 회차로 대신하고 `note` 를 준다. 등급도 없으면 items 는 빈 배열 항목: `name`, `year`, `round`, `written_apply_start/end`, `written_exam_start/end`, `written_pass`, `practical_apply_start/end`, `practical_exam_start/end`, `practical_pass` (YYYY-MM-DD 또는 null)
-- `trainings`: 오늘부터 6개월 안에 시작하는 과정, 최대 20개. 내 지역(`nearby: true`) 먼저, 그다음 시작일 순. 항목: `id`, `round`, `institution_id`, `title`, `institution`, `address`, `phone`, `start`, `end`, `cost`(실제 훈련비. 본인부담액은 과정 소개에서), `certificate`, `employment_rate`, `url`
+- `trainings`: 오늘부터 6개월 안에 시작하는 과정, 최대 20개. `district`(구 · 군)를 주면 그 구(`same_district: true`) → 내 시 · 도(`nearby: true`) → 나머지, 같은 묶음 안에서는 시작일 순. 항목: `id`, `round`, `institution_id`, `title`, `institution`, `address`, `phone`, `start`, `end`, `cost`(실제 훈련비. 본인부담액은 과정 소개에서), `certificate`, `employment_rate`, `url`
 - `trainings/detail`: `items` 대신 `course` (없으면 null). `id`, `round`, `title`, `institution`, `address`, `homepage`, `field`, `target`, `days`, `hours`, `cost`(훈련비), `support`(정부지원금), `my_cost`(본인부담액), `grade`(기관 평가등급), `contact_phone`, `facilities`, `url`(고용24 과정 화면)
 - `duties`: 최대 8개. 항목: `code`(NCS 능력단위 코드), `unit`(능력단위명), `definition`, `field`, `group`(대 > 중 > 소분류), `skills`(지식·기술·태도 이름, 최대 8개)
 - `job-info`: `items` 대신 `job` (없으면 null). `source` 로 커리어넷인지 고용24 인지 구분한다 (고용24 는 `url`, `orgs`, `work_life_balance` 가 비어 있고 되는 길은 `prepare.curriculum` 에 담는다). `id`, `name`, `summary`, `works`, `abilities`, `aptitudes`, `interests`, `certificates`, `majors`, `related_jobs`, `prepare {recruit, certificate, training, curriculum}`, `forecast`, `wage`, `wage_source`, `satisfaction`, `work_life_balance`, `orgs [{name, url}]`, `url`

@@ -17,7 +17,9 @@ from app import ai_content
 from app.money import parse_period_years, policy_amount
 from app.rules import calc_age, is_in_care_child_policy
 from app.schemas.chat import PersonalPlan, PlanItem
-from app.schemas.roadmap import PolicyRoadmap, RecommendedPolicy, RoadmapItem, RoadmapStageGroup, RoadmapSummary
+from app.schemas.roadmap import (
+    PolicyRoadmap, RecommendedPolicy, RoadmapAlternative, RoadmapItem, RoadmapStageGroup, RoadmapSummary,
+)
 from app.services.policies import candidate_policies, eligibility_for
 from db.models import Policy, User
 
@@ -47,6 +49,13 @@ def _add_years(d: date, years: int) -> date:
         return d.replace(year=d.year + years)
     except ValueError:  # 2월 29일
         return d.replace(year=d.year + years, day=28)
+
+
+def age_until(birth: date, age_max: int | None) -> date | None:
+    """나이 상한(만 N세 이하)이 끝나는 날 = 만 N+1세 생일 전날. 아동 정책(17세 이하)은 셈하지 않는다"""
+    if age_max is None or age_max < 18:
+        return None
+    return _add_years(birth, age_max + 1) - timedelta(days=1)
 
 
 def _max_total(won: int | None, cycle: str | None, years: int | None) -> int | None:
@@ -100,19 +109,28 @@ def _item(policy: Policy, user: User, today: date, leave: date | None,
         max_total_won=_max_total(won, cycle, years),
         apply_from=apply_from,
         until=_add_years(leave, years) if leave is not None and years else None,
+        age_until=age_until(user.birth_date, policy.age_max),
+        age_max=policy.age_max if policy.age_max is not None and policy.age_max >= 18 else None,
+        region=policy.region,
         apply_note=note,
     )
 
 
-# 같은 종류라 보통 하나만 받는 지원 (자립수당 · 자립정착금). 합계에는 그중 가장 큰 것 하나만 센다
+# 같은 종류라 보통 하나만 받는 지원. 지자체마다 이름만 다르게 올라온 같은 제도도 여기서 묶는다.
+# 원문에 '중복 불가'가 적힌 정책은 적어서, 같은 종류 안에서는 하나만 받는다고 보고 사용자에게 가장 유리한 것 하나를 고른다
 _SAME_KIND = (
-    ("allowance", re.compile(r"자립\s*(지원)?\s*수당")),
-    ("settlement", re.compile(r"(자립)?\s*정착금")),
+    ("allowance", "자립수당", re.compile(r"자립\s*(지원)?\s*수당")),
+    ("settlement", "자립정착금", re.compile(r"(자립)?\s*정착금")),
+    ("challenge", "청년도전지원사업", re.compile(r"청년\s*도전")),
+    ("college", "대학 진학 자금", re.compile(r"대학\s*(입학|진학|등록|생활)")),
+    ("scholarship", "장학금", re.compile(r"장학")),
+    ("lease", "전세임대", re.compile(r"전세\s*(임대|주택)")),
 )
+_KIND_TITLE = {key: title for key, title, _ in _SAME_KIND}
 
 
 def _kind_key(item: RoadmapItem) -> str:
-    for key, pattern in _SAME_KIND:
+    for key, _, pattern in _SAME_KIND:
         if pattern.search(item.name):
             return key
     return f"policy-{item.policy_id}"
@@ -127,17 +145,56 @@ def _max_sum(items: list[RoadmapItem]) -> int:
     return sum(best.values())
 
 
-def _drop_same_allowance(groups: dict[str, list[RoadmapItem]]) -> None:
-    """자립수당은 전국 같은 제도인데 정부24 · 지자체마다 따로 올라와 있다 (P001 · G007 · G034 · G038 ...).
-    목록에는 하나만 남긴다: 앱이 직접 확인한 P001 → 조건이 맞는 것 → 사전신청 단계 → 번호 순"""
-    allowance = [(stage, i) for stage, items in groups.items() for i in items if _kind_key(i) == "allowance"]
-    if len(allowance) <= 1:
-        return
+def _benefit_value(item: RoadmapItem) -> int:
+    """비교용 받는 돈: 최대 총액 → 1회 금액 → 월 금액 × 12. 읽지 못하면 0"""
+    if item.max_total_won is not None:
+        return item.max_total_won
+    if item.amount_won is None:
+        return 0
+    return item.amount_won * (12 if item.amount_cycle == "monthly" else 1)
+
+
+def _pick_same_kind(groups: dict[str, list[RoadmapItem]]) -> None:
+    """같은 종류는 하나만 남기고 나머지는 alternatives 로 붙인다.
+    고르는 순서: 조건이 맞는 것 → (자립수당은 앱이 직접 확인한 P 정책) → 받는 돈이 큰 것 → 내 지역 정책 → 먼저 신청 → 번호 순"""
     order = {"before_leave": 0, "at_leave": 1, "now": 2}
-    keep = min(allowance, key=lambda si: (not si[1].policy_key.startswith("P"), si[1].eligibility != "match",
-                                          order[si[0]], si[1].policy_id))[1]
-    for stage in groups:
-        groups[stage] = [i for i in groups[stage] if _kind_key(i) != "allowance" or i is keep]
+    kinds: dict[str, list[tuple[str, RoadmapItem]]] = {}
+    for stage, items in groups.items():
+        for i in items:
+            key = _kind_key(i)
+            if not key.startswith("policy-"):
+                kinds.setdefault(key, []).append((stage, i))
+    for key, members in kinds.items():
+        if len(members) <= 1:
+            continue
+        keep = min(members, key=lambda si: (
+            si[1].eligibility != "match",
+            key == "allowance" and not si[1].policy_key.startswith("P"),
+            -_benefit_value(si[1]),
+            si[1].region == "전국",
+            order[si[0]],
+            si[1].policy_id,
+        ))[1]
+        others = [i for _, i in members if i is not keep]
+        top = max(_benefit_value(i) for i in others)
+        if _benefit_value(keep) > top:
+            reason = f"같은 종류 {len(members)}개 중 받는 돈이 가장 커요"
+        elif key == "allowance":
+            reason = "같은 제도라 하나만 받아요"
+        elif keep.region != "전국":
+            reason = f"같은 종류 {len(members)}개 중 내 지역 정책이에요"
+        else:
+            reason = f"같은 종류 {len(members)}개 중 조건이 가장 잘 맞아요"
+        keep.kind = key
+        keep.kind_title = _KIND_TITLE[key]
+        keep.pick_reason = reason
+        keep.alternatives = [
+            RoadmapAlternative(policy_id=i.policy_id, name=i.name, region=i.region, amount_text=i.amount_text,
+                               eligibility=i.eligibility)
+            for i in sorted(others, key=lambda i: (-_benefit_value(i), i.policy_id))
+        ]
+        for stage in groups:
+            groups[stage] = [i for i in groups[stage] if i is keep or i not in others]
 
 
 def _monthly_equivalent(item: RoadmapItem) -> int:
@@ -177,7 +234,7 @@ def build_roadmap(db: Session, user: User, today: date) -> PolicyRoadmap:
     for p in later:
         stage, item = _item(p, user, today, leave, at_leave_only=True)
         groups[stage].append(item)
-    _drop_same_allowance(groups)
+    _pick_same_kind(groups)
 
     items = [i for g in groups.values() for i in g]
     matched = [i for i in items if i.eligibility == "match" and i.amount_won is not None]

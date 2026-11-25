@@ -11,6 +11,7 @@ KEYS = {"base_date", "d_day", "summary", "stages"}
 ITEM_KEYS = {
     "policy_id", "policy_key", "name", "agency", "category", "eligibility", "amount_won", "amount_cycle",
     "amount_text", "benefit", "period_years", "max_total_won", "apply_from", "until", "apply_note",
+    "age_until", "age_max", "region", "kind", "kind_title", "pick_reason", "alternatives",
 }
 
 
@@ -140,6 +141,49 @@ def test_same_kind_allowance_counted_once(api, db_session):
     s = api.get(f"/api/users/{user.id}/policy-roadmap").json()["summary"]
     assert s["monthly_won"] == 700_000
     assert s["once_won"] == 15_000_000
+
+
+def test_same_kind_keeps_bigger_one_with_alternatives(api, db_session):
+    """같은 종류(자립정착금)는 받는 돈이 큰 하나만 남기고, 나머지는 펼치면 보이는 alternatives 로"""
+    small = make_policy(db_session, name="자립정착금", support_amount="1,000만 원")
+    big = make_policy(db_session, name="구로형 자립정착금", support_amount="1,500만 원")
+    other = make_policy(db_session, name="청년 월세 지원", support_amount="월 20만 원")
+    user = make_user(db_session)
+
+    data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
+    ids = [i["policy_id"] for g in data["stages"] for i in g["items"]]
+    assert big.id in ids and other.id in ids and small.id not in ids
+    item = next(i for g in data["stages"] for i in g["items"] if i["policy_id"] == big.id)
+    assert item["kind"] == "settlement"
+    assert item["kind_title"] == "자립정착금"
+    assert item["pick_reason"] == "같은 종류 2개 중 받는 돈이 가장 커요"
+    assert [a["policy_id"] for a in item["alternatives"]] == [small.id]
+    assert item["alternatives"][0]["amount_text"] == "1,000만 원"
+    plain = next(i for g in data["stages"] for i in g["items"] if i["policy_id"] == other.id)
+    assert plain["kind"] is None and plain["alternatives"] == []
+
+
+def test_same_kind_prefers_my_region_when_same_amount(api, db_session):
+    nation = make_policy(db_session, name="청년도전지원사업", region="전국")
+    mine = make_policy(db_session, name="청년도전지원사업", region="인천", agency="인천광역시")
+    user = make_user(db_session, region="인천")
+
+    data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
+    items = [i for g in data["stages"] for i in g["items"]]
+    assert [i["policy_id"] for i in items] == [mine.id]
+    assert items[0]["pick_reason"] == "같은 종류 2개 중 내 지역 정책이에요"
+    assert items[0]["alternatives"][0]["policy_id"] == nation.id
+
+
+def test_age_until_is_day_before_next_birthday(api, db_session):
+    p = make_policy(db_session, name="청년 지원", age_min=18, age_max=29, target_description="청년")
+    child = make_policy(db_session, name="아동 지원", age_max=17, target_description="아동")
+    user = make_user(db_session, birth_date=date(2005, 3, 4))
+
+    items = {i["policy_id"]: i for g in api.get(f"/api/users/{user.id}/policy-roadmap").json()["stages"] for i in g["items"]}
+    assert items[p.id]["age_until"] == "2035-03-03"
+    assert items[p.id]["age_max"] == 29
+    assert child.id not in items
 
 
 def test_policy_needing_age_18_shows_at_leave_for_17(api, db_session):

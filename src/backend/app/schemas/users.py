@@ -63,6 +63,39 @@ def _check_district(v: str | None) -> str | None:
     return v
 
 
+_INTEREST_RE = re.compile(r"^[RIASEC]{1,3}$")
+INTEREST_TAGS_MAX = 3
+INTEREST_TAG_LEN = 20
+
+
+def _check_interest_code(v: str | None) -> str | None:
+    if v is None:
+        return v
+    v = v.strip().upper()
+    if v == "":
+        return None
+    if not _INTEREST_RE.match(v):
+        raise ValueError("흥미 유형은 R · I · A · S · E · C 중 1~3글자여야 합니다.")
+    return v
+
+
+def _check_interest_tags(v: list[str] | None) -> list[str] | None:
+    """앞뒤 공백 · '#' 을 떼고, 빈 값 · 중복은 뺀다. 최대 3개, 하나에 20자까지"""
+    if v is None:
+        return v
+    tags: list[str] = []
+    for t in v:
+        t = t.strip().lstrip("#").strip()
+        if not t or t in tags:
+            continue
+        if len(t) > INTEREST_TAG_LEN:
+            raise ValueError(f"관심 분야는 {INTEREST_TAG_LEN}자까지 넣을 수 있습니다.")
+        tags.append(t)
+    if len(tags) > INTEREST_TAGS_MAX:
+        raise ValueError(f"관심 분야는 {INTEREST_TAGS_MAX}개까지 고를 수 있습니다.")
+    return tags
+
+
 class FamilyMemberIn(BaseModel):
     """자녀 · 동생 한 명. 아동 대상 정책을 이 나이로 판정한다"""
 
@@ -122,7 +155,11 @@ class UserUpdate(BaseModel):
     work: Work | None = None
     district: str | None = None  # null · 빈 문자열이면 지운다
     family: list[FamilyMemberIn] | None = None  # 보낸 목록으로 통째로 바꾼다 (빈 목록이면 모두 지움)
+    interest_code: str | None = None  # 흥미 탐색 상위 유형. null · 빈 문자열이면 지운다
+    interest_tags: list[str] | None = None  # 관심 분야 (최대 3개). 보낸 목록으로 통째로 바꾼다
 
+    _interest_code = field_validator("interest_code")(_check_interest_code)
+    _interest_tags = field_validator("interest_tags")(_check_interest_tags)
     _district = field_validator("district")(_check_district)
     _family = field_validator("family")(_check_family)
     _dates = field_validator("birth_date", "d_date", mode="before")(_date_string_only)
@@ -130,7 +167,7 @@ class UserUpdate(BaseModel):
     _phone = field_validator("phone")(_check_phone)
     _name = field_validator("name")(_normalize_name)
 
-    @field_validator("name", "birth_date", "region", "status", "family")
+    @field_validator("name", "birth_date", "region", "status", "family", "interest_tags")
     @classmethod
     def _not_null(cls, v: Any) -> Any:
         # 기본값(None)은 검증하지 않으므로 이 검사는 요청에 null 을 직접 보낸 경우에만 걸린다.
@@ -159,5 +196,7 @@ class UserResponse(BaseModel):
     work: Work | None
     district: str | None
     family: list[FamilyMemberOut]
+    interest_code: str | None = None
+    interest_tags: list[str] = []
     created_at: datetime
     updated_at: datetime

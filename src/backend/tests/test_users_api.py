@@ -5,6 +5,7 @@ from datetime import date, datetime
 
 import pytest
 from sqlalchemy import text
+from tests.factories import make_user
 
 ONBOARDING = {
     "name": "김지민",
@@ -16,7 +17,7 @@ ONBOARDING = {
 }
 RESPONSE_KEYS = {
     "user_id", "name", "birth_date", "age", "phone", "region", "status", "stage",
-    "d_date", "d_day", "work", "district", "family", "created_at", "updated_at",
+    "d_date", "d_day", "work", "district", "family", "interest_code", "interest_tags", "created_at", "updated_at",
 }
 
 
@@ -444,3 +445,21 @@ def test_district_and_family_update(api, db_session):
     assert api.patch(f"/api/users/{user.id}", json={"district": "서초"}).status_code == 422
     bad = [{"relation": "parent", "birth_date": "2012-01-10"}]
     assert api.patch(f"/api/users/{user.id}", json={"family": bad}).status_code == 422
+
+
+def test_update_interest_result_and_tags(api, db_session):
+    user = make_user(db_session)
+    res = api.patch(f"/api/users/{user.id}", json={"interest_code": "ra", "interest_tags": ["#제과제빵", " 바리스타 ", "제과제빵"]})
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["interest_code"] == "RA"
+    assert data["interest_tags"] == ["제과제빵", "바리스타"]
+    assert api.get(f"/api/users/{user.id}").json()["interest_tags"] == ["제과제빵", "바리스타"]
+
+
+def test_interest_tags_limit_and_code_format(api, db_session):
+    user = make_user(db_session)
+    assert api.patch(f"/api/users/{user.id}", json={"interest_tags": ["a", "b", "c", "d"]}).status_code == 422
+    assert api.patch(f"/api/users/{user.id}", json={"interest_code": "XYZ"}).status_code == 422
+    assert api.patch(f"/api/users/{user.id}", json={"interest_tags": None}).status_code == 422
+    assert api.patch(f"/api/users/{user.id}", json={"interest_tags": []}).json()["interest_tags"] == []
