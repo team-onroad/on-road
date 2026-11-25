@@ -55,6 +55,16 @@ class Settings(BaseSettings):
     work24_duty_key: str | None = None  # 고용24 직무정보 (직무데이터사전)
     external_timeout_seconds: float = 8.0
 
+    @field_validator("qnet_service_key", "careernet_api_key", "work24_training_key", "work24_jobs_key",
+                     "work24_job_info_key", "work24_duty_key")
+    @classmethod
+    def _strip_key(cls, v: str | None) -> str | None:
+        """대시보드에 붙여 넣을 때 딸려 온 앞뒤 공백 · 줄바꿈 · 따옴표를 뗀다"""
+        if v is None:
+            return None
+        v = v.strip().strip('"').strip("'").strip()
+        return v or None
+
 
 @lru_cache
 def get_settings() -> Settings:
