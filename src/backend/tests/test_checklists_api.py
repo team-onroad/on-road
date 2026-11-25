@@ -98,7 +98,7 @@ def test_create_checklist(api, db_session, setup):
     assert all(set(s) == STEP_KEYS and s["is_checked"] is False and s["checked_at"] is None for s in steps)
     assert steps[0]["detail"] == {"target_description": "지원 대상", "easy_text": "쉬운 말", "summary": None}
     assert steps[1]["detail"] == {
-        "target_description": "지원 대상", "eligibility": {"status": "match", "age": "match", "region": "match", "leave": None},
+        "target_description": "지원 대상", "eligibility": {"status": "match", "age": "match", "region": "match", "leave": None, "care": None},
         "summary": None,
     }
     assert steps[2]["detail"] is None
@@ -176,7 +176,7 @@ def test_excluded_policy_can_be_created(api, db_session):
     res = _create(api, user.id, policy.id)
     assert res.status_code == 201
     assert _step(res.json(), "condition_check")["detail"]["eligibility"] == {
-        "status": "excluded", "age": "match", "region": "excluded", "leave": None,
+        "status": "excluded", "age": "match", "region": "excluded", "leave": None, "care": None,
     }
 
 

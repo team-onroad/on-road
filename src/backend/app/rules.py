@@ -140,6 +140,44 @@ def leave_status(user_status: str | None, policy_name: str, target: str | None) 
     return "now" if user_status == "left_care" else "after_leave"
 
 
+# 보호받던 곳에 따라 갈리는 정책 (users.care_type 판정)
+_YOUTH_FACILITY = re.compile(r"청소년\s*복지\s*시설|청소년\s*쉼터|가정\s*밖\s*청소년|청소년\s*자립\s*지원관")
+_CHILD_PROTECTION = re.compile(r"자립\s*준비\s*청년|아동\s*복지\s*시설|아동\s*양육\s*시설|공동\s*생활\s*가정|그룹홈|가정\s*위탁|위탁\s*가정|보호\s*종료\s*아동|보호종료아동")
+_FOSTER_ONLY = re.compile(r"가정\s*위탁|위탁\s*아동|위탁\s*가정")
+_FACILITY = re.compile(r"아동\s*복지\s*시설|아동\s*양육\s*시설|공동\s*생활\s*가정|그룹홈|시설")
+
+
+def care_requirement(name: str, target: str | None) -> set[str] | None:
+    """이 정책을 받는 보호 경로 (users.care_type 값의 집합). 이름 · 대상에 보호받던 곳이 안 나오면 None (가르지 않음).
+    - 청소년복지시설(쉼터 · 자립지원관)만 나오면 youth_facility
+    - 아동복지시설 · 가정위탁만 나오면 child_facility · foster (이름이 가정위탁 전용이고 시설이 없으면 foster 만)
+    - 둘 다 나오면 셋 다
+    이름에 청소년복지시설만 나오면 대상 문장과 상관없이 youth_facility (자립준비청년은 아동보호체계 출신이라 child_facility · foster)"""
+    # 이름에 보호받던 곳이 나오면 이름이 기준 (대상 문장이 잘못 수집된 경우가 있다: G038)
+    if _YOUTH_FACILITY.search(name or "") and not _CHILD_PROTECTION.search(_YOUTH_FACILITY.sub(" ", name or "")):
+        return {"youth_facility"}
+    text = f"{name or ''} {target or ''}"
+    youth = bool(_YOUTH_FACILITY.search(text))
+    child = bool(_CHILD_PROTECTION.search(_YOUTH_FACILITY.sub(" ", text)))
+    if youth and child:
+        return {"child_facility", "foster", "youth_facility"}
+    if youth:
+        return {"youth_facility"}
+    if not child:
+        return None
+    if _FOSTER_ONLY.search(name or "") and not _FACILITY.search(text):
+        return {"foster"}
+    return {"child_facility", "foster"}
+
+
+def care_status(care_type: str | None, name: str, target: str | None) -> str | None:
+    """보호받던 곳 판정: match · excluded. 사용자가 모르거나(null) 정책이 가르지 않으면 None"""
+    need = care_requirement(name, target)
+    if care_type is None or need is None:
+        return None
+    return "match" if care_type in need else "excluded"
+
+
 def is_in_care_child_policy(name: str, target: str | None) -> bool:
     """보호 중인 아동 전용 정책인지. 퇴소한 사용자에게는 본인 정책으로 보이지 않게 한다"""
     if not _IN_CARE_CHILD.search(name or ""):

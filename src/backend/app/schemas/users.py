@@ -7,12 +7,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from app.codes import USER_REGIONS, USER_STAGES, USER_STATUSES, USER_WORKS
+from app.codes import USER_CARE_TYPES, USER_REGIONS, USER_STAGES, USER_STATUSES, USER_WORKS
 
 Region = Literal[USER_REGIONS]
 Status = Literal[USER_STATUSES]
 Stage = Literal[USER_STAGES]
 Work = Literal[USER_WORKS]
+CareType = Literal[USER_CARE_TYPES]
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _PHONE_RE = re.compile(r"^01[0-9]{8,9}$")
@@ -132,6 +133,7 @@ class UserCreate(BaseModel):
     d_date: date | None = None
     district: str | None = None
     family: list[FamilyMemberIn] = []
+    care_type: CareType | None = None  # 보호받던 곳. 모르면 null
 
     _dates = field_validator("birth_date", "d_date", mode="before")(_date_string_only)
     _district = field_validator("district")(_check_district)
@@ -155,6 +157,7 @@ class UserUpdate(BaseModel):
     work: Work | None = None
     district: str | None = None  # null · 빈 문자열이면 지운다
     family: list[FamilyMemberIn] | None = None  # 보낸 목록으로 통째로 바꾼다 (빈 목록이면 모두 지움)
+    care_type: CareType | None = None  # 보호받던 곳. null 이면 지운다 (모름)
     interest_code: str | None = None  # 흥미 탐색 상위 유형. null · 빈 문자열이면 지운다
     interest_tags: list[str] | None = None  # 관심 분야 (최대 3개). 보낸 목록으로 통째로 바꾼다
 
@@ -196,6 +199,7 @@ class UserResponse(BaseModel):
     work: Work | None
     district: str | None
     family: list[FamilyMemberOut]
+    care_type: CareType | None = None
     interest_code: str | None = None
     interest_tags: list[str] = []
     created_at: datetime

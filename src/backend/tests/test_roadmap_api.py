@@ -351,3 +351,28 @@ def test_same_kind_group_lists_other_regions(api, db_session):
     assert api.get(f"/api/users/{user.id}/same-kind/{big.id}").json()["picked"]["policy_id"] == mine.id
     # 묶이지 않는 정책
     assert api.get(f"/api/users/{user.id}/same-kind/{other.id}").status_code == 404
+
+
+
+def test_care_type_splits_allowances(api, db_session):
+    """보호받던 곳에 따라 갈리는 제도: 아동복지시설 출신은 청소년쉼터 퇴소자 수당이 빠지고, 쉼터 출신은 자립수당이 빠진다.
+    모르면(null) 둘 다 보인다"""
+    child = make_policy(db_session, name="자립준비청년 자립수당", target_description="아동복지시설 · 가정위탁 보호종료 5년 이내")
+    youth = make_policy(db_session, name="청소년복지시설 퇴소청소년 자립지원수당", target_description="아동복지시설 보호종료")
+    both = make_policy(db_session, name="보호종료아동 및 쉼터퇴소 청소년 임대주택", target_description="보호종료아동, 청소년쉼터 퇴소자")
+    plain = make_policy(db_session, name="청년 월세 지원", target_description="청년")
+    user = make_user(db_session, status="left_care")
+
+    def ids():
+        return {r["policy_id"] for r in api.get(f"/api/policies?user_id={user.id}").json()["results"]}
+
+    assert {child.id, youth.id, both.id, plain.id} <= ids()
+    api.patch(f"/api/users/{user.id}", json={"care_type": "child_facility"})
+    assert child.id in ids() and youth.id not in ids() and both.id in ids() and plain.id in ids()
+    api.patch(f"/api/users/{user.id}", json={"care_type": "youth_facility"})
+    assert child.id not in ids() and youth.id in ids() and both.id in ids()
+    detail = api.get(f"/api/policies/{child.id}", params={"user_id": str(user.id)}).json()
+    assert detail["eligibility"]["care"] == "excluded"
+    api.patch(f"/api/users/{user.id}", json={"care_type": None})
+    assert api.get(f"/api/users/{user.id}").json()["care_type"] is None
+    assert {child.id, youth.id} <= ids()

@@ -56,6 +56,7 @@ def to_response(user: User, today: date) -> UserResponse:
                             age=calc_age(m.birth_date, today))
             for m in user.family
         ],
+        care_type=user.care_type,
         interest_code=user.interest_code,
         interest_tags=list(user.interest_tags or []),
         created_at=user.created_at,

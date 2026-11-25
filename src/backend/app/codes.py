@@ -10,6 +10,8 @@ POLICY_REGIONS = (NATIONWIDE, *USER_REGIONS)
 USER_STATUSES = ("in_care", "leaving_soon", "left_care")
 USER_STAGES = ("child", "teen", "youth")
 USER_WORKS = ("student", "working", "job_seeking", "resting")
+# 보호받던 곳 (users.care_type)
+USER_CARE_TYPES = ("child_facility", "foster", "youth_facility")
 
 POLICY_CATEGORIES = (
     "independence", "housing", "education", "employment",

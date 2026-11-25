@@ -113,15 +113,15 @@ def test_is_outdated_uses_fixed_today(api, db_session, clock):
 @pytest.mark.parametrize(
     ("policy", "eligibility"),
     [
-        ({"region": "전국"}, {"status": "match", "age": "match", "region": "match", "leave": None}),
-        ({"region": "서울"}, {"status": "match", "age": "match", "region": "match", "leave": None}),
-        ({"region": "부산"}, {"status": "excluded", "age": "match", "region": "excluded", "leave": None}),
-        ({"age_min": 22}, {"status": "excluded", "age": "excluded", "region": "match", "leave": None}),
-        ({"age_max": 20}, {"status": "excluded", "age": "excluded", "region": "match", "leave": None}),
-        ({"age_min": 21, "age_max": 21}, {"status": "match", "age": "match", "region": "match", "leave": None}),
+        ({"region": "전국"}, {"status": "match", "age": "match", "region": "match", "leave": None, "care": None}),
+        ({"region": "서울"}, {"status": "match", "age": "match", "region": "match", "leave": None, "care": None}),
+        ({"region": "부산"}, {"status": "excluded", "age": "match", "region": "excluded", "leave": None, "care": None, "care": None}),
+        ({"age_min": 22}, {"status": "excluded", "age": "excluded", "region": "match", "leave": None, "care": None}),
+        ({"age_max": 20}, {"status": "excluded", "age": "excluded", "region": "match", "leave": None, "care": None}),
+        ({"age_min": 21, "age_max": 21}, {"status": "match", "age": "match", "region": "match", "leave": None, "care": None}),
         (
             {"region": "경기", "age_min": 30},
-            {"status": "excluded", "age": "excluded", "region": "excluded", "leave": None},
+            {"status": "excluded", "age": "excluded", "region": "excluded", "leave": None, "care": None, "care": None},
         ),
     ],
 )

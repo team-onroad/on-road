@@ -17,7 +17,7 @@ ONBOARDING = {
 }
 RESPONSE_KEYS = {
     "user_id", "name", "birth_date", "age", "phone", "region", "status", "stage",
-    "d_date", "d_day", "work", "district", "family", "interest_code", "interest_tags", "created_at", "updated_at",
+    "d_date", "d_day", "work", "district", "family", "care_type", "interest_code", "interest_tags", "created_at", "updated_at",
 }
 
 

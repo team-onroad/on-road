@@ -24,6 +24,9 @@ class Eligibility(BaseModel):
     # 보호 상태: 보호가 끝나야 받는 정책(대상에 보호종료 · 퇴소 · 자립준비)인데 아직 보호 중이면 after_leave,
     # 이미 퇴소했으면 now. 보호 상태와 상관없는 정책이면 null
     leave: Literal["now", "after_leave"] | None = None
+    # 보호받던 곳(users.care_type): match · excluded. 사용자가 모르거나 정책이 가르지 않으면 null.
+    # excluded 면 추천 · 검색 · 로드맵에서 빠진다
+    care: Literal["match", "excluded"] | None = None
 
 
 class RequiredDoc(BaseModel):

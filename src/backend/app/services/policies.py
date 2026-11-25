@@ -17,7 +17,7 @@ from app.cache import TtlCache
 from app.rag_client import SearchPolicies, get_search_policies
 from app.rules import (
     CHILD_AGE_MAX, calc_age, is_child_household_policy, is_child_policy, is_in_care_child_policy, is_outdated, judge_age, judge_eligibility,
-    leave_status, policy_district,
+    care_status, leave_status, policy_district,
 )
 from app.schemas.policies import (
     EasyLevelOption,
@@ -106,6 +106,7 @@ def eligibility_for(user: User, policy: Policy, today: date) -> Eligibility:
                             district=policy_district(policy.agency), user_district=getattr(user, "district", None),
                             family_ages=family_ages_for(user, policy, today)),
         leave=leave_status(getattr(user, "status", None), getattr(policy, "name", ""), getattr(policy, "target_description", None)),
+        care=care_status(getattr(user, "care_type", None), getattr(policy, "name", ""), getattr(policy, "target_description", None)),
     )
 
 
@@ -205,7 +206,11 @@ def candidate_policies(db: Session, age: int, region: str, user: User | None = N
     # 시설 · 위탁 보호 중인 사람은 소년소녀가정(아동이 가정을 이끄는 세대)이 아니다
     if user.status in ("in_care", "leaving_soon"):
         policies = [p for p in policies if not is_child_household_policy(p.name) or for_family(user, p, today)]
-    return [p for p in policies if eligibility_for(user, p, today).status != "excluded"]
+    # 보호받던 곳이 다른 제도(아동복지시설 출신에게 청소년쉼터 퇴소자 수당 등)는 뺀다
+    # (가족을 위한 아동 정책은 가족의 보호 경로를 모르니 그대로 둔다)
+    return [p for p in policies
+            if (e := eligibility_for(user, p, today)).status != "excluded"
+            and (e.care != "excluded" or for_family(user, p, today))]
 
 
 # 같은 질문 · 같은 후보 정책이면 RAG 결과를 24시간 다시 쓴다 (RAG 는 2~4초, 캐시는 0.4초 · 11/23 배포 서버 측정).

@@ -88,6 +88,8 @@ class User(Base):
     d_date: Mapped[date | None] = mapped_column(Date)
     work: Mapped[str | None] = mapped_column(String(20))  # student | working | job_seeking | resting
     district: Mapped[str | None] = mapped_column(String(20))  # 시 · 군 · 구 ("서초구"). 시 · 군 · 구 정책 판정에 씀
+    # 보호받던 곳: child_facility(아동복지시설) · foster(가정위탁) · youth_facility(청소년복지시설). null 이면 모름
+    care_type: Mapped[str | None] = mapped_column(String(20))
     interest_code: Mapped[str | None] = mapped_column(String(3))  # 흥미 탐색 상위 유형 ("RA")
     interest_tags: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'")
