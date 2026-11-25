@@ -1027,7 +1027,7 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 ```
 
 - `available: false`: 키가 없거나 바깥 서버가 실패했다. `message` 를 그대로 보여 주면 된다 (실패한 응답은 캐시하지 않는다). 실패하면 `reason` 에 바깥 서버의 오류 사유(예: `HTTP 401`, `30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR`)
-- `exams`: `grade` (기능사 · 산업기사 · 기사 · 기능장 · 기술사, 이름 끝으로 판단. 없으면 null 이고 items 는 빈 배열). 끝나지 않은 회차만, 다가오는 날짜 순 최대 4개. 등급 전체 회차라 `note` 를 함께 보여 준다. 항목: `name`, `year`, `round`, `written_apply_start/end`, `written_exam_start/end`, `written_pass`, `practical_apply_start/end`, `practical_exam_start/end`, `practical_pass` (YYYY-MM-DD 또는 null)
+- `exams`: 자격증 이름을 큐넷 종목 목록(국가자격 종목 목록 정보 API, 하루 캐시)에서 찾아 그 종목(`code`, `cert`)의 회차만 받는다. 끝나지 않은 회차만, 다가오는 날짜 순 최대 4개. 종목을 못 찾으면 `grade`(기능사 · 산업기사 · 기사 · 기능장 · 기술사, 이름 끝으로 판단) 전체 회차로 대신하고 `note` 를 준다. 등급도 없으면 items 는 빈 배열 항목: `name`, `year`, `round`, `written_apply_start/end`, `written_exam_start/end`, `written_pass`, `practical_apply_start/end`, `practical_exam_start/end`, `practical_pass` (YYYY-MM-DD 또는 null)
 - `trainings`: 오늘부터 6개월 안에 시작하는 과정, 최대 20개. 내 지역(`nearby: true`) 먼저, 그다음 시작일 순. 항목: `id`, `round`, `institution_id`, `title`, `institution`, `address`, `phone`, `start`, `end`, `cost`(실제 훈련비. 본인부담액은 과정 소개에서), `certificate`, `employment_rate`, `url`
 - `trainings/detail`: `items` 대신 `course` (없으면 null). `id`, `round`, `title`, `institution`, `address`, `homepage`, `field`, `target`, `days`, `hours`, `cost`(훈련비), `support`(정부지원금), `my_cost`(본인부담액), `grade`(기관 평가등급), `contact_phone`, `facilities`, `url`(고용24 과정 화면)
 - `duties`: 최대 8개. 항목: `code`(NCS 능력단위 코드), `unit`(능력단위명), `definition`, `field`, `group`(대 > 중 > 소분류), `skills`(지식·기술·태도 이름, 최대 8개)

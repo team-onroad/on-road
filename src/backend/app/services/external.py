@@ -147,12 +147,55 @@ def grade_of(cert: str) -> str | None:
     return None
 
 
-def _qnet_page(year: int, page: int) -> tuple[list[dict[str, Any]], int]:
-    s = get_settings()
+QNET_PAGE_SIZE = 50  # 큐넷 한 페이지 최대 50개 (넘으면 930 오류)
+QNET_CODES_URL = "http://openapi.q-net.or.kr/api/service/rest/InquiryListNationalQualifcationSVC/getList"
+
+_code_cache: TtlCache[dict[str, tuple[str, str, str]]] = TtlCache("qnet-codes", ttl_seconds=24 * 3600, max_size=2)
+
+
+def _qnet_key() -> str:
+    # 포털이 주는 키가 인코딩된 것(%2B 등)이든 아니든 같은 값으로 보낸다
+    return urllib.parse.unquote(get_settings().qnet_service_key or "")
+
+
+def _norm_cert(name: str) -> str:
+    """종목명 비교용: 띄어쓰기 · 괄호 설명((검정형) 등) 없이"""
+    return re.sub(r"\(.*?\)|\s", "", name)
+
+
+def _qnet_codes() -> dict[str, tuple[str, str, str]]:
+    """국가자격 종목 목록: 정리한 종목명 → (종목코드, 원래 종목명, 자격구분 T/S). 하루 동안 담아 둔다"""
+    def make() -> dict[str, tuple[str, str, str]]:
+        root = _xml(_get(QNET_CODES_URL, {"serviceKey": _qnet_key()}))
+        codes: dict[str, tuple[str, str, str]] = {}
+        for el in root.iter("item"):
+            code, name = _text(el, "jmcd"), _text(el, "jmfldnm")
+            if code and name:
+                codes.setdefault(_norm_cert(name), (code, name, _text(el, "qualgbcd") or "T"))
+        if not codes:
+            raise ExternalError(_error_reason(ET.tostring(root)) or "no codes")
+        return codes
+
+    return _code_cache.get_or_set("all", make)
+
+
+def find_cert_code(cert: str) -> tuple[str, str, str] | None:
+    """자격증 이름 → (종목코드, 종목명, 자격구분). 이름이 같은 것 → 앞부분이 같은 것 순. 목록을 못 받으면 None"""
+    try:
+        codes = _qnet_codes()
+    except ExternalError:
+        return None
+    key = _norm_cert(cert)
+    if key in codes:
+        return codes[key]
+    starts = sorted(k for k in codes if k.startswith(key))
+    return codes[starts[0]] if starts else None
+
+
+def _qnet_page(year: int, page: int, qualgb: str = "T", jm_cd: str | None = None) -> tuple[list[dict[str, Any]], int]:
     raw = _get(QNET_URL, {
-        # 포털이 주는 키가 인코딩된 것(%2B 등)이든 아니든 같은 값으로 보낸다
-        "serviceKey": urllib.parse.unquote(s.qnet_service_key or ""), "numOfRows": QNET_PAGE_SIZE, "pageNo": page,
-        "dataFormat": "json", "implYy": year, "qualgbCd": "T",
+        "serviceKey": _qnet_key(), "numOfRows": QNET_PAGE_SIZE, "pageNo": page,
+        "dataFormat": "json", "implYy": year, "qualgbCd": qualgb, "jmCd": jm_cd,
     })
     try:
         data = json.loads(raw)
@@ -170,29 +213,76 @@ def _qnet_page(year: int, page: int) -> tuple[list[dict[str, Any]], int]:
     return items, _int(body.get("totalCount")) or len(items)
 
 
-QNET_PAGE_SIZE = 50  # 큐넷 한 페이지 최대 50개 (넘으면 930 오류)
-
-
-def _qnet_rounds(year: int) -> list[dict[str, Any]]:
-    items, total = _qnet_page(year, 1)
+def _qnet_rounds(year: int, qualgb: str = "T", jm_cd: str | None = None) -> list[dict[str, Any]]:
+    """한 해 회차 전부. 응답이 날짜 순이 아니라서 끝까지 받은 뒤 정렬한다 (종목코드가 있으면 보통 한 페이지)"""
+    items, total = _qnet_page(year, 1, qualgb, jm_cd)
     page = 1
     while len(items) < total and page < 6:
         page += 1
-        more, _ = _qnet_page(year, page)
+        more, _ = _qnet_page(year, page, qualgb, jm_cd)
         if not more:
             break
         items += more
     return items
 
 
+def _round(it: dict[str, Any], fallback: str) -> dict[str, Any]:
+    return {
+        "name": str(it.get("description") or "").strip() or fallback,
+        "year": _int(it.get("implYy")),
+        "round": _int(it.get("implSeq")),
+        "written_apply_start": _ymd(it.get("docRegStartDt")),
+        "written_apply_end": _ymd(it.get("docRegEndDt")),
+        "written_exam_start": _ymd(it.get("docExamStartDt")),
+        "written_exam_end": _ymd(it.get("docExamEndDt")),
+        "written_pass": _ymd(it.get("docPassDt")),
+        "practical_apply_start": _ymd(it.get("pracRegStartDt")),
+        "practical_apply_end": _ymd(it.get("pracRegEndDt")),
+        "practical_exam_start": _ymd(it.get("pracExamStartDt")),
+        "practical_exam_end": _ymd(it.get("pracExamEndDt")),
+        "practical_pass": _ymd(it.get("pracPassDt")),
+    }
+
+
+_DATE_KEYS = ("written_apply_start", "written_apply_end", "written_exam_start", "written_exam_end", "written_pass",
+              "practical_apply_start", "practical_apply_end", "practical_exam_start", "practical_exam_end",
+              "practical_pass")
+
+
+def _upcoming(rounds: list[dict[str, Any]], today: date, limit: int = 4) -> list[dict[str, Any]]:
+    """끝난 회차는 빼고, 아직 오지 않은 날짜가 가장 이른 회차부터"""
+    t = today.isoformat()
+
+    def next_date(r: dict[str, Any]) -> str:
+        upcoming = [r[k] for k in _DATE_KEYS if r[k] and r[k] >= t]
+        return min(upcoming) if upcoming else "9999"
+
+    alive = [r for r in rounds if next_date(r) != "9999"]
+    return sorted(alive, key=next_date)[:limit]
+
+
 def exam_schedule(cert: str, today: date) -> dict[str, Any]:
     if not get_settings().qnet_service_key:
         return _missing_key("exams")
+    found = find_cert_code(cert)
     grade = grade_of(cert)
+
+    if found:
+        code, jm_name, qualgb = found
+
+        def make_one() -> dict[str, Any]:
+            rounds = [_round(it, jm_name) for year in (today.year, today.year + 1)
+                      for it in _qnet_rounds(year, qualgb, code)]
+            return _result("exams", _upcoming(rounds, today), grade=grade, cert=jm_name, code=code,
+                           url="https://www.q-net.or.kr", note=None)
+
+        return _cached(("exams", code, today.isoformat()), make_one)
+
     if grade is None:
         return _result("exams", message="큐넷 국가기술자격 정기시험 일정이 없는 자격증입니다. 시행 기관 공지를 확인해 주세요.",
                        grade=None)
 
+    # 종목 목록을 못 받았을 때: 같은 등급(기능사 등) 전체 회차로 대신 보여 준다
     def make() -> dict[str, Any]:
         rounds: list[dict[str, Any]] = []
         for year in (today.year, today.year + 1):
@@ -203,35 +293,10 @@ def exam_schedule(cert: str, today: date) -> dict[str, Any]:
                     continue
                 if grade != "기사" and grade not in desc:
                     continue
-                r = {
-                    "name": desc.strip() or f"{year}년 {grade}",
-                    "year": _int(it.get("implYy")),
-                    "round": _int(it.get("implSeq")),
-                    "written_apply_start": _ymd(it.get("docRegStartDt")),
-                    "written_apply_end": _ymd(it.get("docRegEndDt")),
-                    "written_exam_start": _ymd(it.get("docExamStartDt")),
-                    "written_exam_end": _ymd(it.get("docExamEndDt")),
-                    "written_pass": _ymd(it.get("docPassDt")),
-                    "practical_apply_start": _ymd(it.get("pracRegStartDt")),
-                    "practical_apply_end": _ymd(it.get("pracRegEndDt")),
-                    "practical_exam_start": _ymd(it.get("pracExamStartDt")),
-                    "practical_exam_end": _ymd(it.get("pracExamEndDt")),
-                    "practical_pass": _ymd(it.get("pracPassDt")),
-                }
-                last = r["practical_pass"] or r["practical_exam_end"] or r["written_exam_end"]
-                if last and last < today.isoformat():
-                    continue
-                rounds.append(r)
-        def next_date(r: dict[str, Any]) -> str:
-            # 아직 오지 않은 날짜 중 가장 이른 것 (접수 → 시험 → 발표 순서로 본다)
-            keys = ("written_apply_start", "written_apply_end", "written_exam_start", "written_pass",
-                    "practical_apply_start", "practical_apply_end", "practical_exam_start", "practical_pass")
-            upcoming = [r[k] for k in keys if r[k] and r[k] >= today.isoformat()]
-            return min(upcoming) if upcoming else "9999"
-
-        rounds.sort(key=next_date)
-        return _result("exams", rounds[:4], grade=grade, url="https://www.q-net.or.kr",
-                       note="기능사 등급 전체의 회차입니다. 종목마다 시행 회차가 다를 수 있어 큐넷에서 확인해 주세요.")
+                rounds.append(_round(it, f"{year}년 {grade}"))
+        return _result("exams", _upcoming(rounds, today), grade=grade, cert=None, code=None,
+                       url="https://www.q-net.or.kr",
+                       note=f"{grade} 등급 전체의 회차입니다. 종목마다 시행 회차가 다를 수 있어 큐넷에서 확인해 주세요.")
 
     return _cached(("exams", grade, today.isoformat()), make)
 

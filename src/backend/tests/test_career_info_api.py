@@ -24,6 +24,19 @@ QNET = {
     ], "totalCount": 4},
 }
 
+QNET_CODES = """<?xml version="1.0" encoding="UTF-8"?>
+<response><header><resultCode>00</resultCode></header><body><items>
+<item><jmcd>7910</jmcd><jmfldnm>한식조리기능사</jmfldnm><qualgbcd>T</qualgbcd></item>
+<item><jmcd>7780</jmcd><jmfldnm>제빵기능사</jmfldnm><qualgbcd>T</qualgbcd></item>
+<item><jmcd>1320</jmcd><jmfldnm>정보처리기사</jmfldnm><qualgbcd>T</qualgbcd></item>
+</items></body></response>"""
+
+QNET_ONE = {"header": {"resultCode": "00"}, "body": {"totalCount": 2, "items": [
+    {"implYy": "2026", "implSeq": 41, "description": "국가기술자격 기능사 (2026년도 제41회)",
+     "docRegStartDt": "20261215", "docRegEndDt": "20261216", "docExamStartDt": "20261221", "docPassDt": "20261221"},
+    {"implYy": "2026", "implSeq": 2, "description": "국가기술자격 기능사 (2026년도 제2회)", "pracPassDt": "20260601"},
+]}}
+
 TRAINING = """<?xml version="1.0" encoding="UTF-8"?>
 <HRDNet><scn_cnt>2</scn_cnt><srchList>
 <scn_list><title>바리스타 자격증 취득 과정</title><subTitle>부산커피학원</subTitle><address>부산광역시 중구</address>
@@ -108,7 +121,12 @@ def fake_get(monkeypatch):
 
     def fake(url, params):
         calls.append((url, params))
+        if url == external.QNET_CODES_URL:
+            return QNET_CODES.encode()
         if url == external.QNET_URL:
+            if params.get("jmCd"):
+                data = QNET_ONE if params["implYy"] == 2026 else {"body": {"items": []}}
+                return json.dumps(data).encode()
             return json.dumps(QNET if params["implYy"] == 2026 else {"body": {"items": []}}).encode()
         if url == external.WORK24_TRAINING_URL:
             return TRAINING.encode()
@@ -157,11 +175,12 @@ def test_exam_schedule_keeps_upcoming_rounds_of_grade(client, keys, fake_get, mo
 
     app.dependency_overrides[get_today] = lambda: date(2026, 11, 25)
     try:
-        body = client.get("/api/career/exams", params={"cert": "제빵기능사"}).json()
+        body = client.get("/api/career/exams", params={"cert": "제과기능사"}).json()  # 종목 목록에 없는 이름 → 등급 전체
     finally:
         app.dependency_overrides.pop(get_today, None)
     assert body["available"] is True
     assert body["grade"] == "기능사"
+    assert body["note"]
     assert [r["round"] for r in body["items"]] == [4]  # 끝난 1회 · 산업기사 · 기사는 빠진다
     r = body["items"][0]
     assert r["written_apply_start"] == "2026-08-18"
@@ -171,7 +190,7 @@ def test_exam_schedule_keeps_upcoming_rounds_of_grade(client, keys, fake_get, mo
 def test_exam_grade_gisa_does_not_match_sanup(client, keys, fake_get):
     from datetime import date
 
-    res = external.exam_schedule("정보처리기사", date(2026, 11, 25))
+    res = external.exam_schedule("전기기사", date(2026, 11, 25))
     assert [r["name"] for r in res["items"]] == ["국가기술자격 기사 (2026년도 제4회)"]
 
 
@@ -180,7 +199,7 @@ def test_exam_for_private_cert_has_no_rounds(client, keys, fake_get):
     assert body["available"] is True
     assert body["items"] == []
     assert body["grade"] is None
-    assert fake_get == []
+    assert [u for u, _ in fake_get] == [external.QNET_CODES_URL]  # 종목 목록만 보고 일정은 부르지 않는다
 
 
 def test_trainings_put_my_region_first(client, keys, fake_get):
@@ -248,6 +267,7 @@ def test_qnet_key_encoded_or_not_is_sent_the_same(client, keys, fake_get, monkey
     monkeypatch.setattr(get_settings(), "qnet_service_key", "ab%2Bc%3D%3D")
     external.exam_schedule("제빵기능사", date(2026, 11, 25))
     external._cache.clear()
+    external._code_cache.clear()
     monkeypatch.setattr(get_settings(), "qnet_service_key", "ab+c==")
     external.exam_schedule("제빵기능사", date(2026, 11, 25))
     keys_sent = {p["serviceKey"] for _, p in fake_get}
@@ -330,7 +350,7 @@ def test_qnet_error_header_is_reported(client, keys, monkeypatch):
 
     monkeypatch.setattr(external, "_get", lambda url, params: json.dumps(
         {"header": {"resultCode": "30", "resultMsg": "SERVICE_KEY_IS_NOT_REGISTERED_ERROR"}}).encode())
-    res = external.exam_schedule("제빵기능사", date(2026, 11, 25))
+    res = external.exam_schedule("제과기능사", date(2026, 11, 25))
     assert res["available"] is False
     assert res["reason"] == "30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR"
 
@@ -348,6 +368,8 @@ def test_qnet_pages_by_50_and_sorts_by_next_date(client, keys, monkeypatch):
     calls = []
 
     def fake(url, params):
+        if url == external.QNET_CODES_URL:
+            raise external.ExternalError("HTTP 403")  # 종목 목록을 못 받으면 등급 전체로
         calls.append((params["implYy"], params["pageNo"], params["numOfRows"]))
         if params["implYy"] != 2026:
             return json.dumps({"header": {"resultCode": "00"}, "body": {"items": [], "totalCount": 0}}).encode()
@@ -359,3 +381,23 @@ def test_qnet_pages_by_50_and_sorts_by_next_date(client, keys, monkeypatch):
     assert (2026, 1, 50) in calls and (2026, 2, 50) in calls
     assert [r["round"] for r in res["items"]] == [107, 41]
     assert res["note"]
+
+
+def test_exam_uses_cert_code_when_found(client, keys, fake_get):
+    from datetime import date
+
+    res = external.exam_schedule("제빵 기능사", date(2026, 11, 25))
+    assert res["code"] == "7780" and res["cert"] == "제빵기능사"
+    assert res["note"] is None
+    assert [r["round"] for r in res["items"]] == [41]  # 끝난 2회는 빠진다
+    sched = [p for u, p in fake_get if u == external.QNET_URL]
+    assert {p["jmCd"] for p in sched} == {"7780"}
+    assert {p["implYy"] for p in sched} == {2026, 2027}
+
+
+def test_cert_codes_are_fetched_once(client, keys, fake_get):
+    external.find_cert_code("제빵기능사")
+    external.find_cert_code("한식조리기능사")
+    assert len([1 for u, _ in fake_get if u == external.QNET_CODES_URL]) == 1
+    assert external.find_cert_code("한식조리") == ("7910", "한식조리기능사", "T")
+    assert external.find_cert_code("없는자격") is None
