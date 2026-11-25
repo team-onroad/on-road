@@ -1,0 +1,40 @@
+# develop 에 push 되면 Render 에 배포를 요청한다 (Render 자동배포가 GitHub 알림을 못 받을 때 대신)
+#
+# 처음 한 번 설정 (Settings → Secrets and variables → Actions → New repository secret):
+# - 이름: RENDER_DEPLOY_HOOK
+# - 값: Render 서비스 Settings → Deploy Hook 의 주소 (https://api.render.com/deploy/srv-...?key=...)
+# 손으로 돌리기: Actions → Render 배포 → Run workflow
+name: Render 배포
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "src/**"
+      - "data/**"
+      - "docs/simulation-criteria.json"
+      - "render.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: render-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 배포 요청
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK 시크릿이 없습니다. 저장소 Settings → Secrets 에 Render Deploy Hook 주소를 넣어 주세요."
+            exit 1
+          fi
+          # Render 는 연결된 브랜치(develop)의 최신 커밋을 배포한다
+          code=$(curl -sS -o /tmp/res -w "%{http_code}" -X POST "$HOOK")
+          echo "Render 응답: $code"
+          cat /tmp/res; echo
+          [ "$code" -ge 200 ] && [ "$code" -lt 300 ]
