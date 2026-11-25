@@ -339,6 +339,66 @@ def normalize_amount(amount: str | None) -> str | None:
     return f"{prefix} {_won_text(won)}".strip()
 
 
+# 숫자와 한글 단위가 섞인 금액 ("1천5백만원", 숫자 없는 "천만 원")을 숫자 금액으로 먼저 바꾼다 (안 바꾸면 "5백만원"만 읽힘)
+_MIXED_RE = re.compile(r"(\d+)\s*천\s*(\d+)\s*백\s*만\s*원")
+_BARE_CHEONMAN_RE = re.compile(r"(?<![\d,.])천\s*만\s*원")
+# 나눠 주는 돈의 내역 ("1,500만원 (당해년도 1,000만원 + 익년도 500만원)", "1차 · 2차 분할")
+_SPLIT_HINT_RE = re.compile(r"분할|나누어|당해|익년|다음\s*연도|1차|2차|\+")
+_LATER_RE = re.compile(r"이후\s*([\d,]+(?:\.\d+)?\s*(?:백만|천만|만|천|백)?\s*원)")
+_ROUND_RE = re.compile(r"(\d)\s*회\s*[:：]?\s*([\d,]+(?:\.\d+)?\s*(?:백만|천만|만|천|백)?\s*원)")
+
+
+def _plain_amounts(text: str) -> str:
+    text = _MIXED_RE.sub(lambda m: f"{int(m.group(1)) * 1000 + int(m.group(2)) * 100}만원", text)
+    return _BARE_CHEONMAN_RE.sub("1000만원", text)
+
+
+def _won(amount: str) -> int | None:
+    m = _AMOUNT_PARTS_RE.match(" ".join(amount.split()))
+    if m is None:
+        return None
+    try:
+        return int(float(m.group(2).replace(",", "")) * _UNIT_WON[m.group(3)])
+    except ValueError:
+        return None
+
+
+def _total_amount(text: str) -> str | None:
+    """금액이 여러 개인데 한 사람이 받는 총액을 분명히 알 수 있을 때만 (자립정착금처럼 나눠 주는 돈):
+    - "'20년 5백만원, 21년 10백만원, 22년 이후 15백만원(…)" → 지금 기준인 '이후' 금액
+    - "1,500만원 (당해년도 1,000만원 + 익년도 500만원)" → 맨 앞 금액이 나머지 합 이상이면 그것
+    - "1회 : 10,000,000원 / 2회 : 5,000,000원" → 회차 금액의 합
+    - "1인 1000만원 지급 (구 자체 추가지원100만원/1인)" → 기본 + 추가
+    월 · 연 금액이 섞였거나 위에 해당하지 않으면 None (지금처럼 비운다)"""
+    if re.search(r"(?:월|연|매월|매년)\s*(?:최대\s*)?[\d,]+", text):
+        return None
+    later = _LATER_RE.findall(text)
+    if later:
+        return normalize_amount(later[-1])
+    rounds = _ROUND_RE.findall(text)
+    if len(rounds) >= 2 and [int(n) for n, _ in rounds] == list(range(1, len(rounds) + 1)):
+        wons = [_won(a) for _, a in rounds]
+        if all(wons):
+            return _won_text(sum(wons))
+    wons = [w for w in (_won(" ".join(m.group().split())) for m in _AMOUNT_RE.finditer(text)) if w]
+    # "1인 1000만원 지급 (구 자체 추가지원 100만원/1인)" → 기본 + 추가
+    if len(wons) == 2 and re.search(r"추가\s*지원", text) and wons[1] < wons[0]:
+        return _won_text(sum(wons))
+    if not _SPLIT_HINT_RE.search(text):
+        return None
+    if len(wons) >= 2 and wons[0] >= sum(wons[1:]) and wons[0] < AMOUNT_BUDGET_MIN:
+        return _won_text(wons[0])
+    return None
+
+
+def policy_amount_text(text: str | None) -> str | None:
+    """지원 금액 칸: 금액 표현이 하나면 그것, 여러 개면 한 사람이 받는 총액이 분명할 때만 (_total_amount)"""
+    if not text:
+        return None
+    plain = _plain_amounts(text)
+    return _single_amount(plain) or _total_amount(plain)
+
+
 def _single_amount(text: str | None) -> str | None:
     """지원 금액 칸(support_amount)에는 금액 표현이 하나일 때만 넣는다.
     여러 개면(예: 디딤씨앗통장 "월 10만 원, 10만 원, 월 50만 원" — 50만 원은 지원금이 아니라 추가 적립 한도) 이어 붙이면
@@ -555,7 +615,7 @@ def to_policy(detail: dict, policy_key: str, today: date, conditions: dict | Non
         "age_max": age_max,
         "target_description": target,
         "support_content": text(detail, "지원내용"),
-        "support_amount": _single_amount(text(detail, "지원내용")),
+        "support_amount": policy_amount_text(text(detail, "지원내용")),
         "support_period": None,
         "apply_method": apply_method,
         "required_docs": docs,

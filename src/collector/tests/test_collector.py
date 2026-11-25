@@ -401,10 +401,26 @@ def test_amounts_with_million_units():
 
 
 def test_amount_rule_change_updates_policy():
-    """금액만 달라져도(뽑는 규칙을 고친 뒤) 바뀐 것으로 보고 새로 쓴다"""
-    old = {**to_policy(DETAIL, "G001", TODAY).policy, "support_amount": None}
+    """금액만 달라지면(뽑는 규칙을 고친 뒤) 금액 칸만 새로 쓰고, 원문은 그대로라 쉬운 말 검수 상태는 지킨다"""
+    old = {**to_policy(DETAIL, "G001", TODAY).policy, "support_amount": None, "easy_text": "쉬운 말", "easy_text_verified": True}
     res = merge([old], [to_policy(DETAIL, "G001", TODAY).policy])
-    assert res.changed == ["G001"] and res.policies[0]["support_amount"] == "매월 50만 원"
+    assert res.changed == [] and "G001" in res.relabeled
+    p = res.policies[0]
+    assert p["support_amount"] == "매월 50만 원" and p["easy_text_verified"] is True and p["easy_text"] == "쉬운 말"
+
+
+def test_total_amount_for_split_payments():
+    """금액이 여러 개여도 한 사람이 받는 총액이 분명하면 넣는다 (자립정착금 분할 지급)"""
+    f = convert.policy_amount_text
+    assert f("자립정착금 1,500만원 지급 (당해년도 1,000만원 + 익년도 500만원)") == "1,500만 원"
+    assert f("'20년 5백만원, 21년 10백만원, 22년 이후 15백만원(1차 10백만원, 2차 5백만원)") == "1,500만 원"
+    assert f("1회 : 10,000,000원 지원 / 2회 : 5,000,000원 지원") == "1,500만 원"
+    assert f("1회 1천5백만원의 자립정착금 지급(1차, 2차 분할지급)") == "1회 1,500만 원"
+    assert f("자립정착금 천만 원 지원(1회)") == "1,000만 원"
+    assert f("1인 1000만원 지급 (구 자체 추가지원100만원/1인)") == "1,100만 원"
+    # 월 금액이 섞였거나 총액이 분명하지 않으면 비운다
+    assert f("월 10만 원, 10만 원, 월 50만 원") is None
+    assert f("가구당 30만원, 1인 가구 20만원") is None
 
 
 def test_real_policies_json_keeps_manual_first():

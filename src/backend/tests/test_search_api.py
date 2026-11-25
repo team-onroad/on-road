@@ -124,6 +124,23 @@ def test_family_and_district_in_browse(api, db_session, rag):
     assert ("L001", False, "match") in keys()
 
 
+def test_family_policies_depend_on_relation(api, db_session, rag):
+    """보호 아동 전용 정책(가정위탁아동 지원)은 동생에게만(아직 보호 중일 수 있음), 내 자녀는 보호 아동이 아니라 빠진다.
+    소년소녀가정 정책은 가족 누구에게도 아니다. 일반 아동 정책은 자녀 · 동생 모두"""
+    user = make_user(db_session)
+    make_policy(db_session, policy_key="C001", name="가정위탁아동 지원", age_max=17, target_description="가정위탁 보호조치 결정 아동")
+    make_policy(db_session, policy_key="C002", name="소년소녀가정 지원", age_max=17)
+    make_policy(db_session, policy_key="C003", name="아동발달지원계좌 지원", age_max=17, target_description="기초수급가구 아동")
+
+    def keys():
+        return sorted(r["policy_key"] for r in api.get(f"/api/policies?user_id={user.id}").json()["results"] if r["for_family"])
+
+    api.patch(f"/api/users/{user.id}", json={"family": [{"relation": "child", "birth_date": "2022-01-01"}]})
+    assert keys() == ["C003"]
+    api.patch(f"/api/users/{user.id}", json={"family": [{"relation": "sibling", "birth_date": "2014-01-01"}]})
+    assert keys() == ["C001", "C003"]
+
+
 def test_related_policies_flagged(api, db_session, rag):
     """RAG 가 related 로 붙인 비슷한 정책은 results[].related = true, 답변 근거와 섞이면 근거로 본다"""
     user = make_user(db_session)

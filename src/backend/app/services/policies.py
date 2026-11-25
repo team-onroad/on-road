@@ -75,13 +75,28 @@ def family_ages(user: User, today: date) -> list[int]:
     return [calc_age(m.birth_date, today) for m in getattr(user, "family", None) or []]
 
 
+def family_ages_for(user: User, policy: Policy, today: date) -> list[int]:
+    """이 정책을 받을 수 있는 가족의 나이만.
+    - 소년소녀가정(아동이 가정을 이끄는 세대) 정책: 성인인 사용자와 사는 가족은 해당 없음 → 없음
+    - 지금 보호받는 아동 전용 정책(가정위탁아동 · 보호대상아동 · 시설 아동): 사용자의 자녀는 보호 아동이 아니므로 빼고,
+      동생은 아직 시설 · 위탁에서 보호받고 있을 수 있어서 넣는다 (판정은 '확인 필요')
+    - 그 밖의 아동 정책: 자녀 · 동생 모두"""
+    name, target = getattr(policy, "name", "") or "", getattr(policy, "target_description", None)
+    if is_child_household_policy(name):
+        return []
+    members = getattr(user, "family", None) or []
+    if is_in_care_child_policy(name, target):
+        members = [m for m in members if m.relation == "sibling"]
+    return [calc_age(m.birth_date, today) for m in members]
+
+
 def for_family(user: User, policy: Policy, today: date) -> bool:
-    """본인 나이로는 빠지지만 가족(자녀 · 동생) 나이가 맞아 보이는 아동 대상 정책"""
+    """본인 나이로는 빠지지만 가족(자녀 · 동생) 나이가 맞아 보이는 아동 대상 정책 (family_ages_for 기준)"""
     if not is_child_policy(policy.age_max):
         return False
     if judge_age(calc_age(user.birth_date, today), policy.age_min, policy.age_max) != "excluded":
         return False
-    return any(judge_age(a, policy.age_min, policy.age_max) == "match" for a in family_ages(user, today))
+    return any(judge_age(a, policy.age_min, policy.age_max) == "match" for a in family_ages_for(user, policy, today))
 
 
 def eligibility_for(user: User, policy: Policy, today: date) -> Eligibility:
@@ -89,7 +104,7 @@ def eligibility_for(user: User, policy: Policy, today: date) -> Eligibility:
     return Eligibility(
         **judge_eligibility(age, user.region, policy.age_min, policy.age_max, policy.region,
                             district=policy_district(policy.agency), user_district=getattr(user, "district", None),
-                            family_ages=family_ages(user, today)),
+                            family_ages=family_ages_for(user, policy, today)),
         leave=leave_status(getattr(user, "status", None), getattr(policy, "name", ""), getattr(policy, "target_description", None)),
     )
 

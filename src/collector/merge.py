@@ -91,6 +91,15 @@ def merge(current: list[dict], collected: list[dict], *, full_run: bool = False,
                 res.relabeled.append(key)
             res.unchanged.append(key)
             continue
+        changed_keys = {k for k in CONTENT_KEYS if old.get(k) != new.get(k)}
+        if changed_keys == {"support_amount"}:
+            # 원문은 그대로고 금액을 뽑는 규칙만 바뀜: 금액 칸만 새로 (쉬운 말은 원문에서 만든 것이라 검수 상태는 그대로)
+            old["support_amount"] = new["support_amount"]
+            old["checked_at"] = new["checked_at"]
+            old.update(auto)
+            res.relabeled.append(key)
+            res.unchanged.append(key)
+            continue
         merged = {**new, **{k: old[k] for k in KEEP_KEYS if k in old}, **auto, "easy_text_verified": False}
         out[by_key[key]] = {k: merged[k] for k in [*new, *(k for k in merged if k not in new)]}
         res.changed.append(key)
