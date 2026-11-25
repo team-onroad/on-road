@@ -61,7 +61,7 @@ def test_steps_point_to_existing_app_features():
             elif s.kind == "document":
                 assert s.template_id in templates
             elif s.kind == "app":
-                assert s.target in {"interest", "risk"}
+                assert s.target in {"interest", "risk", "chat"}
             elif s.kind == "search":
                 assert s.query
             else:
@@ -69,6 +69,38 @@ def test_steps_point_to_existing_app_features():
                 host = s.url.split("/")[2]
                 assert s.url.startswith("https://")
                 assert host.endswith(".go.kr") or host in {"www.q-net.or.kr", "jaripon.ncrc.or.kr", "www.adiga.kr"}
+
+
+def test_every_step_has_guide():
+    """할 일마다 펼쳐 보는 '이렇게 해요'가 있다"""
+    for steps in STEPS.values():
+        for s in steps:
+            assert s.guide, s.step_id
+
+
+def _steps(data, path):
+    return {s["step_id"]: s for s in _path(data, path)["steps"]}
+
+
+def test_personal_steps_follow_my_conditions(api, db_session):
+    """나이 · 상황 · 지역에 따라 할 일이 더해지고 까닭(reason)이 붙는다"""
+    from datetime import date as _d
+
+    young = make_user(db_session, birth_date=_d(2003, 5, 1), status="left_care", region="서울")
+    data = api.get(f"/api/users/{young.id}/career-roadmap").json()
+    job = _steps(data, "job")
+    assert "만 18~34세" in job["job-kua"]["reason"]
+    assert "job-aftercare" in job and job["job-aftercare"]["reason"]
+    assert job["job-local"]["query"] == "서울 청년 취업"
+    assert "college-extend" not in _steps(data, "college")
+
+    care = make_user(db_session, birth_date=_d(2009, 3, 1), status="in_care", region="부산")
+    data = api.get(f"/api/users/{care.id}/career-roadmap").json()
+    col = _steps(data, "college")
+    assert col["college-extend"]["target"] == "chat" and col["college-extend"]["query"]
+    assert col["college-jaripon"]["reason"]
+    assert "job-kua" not in _steps(data, "job")  # 만 17세라 청년 대상이 아님
+    assert "job-aftercare" not in _steps(data, "job")
 
 
 def test_step_ids_unique_and_stable():

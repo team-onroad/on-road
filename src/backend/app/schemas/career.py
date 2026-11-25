@@ -21,6 +21,8 @@ class CareerStep(BaseModel):
     phone: str | None = None  # link 일 때 기관 상담 전화
     target: str | None = None  # app 일 때 앱 화면: interest(흥미 탐색) · risk(서류 위험 찾기)
     query: str | None = None  # search 일 때 정책 검색어
+    guide: list[str] = []  # 펼치면 보이는 '이렇게 해요' 줄 (어디서 · 무엇을 · 무엇을 챙기는지)
+    reason: str | None = None  # 내 조건 때문에 들어간 할 일이면 그 까닭 ("만 23세라 청년 대상이에요")
 
 
 class CareerPolicy(BaseModel):

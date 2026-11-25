@@ -969,8 +969,10 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 |---|---|
 | `recommended` | `work`가 `student` → `college`, `working` → `training`, `job_seeking` → `job`. 그 밖에는 성장 단계가 `youth`면 `job`, 아니면 `college` |
 | `paths` | 항상 3개. `recommended` 방향이 맨 앞, 나머지는 job → college → training 순 |
+| `steps[].guide` · `steps[].reason` | `guide`: 펼치면 보이는 '이렇게 해요' 줄 (어디서 · 무엇을 · 무엇을 챙기는지, 공식 안내에 있는 것만). `reason`: 내 조건 때문에 더하거나 강조한 할 일의 까닭 ("만 23세라 청년(만 18~34세) 대상이에요"), 없으면 `null` |
+| 내 조건에 따라 더하는 할 일 | 퇴소 전(`in_care` · `leaving_soon`): 자립 상담에 까닭, 진학 방향에 `college-extend`(보호 연장 상담, `app` · `target: "chat"`, `query` = 상담 질문) · 퇴소 후(`left_care`): `{path}-aftercare`(자립지원전담기관 사후관리) · 만 18~34세: 취업 · 훈련 방향에 `{path}-kua`(국민취업지원제도) · 사는 지역: 취업 · 훈련 방향에 `{path}-local`(지역 청년 지원 검색) · `work`: 쉬는 중이고 청년도전지원사업을 받을 수 있으면 `job-challenge`, 일하는 중 · 학생이면 관련 할 일에 까닭 |
 | `steps[].step_id` | 방향 안에서 바뀌지 않는 이름 (`job-jobcenter`). 앱은 이 값으로 끝낸 일과 일정을 기억한다. 방향 이름으로 시작하고 겹치지 않는다 |
-| `steps[].kind` | `roleplay`: 실전 연습 화면 (`scenario_id`) · `document`: 서류 작성 시작 `POST /documents` (`source_type: "template"`, `source_id: template_id`) · `link`: 공식 사이트 (`url`, 있으면 `phone`) · `app`: 앱 화면 (`target`: `interest` 흥미 탐색, `risk` 서류 위험 찾기) · `search`: 앱 정책 검색 (`query`) |
+| `steps[].kind` | `roleplay`: 실전 연습 화면 (`scenario_id`) · `document`: 서류 작성 시작 `POST /documents` (`source_type: "template"`, `source_id: template_id`) · `link`: 공식 사이트 (`url`, 있으면 `phone`) · `app`: 앱 화면 (`target`: `interest` 흥미 탐색, `risk` 서류 위험 찾기, `chat` 상담 — `query` 를 질문으로) · `search`: 앱 정책 검색 (`query`) |
 | `policies` | 받을 수 있는 정책(3.5 후보 필터) 중 방향별 낱말이 이름·지원 내용에 들어간 것, 최대 4개. `match` 먼저, 금액 있는 것 먼저 |
 
 - 방향별 낱말: 취업(취업·구직·도전지원·일자리·채용·면접) · 진학(대학·등록금·장학·진학·입학) · 훈련(훈련·교육비·자격·능력개발·학습·역량)
