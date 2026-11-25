@@ -343,3 +343,15 @@ def test_feedback_then_save_counts_once(api, db_session):
         api.post(f"/api/users/{user.id}/activities",
                  json={"kind": "practice", "ref": "bank", "data": {"good": 2, "missed": 1, "score": 70}})
     assert _item(_readiness(api, user), "money", "practice-bank")["detail"].startswith("1번 해 봤어요")
+
+
+def test_career_tags_add_small_job_bonus(api, db_session):
+    """관심 분야를 고르면 일 영역에 3점만 더한다 (항목 수 · 다른 영역은 그대로)"""
+    user = make_user(db_session)
+    assert api.patch(f"/api/users/{user.id}", json={"interest_tags": ["바리스타"]}).status_code == 200
+    r = _readiness(api, user)
+    job = next(a for a in r["areas"] if a["key"] == "job")
+    assert job["score"] == 3
+    assert job["done_count"] == 0
+    assert all(a["score"] == 0 for a in r["areas"] if a["key"] != "job")
+    assert r["score"] == 0  # 전체 = 영역 평균 (3 / 6 → 반올림 0)

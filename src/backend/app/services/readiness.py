@@ -25,7 +25,7 @@
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select
@@ -172,6 +172,7 @@ class Facts:
     sim_shortages: tuple[int, ...] = ()  # 생활비 계획 부족 곳 수 (최근 순)
     stale_docs: int = 0  # 2주 넘게 손대지 않은 쓰다 만 서류
     last_active: datetime | None = None  # 마지막으로 무언가 한 때
+    career_explored: bool = False  # 흥미 탐색을 하고 관심 분야를 골랐음 (일 영역에 아주 조금 더한다)
 
 
 @dataclass(frozen=True)
@@ -534,6 +535,10 @@ def _recent_scores(db: Session, user: User) -> list[RecentScore]:
     return [RecentScore(date=d, score=s) for d, s in rows]
 
 
+# 진로 탐색(관심 분야 고르기)은 연습 · 신청처럼 직접 해 본 일은 아니라서 항목으로 세지 않고 일 영역에 몇 점만 더한다
+CAREER_BONUS = 3
+
+
 def _score(facts: Facts) -> tuple[int, list[ReadinessArea], dict[str, bool]]:
     areas: list[ReadinessArea] = []
     marks_all: dict[str, bool] = {}
@@ -543,9 +548,12 @@ def _score(facts: Facts) -> tuple[int, list[ReadinessArea], dict[str, bool]]:
         todo = next((i for i, p in marks if p < 1), None)
         for i, p in marks:
             marks_all[i.key] = marks_all.get(i.key, False) or p >= 1
+        area_score = round(100 * sum(p for _, p in marks) / len(items))
+        if key == "job" and facts.career_explored:
+            area_score = min(100, area_score + CAREER_BONUS)
         areas.append(ReadinessArea(
             key=key, label=label,
-            score=round(100 * sum(p for _, p in marks) / len(items)),
+            score=area_score,
             done_count=done_count, total=len(items),
             items=[
                 ReadinessItem(key=i.key, label=i.label, done=p >= 1, progress=round(p, 2), detail=i.detail(facts))
@@ -640,7 +648,9 @@ def readiness(db: Session, user: User, today: date | None = None, now: datetime 
     now = now or datetime.now(UTC)
     today = today or now.date()
     rows = _rows(db, user)
-    score, areas, marks = _score(collect(db, user, rows, now))
+    # 진로 탐색은 지금 점수에만 넣는다 (언제 골랐는지 기록이 없어서 지난 주 점수에는 넣지 않는다)
+    facts = replace(collect(db, user, rows, now), career_explored=bool(user.interest_tags))
+    score, areas, marks = _score(facts)
 
     # 지난 4주 흐름: 일주일 간격으로 그때까지의 기록만 다시 센다
     history: list[ReadinessPoint] = []
