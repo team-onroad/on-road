@@ -12,11 +12,11 @@ DETAIL_KEYS = {
     "age_max", "target_description", "support_content", "support_amount", "support_period",
     "apply_method", "required_docs", "apply_url", "source_url", "original_text", "easy_text",
     "checked_at", "is_outdated", "eligibility",
-    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit", "conditions", "exclusions", "apply_ways", "apply_deadline", "apply_steps", "doc_facts", "related",
+    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit", "conditions", "exclusions", "apply_ways", "apply_deadline", "apply_steps", "doc_facts", "related", "same_kind",
 }
 NULLABLE = {
     "contact", "age_min", "age_max", "support_amount", "support_period", "apply_url", "eligibility",
-    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit", "apply_deadline",
+    "amount_won", "amount_cycle", "amount_text", "period_years", "benefit", "apply_deadline", "same_kind",
 }
 
 

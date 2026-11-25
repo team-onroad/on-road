@@ -20,6 +20,7 @@ from app.schemas.chat import PersonalPlan, PlanItem
 from app.schemas.roadmap import (
     PolicyRoadmap, RecommendedPolicy, RoadmapAlternative, RoadmapItem, RoadmapStageGroup, RoadmapSummary,
 )
+from app.schemas.policies import SameKind, SameKindPolicy
 from app.services.policies import candidate_policies, eligibility_for
 from db.models import Policy, User
 
@@ -180,7 +181,8 @@ def _pick_same_kind(groups: dict[str, list[RoadmapItem]]) -> None:
         if _benefit_value(keep) > top:
             reason = f"같은 종류 {len(members)}개 중 받는 돈이 가장 커요"
         elif key == "allowance":
-            reason = "같은 제도라 하나만 받아요"
+            # 아동복지시설 · 가정위탁(보건복지부)과 청소년복지시설(성평등가족부) 수당은 대상이 다르지만 함께 받을 수 없다
+            reason = "자립수당은 하나만 받을 수 있어요"
         elif keep.region != "전국":
             reason = f"같은 종류 {len(members)}개 중 내 지역 정책이에요"
         else:
@@ -333,7 +335,36 @@ def recommend(db: Session, user: User, today: date, limit: int = RECOMMEND_LIMIT
             policy_id=item.policy_id, policy_key=item.policy_key, name=item.name, category=item.category,
             eligibility=item.eligibility, stage=group.stage, when_text=_when_text(group.stage, item),
             amount_unit=unit, amount_value=value, amount_text=item.amount_text, benefit=item.benefit,
+            kind_title=item.kind_title, pick_reason=item.pick_reason, same_kind_count=len(item.alternatives),
             score=_score(group.stage, item, today),
         )))
     rows.sort(key=lambda r: (r[0], r[1]))
     return [r[2] for r in rows[:limit]]
+
+
+# ---------------- 정책 상세 '같은 종류 중에서' ----------------
+
+def same_kind_for(db: Session, user: User, policy_id: int, today: date) -> SameKind | None:
+    """정책 상세에서: 같은 종류 중 이 정책이 내게 가장 유리한지, 아니면 어느 것이 더 나은지 (로드맵과 같은 기준)"""
+    rm = build_roadmap(db, user, today)
+    for item in (i for g in rm.stages for i in g.items):
+        if not item.alternatives or item.kind_title is None:
+            continue
+        best = SameKindPolicy(policy_id=item.policy_id, name=item.name, region=item.region, amount_text=item.amount_text)
+        alts = [SameKindPolicy(policy_id=a.policy_id, name=a.name, region=a.region, amount_text=a.amount_text)
+                for a in item.alternatives]
+        if item.policy_id == policy_id:
+            return SameKind(kind_title=item.kind_title, is_best=True, reason=item.pick_reason or "", best=best, others=alts)
+        if any(a.policy_id == policy_id for a in alts):
+            others = [best] + [a for a in alts if a.policy_id != policy_id]
+            return SameKind(
+                kind_title=item.kind_title, is_best=False,
+                reason=f"같은 종류인 '{item.name}'{'이' if _has_final(item.name) else '가'} 내 조건에서 더 유리해요",
+                best=best, others=others,
+            )
+    return None
+
+
+def _has_final(word: str) -> bool:
+    c = word.rstrip(")").rstrip()[-1:] or "가"
+    return "가" <= c <= "힣" and (ord(c) - 0xAC00) % 28 != 0

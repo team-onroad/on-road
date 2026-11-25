@@ -80,4 +80,7 @@ class RecommendedPolicy(BaseModel):
     amount_value: str | None  # "50만 원" (현금이 아니면 null)
     amount_text: str | None  # "월 50만 원"
     benefit: str | None  # 받는 것 한 줄 (현금이 아니면 앱이 이걸 보여 준다)
+    kind_title: str | None = None  # 같은 종류 묶음 이름 ("자립정착금"). 없으면 null
+    pick_reason: str | None = None  # 같은 종류 중 이걸 고른 까닭
+    same_kind_count: int = 0  # 이 정책을 뺀 같은 종류 정책 수
     score: int  # 추천 점수 (클수록 먼저). 조건 맞음 > 신청 시기 가까움 > 현금 금액 순으로 더한다

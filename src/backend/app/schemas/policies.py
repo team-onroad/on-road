@@ -44,6 +44,23 @@ class ApplyWay(BaseModel):
     lines: list[str] = []
 
 
+class SameKindPolicy(BaseModel):
+    policy_id: int
+    name: str
+    region: str
+    amount_text: str | None
+
+
+class SameKind(BaseModel):
+    """같은 종류라 함께 받기 어려운 정책 묶음 안에서 이 정책의 자리 (맞춤 신청 로드맵 3.32 와 같은 기준)"""
+
+    kind_title: str  # "자립정착금"
+    is_best: bool  # 내 조건에서 이 정책이 같은 종류 중 가장 유리함
+    reason: str  # 고른 까닭 ("같은 종류 3개 중 받는 돈이 가장 커요") 또는 다른 정책이 나은 까닭
+    best: SameKindPolicy  # 같은 종류 중 가장 유리한 정책 (is_best 면 이 정책)
+    others: list[SameKindPolicy]  # 같은 종류의 나머지 (이 정책 제외, 받는 돈이 큰 순서)
+
+
 class PolicyDetail(BaseModel):
     policy_id: int
     policy_key: str
@@ -81,6 +98,7 @@ class PolicyDetail(BaseModel):
     apply_steps: list[str] = []  # 신청 방법을 짧게 나눈 구절 (핵심 사실의 apply). 없으면 앱은 apply_method 원문
     doc_facts: list[str] = []  # 필요 서류를 짧게 정리한 구절 (핵심 사실의 docs). 괄호 안은 언제 내는지
     related: list[RelatedPolicy] = []
+    same_kind: SameKind | None = None  # 사용자를 주고, 같은 종류 정책이 2개 이상 받을 수 있을 때만
 
 
 class SearchRequest(BaseModel):

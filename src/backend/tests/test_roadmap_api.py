@@ -265,3 +265,33 @@ def test_recommended_policies_order(api, db_session):
     assert (first["amount_unit"], first["amount_value"]) == ("매월", "50만 원")
     assert items[2]["amount_unit"] is None and items[2]["amount_value"] is None
     assert items[3]["eligibility"] == "needs_check"
+
+
+def test_recommended_policy_has_same_kind_reason(api, db_session):
+    make_policy(db_session, name="자립정착금", support_amount="1,000만 원", target_description="청년")
+    big = make_policy(db_session, name="구로형 자립정착금", support_amount="1,500만 원", target_description="청년")
+    user = make_user(db_session)
+    recs = api.get(f"/api/users/{user.id}/recommended-policies").json()
+    item = next(r for r in recs if r["policy_id"] == big.id)
+    assert item["kind_title"] == "자립정착금"
+    assert item["same_kind_count"] == 1
+    assert item["pick_reason"] == "같은 종류 2개 중 받는 돈이 가장 커요"
+
+
+def test_policy_detail_same_kind(api, db_session):
+    small = make_policy(db_session, name="자립정착금", support_amount="1,000만 원", target_description="청년")
+    big = make_policy(db_session, name="구로형 자립정착금", support_amount="1,500만 원", target_description="청년")
+    lone = make_policy(db_session, name="청년 월세 지원", support_amount="월 20만 원", target_description="청년")
+    user = make_user(db_session)
+
+    best = api.get(f"/api/policies/{big.id}", params={"user_id": str(user.id)}).json()["same_kind"]
+    assert best["is_best"] is True and best["kind_title"] == "자립정착금"
+    assert [o["policy_id"] for o in best["others"]] == [small.id]
+
+    worse = api.get(f"/api/policies/{small.id}", params={"user_id": str(user.id)}).json()["same_kind"]
+    assert worse["is_best"] is False
+    assert worse["best"]["policy_id"] == big.id
+    assert worse["reason"] == "같은 종류인 '구로형 자립정착금'이 내 조건에서 더 유리해요"
+
+    assert api.get(f"/api/policies/{lone.id}", params={"user_id": str(user.id)}).json()["same_kind"] is None
+    assert api.get(f"/api/policies/{big.id}").json()["same_kind"] is None
