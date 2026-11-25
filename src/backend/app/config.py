@@ -50,7 +50,9 @@ class Settings(BaseSettings):
     qnet_service_key: str | None = None  # 공공데이터포털 큐넷 국가자격 시험일정
     careernet_api_key: str | None = None  # 커리어넷 OpenAPI 직업백과·학과정보
     work24_training_key: str | None = None  # 고용24 국민내일배움카드 훈련과정
-    work24_jobs_key: str | None = None  # 고용24 채용정보
+    work24_jobs_key: str | None = None  # 고용24 채용정보 (기업회원만 발급)
+    work24_job_info_key: str | None = None  # 고용24 직업정보 (커리어넷 키가 없을 때 직업 정보)
+    work24_duty_key: str | None = None  # 고용24 직무정보 (직무데이터사전)
     external_timeout_seconds: float = 8.0
 
 

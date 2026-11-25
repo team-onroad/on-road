@@ -25,12 +25,20 @@ QNET_URL = "https://apis.data.go.kr/B490007/qualExamSchd/getQualExamSchdList"
 CAREERNET_JOBS_URL = "https://www.career.go.kr/cnet/front/openapi/jobs.json"
 CAREERNET_JOB_URL = "https://www.career.go.kr/cnet/front/openapi/job.json"
 WORK24_TRAINING_URL = "https://www.work24.go.kr/cm/openApi/call/hr/callOpenApiSvcInfo310L01.do"
+WORK24_TRAINING_DETAIL_URL = "https://www.work24.go.kr/cm/openApi/call/hr/callOpenApiSvcInfo310L02.do"
 WORK24_JOBS_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do"
+WORK24_JOB_LIST_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo212L01.do"
+WORK24_JOB_SUMMARY_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo212D01.do"
+WORK24_JOB_DO_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo212D02.do"
+WORK24_DUTY_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo215L11.do"
 
 SOURCES = {
     "exams": "큐넷 국가자격 시험일정",
     "trainings": "고용24 국민내일배움카드 훈련과정",
     "job_info": "커리어넷 직업백과",
+    "job_info_work24": "고용24 직업정보",
+    "training": "고용24 국민내일배움카드 훈련과정",
+    "duties": "고용24 직무정보",
     "postings": "고용24 채용정보",
 }
 
@@ -216,6 +224,7 @@ def trainings(keyword: str, region: str | None, today: date) -> dict[str, Any]:
             items.append({
                 "id": _text(el, "trprId"),
                 "round": _text(el, "trprDegr"),
+                "institution_id": _text(el, "trainstCstId"),
                 "title": title,
                 "institution": _text(el, "subTitle"),
                 "address": address,
@@ -248,7 +257,8 @@ def _as_list(v: Any) -> list[Any]:
 def _strip_html(v: Any) -> str | None:
     if v is None:
         return None
-    s = re.sub(r"<[^>]+>", " ", str(v))
+    s = re.sub(r"</?(b|i|u|em|strong|span|font)\b[^>]*>", "", str(v), flags=re.I)  # 글자 꾸밈은 띄어쓰기 없이
+    s = re.sub(r"<[^>]+>", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s or None
 
@@ -270,8 +280,11 @@ def _split_names(v: Any) -> list[str]:
 
 
 def job_info(name: str) -> dict[str, Any]:
+    """커리어넷 키가 있으면 커리어넷, 없으면 고용24 직업정보"""
     s = get_settings()
     if not s.careernet_api_key:
+        if s.work24_job_info_key:
+            return work24_job_info(name)
         return _missing_key("job_info")
     name = name.strip()
 
@@ -371,3 +384,174 @@ def postings(keyword: str, region: str | None) -> dict[str, Any]:
                        url="https://www.work24.go.kr")
 
     return _cached(("postings", keyword, short), make)
+
+
+# ── 고용24 직업정보 ─────────────────────────────────────────
+
+def _leaf(root: ET.Element, tag: str) -> str | None:
+    """같은 이름의 감싸는 태그가 있어도 값이 든 첫 태그를 찾는다 (예: <jobSum><jobSum>하는 일</jobSum>)"""
+    for el in root.iter(tag):
+        if len(el) == 0 and el.text and el.text.strip():
+            return el.text.strip()
+    return None
+
+
+def _leaves(root: ET.Element, tag: str) -> list[str]:
+    out: list[str] = []
+    for el in root.iter(tag):
+        if len(el) == 0 and el.text and el.text.strip() and el.text.strip() not in out:
+            out.append(el.text.strip())
+    return out
+
+
+def _sentences(text: str | None) -> list[str]:
+    """긴 설명을 줄 단위로: 줄바꿈 · 글머리(-, ·) · 마침표 기준"""
+    if not text:
+        return []
+    parts = re.split(r"\n+|(?<=다\.)\s+|^\s*[-·]\s*", text, flags=re.M)
+    return [p.strip(" -·") for p in parts if p and p.strip(" -·")]
+
+
+def _xml(raw: bytes) -> ET.Element:
+    try:
+        return ET.fromstring(raw)
+    except ET.ParseError as e:
+        raise ExternalError("bad xml") from e
+
+
+def work24_job_info(name: str) -> dict[str, Any]:
+    s = get_settings()
+    if not s.work24_job_info_key:
+        return _missing_key("job_info_work24")
+    name = name.strip()
+    key = s.work24_job_info_key
+
+    def make() -> dict[str, Any]:
+        root = _xml(_get(WORK24_JOB_LIST_URL, {
+            "authKey": key, "returnType": "XML", "target": "JOBCD", "srchType": "K", "keyword": name,
+        }))
+        jobs = [(_text(el, "jobCd"), _text(el, "jobNm")) for el in root.iter("jobList")]
+        jobs = [j for j in jobs if j[0]]
+        if not jobs:
+            return _result("job_info_work24", message="고용24에 같은 이름의 직업이 없습니다.", job=None)
+        code, job_name = next((j for j in jobs if (j[1] or "").replace(" ", "") == name.replace(" ", "")), jobs[0])
+        base = {"authKey": key, "returnType": "XML", "target": "JOBDTL", "jobGb": 1, "jobCd": code}
+        summary = _xml(_get(WORK24_JOB_SUMMARY_URL, {**base, "dtlGb": 1}))
+        try:
+            doing = _xml(_get(WORK24_JOB_DO_URL, {**base, "dtlGb": 2}))
+        except ExternalError:
+            doing = None  # 하는 일 상세가 실패해도 요약은 보여 준다
+        works = _sentences(_leaf(doing, "execJob")) if doing is not None else []
+        job = {
+            "id": code,
+            "name": job_name or name,
+            "summary": _leaf(summary, "jobSum"),
+            "works": works,
+            "abilities": _sentences(_leaf(summary, "jobAbil")),
+            "aptitudes": _sentences(_leaf(summary, "jobChr")),
+            "interests": _sentences(_leaf(summary, "jobIntrst")),
+            "certificates": _leaves(summary, "certNm"),
+            "majors": _leaves(summary, "majorNm"),
+            "related_jobs": [n for n in _leaves(summary, "jobNm") if n != job_name],
+            "prepare": {"recruit": [], "certificate": [], "training": [], "curriculum": _sentences(_leaf(summary, "way"))},
+            "forecast": _sentences(_leaf(summary, "jobProspect")),
+            "wage": _leaf(summary, "sal"),
+            "wage_source": "고용24 재직자 조사",
+            "satisfaction": _leaf(summary, "jobSatis"),
+            "work_life_balance": None,
+            "orgs": [],
+            "url": None,
+        }
+        return _result("job_info_work24", job=job)
+
+    return _cached(("job_info_work24", name), make)
+
+
+# ── 고용24 훈련과정 상세 ─────────────────────────────────────
+
+def training_detail(course_id: str, round_: str, institution_id: str) -> dict[str, Any]:
+    s = get_settings()
+    if not s.work24_training_key:
+        return _missing_key("training")
+
+    def make() -> dict[str, Any]:
+        root = _xml(_get(WORK24_TRAINING_DETAIL_URL, {
+            "authKey": s.work24_training_key, "returnType": "XML", "outType": 2,
+            "srchTrprId": course_id, "srchTrprDegr": round_, "srchTorgId": institution_id,
+        }))
+        base = root.find(".//inst_base_info")
+        detail = root.find(".//inst_detail_info")
+        if base is None and detail is None:
+            return _result("training", message="과정 정보를 찾지 못했습니다.", course=None)
+
+        def pick(tag: str) -> str | None:
+            for el in (base, detail):
+                v = _text(el, tag)
+                if v:
+                    return v
+            return None
+
+        addr = " ".join(x for x in (pick("addr1"), pick("addr2")) if x) or None
+        course = {
+            "id": pick("trprId") or course_id,
+            "round": pick("trprDegr") or round_,
+            "title": pick("trprNm"),
+            "institution": pick("inoNm"),
+            "address": addr,
+            "homepage": pick("hpAddr"),
+            "field": pick("govBusiNm") or pick("ncsNm"),
+            "target": pick("trprTargetNm"),
+            "days": _int(pick("trDcnt") or pick("totTraingDyct")),
+            "hours": _int(pick("trtm") or pick("totTraingTime")),
+            "cost": _int(pick("instPerTrco")),
+            "support": _int(pick("perTrco")),
+            "my_cost": _int(pick("tgcrGnrlTrneOwepAllt")),
+            "grade": pick("torgParGrad"),
+            "contact_phone": pick("trprChapTel"),
+            "facilities": [n for n in _leaves(root, "trafcltyNm")][:6],
+            "url": (
+                "https://www.work24.go.kr/hr/a/a/3100/selectTracseDetl.do?"
+                + urllib.parse.urlencode({"tracseId": course_id, "tracseTme": round_, "crseTracseSe": "C0061",
+                                          "trainstCstmrId": institution_id})
+            ),
+        }
+        return _result("training", course=course)
+
+    return _cached(("training", course_id, round_, institution_id), make)
+
+
+# ── 고용24 직무정보 (직무데이터사전) ─────────────────────────
+
+def duties(keyword: str) -> dict[str, Any]:
+    s = get_settings()
+    if not s.work24_duty_key:
+        return _missing_key("duties")
+    keyword = keyword.strip()
+
+    def make() -> dict[str, Any]:
+        raw = _get(WORK24_DUTY_URL, {"authKey": s.work24_duty_key, "word": keyword, "limit": 8, "returnType": "JSON"})
+        try:
+            data = json.loads(raw)
+        except ValueError as e:
+            raise ExternalError("bad json") from e
+        if isinstance(data, dict) and data.get("message_cd") and not data.get("result"):
+            return _result("duties", message="직무 정보를 찾지 못했습니다.")
+        result = data.get("result") if isinstance(data, dict) else data
+        rows: list[tuple[str | None, dict]] = []
+        if isinstance(result, dict):
+            rows = [(k, v) for k, v in result.items() if isinstance(v, dict)]
+        elif isinstance(result, list):
+            rows = [(None, v) for v in result if isinstance(v, dict)]
+        items = []
+        for unit, v in rows:
+            items.append({
+                "code": v.get("ablt_unit"),
+                "unit": unit or v.get("job_sdvn"),
+                "definition": _strip_html(v.get("ablt_def")),
+                "field": v.get("job_sdvn"),
+                "group": " > ".join(x for x in (v.get("job_lcfn"), v.get("job_mcn"), v.get("job_scfn")) if x) or None,
+                "skills": _strip_html(v.get("knwg_tchn_attd")),
+            })
+        return _result("duties", items, url="https://www.ncs.go.kr")
+
+    return _cached(("duties", keyword), make)

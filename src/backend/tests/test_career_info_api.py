@@ -27,7 +27,7 @@ QNET = {
 TRAINING = """<?xml version="1.0" encoding="UTF-8"?>
 <HRDNet><scn_cnt>2</scn_cnt><srchList>
 <scn_list><title>바리스타 자격증 취득 과정</title><subTitle>부산커피학원</subTitle><address>부산광역시 중구</address>
-<telNo>051-000-0000</telNo><traStartDate>2026-12-01</traStartDate><traEndDate>2027-01-20</traEndDate>
+<telNo>051-000-0000</telNo><trainstCstId>500001</trainstCstId><traStartDate>2026-12-01</traStartDate><traEndDate>2027-01-20</traEndDate>
 <courseMan>1,200,000</courseMan><realMan>180000</realMan><trprId>AIG1</trprId><trprDegr>3</trprDegr>
 <titleLink>https://www.work24.go.kr/a</titleLink><eiEmplRate6>62.5</eiEmplRate6></scn_list>
 <scn_list><title>바리스타 실무</title><subTitle>서울바리스타아카데미</subTitle><address>서울특별시 강남구</address>
@@ -62,10 +62,43 @@ POSTINGS = """<?xml version="1.0" encoding="UTF-8"?>
 </wantedRoot>"""
 
 
+W24_LIST = """<?xml version="1.0" encoding="UTF-8"?>
+<jobsList><total>2</total>
+<jobList><jobClcd>K000</jobClcd><jobClcdNM>음식</jobClcdNM><jobCd>K001</jobCd><jobNm>제빵원</jobNm></jobList>
+<jobList><jobClcd>K000</jobClcd><jobClcdNM>음식</jobClcdNM><jobCd>K002</jobCd><jobNm>제과제빵사</jobNm></jobList>
+</jobsList>"""
+
+W24_SUMMARY = """<?xml version="1.0" encoding="UTF-8"?>
+<jobSum><jobCd>K002</jobCd><jobSum>빵과 과자를 만든다.</jobSum><way>제과제빵 학원이나 특성화고에서 배운다.
+관련 자격을 취득한다.</way>
+<relMajorList><majorCd>1</majorCd><majorNm>제과제빵과</majorNm></relMajorList>
+<relCertList><certNm>제빵기능사</certNm></relCertList><relCertList><certNm>제과기능사</certNm></relCertList>
+<sal>하위(25%) 2,400만원</sal><jobSatis>60.1</jobSatis><jobProspect>다소 증가할 것으로 보인다.</jobProspect>
+<relJobList><jobCd>K001</jobCd><jobNm>제빵원</jobNm></relJobList></jobSum>"""
+
+W24_DO = """<?xml version="1.0" encoding="UTF-8"?>
+<jobsDo><jobCd>K002</jobCd><execJob>- 재료를 계량한다.
+- 반죽을 굽는다.</execJob></jobsDo>"""
+
+TRAINING_DETAIL = """<?xml version="1.0" encoding="UTF-8"?>
+<HRDNet><inst_base_info><addr1>서울특별시 마포구</addr1><addr2>3층</addr2><inoNm>마포제과학원</inoNm>
+<instPerTrco>1,200,000</instPerTrco><perTrco>1020000</perTrco><trDcnt>40</trDcnt><trtm>240</trtm>
+<trprNm>제과제빵기능사 취득</trprNm><trprId>AIG1</trprId><trprDegr>3</trprDegr><trprTargetNm>구직자</trprTargetNm>
+<trprChapTel>02-000-0000</trprChapTel></inst_base_info>
+<inst_detail_info><govBusiNm>음식서비스</govBusiNm><tgcrGnrlTrneOwepAllt>180000</tgcrGnrlTrneOwepAllt></inst_detail_info>
+<inst_facility_info><inst_facility_info_list><trafcltyNm>제빵실습실</trafcltyNm></inst_facility_info_list></inst_facility_info>
+</HRDNet>"""
+
+DUTIES = {"result": {"빵류 제품 반죽": {"ablt_unit": "1301010101", "ablt_def": "<b>반죽</b>을 만드는 능력이다.",
+                                        "job_sdvn": "제과제빵", "job_lcfn": "음식서비스", "job_mcn": "식음료조리",
+                                        "job_scfn": "제과제빵"}}}
+
+
 @pytest.fixture
 def keys(monkeypatch):
     s = get_settings()
-    for k in ("qnet_service_key", "careernet_api_key", "work24_training_key", "work24_jobs_key"):
+    for k in ("qnet_service_key", "careernet_api_key", "work24_training_key", "work24_jobs_key",
+              "work24_job_info_key", "work24_duty_key"):
         monkeypatch.setattr(s, k, "test-key")
 
 
@@ -85,6 +118,16 @@ def fake_get(monkeypatch):
             return json.dumps(JOB).encode()
         if url == external.WORK24_JOBS_URL:
             return POSTINGS.encode()
+        if url == external.WORK24_JOB_LIST_URL:
+            return W24_LIST.encode()
+        if url == external.WORK24_JOB_SUMMARY_URL:
+            return W24_SUMMARY.encode()
+        if url == external.WORK24_JOB_DO_URL:
+            return W24_DO.encode()
+        if url == external.WORK24_TRAINING_DETAIL_URL:
+            return TRAINING_DETAIL.encode()
+        if url == external.WORK24_DUTY_URL:
+            return json.dumps(DUTIES, ensure_ascii=False).encode()
         raise AssertionError(url)
 
     monkeypatch.setattr(external, "_get", fake)
@@ -93,10 +136,13 @@ def fake_get(monkeypatch):
 
 def test_without_keys_reports_unavailable(client, monkeypatch, fake_get):
     s = get_settings()
-    for k in ("qnet_service_key", "careernet_api_key", "work24_training_key", "work24_jobs_key"):
+    for k in ("qnet_service_key", "careernet_api_key", "work24_training_key", "work24_jobs_key",
+              "work24_job_info_key", "work24_duty_key"):
         monkeypatch.setattr(s, k, None)
     for path in ("/api/career/exams?cert=제빵기능사", "/api/career/trainings?keyword=바리스타",
-                 "/api/career/job-info?name=바리스타", "/api/career/postings?keyword=바리스타"):
+                 "/api/career/job-info?name=바리스타", "/api/career/postings?keyword=바리스타",
+                 "/api/career/duties?keyword=바리스타",
+                 "/api/career/trainings/detail?id=A&round=1&institution=B"):
         body = client.get(path).json()
         assert body["available"] is False
         assert body["items"] == []
@@ -206,3 +252,47 @@ def test_qnet_key_encoded_or_not_is_sent_the_same(client, keys, fake_get, monkey
     external.exam_schedule("제빵기능사", date(2026, 11, 25))
     keys_sent = {p["serviceKey"] for _, p in fake_get}
     assert keys_sent == {"ab+c=="}
+
+
+def test_job_info_falls_back_to_work24_without_careernet(client, keys, fake_get, monkeypatch):
+    monkeypatch.setattr(get_settings(), "careernet_api_key", None)
+    body = client.get("/api/career/job-info", params={"name": "제과제빵사"}).json()
+    assert body["source"] == "고용24 직업정보"
+    job = body["job"]
+    assert job["id"] == "K002"
+    assert job["works"] == ["재료를 계량한다.", "반죽을 굽는다."]
+    assert job["certificates"] == ["제빵기능사", "제과기능사"]
+    assert job["majors"] == ["제과제빵과"]
+    assert job["related_jobs"] == ["제빵원"]
+    assert job["prepare"]["curriculum"] == ["제과제빵 학원이나 특성화고에서 배운다.", "관련 자격을 취득한다."]
+    assert job["satisfaction"] == "60.1"
+    detail_calls = [p for u, p in fake_get if u == external.WORK24_JOB_SUMMARY_URL]
+    assert detail_calls[0]["jobCd"] == "K002"
+
+
+def test_training_list_has_institution_id(client, keys, fake_get):
+    body = client.get("/api/career/trainings", params={"keyword": "바리스타"}).json()
+    assert {i["institution_id"] for i in body["items"]} == {"500001", None}
+
+
+def test_training_detail(client, keys, fake_get):
+    body = client.get("/api/career/trainings/detail", params={"id": "AIG1", "round": "3", "institution": "500001"}).json()
+    c = body["course"]
+    assert c["institution"] == "마포제과학원"
+    assert c["address"] == "서울특별시 마포구 3층"
+    assert c["cost"] == 1200000
+    assert c["my_cost"] == 180000
+    assert c["days"] == 40
+    assert c["field"] == "음식서비스"
+    assert c["facilities"] == ["제빵실습실"]
+    assert "tracseId=AIG1" in c["url"]
+    p = [p for u, p in fake_get if u == external.WORK24_TRAINING_DETAIL_URL][0]
+    assert (p["srchTrprId"], p["srchTrprDegr"], p["srchTorgId"], p["outType"]) == ("AIG1", "3", "500001", 2)
+
+
+def test_duties(client, keys, fake_get):
+    body = client.get("/api/career/duties", params={"keyword": "제과제빵"}).json()
+    assert body["items"] == [{
+        "code": "1301010101", "unit": "빵류 제품 반죽", "definition": "반죽을 만드는 능력이다.",
+        "field": "제과제빵", "group": "음식서비스 > 식음료조리 > 제과제빵", "skills": None,
+    }]

@@ -31,3 +31,17 @@ def get_job_info(name: Name) -> dict[str, Any]:
 @router.get("/postings", summary="채용 공고 (고용24)")
 def get_postings(keyword: Name, region: Region = None) -> dict[str, Any]:
     return external.postings(keyword, region)
+
+
+@router.get("/trainings/detail", summary="훈련과정 소개 (고용24)")
+def get_training_detail(
+    id: Annotated[str, Query(min_length=1, max_length=40, description="목록의 id (trprId)")],
+    round: Annotated[str, Query(min_length=1, max_length=10, description="목록의 round (trprDegr)")],
+    institution: Annotated[str, Query(min_length=1, max_length=40, description="목록의 institution_id")],
+) -> dict[str, Any]:
+    return external.training_detail(id, round, institution)
+
+
+@router.get("/duties", summary="직무 정보 (고용24 직무데이터사전)")
+def get_duties(keyword: Name) -> dict[str, Any]:
+    return external.duties(keyword)
