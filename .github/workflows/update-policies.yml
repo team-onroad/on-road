@@ -78,7 +78,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add data/policies/policies.json data/collected data/easy_text data/policy_facts
+          git add data/policies/policies.json data/apply_schedule.json data/scholarships.json data/collected data/easy_text data/policy_facts
           git commit -m "정책 데이터 자동 갱신 $(date +%F)"
           git push --force origin "$branch"
           gh pr create --base develop --head "$branch" \

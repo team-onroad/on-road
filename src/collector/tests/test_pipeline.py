@@ -39,7 +39,8 @@ def test_collect_failure_stops_and_keeps_files(policies):
 def test_full_run_order_and_report(policies, monkeypatch):
     monkeypatch.setattr(pipeline, "step_convert", lambda *a, **k: pipeline.Step("쉬운 말 변환", True, "할 일 없음"))
     steps = pipeline.run_pipeline(TODAY, collect=_ok_collect, policies_path=policies)
-    assert [s.name for s in steps] == ["수집", "쉬운 말 변환", "노출 칸 반영", "시드 검사"] and all(s.ok for s in steps)
+    assert [s.name for s in steps] == ["수집", "쉬운 말 변환", "노출 칸 반영", "시드 검사", "신청 시기"] and all(s.ok for s in steps)
+    assert json.loads((policies.parent / "apply_schedule.json").read_text(encoding="utf-8"))  # 정책 파일 옆에 신청 시기
     text = pipeline.report(steps, TODAY, dry_run=False)
     assert "결과: 성공" in text and "새로 들어옴: G999" in text
     json.loads(policies.read_text(encoding="utf-8-sig"))  # 저장해도 올바른 정책 파일
@@ -57,6 +58,7 @@ def test_dry_run_writes_nothing(policies, monkeypatch):
     steps = pipeline.run_pipeline(TODAY, dry_run=True, collect=_ok_collect, policies_path=policies)
     assert "새로" in steps[2].summary and "(미리보기)" in steps[2].summary
     assert policies.read_bytes() == before
+    assert not (policies.parent / "apply_schedule.json").exists()
 
 
 def test_convert_respects_cost_cap(monkeypatch):

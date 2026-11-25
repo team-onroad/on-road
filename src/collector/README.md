@@ -7,6 +7,7 @@
 |---|---|---|---|
 | `python -m collector` | 정부24 공공서비스 API (공공데이터포털) | `G001` … | `api` |
 | `python -m collector.web` | 믿을 만한 기관 누리집 (`trusted_sources.json`), OpenAI 웹 검색 + 원문 대조 | `W001` … | `crawler` |
+| `python -m collector.kosaf` | 한국장학재단 학자금지원정보 API (공공데이터포털, 11/25 활용신청 승인) + 지난 회분(2021년~, 73개)으로 해마다 모집 시기 예상. **`data/scholarships.json` 에 따로 저장 — 진로 로드맵 전용, 정책 추천 · 검색에는 넣지 않음** | `S001` … | (없음) |
 
 ## 실행 (src 폴더에서, 백엔드 가상환경)
 
@@ -21,13 +22,36 @@ backend\.venv\Scripts\python -m collector --reprocess             # API 없이 �
 backend\.venv\Scripts\python -m collector.web --dry-run 장학금
 backend\.venv\Scripts\python -m collector.web                     # 기본 주제 전체 → 저장
 backend\.venv\Scripts\python -m collector.web --urls https://www.kosaf.go.kr/...   # 이 페이지만
+
+# 장학금 (DATA_GO_KR_SERVICE_KEY, 한국장학재단 학자금지원정보 활용신청 필요)
+backend\.venv\Scripts\python -m collector.kosaf --dry-run         # 보고서만 (처음엔 지난 회분 73개를 받느라 약 7분, 그 뒤 몇 초)
+backend\.venv\Scripts\python -m collector.kosaf --no-history      # 최신 회분만
+
+# 신청 시기만 다시 (AI · API 없음)
+backend\.venv\Scripts\python -m collector.schedule --dry-run
 ```
+
+## 신청 시기 (`schedule.py` → `data/apply_schedule.json`)
+
+진로 · 신청 로드맵의 '언제 무엇을 신청'. 정책 키마다:
+
+| 칸 | 내용 |
+|---|---|
+| `stage` · `stage_label` | 언제 단계: `in_care` 보호 중일 때 · `after_care` 보호종료 직후 · `college` 대학 입학 · 등록 때 · `housing` 집 구할 때 · `job` 취업 준비 때 · `any` 필요할 때 |
+| `status` · `when` | 1년 중 언제: `open` 지금 모집 중 · `upcoming` 곧 모집 · `expected` 해마다 비슷한 때로 예상 · `anytime` 언제든 · `event` 그 일이 생긴 때 기준 (`deadline` 원문) · `notice` 공고 때 · `no_apply` 신청 없이 받음 · `unknown` 기관에 확인 |
+| `next_start` · `next_end` | 날짜가 있을 때만 다음 모집 (예상) |
+| `basis` · `rounds` · `expected_rounds` | 근거 ("2022, 2023, 2024, 2025, 2026년 3월 모집"), 본 회차, 1년 안 예상 회차 (1년에 두 번 뽑는 것) |
+
+- 단계: 이름의 주제(대학 · 집 · 취업) → 보호 중 아동 정책 → 퇴소 후 정책. 보호 중 · 퇴소 후는 백엔드 `app/rules.py` 판정도 함께 본다
+- 정책(`policies.json`)과 장학금(`scholarships.json`)을 함께 적는다. 장학금은 지난 회분으로 회차를 쌓는다. 정부24 는 지난 회분이 없어(대부분 상시신청) 실행할 때마다 본 신청기한을
+  `data/collected/schedule_history.json` 에 쌓는다. 몇 해 전 기록 하나뿐이면 날짜를 예상하지 않고 '공고 때'로 둔다
+- `collector.pipeline` 끝 단계와 `collector.kosaf` 저장 뒤에 함께 돈다
 
 ## 한 번에 갱신 · 주기 실행 (`pipeline.py`, `.github/workflows/update-policies.yml`)
 
 ```
 backend\.venv\Scripts\python -m collector.pipeline --dry-run      # 무엇이 바뀔지만
-backend\.venv\Scripts\python -m collector.pipeline                # 수집 → 쉬운 말 변환 → 노출 반영 → 시드 검사 → 보고서
+backend\.venv\Scripts\python -m collector.pipeline                # 수집 → 쉬운 말 변환 → 노출 반영 → 시드 검사 → 신청 시기 → 보고서
 backend\.venv\Scripts\python -m collector.pipeline --reprocess    # 수집 API 없이 저장한 원본으로
 ```
 

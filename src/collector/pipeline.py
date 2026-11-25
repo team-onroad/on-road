@@ -9,6 +9,7 @@
    실패한 변환은 노출하지 않는다 (publish 가 통과한 것만 노출)
 3. 노출 칸 반영 (easytext.publish: 자동 검수 통과 → easy_text · easy_text_verified)
 4. 시드 검사 (db/seed.py 검사 그대로 — 배포 때 시드가 실패하지 않게). DB 에 넣는 것은 배포(Render)가 한다
+5. 신청 시기 (collector.schedule → data/apply_schedule.json: 언제 단계 · 1년 중 언제. AI 없음, 비용 없음)
 보고서: data/collected/pipeline_report.md (주기 실행은 이것을 PR 설명으로 쓴다)
 
 실행 (src 폴더에서, 백엔드 가상환경):
@@ -125,9 +126,23 @@ def step_validate(policies: list[dict]) -> Step:
     return Step("시드 검사", True, f"정책 {len(policies)}개 통과 (db/seed.py 검사). DB 반영은 배포 때")
 
 
+def step_schedule(today: date, dry_run: bool, policies_path: Path, schedule_path: Path) -> Step:
+    from collector import schedule
+
+    try:
+        real = schedule_path == schedule.SCHEDULE_PATH  # 테스트는 다른 폴더: 장학금 · 기록도 그 옆 파일을 쓴다
+        got = schedule.update(today, policies_path=policies_path, schedule_path=schedule_path,
+                              scholarships_path=schedule.SCHOLARSHIPS_PATH if real else schedule_path.with_name("scholarships.json"),
+                              history_path=schedule.HISTORY_PATH if real else schedule_path.with_name("schedule_history.json"),
+                              dry_run=dry_run)
+    except Exception as e:  # 신청 시기는 부가 정보라 실패해도 정책 갱신은 그대로 둔다
+        return Step("신청 시기", False, f"실패 — {type(e).__name__}: {str(e)[:120]}")
+    return Step("신청 시기", True, schedule.summary(got) + (" (미리보기)" if dry_run else ""))
+
+
 def run_pipeline(today: date, *, dry_run: bool = False, reprocess: bool = False, max_won: int = MAX_WON,
                  workers: int = 4, collect: Callable = collect_run.collect, convert: Callable | None = None,
-                 policies_path: Path = collect_run.POLICIES_PATH) -> list[Step]:
+                 policies_path: Path = collect_run.POLICIES_PATH, schedule_path: Path | None = None) -> list[Step]:
     steps = [step_collect(today, dry_run, reprocess, collect)]
     if not steps[-1].ok:
         return steps
@@ -140,6 +155,12 @@ def run_pipeline(today: date, *, dry_run: bool = False, reprocess: bool = False,
     steps.append(check)
     if check.ok and not dry_run and new is not None and new != read_json(policies_path, []):
         write_json(policies_path, new)
+    if check.ok:
+        from collector.schedule import SCHEDULE_PATH
+
+        # 테스트처럼 다른 정책 파일을 쓰면 신청 시기도 그 옆에 (실제 data/apply_schedule.json 을 건드리지 않게)
+        default = SCHEDULE_PATH if policies_path == collect_run.POLICIES_PATH else policies_path.with_name("apply_schedule.json")
+        steps.append(step_schedule(today, dry_run, policies_path, schedule_path or default))
     return steps
 
 
