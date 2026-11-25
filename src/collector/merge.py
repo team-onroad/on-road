@@ -11,6 +11,7 @@
 """
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -163,8 +164,15 @@ def write_json(path: Path, data) -> None:
             trailing = ""
     body = json.dumps(data, ensure_ascii=False, indent=2) + trailing
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline=newline) as f:
-        f.write(body)
+    # 같은 폴더의 임시 파일에 다 쓴 뒤 바꿔 끼운다: 쓰는 도중 멈춰도(Ctrl+C · 주기 실행 시간 초과) policies.json 이
+    # 반쯤 잘린 채 남지 않는다 (잘리면 배포 때 시드가 실패한다)
+    tmp = path.with_name(f".{path.name}.tmp")
+    try:
+        with tmp.open("w", encoding="utf-8", newline=newline) as f:
+            f.write(body)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def load_auto_values(collected_dir: Path) -> dict[str, dict]:

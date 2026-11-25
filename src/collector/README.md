@@ -45,13 +45,15 @@ backend\.venv\Scripts\python -m collector.schedule --dry-run
 - 단계: 이름의 주제(대학 · 집 · 취업) → 보호 중 아동 정책 → 퇴소 후 정책. 보호 중 · 퇴소 후는 백엔드 `app/rules.py` 판정도 함께 본다
 - 정책(`policies.json`)과 장학금(`scholarships.json`)을 함께 적는다. 장학금은 지난 회분으로 회차를 쌓는다. 정부24 는 지난 회분이 없어(대부분 상시신청) 실행할 때마다 본 신청기한을
   `data/collected/schedule_history.json` 에 쌓는다. 몇 해 전 기록 하나뿐이면 날짜를 예상하지 않고 '공고 때'로 둔다
-- `collector.pipeline` 끝 단계와 `collector.kosaf` 저장 뒤에 함께 돈다
+- `collector.pipeline` 끝 단계와 `collector.kosaf` 저장 뒤에 함께 돈다 (주기 실행은 매주 → 장학금 · 신청 시기도 매주 새로)
+- `status` · `when` 은 **파일을 만든 날 기준**이다 (예: "지금 모집 중 (11월 29일까지)"는 11/30 에는 지난 말). 화면에서는
+  `next_start` · `next_end` 를 오늘과 비교해 다시 정하는 것이 정확하다
 
 ## 한 번에 갱신 · 주기 실행 (`pipeline.py`, `.github/workflows/update-policies.yml`)
 
 ```
 backend\.venv\Scripts\python -m collector.pipeline --dry-run      # 무엇이 바뀔지만
-backend\.venv\Scripts\python -m collector.pipeline                # 수집 → 쉬운 말 변환 → 노출 반영 → 시드 검사 → 신청 시기 → 보고서
+backend\.venv\Scripts\python -m collector.pipeline                # 수집 → 쉬운 말 변환 → 노출 반영 → 시드 검사 → 장학금 → 신청 시기 → 보고서
 backend\.venv\Scripts\python -m collector.pipeline --reprocess    # 수집 API 없이 저장한 원본으로
 ```
 
