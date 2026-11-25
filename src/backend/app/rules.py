@@ -128,6 +128,18 @@ _IN_CARE_CHILD = re.compile(r"가정위탁\s*(보호)?\s*아동|보호\s*대상\
 _AFTER_CARE = re.compile(r"자립|퇴소|보호\s*종료|종결|대학|진학|입학|청년")
 
 
+# 보호가 끝나야 받는 정책: 대상 문장에 보호종료 · 퇴소 · 자립준비가 들어감 (맞춤 신청 로드맵의 '퇴소하면 신청'과 같은 기준)
+LEAVER = re.compile(r"보호\s*종료|퇴소|자립\s*준비")
+
+
+def leave_status(user_status: str | None, policy_name: str, target: str | None) -> str | None:
+    """after_leave: 아직 보호 중(in_care · leaving_soon)인데 퇴소해야 받는 정책. now: 퇴소했고 퇴소한 사람이 받는 정책.
+    지금 보호받는 아동 전용 정책(가정위탁아동 지원 등)이나 대상에 보호 상태가 없는 정책은 None"""
+    if user_status is None or not LEAVER.search(target or "") or is_in_care_child_policy(policy_name, target):
+        return None
+    return "now" if user_status == "left_care" else "after_leave"
+
+
 def is_in_care_child_policy(name: str, target: str | None) -> bool:
     """보호 중인 아동 전용 정책인지. 퇴소한 사용자에게는 본인 정책으로 보이지 않게 한다"""
     if not _IN_CARE_CHILD.search(name or ""):

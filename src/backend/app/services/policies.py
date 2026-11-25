@@ -17,7 +17,7 @@ from app.cache import TtlCache
 from app.rag_client import SearchPolicies, get_search_policies
 from app.rules import (
     CHILD_AGE_MAX, calc_age, is_child_household_policy, is_child_policy, is_in_care_child_policy, is_outdated, judge_age, judge_eligibility,
-    policy_district,
+    leave_status, policy_district,
 )
 from app.schemas.policies import (
     EasyLevelOption,
@@ -89,7 +89,8 @@ def eligibility_for(user: User, policy: Policy, today: date) -> Eligibility:
     return Eligibility(
         **judge_eligibility(age, user.region, policy.age_min, policy.age_max, policy.region,
                             district=policy_district(policy.agency), user_district=getattr(user, "district", None),
-                            family_ages=family_ages(user, today))
+                            family_ages=family_ages(user, today)),
+        leave=leave_status(getattr(user, "status", None), getattr(policy, "name", ""), getattr(policy, "target_description", None)),
     )
 
 

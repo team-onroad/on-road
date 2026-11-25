@@ -11,6 +11,33 @@ RoadmapStage = Literal["before_leave", "at_leave", "now"]
 AmountCycle = Literal["monthly", "yearly", "once"]
 
 
+class SameKindRow(BaseModel):
+    policy_id: int
+    name: str
+    region: str
+    amount_text: str | None
+    mine: bool  # 내 조건(나이 · 지역)으로 받을 수 있음
+
+
+class SameKindPicked(BaseModel):
+    policy_id: int
+    name: str
+    region: str
+    amount_text: str | None
+    reason: str  # "내 지역 정책이라 이걸 골랐어요"
+
+
+class SameKindGroup(BaseModel):
+    """같은 종류 전체 (다른 지역 것까지). 정책 상세 · 나의 진로에서 '같은 종류 n개'를 누르면 보인다"""
+
+    kind: str
+    kind_title: str  # "자립정착금"
+    rule: str  # "지역마다 하나씩 있어서 내 지역 것을 받아요"
+    total: int  # 같은 종류 정책 수 (고른 것 포함)
+    picked: SameKindPicked | None  # 내 조건에서 고른 것. 받을 수 있는 게 없으면 null
+    others: list[SameKindRow]  # 나머지 (받는 돈이 큰 순서, 금액을 모르면 뒤로)
+
+
 class RoadmapAlternative(BaseModel):
     """같은 종류라 함께 받기 어려운 다른 정책 (고른 정책 카드를 펼치면 보인다)"""
 

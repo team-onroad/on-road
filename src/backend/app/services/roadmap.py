@@ -19,6 +19,7 @@ from app.rules import calc_age, is_in_care_child_policy
 from app.schemas.chat import PersonalPlan, PlanItem
 from app.schemas.roadmap import (
     PolicyRoadmap, RecommendedPolicy, RoadmapAlternative, RoadmapItem, RoadmapStageGroup, RoadmapSummary,
+    SameKindGroup, SameKindPicked, SameKindRow,
 )
 from app.schemas.policies import SameKind, SameKindPolicy
 from app.services.policies import candidate_policies, eligibility_for
@@ -323,11 +324,22 @@ def _score(stage: str, item: RoadmapItem, today: date) -> int:
     return score
 
 
+# 홈 추천에 '퇴소하면 신청' 정책을 넣는 때: 퇴소가 이만큼 남았을 때부터 (그 전에는 로드맵에서만 보여 준다)
+SOON_LEAVE_DAYS = 60
+
+
 def recommend(db: Session, user: User, today: date, limit: int = RECOMMEND_LIMIT) -> list[RecommendedPolicy]:
-    """맞춤 신청 로드맵(3.32)과 같은 후보 · 단계로 점수를 매겨 추천 순서대로 준다 (규칙, AI 없음)"""
+    """맞춤 신청 로드맵(3.32)과 같은 후보 · 단계로 점수를 매겨 추천 순서대로 준다 (규칙, AI 없음).
+    아직 보호 중이면 지금 받을 수 있는 정책 위주로: 퇴소해야 받는 정책은 퇴소가 60일 안으로 남았을 때만 넣는다"""
     rm = build_roadmap(db, user, today)
+    soon = rm.base_date is not None and (rm.base_date - today).days <= SOON_LEAVE_DAYS
     rows = []
-    for order, (group, item) in enumerate((g, i) for g in rm.stages for i in g.items):
+    pairs = [(g, i) for g in rm.stages for i in g.items if g.stage != "at_leave" or soon]
+    if user.status in BEFORE_LEAVE_STATUSES and not soon:
+        # 사전신청도 신청이 60일 안에 열리는 것만
+        pairs = [(g, i) for g, i in pairs
+                 if g.stage != "before_leave" or (i.apply_from is not None and (i.apply_from - today).days <= SOON_LEAVE_DAYS)]
+    for order, (group, item) in enumerate(pairs):
         cash = item.amount_won is not None
         unit = _UNIT.get(item.amount_cycle, "한 번") if cash else None
         value = item.amount_text.removeprefix("월 ").removeprefix("연 ") if cash and item.amount_text else None
@@ -368,3 +380,74 @@ def same_kind_for(db: Session, user: User, policy_id: int, today: date) -> SameK
 def _has_final(word: str) -> bool:
     c = word.rstrip(")").rstrip()[-1:] or "가"
     return "가" <= c <= "힣" and (ord(c) - 0xAC00) % 28 != 0
+
+
+# ---------------- 같은 종류 전체 (다른 지역 것까지) ----------------
+
+# 같은 종류마다 '왜 하나만 받는지' 한 줄
+_KIND_RULE = {
+    "allowance": "함께 받을 수 없어서 하나만 받아요",
+    "settlement": "지역마다 하나씩 있어서 내 지역 것을 받아요",
+    "challenge": "지역마다 따로 있어서 내 지역 것을 받아요",
+    "college": "비슷한 지원이라 내 조건에 맞는 것을 받아요",
+    "scholarship": "비슷한 지원이라 내 조건에 맞는 것을 받아요",
+    "lease": "비슷한 지원이라 내 조건에 맞는 것을 받아요",
+}
+
+
+def kind_of_name(name: str) -> str | None:
+    for key, _, pattern in _SAME_KIND:
+        if pattern.search(name):
+            return key
+    return None
+
+
+def _short_reason(item: RoadmapItem, mine_count: int) -> str:
+    if mine_count <= 1:
+        return "내 조건에 맞는 건 이것 하나예요"
+    if item.pick_reason and "받는 돈" in item.pick_reason:
+        return "받는 돈이 가장 커서 이걸 골랐어요"
+    if item.region != "전국":
+        return "내 지역 정책이라 이걸 골랐어요"
+    if item.kind == "allowance":
+        return "자립수당은 하나만 받을 수 있어요"
+    return "내 조건에 가장 잘 맞아서 이걸 골랐어요"
+
+
+def same_kind_group(db: Session, user: User, policy: Policy, today: date) -> SameKindGroup | None:
+    """이 정책과 같은 종류 전체. 같은 종류로 묶이지 않는 정책이면 None"""
+    from sqlalchemy import select
+
+    from app.services.policies import VISIBLE, is_hidden_dummy
+
+    key = kind_of_name(policy.name)
+    if key is None:
+        return None
+    pattern = next(p for k, _, p in _SAME_KIND if k == key)
+    pool = [p for p in db.scalars(select(Policy).where(VISIBLE).order_by(Policy.id))
+            if not is_hidden_dummy(p) and pattern.search(p.name)]
+    rm = build_roadmap(db, user, today)
+    items = [i for g in rm.stages for i in g.items if _kind_key(i) == key]
+    picked_item = items[0] if items else None
+    mine_ids = {i.policy_id for i in items} | {a.policy_id for i in items for a in i.alternatives}
+
+    def amount(p: Policy) -> tuple[int, str | None]:
+        won, cycle, text = policy_amount(p)
+        value = _max_total(won, cycle, parse_period_years(p.support_period)) or won or 0
+        return value, text
+
+    rows = []
+    for p in pool:
+        if picked_item is not None and p.id == picked_item.policy_id:
+            continue
+        value, text = amount(p)
+        rows.append((-value, value == 0, p.id, SameKindRow(policy_id=p.id, name=p.name, region=p.region,
+                                                           amount_text=text, mine=p.id in mine_ids)))
+    rows.sort(key=lambda r: (r[1], r[0], r[2]))
+    picked = None
+    if picked_item is not None:
+        picked = SameKindPicked(policy_id=picked_item.policy_id, name=picked_item.name, region=picked_item.region,
+                                amount_text=picked_item.amount_text,
+                                reason=_short_reason(picked_item, len(mine_ids)))
+    return SameKindGroup(kind=key, kind_title=_KIND_TITLE[key], rule=_KIND_RULE[key], total=len(pool),
+                         picked=picked, others=[r[3] for r in rows])

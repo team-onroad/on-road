@@ -259,12 +259,43 @@ def test_recommended_policies_order(api, db_session):
 
     assert res.status_code == 200, res.text
     items = res.json()
-    assert [i["policy_id"] for i in items] == [pre.id, now_cash.id, service.id, check.id]
+    # 퇴소가 60일 넘게 남았으면 '퇴소하면 신청'(service)은 홈에 넣지 않는다 (로드맵에서만)
+    assert [i["policy_id"] for i in items] == [pre.id, now_cash.id, check.id]
     first = items[0]
     assert first["when_text"] == "12월 1일부터 미리 신청"
     assert (first["amount_unit"], first["amount_value"]) == ("매월", "50만 원")
-    assert items[2]["amount_unit"] is None and items[2]["amount_value"] is None
-    assert items[3]["eligibility"] == "needs_check"
+    assert items[2]["eligibility"] == "needs_check"
+
+
+def test_recommend_after_leave_policies_only_when_leaving_soon(api, db_session):
+    leaver = make_policy(db_session, name="자립지원 전담기관 운영", support_amount=None, target_description="보호종료 아동")
+    far = make_user(db_session, status="leaving_soon", d_date=date(2027, 3, 1))  # 오늘(10. 4)부터 148일
+    near = make_user(db_session, status="leaving_soon", d_date=date(2026, 11, 20))  # 47일
+    in_care = make_user(db_session, status="in_care", birth_date=date(2008, 1, 1))  # 퇴소일 없음
+
+    def ids(u):
+        return [i["policy_id"] for i in api.get(f"/api/users/{u.id}/recommended-policies").json()]
+
+    assert leaver.id not in ids(far)
+    assert leaver.id in ids(near)
+    assert leaver.id not in ids(in_care)
+
+
+def test_eligibility_leave_part(api, db_session):
+    """보호가 끝나야 받는 정책: 아직 보호 중이면 after_leave, 퇴소했으면 now, 상관없는 정책은 null"""
+    leaver = make_policy(db_session, name="자립정착금", target_description="보호종료 5년 이내 자립준비청년")
+    plain = make_policy(db_session, name="청년 월세 지원", target_description="청년")
+    child = make_policy(db_session, name="가정위탁아동 지원", target_description="가정위탁 보호조치 결정 아동")
+    staying = make_user(db_session, status="leaving_soon", d_date=date(2027, 2, 28))
+    left = make_user(db_session, status="left_care")
+
+    def leave(p, u):
+        return api.get(f"/api/policies/{p.id}", params={"user_id": str(u.id)}).json()["eligibility"]["leave"]
+
+    assert leave(leaver, staying) == "after_leave"
+    assert leave(leaver, left) == "now"
+    assert leave(plain, staying) is None
+    assert leave(child, staying) is None
 
 
 def test_recommended_policy_has_same_kind_reason(api, db_session):
@@ -295,3 +326,28 @@ def test_policy_detail_same_kind(api, db_session):
 
     assert api.get(f"/api/policies/{lone.id}", params={"user_id": str(user.id)}).json()["same_kind"] is None
     assert api.get(f"/api/policies/{big.id}").json()["same_kind"] is None
+
+
+def test_same_kind_group_lists_other_regions(api, db_session):
+    """같은 종류 전체: 내 지역 것을 고르고, 다른 지역 것도 금액 큰 순으로 (금액 모르면 뒤)"""
+    mine = make_policy(db_session, name="인천 자립정착금 지원", region="인천", agency="인천광역시", support_amount="1,000만 원")
+    big = make_policy(db_session, name="대전 자립정착금 지원", region="대전", agency="대전광역시", support_amount="1,500만 원")
+    unknown = make_policy(db_session, name="대구 자립정착금", region="대구", agency="대구광역시", support_amount=None)
+    other = make_policy(db_session, name="청년 월세 지원", support_amount="월 20만 원")
+    user = make_user(db_session, region="인천")
+
+    res = api.get(f"/api/users/{user.id}/same-kind/{mine.id}")
+    assert res.status_code == 200, res.text
+    g = res.json()
+    assert (g["kind"], g["kind_title"], g["total"]) == ("settlement", "자립정착금", 3)
+    assert g["rule"] == "지역마다 하나씩 있어서 내 지역 것을 받아요"
+    assert g["picked"]["policy_id"] == mine.id
+    assert g["picked"]["reason"] == "내 조건에 맞는 건 이것 하나예요"
+    assert [o["policy_id"] for o in g["others"]] == [big.id, unknown.id]
+    assert g["others"][0]["amount_text"] == "1,500만 원" and g["others"][0]["mine"] is False
+    assert g["others"][1]["amount_text"] is None
+
+    # 다른 지역 정책으로 열어도 같은 묶음
+    assert api.get(f"/api/users/{user.id}/same-kind/{big.id}").json()["picked"]["policy_id"] == mine.id
+    # 묶이지 않는 정책
+    assert api.get(f"/api/users/{user.id}/same-kind/{other.id}").status_code == 404

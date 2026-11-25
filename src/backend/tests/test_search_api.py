@@ -96,7 +96,7 @@ def test_answered_groups_evidences_by_policy(api, db_session, rag):
     assert set(r2) == RESULT_KEYS
     assert r2["policy_id"] == p2.id
     assert (r2["support_amount"], r2["support_period"]) == (None, None)  # null 가능 필드
-    assert r2["eligibility"] == {"status": "match", "age": "match", "region": "match"}
+    assert r2["eligibility"] == {"status": "match", "age": "match", "region": "match", "leave": None}
     assert r2["is_outdated"] is False
     nullable = {"support_amount", "support_period", "summary"}  # summary: 카드 요약 파일이 있을 때만
     assert all(data["results"][1][k] is not None for k in RESULT_KEYS - nullable)

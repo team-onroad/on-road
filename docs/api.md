@@ -78,6 +78,7 @@
 | `excluded` | 기본 조건 미해당 (검색 결과에는 나오지 않음) |
 
 - 자격 여부는 "신청 가능"으로 확정하지 않는다 (계획서 7.3). 보호종료 여부·소득 등은 필터하지 않으므로 공식 원문 확인을 안내한다.
+- `leave` (보호 상태): 대상 문장에 보호종료 · 퇴소 · 자립준비가 들어간 정책(퇴소해야 받는 정책)만 값이 있다. 사용자가 아직 보호 중(`in_care` · `leaving_soon`)이면 `after_leave`(지금은 해당 안 됨, 퇴소 후 신청), 퇴소했으면(`left_care`) `now`. 지금 보호받는 아동 전용 정책이나 보호 상태와 상관없는 정책은 `null`. `status`는 나이 · 지역만 본 값이라, 앱은 `after_leave`면 "보호가 끝난 뒤 신청"을 따로 보여 준다
 
 ### 1.4 정책 공통 필드
 
@@ -125,6 +126,7 @@
 | 성장 기록 | GET | `/users/{user_id}/growth` | 체크리스트·시뮬레이션 기록 모아 보기 (3.13) |
 | 신청 로드맵 | GET | `/users/{user_id}/policy-roadmap` | 받을 수 있는 정책을 신청 시점별로, 월 합계·최대 총액 (3.32) |
 | 진로 로드맵 | GET | `/users/{user_id}/career-roadmap` | 취업·진학·직업훈련별 할 일, 연습·서류 연결, 관련 정책, 공식 사이트 (3.33) |
+| 같은 종류 정책 | GET | `/users/{user_id}/same-kind/{policy_id}` | 같은 종류(자립정착금 등) 전체, 다른 지역 것까지. `{kind, kind_title, rule, total, picked: {policy_id, name, region, amount_text, reason} \| null, others: [{policy_id, name, region, amount_text, mine}]}`. 받는 돈이 큰 순, 금액을 모르면 뒤. 묶이지 않는 정책이면 404 `SAME_KIND_NOT_FOUND` |
 | 추천 정책 | GET | `/users/{user_id}/recommended-policies` | 홈 '나에게 맞는 지원 정책', 추천 순서대로 최대 8개 (3.34) |
 | 정책 검색 | POST | `/search` | 질문 → 조건 필터 → RAG 답변 + 근거 (상담 화면) |
 | 정책 상세 | GET | `/policies/{policy_id}` | 정책 카드·상세 정보 |
@@ -1010,6 +1012,7 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 
 - 점수: 조건이 맞음(`match`) +100 → 신청 시기 (퇴소 전 사전신청 60일 안 +40, 그 밖의 사전신청 +25, 지금 +30, 퇴소하면 +15) → 현금 (월 환산 2만 원당 1점, 최대 30 · 1회 금액 100만 원당 1점, 최대 15)
 - `amount_unit` · `amount_value`: 현금이 아니면 null (앱은 분야 이름을 대신 보여 준다)
+- 아직 보호 중이면 지금 받을 수 있는 정책 위주: `at_leave`(퇴소하면 신청)는 퇴소 예정일이 60일 안일 때만, `before_leave`(사전신청)는 신청 시작일이 60일 안일 때만 넣는다. 그 밖의 것은 3.32 로드맵에서만 보인다
 - 같은 종류(3.32 `kind`)는 내게 가장 유리한 하나만 들어간다. `kind_title` · `pick_reason` · `same_kind_count`(뺀 정책 수)로 까닭을 보여 줄 수 있다. 묶인 게 없으면 null · null · 0
 - 사용자가 없으면 404 `USER_NOT_FOUND`
 

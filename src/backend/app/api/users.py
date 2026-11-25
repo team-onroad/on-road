@@ -11,7 +11,8 @@ from app.api.deps import JsonBody
 from app.clock import get_today
 from app.schemas.home import DashboardResponse, GrowthResponse, RoleplayDetail
 from app.schemas.career import CareerRoadmap
-from app.schemas.roadmap import PolicyRoadmap, RecommendedPolicy
+from app.errors import AppError
+from app.schemas.roadmap import PolicyRoadmap, RecommendedPolicy, SameKindGroup
 from app.schemas.readiness import ActivityCreate, ActivityCreated, ActivityKind, ActivityList, ReadinessResponse
 from app.schemas.saved_policies import SavedPolicy, SavedPolicyCreate, SavedPolicyList
 from app.schemas.users import UserCreate, UserResponse, UserUpdate
@@ -119,6 +120,22 @@ def get_policy_roadmap(user: ExistingUser, db: DB, today: Today) -> PolicyRoadma
 )
 def get_recommended_policies(user: ExistingUser, db: DB, today: Today) -> list[RecommendedPolicy]:
     return roadmap.recommend(db, user, today)
+
+
+@router.get(
+    "/{user_id}/same-kind/{policy_id}",
+    response_model=SameKindGroup,
+    summary="같은 종류 정책 전체 (다른 지역 것까지)와 내 조건에서 고른 것",
+    responses={404: ERROR_RESPONSES[404]},
+)
+def get_same_kind(user: ExistingUser, policy_id: str, db: DB, today: Today) -> SameKindGroup:
+    from app.services.policies import get_visible_policy
+
+    policy = get_visible_policy(db, policy_id)
+    group = roadmap.same_kind_group(db, user, policy, today)
+    if group is None:
+        raise AppError(404, "SAME_KIND_NOT_FOUND", "같은 종류로 묶이는 정책이 아닙니다.")
+    return group
 
 
 @router.get(
