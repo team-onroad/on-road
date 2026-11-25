@@ -21,9 +21,9 @@ def calc_age(birth_date: date, today: date) -> int:
 
 def calc_stage(age: int, status: str) -> str:
     """성장 단계 (db-schema.md 5.2). 위에서부터 먼저 해당하는 단계로 정한다."""
+    # 만 18세부터 자립준비청년 화면. 18세 미만은 퇴소 예정이어도 아동 · 청소년 화면
+    # (이미 퇴소한 18세 미만은 보호가 조기 종료된 자립준비청년이라 청년 화면)
     if status == "left_care":
-        return "youth"
-    if status == "leaving_soon" and age >= 15:
         return "youth"
     if age >= 18:
         return "youth"

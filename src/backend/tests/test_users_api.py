@@ -106,7 +106,7 @@ def test_create_user_birthday_boundary_18(api, clock, today, age, stage):
     ("today", "age", "stage"),
     [
         (date(2026, 10, 4), 14, "teen"),  # 15번째 생일 전날
-        (date(2026, 10, 5), 15, "youth"),  # 15번째 생일 당일 (퇴소 예정 + 15세)
+        (date(2026, 10, 5), 15, "teen"),  # 15번째 생일 당일: 퇴소 예정이어도 18세 미만은 청소년
     ],
 )
 def test_create_user_birthday_boundary_15_leaving_soon(api, clock, today, age, stage):
@@ -119,7 +119,7 @@ def test_create_user_birthday_boundary_15_leaving_soon(api, clock, today, age, s
     ("birth_date", "status", "stage"),
     [
         ("2016-01-01", "left_care", "youth"),  # 1. 퇴소 후 (만 10세)
-        ("2011-01-01", "leaving_soon", "youth"),  # 2. 퇴소 예정 + 만 15세
+        ("2011-01-01", "leaving_soon", "teen"),  # 2. 퇴소 예정이어도 만 18세 미만은 청소년
         ("2012-01-01", "leaving_soon", "teen"),  # 퇴소 예정 + 만 14세 → 4번
         ("2008-01-01", "in_care", "youth"),  # 3. 만 18세
         ("2015-01-01", "in_care", "teen"),  # 4. 만 11세
@@ -348,7 +348,7 @@ def test_patch_left_care_again_keeps_d_date(api):
 @pytest.mark.parametrize(
     ("birth_date", "before", "status", "after"),
     [
-        ("2010-01-01", "teen", "leaving_soon", "youth"),  # 만 16세: 퇴소 예정 → youth
+        ("2010-01-01", "teen", "leaving_soon", "teen"),  # 만 16세: 퇴소 예정이어도 18세 미만 → teen
         ("2012-01-01", "teen", "left_care", "youth"),  # 만 14세: 퇴소 후 → youth
         ("2012-01-01", "teen", "leaving_soon", "teen"),  # 만 14세: 퇴소 예정이어도 teen
     ],

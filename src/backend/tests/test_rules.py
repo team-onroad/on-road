@@ -42,8 +42,8 @@ def test_calc_age(birth, today, age):
         (25, "left_care", "youth"),
         # 2. 퇴소 예정 + 만 15세 이상 → youth (14/15 경계)
         (14, "leaving_soon", "teen"),
-        (15, "leaving_soon", "youth"),
-        (17, "leaving_soon", "youth"),
+        (15, "leaving_soon", "teen"),
+        (17, "leaving_soon", "teen"),
         # 3. 만 18세 이상 → youth (17/18 경계)
         (17, "in_care", "teen"),
         (18, "in_care", "youth"),
