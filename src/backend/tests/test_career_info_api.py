@@ -410,3 +410,16 @@ def test_same_round_twice_is_shown_once():
     b = dict(a, practical_pass="2026-12-11", written_apply_start="2026-08-01")
     c = dict(a, practical_pass="2026-12-11", written_apply_start="2026-07-20")
     assert len(external._upcoming([b, c], date(2026, 11, 25))) == 1
+
+
+def test_trainings_put_my_district_first(client, keys, monkeypatch):
+    xml = """<?xml version="1.0" encoding="UTF-8"?><HRDNet><scn_cnt>3</scn_cnt><srchList>
+<scn_list><title>A</title><address>서울 관악구</address><traStartDate>2026-12-01</traStartDate><trprId>1</trprId></scn_list>
+<scn_list><title>B</title><address>부산 서초구</address><traStartDate>2026-11-30</traStartDate><trprId>2</trprId></scn_list>
+<scn_list><title>C</title><address>서울 서초구</address><traStartDate>2026-12-20</traStartDate><trprId>3</trprId></scn_list>
+</srchList></HRDNet>"""
+    monkeypatch.setattr(external, "_get", lambda url, params: xml.encode())
+    body = client.get("/api/career/trainings", params={"keyword": "제빵", "region": "서울특별시", "district": "서초구"}).json()
+    assert [i["title"] for i in body["items"]] == ["C", "A", "B"]
+    assert body["items"][0]["same_district"] is True
+    assert body["items"][2]["same_district"] is False  # 다른 시의 같은 이름 구

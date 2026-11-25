@@ -311,12 +311,13 @@ def exam_schedule(cert: str, today: date) -> dict[str, Any]:
 
 # ── 고용24 훈련과정 ──────────────────────────────────────────
 
-def trainings(keyword: str, region: str | None, today: date) -> dict[str, Any]:
+def trainings(keyword: str, region: str | None, today: date, district: str | None = None) -> dict[str, Any]:
     s = get_settings()
     if not s.work24_training_key:
         return _missing_key("trainings")
     keyword = keyword.strip()
     short = region_short(region)
+    gu = (district or "").strip() or None
 
     def make() -> dict[str, Any]:
         raw = _get(WORK24_TRAINING_URL, {
@@ -352,13 +353,15 @@ def trainings(keyword: str, region: str | None, today: date) -> dict[str, Any]:
                 "employment_rate": _text(el, "eiEmplRate6") or _text(el, "eiEmplRate3"),
                 "url": _text(el, "titleLink"),
                 "nearby": bool(short and address and short in address),
+                # 같은 구 · 군 (시 · 도가 같을 때만: 다른 시의 '중구'가 섞이지 않게)
+                "same_district": bool(gu and address and gu in address and (not short or short in address)),
             })
-        # 내 지역 과정을 먼저, 그다음 시작일 순
-        items.sort(key=lambda x: (not x["nearby"], x["start"] or "9999"))
+        # 내 구 → 내 시 · 도 → 나머지, 같은 묶음 안에서는 시작일 순
+        items.sort(key=lambda x: (not x["same_district"], not x["nearby"], x["start"] or "9999"))
         return _result("trainings", items[:20], total=_int(root.findtext(".//scn_cnt")),
                        url="https://www.work24.go.kr")
 
-    return _cached(("trainings", keyword, short, today.isoformat()), make)
+    return _cached(("trainings", keyword, short, gu, today.isoformat()), make)
 
 
 # ── 커리어넷 직업정보 ────────────────────────────────────────

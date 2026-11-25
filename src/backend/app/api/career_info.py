@@ -19,8 +19,13 @@ def get_exams(cert: Name, today: Today) -> dict[str, Any]:
 
 
 @router.get("/trainings", summary="국민내일배움카드 훈련과정 (고용24)")
-def get_trainings(keyword: Name, today: Today, region: Region = None) -> dict[str, Any]:
-    return external.trainings(keyword, region, today)
+def get_trainings(
+    keyword: Name,
+    today: Today,
+    region: Region = None,
+    district: Annotated[str | None, Query(max_length=20, description="시 · 군 · 구 (예: 서초구). 이 구 과정을 맨 먼저")] = None,
+) -> dict[str, Any]:
+    return external.trainings(keyword, region, today, district)
 
 
 @router.get("/job-info", summary="직업 정보 (커리어넷)")
