@@ -105,7 +105,7 @@ def eligibility_for(user: User, policy: Policy, today: date) -> Eligibility:
         **judge_eligibility(age, user.region, policy.age_min, policy.age_max, policy.region,
                             district=policy_district(policy.agency), user_district=getattr(user, "district", None),
                             family_ages=family_ages_for(user, policy, today)),
-        leave=leave_status(getattr(user, "status", None), getattr(policy, "name", ""), getattr(policy, "target_description", None)),
+        leave=leave_status(getattr(user, "status", None), getattr(policy, "name", ""), getattr(policy, "target_description", None), age),
         care=care_status(getattr(user, "care_type", None), getattr(policy, "name", ""), getattr(policy, "target_description", None)),
     )
 

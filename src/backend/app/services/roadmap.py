@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app import ai_content
 from app.money import parse_period_years, policy_amount
-from app.rules import calc_age, is_in_care_child_policy
+from app.rules import calc_age, extended_care_ok, is_in_care_child_policy
 from app.schemas.chat import PersonalPlan, PlanItem
 from app.schemas.roadmap import (
     PolicyRoadmap, RecommendedPolicy, RoadmapAlternative, RoadmapItem, RoadmapStageGroup, RoadmapSummary,
@@ -82,7 +82,12 @@ def _item(policy: Policy, user: User, today: date, leave: date | None,
     years = parse_period_years(policy.support_period)
     days = pre_apply_days(policy)
 
-    if leave is not None and days is not None:
+    extended = (user.status in BEFORE_LEAVE_STATUSES and calc_age(user.birth_date, today) >= 18
+                and extended_care_ok(policy.target_description))
+    if extended:
+        # 보호연장 중(18세 이상, 아직 보호 중)이고 연장한 사람도 받는 정책: 퇴소를 기다리지 않는다
+        stage, apply_from, note = "now", None, "보호를 연장한 지금 신청"
+    elif leave is not None and days is not None:
         stage, apply_from = "before_leave", leave - timedelta(days=days)
         note = f"퇴소 {days}일 전부터 미리 신청"
     elif leave is not None and (for_leavers(policy) or at_leave_only):

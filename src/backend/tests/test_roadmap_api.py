@@ -376,3 +376,22 @@ def test_care_type_splits_allowances(api, db_session):
     api.patch(f"/api/users/{user.id}", json={"care_type": None})
     assert api.get(f"/api/users/{user.id}").json()["care_type"] is None
     assert {child.id, youth.id} <= ids()
+
+
+def test_extended_care_policies_are_now_for_18_plus_in_care(api, db_session):
+    """보호연장 중(18세 이상, 아직 보호 중): '퇴소일을 연장한 청년도 포함' 정책은 지금 신청, 그 밖의 퇴소 정책은 퇴소하면"""
+    ext = make_policy(db_session, name="청년도전지원사업", target_description="자립준비청년: 퇴소 5년 이내, 퇴소일을 연장한 만 18~34세 청년도 포함")
+    leaver = make_policy(db_session, name="자립정착금", target_description="만 18세 이후 보호종료 아동")
+    adult = make_user(db_session, status="in_care", birth_date=date(2006, 1, 1))  # 20세, 보호연장 중
+    teen = make_user(db_session, status="in_care", birth_date=date(2010, 1, 1))  # 16세
+
+    def stage_of(u, p):
+        return next(g["stage"] for g in api.get(f"/api/users/{u.id}/policy-roadmap").json()["stages"]
+                    for i in g["items"] if i["policy_id"] == p.id)
+
+    def leave(u, p):
+        return api.get(f"/api/policies/{p.id}", params={"user_id": str(u.id)}).json()["eligibility"]["leave"]
+
+    assert stage_of(adult, ext) == "now" and leave(adult, ext) == "now"
+    assert stage_of(adult, leaver) == "at_leave" and leave(adult, leaver) == "after_leave"
+    assert leave(teen, ext) == "after_leave"

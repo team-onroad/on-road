@@ -132,12 +132,26 @@ _AFTER_CARE = re.compile(r"자립|퇴소|보호\s*종료|종결|대학|진학|�
 LEAVER = re.compile(r"보호\s*종료|퇴소|자립\s*준비")
 
 
-def leave_status(user_status: str | None, policy_name: str, target: str | None) -> str | None:
+# 보호를 연장해 아직 시설 · 위탁에 있는 사람(18~24세)도 받는다고 적힌 정책 ("퇴소일을 연장한 … 포함", "보호연장아동 포함").
+# "만기 · 연장보호 종료"처럼 연장했다가 끝난 경우는 아니다
+_EXTENDED_OK = re.compile(r"연장한|연장\s*중|보호\s*연장\s*아동|연장\s*아동|퇴소일을\s*연장|보호\s*기간\s*(을\s*)?연장")
+
+
+def extended_care_ok(target: str | None) -> bool:
+    return bool(_EXTENDED_OK.search(target or ""))
+
+
+def leave_status(user_status: str | None, policy_name: str, target: str | None, age: int | None = None) -> str | None:
     """after_leave: 아직 보호 중(in_care · leaving_soon)인데 퇴소해야 받는 정책. now: 퇴소했고 퇴소한 사람이 받는 정책.
     지금 보호받는 아동 전용 정책(가정위탁아동 지원 등)이나 대상에 보호 상태가 없는 정책은 None"""
     if user_status is None or not LEAVER.search(target or "") or is_in_care_child_policy(policy_name, target):
         return None
-    return "now" if user_status == "left_care" else "after_leave"
+    if user_status == "left_care":
+        return "now"
+    # 18세 이상으로 아직 보호 중이면 보호연장 중: 연장한 사람도 받는 정책은 지금 해당
+    if age is not None and age >= 18 and extended_care_ok(target):
+        return "now"
+    return "after_leave"
 
 
 # 보호받던 곳에 따라 갈리는 정책 (users.care_type 판정)
