@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -65,9 +66,23 @@ def _get(url: str, params: dict[str, Any]) -> bytes:
     try:
         with urllib.request.urlopen(req, timeout=get_settings().external_timeout_seconds) as resp:
             return resp.read()
+    except urllib.error.HTTPError as e:
+        reason = f"HTTP {e.code} {_error_reason(e.read())}".strip()
+        log.warning("external call failed: %s (%s)", url, reason)
+        raise ExternalError(reason) from e
     except Exception as e:  # noqa: BLE001 - 바깥 서버 오류는 모두 같은 응답으로
         log.warning("external call failed: %s (%s)", url, type(e).__name__)
         raise ExternalError(str(type(e).__name__)) from e
+
+
+def _error_reason(raw: bytes) -> str:
+    """공공데이터포털 · 고용24 오류 응답에서 사유 코드만 꺼낸다 (키 값은 담기지 않는다)"""
+    text = raw[:2000].decode("utf-8", "replace")
+    for tag in ("returnAuthMsg", "resultMsg", "errMsg", "message"):
+        m = re.search(rf"<{tag}>([^<]+)</{tag}>", text) or re.search(rf'"{tag}"\s*:\s*"([^"]+)"', text)
+        if m:
+            return m.group(1).strip()[:120]
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text)).strip()[:80]
 
 
 def _result(kind: str, items: list[dict[str, Any]] | None = None, *, available: bool = True,
@@ -79,15 +94,16 @@ def _missing_key(kind: str) -> dict[str, Any]:
     return _result(kind, available=False, message="서버에 API 키가 설정되지 않았습니다.")
 
 
-def _failed(kind: str) -> dict[str, Any]:
-    return _result(kind, available=False, message="정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.")
+def _failed(kind: str, reason: str | None = None) -> dict[str, Any]:
+    return _result(kind, available=False, message="정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+                   reason=reason)
 
 
 def _cached(key: tuple, make) -> dict[str, Any]:
     try:
         return _cache.get_or_set(key, make)
-    except ExternalError:
-        return _failed(key[0])
+    except ExternalError as e:
+        return _failed(key[0], str(e) or None)
 
 
 def _ymd(v: Any) -> str | None:
@@ -141,7 +157,10 @@ def _qnet_rounds(year: int) -> list[dict[str, Any]]:
     try:
         data = json.loads(raw)
     except ValueError as e:
-        raise ExternalError("bad json") from e
+        raise ExternalError(_error_reason(raw) or "bad json") from e
+    header = data.get("header") or data.get("response", {}).get("header") or {}
+    if header.get("resultCode") not in (None, "00", "0"):
+        raise ExternalError(f"{header.get('resultCode')} {header.get('resultMsg') or ''}".strip())
     body = (data.get("body") or data.get("response", {}).get("body") or {})
     items = body.get("items") or []
     if isinstance(items, dict):
@@ -231,8 +250,8 @@ def trainings(keyword: str, region: str | None, today: date) -> dict[str, Any]:
                 "phone": _text(el, "telNo"),
                 "start": _ymd(_text(el, "traStartDate")),
                 "end": _ymd(_text(el, "traEndDate")),
-                "cost": _int(_text(el, "courseMan")),
-                "my_cost": _int(_text(el, "realMan")),
+                # 본인부담액은 목록에 없다 (과정 소개 my_cost)
+                "cost": _int(_text(el, "realMan")) or _int(_text(el, "courseMan")),
                 "certificate": _text(el, "certificate"),
                 "employment_rate": _text(el, "eiEmplRate6") or _text(el, "eiEmplRate3"),
                 "url": _text(el, "titleLink"),
@@ -419,6 +438,20 @@ def _xml(raw: bytes) -> ET.Element:
         raise ExternalError("bad xml") from e
 
 
+def _name_variants(name: str) -> list[str]:
+    """직업명 검색어 후보: 원래 이름 → 끝의 사·원·가 등을 뗀 이름 → 띄어쓴 첫 낱말 → 네 글자 합성어의 앞 두 글자"""
+    out = [name]
+    compact = name.replace(" ", "")
+    trimmed = re.sub(r"(사|원|가|자|직|인)$", "", compact)
+    if len(trimmed) >= 2:
+        out.append(trimmed)
+    if " " in name.strip():
+        out.append(name.split()[0])
+    if trimmed != compact and len(trimmed) == 4:
+        out.append(trimmed[:2])
+    return list(dict.fromkeys(out))
+
+
 def work24_job_info(name: str) -> dict[str, Any]:
     s = get_settings()
     if not s.work24_job_info_key:
@@ -427,11 +460,16 @@ def work24_job_info(name: str) -> dict[str, Any]:
     key = s.work24_job_info_key
 
     def make() -> dict[str, Any]:
-        root = _xml(_get(WORK24_JOB_LIST_URL, {
-            "authKey": key, "returnType": "XML", "target": "JOBCD", "srchType": "K", "keyword": name,
-        }))
-        jobs = [(_text(el, "jobCd"), _text(el, "jobNm")) for el in root.iter("jobList")]
-        jobs = [j for j in jobs if j[0]]
+        jobs: list[tuple[str | None, str | None]] = []
+        # "제과제빵사" 처럼 고용24 직업명과 다르면 짧게 줄여 다시 찾는다 (제과제빵 → 제과)
+        for word in _name_variants(name):
+            root = _xml(_get(WORK24_JOB_LIST_URL, {
+                "authKey": key, "returnType": "XML", "target": "JOBCD", "srchType": "K", "keyword": word,
+            }))
+            jobs = [(_text(el, "jobCd"), _text(el, "jobNm")) for el in root.iter("jobList")]
+            jobs = [j for j in jobs if j[0]]
+            if jobs:
+                break
         if not jobs:
             return _result("job_info_work24", message="고용24에 같은 이름의 직업이 없습니다.", job=None)
         code, job_name = next((j for j in jobs if (j[1] or "").replace(" ", "") == name.replace(" ", "")), jobs[0])
@@ -522,6 +560,21 @@ def training_detail(course_id: str, round_: str, institution_id: str) -> dict[st
 
 # ── 고용24 직무정보 (직무데이터사전) ─────────────────────────
 
+def _skill_labels(v: Any) -> list[str]:
+    """지식 · 기술 · 태도: [{'knwg_tchn_attd': 주소, 'knwg_tchn_attd_label': 이름}, …] 또는 그 문자열"""
+    if isinstance(v, str):
+        try:
+            v = json.loads(v.replace("'", '"'))
+        except ValueError:
+            return []
+    out: list[str] = []
+    for it in _as_list(v):
+        label = it.get("knwg_tchn_attd_label") if isinstance(it, dict) else None
+        if label and label not in out:
+            out.append(label.strip())
+    return out[:8]
+
+
 def duties(keyword: str) -> dict[str, Any]:
     s = get_settings()
     if not s.work24_duty_key:
@@ -550,7 +603,7 @@ def duties(keyword: str) -> dict[str, Any]:
                 "definition": _strip_html(v.get("ablt_def")),
                 "field": v.get("job_sdvn"),
                 "group": " > ".join(x for x in (v.get("job_lcfn"), v.get("job_mcn"), v.get("job_scfn")) if x) or None,
-                "skills": _strip_html(v.get("knwg_tchn_attd")),
+                "skills": _skill_labels(v.get("knwg_tchn_attd")),
             })
         return _result("duties", items, url="https://www.ncs.go.kr")
 

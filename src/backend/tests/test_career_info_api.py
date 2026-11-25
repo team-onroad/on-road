@@ -191,8 +191,8 @@ def test_trainings_put_my_region_first(client, keys, fake_get):
     assert first["institution"] == "서울바리스타아카데미"
     assert first["nearby"] is True
     assert first["start"] == "2026-12-15"
-    assert first["my_cost"] == 90000
-    assert body["items"][1]["cost"] == 1200000
+    assert body["items"][1]["cost"] == 180000  # 실제 훈련비(realMan)
+    assert "my_cost" not in body["items"][1]
     params = fake_get[0][1]
     assert params["srchTraProcessNm"] == "바리스타"
     assert params["returnType"] == "XML"
@@ -294,5 +294,42 @@ def test_duties(client, keys, fake_get):
     body = client.get("/api/career/duties", params={"keyword": "제과제빵"}).json()
     assert body["items"] == [{
         "code": "1301010101", "unit": "빵류 제품 반죽", "definition": "반죽을 만드는 능력이다.",
-        "field": "제과제빵", "group": "음식서비스 > 식음료조리 > 제과제빵", "skills": None,
+        "field": "제과제빵", "group": "음식서비스 > 식음료조리 > 제과제빵", "skills": [],
     }]
+
+
+def test_job_name_variants():
+    assert external._name_variants("제과제빵사") == ["제과제빵사", "제과제빵", "제과"]
+    assert external._name_variants("바리스타") == ["바리스타"]
+    assert external._name_variants("소프트웨어 개발자") == ["소프트웨어 개발자", "소프트웨어개발", "소프트웨어"]
+
+
+def test_work24_job_retries_with_shorter_name(client, keys, monkeypatch):
+    monkeypatch.setattr(get_settings(), "careernet_api_key", None)
+    words = []
+
+    def fake(url, params):
+        if url == external.WORK24_JOB_LIST_URL:
+            words.append(params["keyword"])
+            return (W24_LIST if params["keyword"] == "제과" else "<jobsList><total>0</total></jobsList>").encode()
+        return {external.WORK24_JOB_SUMMARY_URL: W24_SUMMARY, external.WORK24_JOB_DO_URL: W24_DO}[url].encode()
+
+    monkeypatch.setattr(external, "_get", fake)
+    body = client.get("/api/career/job-info", params={"name": "제과제빵사"}).json()
+    assert words == ["제과제빵사", "제과제빵", "제과"]
+    assert body["job"]["id"] == "K002"  # 목록에서 이름이 같은 직업
+
+
+def test_duty_skill_labels_from_list():
+    assert external._skill_labels([{"knwg_tchn_attd": "http://x", "knwg_tchn_attd_label": "선입선출에 대한 지식"}]) == [
+        "선입선출에 대한 지식"]
+
+
+def test_qnet_error_header_is_reported(client, keys, monkeypatch):
+    from datetime import date
+
+    monkeypatch.setattr(external, "_get", lambda url, params: json.dumps(
+        {"header": {"resultCode": "30", "resultMsg": "SERVICE_KEY_IS_NOT_REGISTERED_ERROR"}}).encode())
+    res = external.exam_schedule("제빵기능사", date(2026, 11, 25))
+    assert res["available"] is False
+    assert res["reason"] == "30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR"
