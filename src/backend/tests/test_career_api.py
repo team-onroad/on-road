@@ -60,9 +60,23 @@ def test_steps_point_to_existing_app_features():
                 assert s.scenario_id in scenarios
             elif s.kind == "document":
                 assert s.template_id in templates
+            elif s.kind == "app":
+                assert s.target in {"interest", "risk"}
+            elif s.kind == "search":
+                assert s.query
             else:
-                assert s.url and s.url.startswith("https://www.") and s.url.split("/")[2].endswith(".go.kr") \
-                    or s.url.startswith("https://www.q-net.or.kr")
+                # 공공기관 공식 사이트만 (정부 .go.kr · 공공기관 .or.kr 중 확인한 곳)
+                host = s.url.split("/")[2]
+                assert s.url.startswith("https://")
+                assert host.endswith(".go.kr") or host in {"www.q-net.or.kr", "jaripon.ncrc.or.kr", "www.adiga.kr"}
+
+
+def test_step_ids_unique_and_stable():
+    """앱은 step_id 로 끝낸 일 · 일정을 기억한다: 방향 안팎에서 겹치면 안 되고, 방향 이름으로 시작한다"""
+    ids = [s.step_id for steps in STEPS.values() for s in steps]
+    assert len(ids) == len(set(ids))
+    for path, steps in STEPS.items():
+        assert all(s.step_id.startswith(f"{path}-") for s in steps)
 
 
 def test_unknown_user(api):

@@ -948,12 +948,14 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
   "paths": [
     {"path": "job", "title": "취업 준비",
      "steps": [
-       {"kind": "link", "title": "하고 싶은 일 찾기", "detail": "커리어넷 · 직업정보 · 진로검사",
-        "scenario_id": null, "template_id": null, "url": "https://www.career.go.kr", "phone": null},
-       {"kind": "roleplay", "title": "고용센터 상담 연습", "detail": "처음 방문해서 할 말을 미리 연습",
-        "scenario_id": "jobcenter", "template_id": null, "url": null, "phone": null},
-       {"kind": "document", "title": "입사지원서 쓰기", "detail": "기본형 이력서 양식",
-        "scenario_id": null, "template_id": "resume-form", "url": null, "phone": null}
+       {"step_id": "job-interest", "kind": "app", "title": "흥미 탐색으로 맞는 일 찾기", "detail": "어울리는 직업과 그 직업이 되는 길",
+        "scenario_id": null, "template_id": null, "url": null, "phone": null, "target": "interest", "query": null},
+       {"step_id": "job-careernet", "kind": "link", "title": "직업 정보 더 알아보기", "detail": "커리어넷, 직업정보, 진로검사",
+        "scenario_id": null, "template_id": null, "url": "https://www.career.go.kr", "phone": null, "target": null, "query": null},
+       {"step_id": "job-jobcenter", "kind": "roleplay", "title": "고용센터 상담 연습", "detail": "처음 방문해서 할 말을 미리 연습",
+        "scenario_id": "jobcenter", "template_id": null, "url": null, "phone": null, "target": null, "query": null},
+       {"step_id": "job-resume", "kind": "document", "title": "입사지원서 쓰기", "detail": "기본형 이력서 양식",
+        "scenario_id": null, "template_id": "resume-form", "url": null, "phone": null, "target": null, "query": null}
      ],
      "policies": [
        {"policy_id": 19, "name": "청년도전지원사업 안내", "agency": "고용노동부", "category": "employment",
@@ -967,11 +969,13 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 |---|---|
 | `recommended` | `work`가 `student` → `college`, `working` → `training`, `job_seeking` → `job`. 그 밖에는 성장 단계가 `youth`면 `job`, 아니면 `college` |
 | `paths` | 항상 3개. `recommended` 방향이 맨 앞, 나머지는 job → college → training 순 |
-| `steps[].kind` | `roleplay`: 실전 연습 화면 (`scenario_id`) · `document`: 서류 작성 시작 `POST /documents` (`source_type: "template"`, `source_id: template_id`) · `link`: 공식 사이트 (`url`, 있으면 `phone`) |
+| `steps[].step_id` | 방향 안에서 바뀌지 않는 이름 (`job-jobcenter`). 앱은 이 값으로 끝낸 일과 일정을 기억한다. 방향 이름으로 시작하고 겹치지 않는다 |
+| `steps[].kind` | `roleplay`: 실전 연습 화면 (`scenario_id`) · `document`: 서류 작성 시작 `POST /documents` (`source_type: "template"`, `source_id: template_id`) · `link`: 공식 사이트 (`url`, 있으면 `phone`) · `app`: 앱 화면 (`target`: `interest` 흥미 탐색, `risk` 서류 위험 찾기) · `search`: 앱 정책 검색 (`query`) |
 | `policies` | 받을 수 있는 정책(3.5 후보 필터) 중 방향별 낱말이 이름·지원 내용에 들어간 것, 최대 4개. `match` 먼저, 금액 있는 것 먼저 |
 
 - 방향별 낱말: 취업(취업·구직·도전지원·일자리·채용·면접) · 진학(대학·등록금·장학·진학·입학) · 훈련(훈련·교육비·자격·능력개발·학습·역량)
-- 공식 사이트는 공공기관 누리집만 쓴다: 커리어넷(한국직업능력연구원), 고용24(고용노동부, 1350), 고용24 국민내일배움카드 발급 안내, 한국장학재단(1599-2000), 큐넷(한국산업인력공단, 1644-8000)
+- 할 일 순서: 나를 알기(흥미 탐색 · 직업/학과 정보) → 상담(자립 상담 · 고용센터) → 준비 · 신청 → 연습 → 일을 시작한 뒤 챙길 것(근로계약서 · 통장 · 임금)
+- 공식 사이트는 공공기관 누리집만 쓴다: 커리어넷(한국직업능력연구원), 고용24(고용노동부, 1350), 고용24 국민내일배움카드 발급 안내, 한국장학재단(1599-2000), 큐넷(한국산업인력공단, 1644-8000), 자립정보ON(아동권리보장원, 자립준비청년 상담센터 1855-2455), 대입정보포털 어디가(한국대학교육협의회, 1600-1615)
 - 사용자가 없으면 404 `USER_NOT_FOUND`
 
 <br/>

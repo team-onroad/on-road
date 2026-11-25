@@ -7,17 +7,20 @@ from pydantic import BaseModel
 from app.schemas.policies import Category, EligibilityValue
 
 CareerPath = Literal["job", "college", "training"]
-StepKind = Literal["roleplay", "document", "link"]
+StepKind = Literal["roleplay", "document", "link", "app", "search"]
 
 
 class CareerStep(BaseModel):
-    kind: StepKind  # roleplay: 실전 연습 · document: 서류 쓰기 · link: 공식 사이트
+    step_id: str  # 방향 안에서 바뀌지 않는 이름 ("job-jobcenter"). 앱이 끝낸 일 · 일정에 쓴다
+    kind: StepKind  # roleplay: 실전 연습 · document: 서류 쓰기 · link: 공식 사이트 · app: 앱 기능 · search: 앱 정책 검색
     title: str
     detail: str
     scenario_id: str | None = None  # roleplay 일 때 (실전 연습 시나리오)
     template_id: str | None = None  # document 일 때 (POST /documents 의 source_id)
     url: str | None = None  # link 일 때 (공공기관 공식 사이트만)
     phone: str | None = None  # link 일 때 기관 상담 전화
+    target: str | None = None  # app 일 때 앱 화면: interest(흥미 탐색) · risk(서류 위험 찾기)
+    query: str | None = None  # search 일 때 정책 검색어
 
 
 class CareerPolicy(BaseModel):
