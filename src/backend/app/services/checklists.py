@@ -17,6 +17,7 @@ from app.schemas.checklists import (
     ConditionDetail,
     Document,
     DocumentProgress,
+    FormLink,
     ItemToggle,
     NextStep,
     Progress,
@@ -205,12 +206,21 @@ def _detail(step_key: str, policy: Policy, visible: bool, user: User, today: dat
     return None
 
 
+def _form_link(f: dict) -> FormLink:
+    return FormLink(form_id=f["form_id"], title=f["title"], checked=f["checked"], notice=f["notice"])
+
+
 def to_response(db: Session, checklist: Checklist, user: User, today: date) -> ChecklistResponse:
     policy = db.get(Policy, checklist.policy_id)
     visible = policy.is_active and policy.easy_text_verified
     items = _items(db, checklist)
     short = ai_content.doc_short_labels(policy.policy_key) if visible else {}
     linked = linked_documents(db, user.id, [i.id for i in items if i.item_type == "document"])
+    forms = ai_content.policy_forms(policy.policy_key) if visible else []
+    doc_forms: dict[str, list[FormLink]] = {}
+    for f in forms:
+        if f["doc_name"]:
+            doc_forms.setdefault(f["doc_name"], []).append(_form_link(f))
     documents = [
         Document(
             item_id=i.id,
@@ -222,6 +232,7 @@ def to_response(db: Session, checklist: Checklist, user: User, today: date) -> C
             checked_at=i.checked_at,
             document_id=linked[i.id].id if i.id in linked else None,
             document_status=linked[i.id].status if i.id in linked else None,
+            forms=doc_forms.get(i.label, []),
         )
         for i in items
         if i.item_type == "document"
@@ -247,6 +258,7 @@ def to_response(db: Session, checklist: Checklist, user: User, today: date) -> C
         progress=step_progress,
         document_progress=document_progress,
         steps=steps,
+        extra_forms=[_form_link(f) for f in forms if not f["doc_name"]],
     )
 
 

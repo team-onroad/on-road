@@ -13,11 +13,11 @@ from app.ids import BIGINT_MAX
 from app.services import checklists as checklist_service
 from tests.factories import doc, make_policy, make_user
 
-RESPONSE_KEYS = {"checklist_id", "policy", "due_date", "progress", "document_progress", "steps"}
+RESPONSE_KEYS = {"checklist_id", "policy", "due_date", "progress", "document_progress", "steps", "extra_forms"}
 POLICY_KEYS = {"policy_id", "name", "agency", "category", "contact", "apply_url", "checked_at", "is_active"}
 STEP_KEYS = {"item_id", "step_key", "label", "is_checked", "checked_at", "detail", "documents"}
 DOC_KEYS = {"item_id", "label", "short_label", "condition", "is_checked", "is_not_applicable", "checked_at",
-            "document_id", "document_status"}
+            "document_id", "document_status", "forms"}
 ITEM_KEYS = {
     "item_id", "item_type", "step_key", "label", "condition", "is_checked", "is_not_applicable", "checked_at",
 }

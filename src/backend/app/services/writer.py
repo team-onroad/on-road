@@ -17,7 +17,7 @@ from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import doc_export, doc_spec
+from app import ai_content, doc_export, doc_spec
 from app.config import get_settings
 from app import profile_signal
 from app.crisis import CRISIS_CONTACTS, CRISIS_MESSAGE, is_crisis
@@ -203,6 +203,9 @@ def _notices(doc: Document) -> list[str]:
     notices = [AI_NOTICE]
     if doc.source_type == "policy_form" and not doc_spec_checked(doc):
         notices.insert(0, NOT_CHECKED_NOTICE)
+    if doc.source_type == "policy_form" and (meta := ai_content.form_meta(form_id_of(doc))) and meta.get("substitute"):
+        if meta.get("notice"):  # 공식 양식이 공개되지 않아 대신 쓰는 공통 양식 (자립정착금 신청서 → 사회보장급여 신청서)
+            notices.insert(0, meta["notice"])
     if doc.source_type == "upload":
         notices.insert(0, UPLOAD_NOTICE if any(f.get("box") for f in doc.spec) else UPLOAD_TABLE_NOTICE)
     if any(f["value_source"] == "handwrite" for f in doc.spec):
@@ -278,11 +281,26 @@ def _resolve_source(db: Session, body: DocumentCreate) -> tuple[str, str, list[d
         policy_id = get_visible_policy(db, str(body.policy_id)).id if body.policy_id is not None else None
         return body.source_id, title, fields, policy_id
     policy = get_visible_policy(db, str(body.policy_id))
-    found = doc_spec.policy_form_spec(policy.policy_key)
+    found = doc_spec.policy_form_spec(policy.policy_key, body.form_id)
+    if found is None and body.form_id is not None:
+        raise AppError(404, "FORM_NOT_FOUND", "이 정책에 쓰는 서류 양식이 아닙니다.")
     if found is None:
         raise AppError(404, "FORM_GUIDE_NOT_FOUND", "이 정책은 아직 신청서 작성 도우미가 준비되지 않았습니다.")
     form_id, title, fields = found
+    own = ai_content.find_form(policy.policy_key)
+    if body.form_id is not None and (own is None or own.form_id != form_id):
+        # 연결표 양식은 여러 정책 · 여러 서류(1차 · 2차 사용계획서)에 같이 쓰인다 → 서류 항목(없으면 정책)마다 따로 저장
+        scope = f"i{body.checklist_item_id}" if body.checklist_item_id is not None else f"p{policy.id}"
+        return f"{form_id}{FORM_SCOPE_SEP}{scope}", title, fields, policy.id
     return form_id, title, fields, policy.id
+
+
+FORM_SCOPE_SEP = "@"
+
+
+def form_id_of(doc: Document) -> str:
+    """문서가 쓰는 서버 양식 ID (source_id 의 '@항목' 앞부분)"""
+    return doc.source_id.split(FORM_SCOPE_SEP, 1)[0]
 
 
 def _checklist_item(db: Session, user: User, item_id: int | None) -> ChecklistItem | None:
@@ -797,7 +815,7 @@ def original_pdf(doc: Document) -> Path | bytes | None:
             return None
     if doc.source_type != "policy_form":
         return None
-    path = get_settings().forms_dir / f"{doc.source_id}.pdf"
+    path = get_settings().forms_dir / f"{form_id_of(doc)}.pdf"
     return path if path.is_file() else None
 
 

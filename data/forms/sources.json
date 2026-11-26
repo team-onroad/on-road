@@ -98,7 +98,7 @@
       "form_id": "mohw-settle-plan", "title": "자립정착금 사용계획서", "scope": "policy",
       "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅰ. 보호아동 자립지원 서식 4호", "agency": "보건복지부 아동보호자립과",
                  "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
-      "match": "정착금\\s*사용\\s*계획서|^자립정착금\\s*사용계획서"
+      "match": "정착금\\s*사용\\s*계획서(?!에\\s*따른)|^자립정착금\\s*사용계획서(?!에\\s*따른)"
     },
     {
       "form_id": "mohw-independence-plan", "title": "자립지원계획서", "scope": "policy",

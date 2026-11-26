@@ -487,6 +487,142 @@ def test_policy_without_form(api, db_session, doc_llm, forms_dir):
     _err(res, 404, "FORM_GUIDE_NOT_FOUND")
 
 
+# ------------------------------------------------------------------ 정책에 연결된 서버 양식 (data/forms/index.json)
+
+
+SETTLE_DOCS = ["자립정착금 신청서", "자립정착금 사용계획서(1차, 2차)", "통장 사본"]
+
+
+def _write_linked(path, policy_key="G012"):
+    """정책 하나에 양식 셋: 서류 이름이 같은 양식 둘(그중 하나는 대신 쓰는 공통 양식) + 서류 목록에 없는 양식 하나"""
+    def spec(fid, title):
+        return {"form_id": fid, "policy_key": f"form:{fid}", "title": title, "source": "https://example.org",
+                "checked": False, "notes": [], "warnings": [],
+                "fields": [{"id": "name", "label": "성명", "value_source": "profile", "profile_key": "name", "guide": "이름"},
+                           {"id": "plan", "label": "사용 계획", "guide": "계획을 써요"}]}
+    for fid, title in (("settle-plan", "자립정착금 사용계획서"), ("welfare-apply", "사회보장급여 신청(변경)서"),
+                       ("extra-form", "참여 뒤 내는 신청서"), ("other-form", "다른 정책 양식")):
+        (path / f"{fid}.json").write_text(json.dumps(spec(fid, title), ensure_ascii=False), encoding="utf-8")
+    index = {
+        "forms": {
+            "settle-plan": {"title": "자립정착금 사용계획서", "scope": "policy", "checked": False},
+            "welfare-apply": {"title": "사회보장급여 신청(변경)서", "scope": "policy", "checked": False,
+                              "substitute": True, "notice": "지자체마다 자체 신청서를 쓸 수 있어요."},
+            "extra-form": {"title": "참여 뒤 내는 신청서", "scope": "policy", "checked": False},
+            "other-form": {"title": "다른 정책 양식", "scope": "policy", "checked": False},
+            "missing-file": {"title": "파일 없는 양식", "scope": "policy", "checked": False},
+        },
+        "by_policy": {
+            policy_key: [
+                {"form_id": "welfare-apply", "doc_name": "자립정착금 신청서"},
+                {"form_id": "settle-plan", "doc_name": "자립정착금 사용계획서(1차, 2차)"},
+                {"form_id": "extra-form", "doc_name": None},
+                {"form_id": "missing-file", "doc_name": "통장 사본"},
+            ],
+            "G999": [{"form_id": "other-form", "doc_name": None}],
+        },
+    }
+    (path / "index.json").write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
+
+
+def test_checklist_shows_forms_per_document(api, db_session, forms_dir):
+    user = make_user(db_session)
+    policy = make_policy(db_session, policy_key="G012", required_docs=SETTLE_DOCS)
+    _write_linked(forms_dir)
+
+    data = api.post("/api/checklists", json={"user_id": str(user.id), "policy_id": policy.id}).json()
+    docs = {d["label"]: d["forms"] for s in data["steps"] for d in s["documents"]}
+    assert docs["자립정착금 신청서"] == [{"form_id": "welfare-apply", "title": "사회보장급여 신청(변경)서",
+                                       "checked": False, "notice": "지자체마다 자체 신청서를 쓸 수 있어요."}]
+    assert [f["form_id"] for f in docs["자립정착금 사용계획서(1차, 2차)"]] == ["settle-plan"]
+    assert docs["자립정착금 사용계획서(1차, 2차)"][0]["notice"] is None
+    assert docs["통장 사본"] == []  # 양식 파일이 없으면 빠진다
+    assert [f["form_id"] for f in data["extra_forms"]] == ["extra-form"]
+
+
+def test_checklist_without_index_has_no_forms(api, db_session, forms_dir):
+    user = make_user(db_session)
+    policy = make_policy(db_session, policy_key="G012", required_docs=SETTLE_DOCS)
+    data = api.post("/api/checklists", json={"user_id": str(user.id), "policy_id": policy.id}).json()
+    assert data["extra_forms"] == []
+    assert all(d["forms"] == [] for s in data["steps"] for d in s["documents"])
+
+
+def test_start_linked_form_by_form_id(api, db_session, doc_llm, forms_dir):
+    user = make_user(db_session, name="김민지")
+    policy = make_policy(db_session, policy_key="G012", required_docs=SETTLE_DOCS)
+    _write_linked(forms_dir)
+    body = {"user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id}
+
+    plan = api.post("/api/documents", json={**body, "form_id": "settle-plan"}).json()
+    assert (plan["title"], plan["source_id"], plan["policy_id"]) == ("자립정착금 사용계획서", f"settle-plan@p{policy.id}", policy.id)
+    assert _field(plan, "name")["value"] == "김민지"
+    assert "지자체마다 자체 신청서를 쓸 수 있어요." not in plan["notices"]
+
+    apply = api.post("/api/documents", json={**body, "form_id": "welfare-apply"}).json()
+    assert apply["document_id"] != plan["document_id"]  # 같은 정책이어도 양식마다 따로
+    assert apply["notices"][0] == "지자체마다 자체 신청서를 쓸 수 있어요."
+
+    again = api.post("/api/documents", json={**body, "form_id": "settle-plan"})
+    assert again.json()["document_id"] == plan["document_id"]
+
+
+def test_same_form_on_two_documents_is_saved_apart(api, db_session, doc_llm, forms_dir):
+    """1차 · 2차 사용계획서처럼 한 정책의 두 서류가 같은 양식이면 서류 항목마다 따로, 다른 정책과도 따로"""
+    user = make_user(db_session)
+    docs = ["1차 자립정착금 사용계획서", "2차 자립정착금 사용계획서"]
+    policy = make_policy(db_session, policy_key="G024", required_docs=docs)
+    other = make_policy(db_session, policy_key="G012", required_docs=SETTLE_DOCS)
+    _write_linked(forms_dir, policy_key="G012")
+    index = json.loads((forms_dir / "index.json").read_text(encoding="utf-8"))
+    index["by_policy"]["G024"] = [{"form_id": "settle-plan", "doc_name": d} for d in docs]
+    (forms_dir / "index.json").write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
+
+    cl = api.post("/api/checklists", json={"user_id": str(user.id), "policy_id": policy.id}).json()
+    items = [d["item_id"] for s in cl["steps"] for d in s["documents"]]
+    assert all([f["form_id"] for f in d["forms"]] == ["settle-plan"] for s in cl["steps"] for d in s["documents"])
+    body = {"user_id": str(user.id), "source_type": "policy_form", "form_id": "settle-plan"}
+    first = api.post("/api/documents", json={**body, "policy_id": policy.id, "checklist_item_id": items[0]}).json()
+    second = api.post("/api/documents", json={**body, "policy_id": policy.id, "checklist_item_id": items[1]}).json()
+    elsewhere = api.post("/api/documents", json={**body, "policy_id": other.id}).json()
+    assert len({first["document_id"], second["document_id"], elsewhere["document_id"]}) == 3
+    assert first["source_id"] == f"settle-plan@i{items[0]}"
+    assert api.post("/api/documents", json={**body, "policy_id": policy.id, "checklist_item_id": items[0]}).json()[
+        "document_id"] == first["document_id"]
+    linked = {d["item_id"]: d["document_id"] for s in api.get(
+        f"/api/checklists/{cl['checklist_id']}", params={"user_id": str(user.id)}).json()["steps"] for d in s["documents"]}
+    assert linked == {items[0]: first["document_id"], items[1]: second["document_id"]}
+
+
+def test_start_form_of_other_policy_is_404(api, db_session, doc_llm, forms_dir):
+    user = make_user(db_session)
+    policy = make_policy(db_session, policy_key="G012", required_docs=SETTLE_DOCS)
+    _write_linked(forms_dir)
+    body = {"user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id}
+    for fid in ("other-form", "missing-file", "../index", "nope"):
+        _err(api.post("/api/documents", json={**body, "form_id": fid}), 404, "FORM_NOT_FOUND")
+    # form_id 없이 시작하면 지금처럼 정책 신청서만 (연결표 양식은 policy_key 가 form:{id} 라 열리지 않음)
+    _err(api.post("/api/documents", json=body), 404, "FORM_GUIDE_NOT_FOUND")
+
+
+def test_policy_apply_form_still_opens_with_form_id(api, db_session, doc_llm, forms_dir):
+    user = make_user(db_session)
+    policy = make_policy(db_session, policy_key="P001", name="자립수당")
+    _write_form(forms_dir)
+    data = api.post("/api/documents", json={
+        "user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id, "form_id": "P001-apply",
+    }).json()
+    assert data["source_id"] == "P001-apply"
+
+
+def test_form_id_only_for_policy_form(api, db_session, doc_llm):
+    user = make_user(db_session)
+    res = api.post("/api/documents", json={
+        "user_id": str(user.id), "source_type": "template", "source_id": "resume", "form_id": "settle-plan",
+    })
+    assert res.status_code == 422
+
+
 # ------------------------------------------------------------------ 라우터 (상담 화면 → 문서 AI 핸드오프)
 
 
@@ -596,3 +732,30 @@ def test_template_export_is_table_layout(api, db_session, doc_llm):
     _complete_all(api, user, data)
     exported = api.post(f"/api/documents/{data['document_id']}/export", json={"user_id": str(user.id)}).json()
     assert exported["pdf_layout"] == "table"
+
+
+def test_linked_form_exports_on_original_layout(api, db_session, doc_llm, forms_dir):
+    """연결표 양식은 source_id 가 '양식@항목' 이어도 원본 data/forms/{form_id}.pdf 위에 채운다"""
+    import pymupdf
+    from formguide.layout import attach_boxes
+    from formguide.schema import FormField, FormSpec
+    from formguide.tests.sample_form import make_form
+
+    user = make_user(db_session, name="김민지")
+    policy = make_policy(db_session, policy_key="G012", required_docs=SETTLE_DOCS)
+    _write_linked(forms_dir)
+    pdf = make_form(forms_dir / "settle-plan.pdf")
+    fields = [FormField(id="name", label="성명", section="1. 신청인", value_source="profile", profile_key="name",
+                        guide="이름")]
+    spec = attach_boxes(FormSpec(form_id="settle-plan", policy_key="form:settle-plan", title="자립정착금 사용계획서",
+                                 source="test.pdf", fields=fields), pdf)
+    (forms_dir / "settle-plan.json").write_text(spec.model_dump_json(), encoding="utf-8")
+
+    data = api.post("/api/documents", json={
+        "user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id, "form_id": "settle-plan",
+    }).json()
+    _complete_all(api, user, data, {})
+    exported = api.post(f"/api/documents/{data['document_id']}/export", json={"user_id": str(user.id)}).json()
+    assert exported["pdf_layout"] == "original"
+    res = api.get(f"/api/documents/{data['document_id']}/file?user_id={user.id}&format=pdf")
+    assert "김민지" in pymupdf.open(stream=res.content)[0].get_text()

@@ -1,7 +1,7 @@
 # 정책 신청 서류 양식 (서버 양식 · 연결표)
 
 정책 신청 때 내는 서류 중 **공식 양식이 있는 것**을 서버(`data/forms/`)에 두고, 앱에서 바로 작성할 수 있게 하려는 데이터입니다.
-이 브랜치에는 **데이터와 연결표만** 있고, 백엔드 연결은 아직 하지 않았습니다 (아래 '백엔드 연결' 참고).
+백엔드 연결까지 되어 있습니다 (아래 '백엔드 연결'). 앱 화면은 아직입니다.
 
 **쓰는 곳: 정책 추천 → 정책을 골라 "지원하기"(신청) 화면의 필요 서류 작성에만** (팀 결정 11/26).
 진로 로드맵 · 맞춤 신청 로드맵 · 상담 화면에는 넣지 않는다 (그쪽의 `has_form` · "신청서 쓰기"는 지금처럼 `find_form` 그대로).
@@ -76,17 +76,21 @@
   없지만 그 정책에 쓰는 양식 — 예: G084 디딤씨앗통장은 원문 서류 칸이 비어 있음)
 - `scope: common`: 특정 정책 서류는 아니지만 보호 중 · 퇴소 사용자가 직접 내는 서류 (`policy_keys` 비어 있음)
 
-## 백엔드 연결 (할 일 제안)
+## 백엔드 연결
 
-1. **양식 찾기**: `data/forms/index.json` 을 읽는 함수 (예: `ai_content.forms_for_policy(policy_key) -> [(FormSpec, doc_name, notice)]`).
-   양식 파일은 `form_id` 로 읽는다 (`{form_id}.json`, policy_key 로 찾지 않음). 기존 `find_form` 은 그대로 둬도 된다 (P001-apply)
-2. **정책 지원하기(신청) 화면**: 그 화면이 보여 주는 필요 서류(`required_docs`) 항목마다 `doc_name` 이 같은 양식이 있으면
-   `form_id` · `notice` · `checked` 를 붙여 "바로 작성" 버튼. `doc_name: null` 인 양식은 서류 목록 아래 "이 정책에 쓰는 양식"으로.
-   로드맵(`services/roadmap.py` · `career.py`)과 상담(`chat`)의 `has_form` 은 바꾸지 않는다
-3. **서류 작성 시작** (`POST /documents`, `source_type: policy_form`): 지금은 `policy_id` 로 양식 하나를 고른다 → `form_id` 로도
-   시작할 수 있게 (같은 정책에 양식이 여럿: 자립정착금 = 신청서 + 사용계획서). 원본 위 채우기는 `data/forms/{form_id}.pdf` 그대로
-4. **안내**: `substitute` 양식은 `notice` 를, `checked: false` 는 지금처럼 "원본과 대조하지 않은 안내" 표시
-5. 테스트: 정책 상세에 서류별 `form_id`, `form_id` 로 문서 시작 · 내보내기, P001 기존 흐름 그대로
+1. **양식 찾기** (`app/ai_content.py`): `policy_forms(policy_key)` 가 `index.json` 의 `by_policy` 를 읽어
+   `[{form_id, title, doc_name, checked, notice}]` 를 준다 (양식 파일이 없는 것은 뺌). 양식 파일은 `load_form(form_id)` 로 `{form_id}.json` 을 읽는다.
+   기존 `find_form(policy_key)` 는 그대로 (P001 → P001-apply)
+2. **체크리스트(신청 준비) 응답** (`GET /checklists/{id}`): 서류 항목마다 `forms` (서류 이름이 `doc_name` 과 같은 양식),
+   응답에 `extra_forms` (`doc_name: null` 인 양식). 정책이 노출 대상이 아니면 둘 다 비어 있다.
+   로드맵 · 상담의 `has_form` 은 바꾸지 않았다
+3. **서류 작성 시작** (`POST /documents`): `source_type: policy_form` 에 `form_id` 를 보내면 그 양식으로 시작한다.
+   그 정책에 연결된 양식(또는 그 정책의 기존 신청서)이 아니면 404 `FORM_NOT_FOUND`. `form_id` 가 없으면 지금처럼 정책 신청서.
+   연결표 양식은 여러 정책 · 여러 서류(1차 · 2차 사용계획서)에 같이 쓰여서 문서 `source_id` 를 `{form_id}@i{체크리스트 항목 ID}`
+   (항목 없이 시작하면 `{form_id}@p{정책 ID}`)로 저장해 서류마다 따로 쓴다. 그 정책의 기존 신청서(P001-apply)는 지금처럼 `form_id` 그대로.
+   내보내기는 `@` 앞의 `form_id` 로 `data/forms/{form_id}.pdf` 위에 채운다
+4. **안내**: `substitute` 양식으로 만든 문서는 `notices` 맨 앞에 연결표의 `notice`, `checked: false` 는 지금처럼 "원본과 대조하지 않은" 안내
+5. 테스트: `tests/test_writer_api.py` (서류별 `forms` · `extra_forms`, `form_id` 로 시작, 다른 정책 양식 404, P001 기존 흐름)
 
 ## 다시 만들기 · 양식 추가
 

@@ -675,6 +675,8 @@
 - 서류를 모두 체크해도 "서류 준비" 단계는 자동 체크되지 않으며, 사용자가 직접 체크한다.
 - `detail.summary`: 3.5 `results[].summary`와 같은 형식의 짧은 요약 (`data/policy_facts/{policy_key}.json`). 대상 확인·조건 확인은 지원 대상·받을 수 없는 경우, 신청은 신청 방법 항목이며, 검색 카드와 달리 핵심 구절만 고르지 않고 전부 보여 준다. 원래 긴 글은 "자세히 보기"로 접는다.
 - `documents[].short_label`: 조건까지 담은 짧은 서류 이름 (예: "위임장 (대리 신청 시)"). 있으면 `label`·`condition` 대신 보여 주고, 원래 이름은 "자세히 보기"로 접는다.
+- `documents[].forms`: 이 서류를 앱에서 바로 쓸 수 있는 서버 양식 `[{form_id, title, checked, notice}]` (`data/forms/index.json`, 서류 이름이 글자 그대로 같을 때). 양식이 없으면 `[]`. `notice` 는 공식 양식이 공개되지 않아 대신 쓰는 공통 양식일 때 함께 보여 줄 안내 (자립정착금 신청서 → 사회보장급여 신청서), 아니면 null. 누르면 `POST /documents` 에 `source_type: policy_form`, `policy_id`, `form_id`, `checklist_item_id` 로 시작한다.
+- `extra_forms`: 서류 목록에는 없지만 이 정책에 쓰는 양식 (원문에 서류가 따로 안 적혔거나 참여 뒤 내는 서류). 형식은 `documents[].forms` 와 같다.
 - `documents[].document_id`·`document_status`: 이 서류 항목으로 연결된 문서 AI 문서 (없으면 null). `exported` 면 체크가 문서를 따르고 앱에서 직접 바꿀 수 없다(3.11 → 409 `DOCUMENT_WRITTEN`). 문서의 칸을 다시 고치면(`writing`) 체크가 풀린다.
 - 단계를 눌렀을 때 펼치는 상세 설명은 `detail`을 사용한다. "서류 준비" 단계는 `documents`를 체크박스로 표시한다.
 - 하단 "공식 신청 바로가기" 버튼은 `policy.apply_url`, "문의" 문구는 `policy.contact`를 사용한다. 값이 `null`이면 숨긴다.

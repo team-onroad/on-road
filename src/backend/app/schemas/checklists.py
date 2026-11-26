@@ -92,6 +92,15 @@ class ApplyDetail(BaseModel):
     summary: PolicySummary | None  # 짧은 요약 (신청 방법). 요약이 없거나 노출 대상 아니면 null
 
 
+class FormLink(BaseModel):
+    """그 서류를 앱에서 바로 쓸 수 있는 서버 양식 (data/forms/index.json). POST /documents 에 form_id 로 시작"""
+
+    form_id: str
+    title: str
+    checked: bool  # 사람이 원본 양식과 대조했는지. false 면 "원본과 대조하지 않은 안내" 표시
+    notice: str | None = None  # 공식 양식 대신 쓰는 공통 양식이면 안내 (자립정착금 신청서 → 사회보장급여 신청서)
+
+
 class Document(BaseModel):
     item_id: int
     label: str
@@ -104,6 +113,7 @@ class Document(BaseModel):
     # document_status 가 exported 면 체크가 문서를 따르고, 이 항목은 직접 바꿀 수 없다 (409 DOCUMENT_WRITTEN)
     document_id: int | None = None
     document_status: Literal["writing", "exported"] | None = None
+    forms: list[FormLink] = []  # 이 서류를 바로 쓸 수 있는 양식 (서류 이름이 연결표와 글자 그대로 같을 때)
 
 
 class Step(BaseModel):
@@ -123,6 +133,8 @@ class ChecklistResponse(BaseModel):
     progress: Progress
     document_progress: DocumentProgress
     steps: list[Step]
+    # 서류 목록에는 없지만 이 정책에 쓰는 양식 (원문에 서류가 따로 안 적혔거나 참여 뒤 내는 서류)
+    extra_forms: list[FormLink] = []
 
 
 class ToggledItem(BaseModel):

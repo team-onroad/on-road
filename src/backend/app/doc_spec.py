@@ -116,10 +116,11 @@ def template_spec(template_id: str) -> tuple[str, list[dict]]:
     return t.name, from_template(t)
 
 
-def policy_form_spec(policy_key: str) -> tuple[str, str, list[dict]] | None:
+def policy_form_spec(policy_key: str, form_id: str | None = None) -> tuple[str, str, list[dict]] | None:
     """(form_id, 제목, 칸 목록). 정책 신청서 항목이 없으면 None.
+    form_id 를 주면 그 정책에 연결된 양식 중 그것 (data/forms/index.json), 안 주면 정책 신청서(find_form).
     칸마다 checked(사람이 원본 양식과 대조했는지)를 넣어 둔다"""
-    spec = ai_content.find_form(policy_key)
+    spec = ai_content.form_for_policy(policy_key, form_id) if form_id else ai_content.find_form(policy_key)
     if spec is None:
         return None
     fields = from_form_spec(spec)

@@ -34,6 +34,8 @@ class DocumentCreate(BaseModel):
     source_type: CreateSourceType
     source_id: Annotated[StrictStr, Field(min_length=1, max_length=100)] | None = None
     policy_id: Annotated[StrictInt, Field(ge=1, le=INT_MAX)] | None = None
+    # policy_form 에서 그 정책의 여러 양식 중 하나 (체크리스트 documents[].forms[].form_id). 없으면 정책 신청서
+    form_id: Annotated[StrictStr, Field(min_length=1, max_length=100)] | None = None
     checklist_item_id: Annotated[StrictInt, Field(ge=1, le=INT_MAX)] | None = None
     context: str | None = None
 
@@ -53,6 +55,8 @@ class DocumentCreate(BaseModel):
             raise ValueError("template 은 source_id 가 필요합니다.")
         if self.source_type == "policy_form" and self.policy_id is None:
             raise ValueError("policy_form 은 policy_id 가 필요합니다.")
+        if self.source_type == "template" and self.form_id is not None:
+            raise ValueError("form_id 는 policy_form 에서만 보낼 수 있습니다.")
         return self
 
 

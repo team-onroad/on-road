@@ -217,6 +217,58 @@ def find_form(policy_key: str) -> FormSpec | None:
     return sorted(specs, key=lambda s: (not s.checked, s.form_id))[0]
 
 
+def _forms_index() -> dict:
+    """data/forms/index.json (collector.forms_index 가 만든 양식 ↔ 정책 · 필요 서류 연결표). 없으면 빈 dict"""
+    data = _load_json(get_settings().forms_dir / "index.json")
+    return data if isinstance(data, dict) else {}
+
+
+def load_form(form_id: str) -> FormSpec | None:
+    """form_id 로 양식 읽기 (data/forms/{form_id}.json). 연결표의 양식 · 기존 정책 신청서 모두"""
+    if not form_id or "/" in form_id or "\\" in form_id or form_id.startswith("."):
+        return None
+    data = _load_json(get_settings().forms_dir / f"{form_id}.json")
+    if not isinstance(data, dict) or data.get("form_id") != form_id:
+        return None
+    try:
+        return FormSpec.model_validate(data)
+    except ValueError:
+        logger.warning("양식 형식 오류로 건너뜀: %s", form_id)
+        return None
+
+
+def form_meta(form_id: str) -> dict | None:
+    """연결표의 양식 정보 {title, scope, checked, substitute, notice, policy_keys}. 연결표에 없으면 None"""
+    f = (_forms_index().get("forms") or {}).get(form_id)
+    return f if isinstance(f, dict) else None
+
+
+def policy_forms(policy_key: str) -> list[dict]:
+    """그 정책 신청에 쓰는 서버 양식 [{form_id, title, doc_name, checked, notice}].
+    doc_name 은 정책 required_docs[].name 과 글자 그대로 같다 (None 이면 서류 목록에는 없지만 그 정책에 쓰는 양식).
+    양식 파일이 없는 것은 뺀다"""
+    out = []
+    for link in (_forms_index().get("by_policy") or {}).get(policy_key) or []:
+        fid = link.get("form_id") if isinstance(link, dict) else None
+        meta = form_meta(fid) if fid else None
+        if meta is None or load_form(fid) is None:
+            continue
+        out.append({
+            "form_id": fid, "title": meta.get("title") or fid, "doc_name": link.get("doc_name"),
+            "checked": bool(meta.get("checked")), "notice": meta.get("notice") if meta.get("substitute") else None,
+        })
+    return out
+
+
+def form_for_policy(policy_key: str, form_id: str) -> FormSpec | None:
+    """정책 신청 화면에서 고른 양식. 그 정책에 연결된 양식이거나(연결표) 그 정책의 기존 신청서(find_form)일 때만"""
+    linked = any(f["form_id"] == form_id for f in policy_forms(policy_key))
+    if not linked:
+        own = find_form(policy_key)
+        linked = own is not None and own.form_id == form_id
+    return load_form(form_id) if linked else None
+
+
 def form_guide(spec: FormSpec, profile: dict | None) -> dict:
     return make_guide(spec, profile)
 

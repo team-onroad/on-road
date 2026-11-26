@@ -66,7 +66,8 @@ def build(policies: list[dict], sources: dict, forms_dir: Path = FORMS_DIR) -> d
             if d["doc_name"]:
                 linked_docs.add((d["policy_key"], d["doc_name"]))
     unmatched = sorted({d["name"] for p in policies for d in p.get("required_docs") or []
-                        if FORM_LIKE_RE.search(d["name"]) and (p["policy_key"], d["name"]) not in linked_docs})
+                        if FORM_LIKE_RE.search(d["name"]) and "증빙" not in d["name"]  # '계획서에 따른 증빙서류'는 양식 아님
+                        and (p["policy_key"], d["name"]) not in linked_docs})
     return {"forms": forms, "by_policy": dict(sorted(by_policy.items())), "unmatched_docs": unmatched}
 
 
