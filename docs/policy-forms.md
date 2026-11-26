@@ -1,7 +1,10 @@
 # 정책 신청 서류 양식 (서버 양식 · 연결표)
 
 정책 신청 때 내는 서류 중 **공식 양식이 있는 것**을 서버(`data/forms/`)에 두고, 앱에서 바로 작성할 수 있게 하려는 데이터입니다.
-이 브랜치에는 **데이터와 연결표만** 있고, 백엔드 연결(정책 상세 서류마다 "바로 작성")은 아직 하지 않았습니다 (아래 '백엔드 연결' 참고).
+이 브랜치에는 **데이터와 연결표만** 있고, 백엔드 연결은 아직 하지 않았습니다 (아래 '백엔드 연결' 참고).
+
+**쓰는 곳: 정책 추천 → 정책을 골라 "지원하기"(신청) 화면의 필요 서류 작성에만** (팀 결정 11/26).
+진로 로드맵 · 맞춤 신청 로드맵 · 상담 화면에는 넣지 않는다 (그쪽의 `has_form` · "신청서 쓰기"는 지금처럼 `find_form` 그대로).
 
 ## 들어 있는 것
 
@@ -66,8 +69,9 @@
 
 1. **양식 찾기**: `data/forms/index.json` 을 읽는 함수 (예: `ai_content.forms_for_policy(policy_key) -> [(FormSpec, doc_name, notice)]`).
    양식 파일은 `form_id` 로 읽는다 (`{form_id}.json`, policy_key 로 찾지 않음). 기존 `find_form` 은 그대로 둬도 된다 (P001-apply)
-2. **정책 상세**: `required_docs` 항목마다 `doc_name` 이 같은 양식이 있으면 `form_id` · `notice` · `checked` 를 붙여 "바로 작성" 버튼.
-   `doc_name: null` 인 양식은 서류 목록 아래 "이 정책에 쓰는 양식"으로
+2. **정책 지원하기(신청) 화면**: 그 화면이 보여 주는 필요 서류(`required_docs`) 항목마다 `doc_name` 이 같은 양식이 있으면
+   `form_id` · `notice` · `checked` 를 붙여 "바로 작성" 버튼. `doc_name: null` 인 양식은 서류 목록 아래 "이 정책에 쓰는 양식"으로.
+   로드맵(`services/roadmap.py` · `career.py`)과 상담(`chat`)의 `has_form` 은 바꾸지 않는다
 3. **서류 작성 시작** (`POST /documents`, `source_type: policy_form`): 지금은 `policy_id` 로 양식 하나를 고른다 → `form_id` 로도
    시작할 수 있게 (같은 정책에 양식이 여럿: 자립정착금 = 신청서 + 사용계획서). 원본 위 채우기는 `data/forms/{form_id}.pdf` 그대로
 4. **안내**: `substitute` 양식은 `notice` 를, `checked: false` 는 지금처럼 "원본과 대조하지 않은 안내" 표시
