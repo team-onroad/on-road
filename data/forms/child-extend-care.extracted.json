@@ -1,0 +1,69 @@
+{
+  "form_id": "child-extend-care",
+  "policy_key": "G018",
+  "title": "보호기간 연장 승인신청서",
+  "source": "../data/forms/_work/split/child-extend-care.pdf",
+  "fields": [
+    {
+      "id": "receipt_number",
+      "label": "접수번호",
+      "section": null,
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청서가 접수된 후 부여받은 번호를 적어요.",
+      "example": null,
+      "evidence": "접수번호",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "receipt_date",
+      "label": "접수일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청서가 접수된 날짜를 적어요.",
+      "example": null,
+      "evidence": "접수일",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "processing_period",
+      "label": "처리기간",
+      "section": null,
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청서 처리에 필요한 기간을 적어요.",
+      "example": "3일",
+      "evidence": "처리기간",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "date",
+      "label": "년 월 일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청서를 작성하는 날짜를 적어요.",
+      "example": "2023-10-01",
+      "evidence": "년 월 일",
+      "sensitive": false,
+      "box": null
+    }
+  ],
+  "notes": [
+    "첨부서류 연장 사유를 증명하는 서류"
+  ],
+  "warnings": [],
+  "checked": false
+}

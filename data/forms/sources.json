@@ -1,0 +1,131 @@
+{
+  "_설명": "서버에 둔 공식 양식의 출처와 정책 · 필요 서류 연결 규칙 (python -m collector.forms_index 가 index.json 을 만든다). match: 정책 required_docs 서류 이름 정규식, policies: 서류 이름과 상관없이 붙일 정책, scope: policy(정책 서류) / common(정책 공통 — 보호 중 · 퇴소 사용자가 직접 내는 서류)",
+  "forms": [
+    {
+      "form_id": "mohw-settle-plan", "title": "자립정착금 사용계획서", "scope": "policy",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅰ. 보호아동 자립지원 서식 4호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "match": "정착금\\s*사용\\s*계획서|^자립정착금\\s*사용계획서"
+    },
+    {
+      "form_id": "mohw-independence-plan", "title": "자립지원계획서", "scope": "policy",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅰ. 보호아동 자립지원 서식 1호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "match": "자립지원\\s*계획서"
+    },
+    {
+      "form_id": "mohw-didim-apply", "title": "디딤씨앗통장 지원 신청서", "scope": "policy",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅱ. 디딤씨앗통장 서식 1호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "match": "디딤씨앗\\s*통장\\s*(지원\\s*)?신청서"
+    },
+    {
+      "form_id": "mohw-didim-plan", "title": "디딤씨앗통장 적립 및 사용계획서", "scope": "policy",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅱ. 디딤씨앗통장 서식 12호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "match": "디딤씨앗\\s*통장\\s*적립\\s*및\\s*사용\\s*계획서"
+    },
+    {
+      "form_id": "mohw-didim-withdraw", "title": "디딤씨앗통장 적립금 사용 신청서", "scope": "common",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅱ. 디딤씨앗통장 서식 8호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "policies": ["G084"]
+    },
+    {
+      "form_id": "mohw-allowance-proxy", "title": "자립준비청년 자립수당 관련 위임장", "scope": "policy",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅳ. 자립수당 서식 6호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "match": "위임장", "policy_name": "자립수당"
+    },
+    {
+      "form_id": "mohw-account-change", "title": "복지급여 계좌 변경 신청서", "scope": "common",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅳ. 자립수당 서식 2호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "policies": ["P001", "G007", "G034"]
+    },
+    {
+      "form_id": "mohw-aftercare-consent", "title": "보호종료 후 사후관리 동의서 · 개인정보 수집 · 이용 · 제공 동의서", "scope": "common",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅴ. 자립지원전담기관 서식 5호 · 5-1호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "policies": ["G018"]
+    },
+    {
+      "form_id": "mohw-foster-consent", "title": "가정위탁보호동의서", "scope": "policy",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(1권)", "form_no": "Ⅲ. 가정위탁 보호 서식 2호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "match": "가정위탁\\s*보호\\s*동의서"
+    },
+    {
+      "form_id": "mohw-foster-family-consent", "title": "가정위탁 가족 동의서", "scope": "policy",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(1권)", "form_no": "Ⅲ. 가정위탁 보호 서식 3호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "match": "가정위탁\\s*가족\\s*동의서"
+    },
+    {
+      "form_id": "mohw-child-info-consent", "title": "아동통합정보시스템 정보 조회 동의서", "scope": "policy",
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(1권)", "form_no": "Ⅲ. 가정위탁 보호 서식 3의 1호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "match": "아동(통합|학대)\\s*정보\\s*시스템\\s*정보\\s*조회\\s*동의서"
+    },
+    {
+      "form_id": "P001-apply", "title": "자립준비청년 자립수당 지급 신청서", "scope": "policy", "app_link": "P001", "keep_source": true,
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅳ. 자립수당 서식 1호", "agency": "보건복지부 아동보호자립과",
+                 "url": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787"},
+      "match": "자립수당\\s*지급\\s*신청서", "_메모": "기존 양식(서현 등록). app_link 로 policy_key P001 을 그대로 지킨다"
+    },
+    {
+      "form_id": "welfare-apply", "title": "사회보장급여 신청(변경)서", "scope": "policy",
+      "source": {"kind": "admin_rule", "name": "사회보장급여 관련 공통서식에 관한 고시", "form_no": "별지 1", "agency": "보건복지부",
+                 "url": "https://www.law.go.kr/행정규칙/사회보장급여관련공통서식에관한고시"},
+      "match": "정착금\\s*(지원\\s*)?신청서|^신청서 및 증빙서류$", "policy_name": "정착금", "policies": ["G030"],
+      "substitute": true,
+      "notice": "행정복지센터 복지 신청에 쓰는 공통 신청서예요. 지자체마다 자체 자립정착금 신청서를 쓸 수 있어서, 창구에서 다른 양식을 주면 그 양식에 옮겨 적어요.",
+      "_메모": "자립정착금 신청서는 지자체 자체 양식이라 공개된 곳이 없음 (정부24 · 자치법규 · 누리집 11/26 확인) → 공통 신청서로 대신 (팀 결정 11/26)"
+    },
+    {
+      "form_id": "child-foster-apply", "title": "가정위탁보호 신청서", "scope": "policy",
+      "source": {"kind": "law", "name": "아동복지법 시행규칙", "form_no": "별지 제1호서식", "agency": "보건복지부",
+                 "url": "https://www.law.go.kr/법령/아동복지법시행규칙"},
+      "match": "가정위탁\\s*(보호\\s*)?신청서"
+    },
+    {
+      "form_id": "child-crime-consent", "title": "범죄경력 조회 동의서", "scope": "policy",
+      "source": {"kind": "law", "name": "아동복지법 시행규칙", "form_no": "별지 제9호서식", "agency": "보건복지부",
+                 "url": "https://www.law.go.kr/법령/아동복지법시행규칙"},
+      "match": "범죄\\s*경력\\s*조[회화]\\s*동의서"
+    },
+    {
+      "form_id": "child-leave-care", "title": "아동 보호조치의 종료(퇴소) 신청서", "scope": "common",
+      "source": {"kind": "law", "name": "아동복지법 시행규칙", "form_no": "별지 제10호의3서식", "agency": "보건복지부",
+                 "url": "https://www.law.go.kr/법령/아동복지법시행규칙"}
+    },
+    {
+      "form_id": "child-re-care", "title": "재보호조치 신청서", "scope": "common",
+      "source": {"kind": "law", "name": "아동복지법 시행규칙", "form_no": "별지 제10호의5서식", "agency": "보건복지부",
+                 "url": "https://www.law.go.kr/법령/아동복지법시행규칙"}
+    },
+    {
+      "form_id": "child-extend-care", "title": "보호기간 연장 승인신청서", "scope": "common",
+      "source": {"kind": "law", "name": "아동복지법 시행규칙", "form_no": "별지 제25호서식", "agency": "보건복지부",
+                 "url": "https://www.law.go.kr/법령/아동복지법시행규칙"}
+    },
+    {
+      "form_id": "lease-orphan-apply", "title": "전세주택지원 신청서", "scope": "policy",
+      "source": {"kind": "admin_rule", "name": "소년소녀가정 등 전세주택 지원 업무처리지침", "form_no": "별지 3", "agency": "국토교통부",
+                 "url": "https://www.law.go.kr/행정규칙/소년소녀가정등전세주택지원업무처리지침"},
+      "policies": ["W001"]
+    },
+    {
+      "form_id": "lease-leaver-apply", "title": "전세주택지원 신청서(자립준비청년, 청소년복지시설 퇴소청소년용)", "scope": "policy",
+      "source": {"kind": "admin_rule", "name": "소년소녀가정 등 전세주택 지원 업무처리지침", "form_no": "별지 4", "agency": "국토교통부",
+                 "url": "https://www.law.go.kr/행정규칙/소년소녀가정등전세주택지원업무처리지침"},
+      "policies": ["W001"]
+    },
+    {
+      "form_id": "jeonse-rent-apply", "title": "전세임대주택 공급신청서", "scope": "policy",
+      "source": {"kind": "admin_rule", "name": "기존주택 전세임대 업무처리지침", "form_no": "별지 2", "agency": "국토교통부",
+                 "url": "https://www.law.go.kr/행정규칙/기존주택전세임대업무처리지침"},
+      "match": "전세임대\\s*주택\\s*공급\\s*신청서"
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+{
+  "form_id": "child-re-care",
+  "policy_key": "G018",
+  "title": "재보호조치 신청서",
+  "source": "../data/forms/_work/split/child-re-care.pdf",
+  "fields": [
+    {
+      "id": "receipt_number",
+      "label": "접수번호",
+      "section": null,
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청서가 접수된 후 부여받는 번호예요.",
+      "example": null,
+      "evidence": "접수번호",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "receipt_date",
+      "label": "접수일시",
+      "section": null,
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청서가 접수된 날짜와 시간을 적어요.",
+      "example": null,
+      "evidence": "접수일시",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "processing_period",
+      "label": "처리기간 심의 후 2일",
+      "section": null,
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청서 처리에 걸리는 기간이에요.",
+      "example": null,
+      "evidence": "처리기간 심의 후 2일",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "applicant_name",
+      "label": "성명",
+      "section": "신청인",
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "본인의 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "applicant_relationship",
+      "label": "관계",
+      "section": "신청인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청인과의 관계를 적어요.",
+      "example": "본인",
+      "evidence": "관계",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "proxy_document",
+      "label": "대리인임을 증명할 수 있는 서류",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "대리인임을 증명하는 서류를 적어요.",
+      "example": null,
+      "evidence": "대리인임을 증명할 수 있는 서류",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "date",
+      "label": "년 월 일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청 날짜를 적어요.",
+      "example": null,
+      "evidence": "년 월 일",
+      "sensitive": false,
+      "box": null
+    }
+  ],
+  "notes": [
+    "대리인 중 친족이 신청하는 경우 주민등록등본 및 가족관계증명서 제출."
+  ],
+  "warnings": [],
+  "checked": false
+}

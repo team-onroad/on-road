@@ -136,3 +136,8 @@ backend\.venv\Scripts\python -m collector.pipeline --reprocess    # 수집 API �
 backend\.venv\Scripts\python -m pytest collector\tests
 ```
 실제 API·웹·AI 대신 가짜 응답을 씁니다.
+
+## 서버 양식 연결표 (`forms_index.py` → `data/forms/index.json`)
+
+정책 신청 서류의 공식 양식(`data/forms/{form_id}`)과 정책 · 필요 서류를 잇는다. 출처 · 규칙은 `data/forms/sources.json`.
+`python -m collector.forms_index` (자세히: `docs/policy-forms.md`)

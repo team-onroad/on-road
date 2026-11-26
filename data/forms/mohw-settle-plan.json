@@ -1,0 +1,397 @@
+{
+  "form_id": "mohw-settle-plan",
+  "policy_key": "form:mohw-settle-plan",
+  "title": "자립정착금 사용계획서",
+  "source": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787",
+  "fields": [
+    {
+      "id": "applicant_name",
+      "label": "성명",
+      "section": "신청인",
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "신청인의 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "신청인 성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          205.1,
+          185.2,
+          264.2,
+          231.3
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "applicant_bank_name",
+      "label": "은행명",
+      "section": "신청인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "사용할 은행의 이름을 적어요.",
+      "example": "우리은행",
+      "evidence": "은행명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          192.8,
+          218.9,
+          299.1,
+          232.9
+        ],
+        "how": "text_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "applicant_email",
+      "label": "E-mail",
+      "section": "신청인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "이메일 주소를 적어요.",
+      "example": "example@example.com",
+      "evidence": "E-mail",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          372.1,
+          249.8,
+          481.9,
+          288.8
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "applicant_account_number",
+      "label": "계좌번호",
+      "section": "신청인",
+      "input_type": "account",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "계좌번호를 적어요.",
+      "example": null,
+      "evidence": "계좌번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          372.1,
+          185.2,
+          481.9,
+          231.3
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "applicant_protection_account",
+      "label": "압류방지통장 여부",
+      "section": "신청인",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "압류방지통장 여부를 선택해요. 네 / 아니오",
+      "example": null,
+      "evidence": "압류방지통장 여부",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          150.4,
+          231.3,
+          481.9,
+          249.8
+        ],
+        "how": "checkbox",
+        "template_text": "압류방지통장 여부 [ ] 네 [ ] 아니오",
+        "options": [
+          "네",
+          "아니오"
+        ],
+        "marks": {
+          "네": [
+            256.8,
+            241.6
+          ],
+          "아니오": [
+            306.9,
+            241.6
+          ]
+        }
+      }
+    },
+    {
+      "id": "case_manager_name",
+      "label": "자립업무 담당자 성명",
+      "section": "자립업무 담당자",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "담당자의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "case_manager_affiliation",
+      "label": "자립업무 담당자 소속",
+      "section": "자립업무 담당자",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "담당자의 소속을 적어요.",
+      "example": null,
+      "evidence": "소속",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "case_manager_phone",
+      "label": "자립업무 담당자 휴대전화",
+      "section": "자립업무 담당자",
+      "input_type": "phone",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "담당자의 휴대전화 번호를 적어요.",
+      "example": null,
+      "evidence": "휴대전화",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "case_manager_email",
+      "label": "자립업무 담당자 E-mail",
+      "section": "자립업무 담당자",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "담당자의 이메일 주소를 적어요.",
+      "example": null,
+      "evidence": "E-mail",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "usage_plan",
+      "label": "사 용 계 획 (세부내용 작성)",
+      "section": null,
+      "input_type": "other",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "자립정착금 사용 계획을 자세히 적어요.",
+      "example": "주거비, 생활비 등",
+      "evidence": "사 용 계 획 (세부내용 작성)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          338.8,
+          295.3,
+          479.9,
+          309.3
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "usage_purpose",
+      "label": "사용용도",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "사용할 용도를 적어요.",
+      "example": "주거비",
+      "evidence": "사용용도",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          73.7,
+          336.2,
+          264.2,
+          437.1
+        ],
+        "how": "table_below",
+        "template_text": null
+      }
+    },
+    {
+      "id": "usage_amount",
+      "label": "금액",
+      "section": null,
+      "input_type": "number",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "사용할 금액을 적어요.",
+      "example": "500000",
+      "evidence": "금액",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          264.2,
+          336.2,
+          337.4,
+          437.1
+        ],
+        "how": "table_below",
+        "template_text": null
+      }
+    },
+    {
+      "id": "usage_period",
+      "label": "사용기간",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "사용할 기간을 적어요.",
+      "example": "2026년 1월 ~ 2026년 12월",
+      "evidence": "사용기간",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          337.4,
+          336.2,
+          407.8,
+          437.1
+        ],
+        "how": "table_below",
+        "template_text": null
+      }
+    },
+    {
+      "id": "usage_remarks",
+      "label": "비고",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "추가로 적고 싶은 내용을 적어요.",
+      "example": "특별한 사항 없음",
+      "evidence": "비고",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          407.8,
+          336.2,
+          481.9,
+          437.1
+        ],
+        "how": "table_below",
+        "template_text": null
+      }
+    },
+    {
+      "id": "date",
+      "label": "년 월 일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청 날짜를 적어요.",
+      "example": null,
+      "evidence": "년 월 일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          201.1,
+          486.5,
+          337.2,
+          504.5
+        ],
+        "how": "date_line",
+        "template_text": "년 월 일"
+      }
+    },
+    {
+      "id": "applicant_signature",
+      "label": "신청인 (서명 또는 인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청인의 서명을 해요.",
+      "example": null,
+      "evidence": "신청인 (서명 또는 인)",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          433.2,
+          526.5,
+          520,
+          540.5
+        ],
+        "how": "text_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "case_manager_signature",
+      "label": "자립업무담당자 (서명 또는 인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "담당자의 서명을 해요.",
+      "example": null,
+      "evidence": "자립업무담당자 (서명 또는 인)",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          428.7,
+          545.5,
+          520,
+          559.5
+        ],
+        "how": "text_right",
+        "template_text": null
+      }
+    }
+  ],
+  "notes": [
+    "아동복지법 제38조제1항제1호의2호에 의하여 자립정착금을 아래와 같이 신청합니다."
+  ],
+  "warnings": [
+    "작은 칸을 묶는 이름이라 버림: '연락처'"
+  ],
+  "checked": false
+}

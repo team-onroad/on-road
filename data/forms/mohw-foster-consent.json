@@ -1,0 +1,259 @@
+{
+  "form_id": "mohw-foster-consent",
+  "policy_key": "form:mohw-foster-consent",
+  "title": "가정위탁보호동의서",
+  "source": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787",
+  "fields": [
+    {
+      "id": "child_name",
+      "label": "이름",
+      "section": "아동",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "아동의 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "이름",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          223.3,
+          165.6,
+          482.0,
+          187.0
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "child_id_number",
+      "label": "주민등록번호",
+      "section": "아동",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "아동의 주민등록번호를 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          223.3,
+          187.0,
+          482.0,
+          208.3
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "guardian_name",
+      "label": "보호자 이름",
+      "section": "보호자",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호자의 이름을 적어요.",
+      "example": "김철수",
+      "evidence": "이름",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          223.3,
+          208.3,
+          482.0,
+          229.6
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "guardian_id_number",
+      "label": "보호자 주민등록번호",
+      "section": "보호자",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호자의 주민등록번호를 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          223.3,
+          229.6,
+          482.0,
+          250.9
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "guardian_address",
+      "label": "보호자 주소",
+      "section": "보호자",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호자의 주소를 적어요.",
+      "example": "서울특별시 강남구 역삼동",
+      "evidence": "주소",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          223.3,
+          250.9,
+          482.0,
+          272.2
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "guardian_relationship",
+      "label": "보호자 아동과의 관계",
+      "section": "보호자",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "아동과의 관계를 적어요.",
+      "example": "부모",
+      "evidence": "아동과의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          223.3,
+          272.2,
+          482.0,
+          293.5
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "guardian_contact",
+      "label": "보호자 연락처",
+      "section": "보호자",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호자의 연락처를 적어요.",
+      "example": "010-1234-5678",
+      "evidence": "연락처",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          223.3,
+          293.5,
+          482.0,
+          314.9
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "guardian_signature",
+      "label": "보호자: (인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호자가 서명해요.",
+      "example": null,
+      "evidence": "보호자: (인)",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          435.7,
+          561.1,
+          553.6,
+          576.1
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "date",
+      "label": "년 월 일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "날짜를 적어요.",
+      "example": "2023-10-01",
+      "evidence": "20 년 월 일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          288.6,
+          519.5,
+          431.4,
+          538.5
+        ],
+        "how": "date_line",
+        "template_text": "년 월 일"
+      }
+    },
+    {
+      "id": "guardian_official",
+      "label": "시･군･구청장(가정위탁지원센터장) 귀하 381",
+      "section": null,
+      "input_type": "other",
+      "value_source": "office",
+      "profile_key": null,
+      "required": false,
+      "guide": "공무원이 작성하는 부분이에요.",
+      "example": null,
+      "evidence": "시･군･구청장(가정위탁지원센터장) 귀하 381",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "foster_type",
+      "label": "위탁유형 : □ 일반위탁가정 □ 전문위탁가정 □ 일시위탁가정",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁 유형을 선택해요. 일반위탁가정/전문위탁가정/일시위탁가정 중 하나를 고르세요.",
+      "example": null,
+      "evidence": "위탁유형 : □ 일반위탁가정 □ 전문위탁가정 □ 일시위탁가정",
+      "sensitive": false,
+      "box": null
+    }
+  ],
+  "notes": [
+    "위탁기간은 담당 지자체 사례결정위원회 결정에 따른다."
+  ],
+  "warnings": [
+    "값 자리를 못 찾음 (별지에 적음): 위탁유형 : □ 일반위탁가정 □ 전문위탁가정 □ 일시위탁가정"
+  ],
+  "checked": false
+}

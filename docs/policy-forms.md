@@ -1,0 +1,83 @@
+# 정책 신청 서류 양식 (서버 양식 · 연결표)
+
+정책 신청 때 내는 서류 중 **공식 양식이 있는 것**을 서버(`data/forms/`)에 두고, 앱에서 바로 작성할 수 있게 하려는 데이터입니다.
+이 브랜치에는 **데이터와 연결표만** 있고, 백엔드 연결(정책 상세 서류마다 "바로 작성")은 아직 하지 않았습니다 (아래 '백엔드 연결' 참고).
+
+## 들어 있는 것
+
+| 파일 | 내용 |
+|---|---|
+| `data/forms/{form_id}.json` · `.pdf` · `.source.txt` · `.extracted.json` | 양식 20개. formguide.build 로 만든 칸 · 값 자리(`box`)와 원본 PDF (기존 `P001-apply` 와 같은 형식) |
+| `data/forms/sources.json` | 양식마다 공식 출처(법령 · 고시 · 지침, 서식 번호, 주소)와 정책 연결 규칙 (사람이 고침) |
+| `data/forms/index.json` | `python -m collector.forms_index` 가 만드는 연결표 (양식 ↔ 정책 ↔ 필요 서류) |
+| `src/collector/forms_index.py` · `tests/test_forms_index.py` | 연결표 만들기 · 테스트 |
+
+양식 출처: 국가법령정보센터 별표 · 서식(아동복지법 시행규칙, 국토부 훈령, 사회보장급여 공통서식 고시)과
+보건복지부 「2026년 아동분야 사업안내」 1 · 2권 서식. 모두 공공 서식이라 서버에 두고 내려받게 해도 된다.
+
+| 양식 | 출처 | 연결 정책 |
+|---|---|---|
+| 자립정착금 사용계획서 `mohw-settle-plan` | 사업안내 2권 Ⅰ-4호 | G009 G012 G015 G021 G024 G030 G041 G042 G044 G046 G048 G080 |
+| 사회보장급여 신청(변경)서 `welfare-apply` (**자립정착금 신청서 대신**) | 공통서식 고시 별지 1 | G024 G035 G041 G042 G048 G080 G030 |
+| 디딤씨앗통장 지원 신청서 · 적립 및 사용계획서 · 적립금 사용 신청서 | 사업안내 2권 Ⅱ-1 · 12 · 8호 | G084 |
+| 자립지원계획서 `mohw-independence-plan` | 사업안내 2권 Ⅰ-1호 | G030 |
+| 자립수당 위임장 `mohw-allowance-proxy` · 복지급여 계좌 변경 신청서 `mohw-account-change` | 사업안내 2권 Ⅳ-6 · 2호 | P001 (계좌 변경은 G007 G034 도) |
+| 보호종료 후 사후관리 동의서 `mohw-aftercare-consent` | 사업안내 2권 Ⅴ-5 · 5-1호 | G018 |
+| 가정위탁보호동의서 · 가정위탁 가족 동의서 · 아동통합정보시스템 조회 동의서 | 사업안내 1권 Ⅲ-2 · 3 · 3의1호 | G053 |
+| 가정위탁보호 신청서 `child-foster-apply` · 범죄경력 조회 동의서 `child-crime-consent` | 아동복지법 시행규칙 별지 1 · 9호 | G057 G075 / G053 |
+| 퇴소 신청서 · 재보호조치 신청서 · 보호기간 연장 승인신청서 | 아동복지법 시행규칙 별지 10의3 · 10의5 · 25호 | 정책 공통 (`scope: common`) |
+| 전세주택지원 신청서 2종 · 전세임대주택 공급신청서 | 국토부 훈령 | W001 / G031 |
+| (기존) 자립수당 신청서 `P001-apply` | 서현 등록 | P001 · G034 (연결표에만 추가, 파일은 그대로) |
+
+- 자립정착금 신청서는 지자체 자체 양식이라 공개된 곳이 없어(정부24 · 자치법규 · 지자체 누리집 11/26 확인) 행정복지센터 공통 신청서로 대신한다 (팀 결정).
+  연결표에 `substitute: true` 와 `notice`("지자체마다 자체 신청서를 쓸 수 있어 … 창구에서 다른 양식을 주면 옮겨 적어요")가 있다
+- 모두 `checked: false` (사람이 원본과 대조 전). 디딤씨앗 적립금 사용 신청서 · 적립 및 사용계획서는 체크칸 기호 `❏` 를 formguide 가
+  체크박스로 못 읽어 값 자리가 적다 (못 찾은 칸은 내보낼 때 별지에 적힘)
+
+## 지금 앱에 영향 없음
+
+지금 `ai_content.find_form(policy_key)` 는 `policy_key` 가 같은 양식을 그 정책의 "신청서"로 바로 연다 (정책 하나에 양식 하나).
+새 양식 JSON 의 `policy_key` 는 실제 정책 키가 아닌 **`form:{form_id}`** 로 두어 지금 화면(정책 상세 · 상담 · 로드맵의 `has_form`)은
+그대로다 (정책 99개 모두 `find_form` 결과가 전과 같음: P001 → P001-apply 만). 정책과의 연결은 `index.json` 에만 있다.
+
+## index.json 형식
+
+```json
+{
+  "forms": {
+    "mohw-settle-plan": {
+      "title": "자립정착금 사용계획서", "scope": "policy", "checked": false, "fields": 17,
+      "source": {"kind": "guideline", "name": "2026년 아동분야 사업안내(2권)", "form_no": "Ⅰ. 보호아동 자립지원 서식 4호", "url": "…"},
+      "policy_keys": ["G009", "G012", "…"],
+      "docs": [{"policy_key": "G012", "doc_name": "자립정착금 사용계획서(1차, 2차)"}, "…"]
+    },
+    "welfare-apply": {"…": "…", "substitute": true, "notice": "행정복지센터 복지 신청에 쓰는 공통 신청서예요. …"}
+  },
+  "by_policy": {"G012": [{"form_id": "mohw-settle-plan", "doc_name": "자립정착금 사용계획서(1차, 2차)"}]},
+  "unmatched_docs": ["작성 양식처럼 보이는데 아직 서버 양식이 없는 서류 이름", "…"]
+}
+```
+
+- `by_policy[정책키]`: 그 정책의 서버 양식들. `doc_name` 은 그 정책 `required_docs[].name` 과 **글자 그대로 같다** (null 이면 서류 목록에는
+  없지만 그 정책에 쓰는 양식 — 예: G084 디딤씨앗통장은 원문 서류 칸이 비어 있음)
+- `scope: common`: 특정 정책 서류는 아니지만 보호 중 · 퇴소 사용자가 직접 내는 서류 (`policy_keys` 비어 있음)
+
+## 백엔드 연결 (할 일 제안)
+
+1. **양식 찾기**: `data/forms/index.json` 을 읽는 함수 (예: `ai_content.forms_for_policy(policy_key) -> [(FormSpec, doc_name, notice)]`).
+   양식 파일은 `form_id` 로 읽는다 (`{form_id}.json`, policy_key 로 찾지 않음). 기존 `find_form` 은 그대로 둬도 된다 (P001-apply)
+2. **정책 상세**: `required_docs` 항목마다 `doc_name` 이 같은 양식이 있으면 `form_id` · `notice` · `checked` 를 붙여 "바로 작성" 버튼.
+   `doc_name: null` 인 양식은 서류 목록 아래 "이 정책에 쓰는 양식"으로
+3. **서류 작성 시작** (`POST /documents`, `source_type: policy_form`): 지금은 `policy_id` 로 양식 하나를 고른다 → `form_id` 로도
+   시작할 수 있게 (같은 정책에 양식이 여럿: 자립정착금 = 신청서 + 사용계획서). 원본 위 채우기는 `data/forms/{form_id}.pdf` 그대로
+4. **안내**: `substitute` 양식은 `notice` 를, `checked: false` 는 지금처럼 "원본과 대조하지 않은 안내" 표시
+5. 테스트: 정책 상세에 서류별 `form_id`, `form_id` 로 문서 시작 · 내보내기, P001 기존 흐름 그대로
+
+## 다시 만들기 · 양식 추가
+
+```
+cd src
+python -m formguide.build "양식.pdf" --policy-key G012 --form-id 새-양식-id   # 칸 · 값 자리 (OPENAI_API_KEY, 양식 하나 약 100~200원)
+# data/forms/sources.json 에 출처 · 연결 규칙(match: 서류 이름 정규식 / policies: 정책 키) 추가
+python -m collector.forms_index        # 연결표 다시 만들기 + 양식 JSON 의 policy_key 를 form:{id} · source 를 출처 주소로 맞춤
+```
