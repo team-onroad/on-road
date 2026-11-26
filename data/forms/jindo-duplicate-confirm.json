@@ -1,0 +1,151 @@
+{
+  "form_id": "jindo-duplicate-confirm",
+  "policy_key": "form:jindo-duplicate-confirm",
+  "title": "중복선정 불가사항 확인서",
+  "source": "https://www.jndc.co.kr/web/main/bbs/etc/7780",
+  "fields": [
+    {
+      "id": "applicant_name",
+      "label": "신청인 성명 :",
+      "section": null,
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "신청인의 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "신청인 성명 :",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "applicant_address",
+      "label": "주민등록상주소 :",
+      "section": null,
+      "input_type": "address",
+      "value_source": "profile",
+      "profile_key": "region",
+      "required": true,
+      "guide": "주민등록상의 주소를 적어요.",
+      "example": "전라남도 진도군",
+      "evidence": "주민등록상주소 :",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "applicant_id_number",
+      "label": "주민등록번호 :",
+      "section": null,
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민등록번호를 적어요.",
+      "example": null,
+      "evidence": "주민등록번호 :",
+      "sensitive": true,
+      "box": null
+    },
+    {
+      "id": "applicant_contact",
+      "label": "연락처 :",
+      "section": null,
+      "input_type": "phone",
+      "value_source": "profile",
+      "profile_key": "phone",
+      "required": true,
+      "guide": "연락 가능한 전화번호를 적어요.",
+      "example": "010-1234-5678",
+      "evidence": "연락처 :",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "agreement_1",
+      "label": "1세대 1주택 신청 원칙",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "동의 여부를 체크해요.",
+      "example": null,
+      "evidence": "□",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "agreement_2",
+      "label": "예외가 적용되지 않는 경우",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "동의 여부를 체크해요.",
+      "example": null,
+      "evidence": "□",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "agreement_3",
+      "label": "위반 시 전부 무효 및 자격상실",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "동의 여부를 체크해요.",
+      "example": null,
+      "evidence": "□",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "date",
+      "label": "2026년 월 일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청 날짜를 적어요.",
+      "example": null,
+      "evidence": "2026년 월 일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          385.2,
+          628.2,
+          559,
+          645.2
+        ],
+        "how": "text_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "applicant_signature",
+      "label": "신청인 : (인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청인의 서명을 해요.",
+      "example": null,
+      "evidence": "신청인 : (인)",
+      "sensitive": true,
+      "box": null
+    }
+  ],
+  "notes": [
+    "중복신청이 확인되면 해당 세대의 신청은 모두 무효 처리됩니다."
+  ],
+  "warnings": [
+    "값 자리를 못 찾음 (별지에 적음): 신청인 성명 :, 주민등록상주소 :, 연락처 :, 1세대 1주택 신청 원칙, 예외가 적용되지 않는 경우, 위반 시 전부 무효 및 자격상실"
+  ],
+  "checked": false
+}

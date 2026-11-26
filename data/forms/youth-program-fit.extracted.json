@@ -1,0 +1,67 @@
+{
+  "form_id": "youth-program-fit",
+  "policy_key": "G033",
+  "title": "중·장기 프로그램 참여자 적합판단 질문지",
+  "source": "../data/forms/_work/extra/youth-program-fit.pdf",
+  "fields": [
+    {
+      "id": "participation_intent",
+      "label": "중·장기 프로그램 참여의사",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "프로그램에 참여할 의사를 선택해요.",
+      "example": "null",
+      "evidence": "중·장기 프로그램 참여의사",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "active_communication",
+      "label": "적극적 의사소통",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "운영담당자와 의사소통할 의지를 선택해요.",
+      "example": "null",
+      "evidence": "적극적 의사소통",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "continuous_participation",
+      "label": "지속적 참여의지",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "프로그램에 지속적으로 참여할 의지를 선택해요.",
+      "example": "null",
+      "evidence": "지속적 참여의지",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "participation_motivation",
+      "label": "참여 동기",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "프로그램에 참여하고자 하는 동기를 적어주세요.",
+      "example": "저는 제 경력을 쌓고 싶어서 참여하고 싶어요.",
+      "evidence": "참여 동기",
+      "sensitive": false,
+      "box": null
+    }
+  ],
+  "notes": [],
+  "warnings": [],
+  "checked": false
+}

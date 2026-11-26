@@ -1,0 +1,423 @@
+{
+  "form_id": "jindo-privacy-consent",
+  "policy_key": "form:jindo-privacy-consent",
+  "title": "개인정보 수집･이용 및 제3자 제공 동의서 (임대주택 입주신청자/계약자용)",
+  "source": "https://www.jndc.co.kr/web/main/bbs/etc/7780",
+  "fields": [
+    {
+      "id": "name_1",
+      "label": "성명",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "본인의 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "id_number_1",
+      "label": "주민등록번호",
+      "section": null,
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민등록번호를 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          99.1,
+          174.8,
+          198.0,
+          199.8
+        ],
+        "how": "table_below",
+        "template_text": "-"
+      }
+    },
+    {
+      "id": "relation_1",
+      "label": "관계",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "청약자와의 관계를 적어요.",
+      "example": "본인",
+      "evidence": "관계",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "signature_1",
+      "label": "서명",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "서명 또는 도장을 해요.",
+      "example": null,
+      "evidence": "서명",
+      "sensitive": true,
+      "box": null
+    },
+    {
+      "id": "name_2",
+      "label": "성명",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "배우자의 이름을 적어요.",
+      "example": "김영희",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          302.7,
+          174.8,
+          370.6,
+          199.8
+        ],
+        "how": "table_below",
+        "template_text": null
+      }
+    },
+    {
+      "id": "id_number_2",
+      "label": "주민등록번호",
+      "section": null,
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "배우자의 주민등록번호를 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          370.6,
+          174.8,
+          463.3,
+          199.8
+        ],
+        "how": "table_below",
+        "template_text": "-"
+      }
+    },
+    {
+      "id": "relation_2",
+      "label": "관계",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "배우자와의 관계를 적어요.",
+      "example": "배우자",
+      "evidence": "관계",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "signature_2",
+      "label": "서명",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "배우자가 서명 또는 도장을 해요.",
+      "example": null,
+      "evidence": "서명",
+      "sensitive": true,
+      "box": null
+    },
+    {
+      "id": "personal_info_collection_1",
+      "label": "수집하는 개인정보 항목",
+      "section": "2. 개인정보 수집·이용 안내",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "수집하는 개인정보 항목을 적어요.",
+      "example": "주민등록사항, 병역사항, 연락처 등",
+      "evidence": "수집하는 개인정보 항목",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          240.9,
+          342.8,
+          347.1,
+          354.8
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "personal_info_purpose_1",
+      "label": "수집·이용 목적",
+      "section": "2. 개인정보 수집·이용 안내",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "개인정보 수집·이용 목적을 적어요.",
+      "example": "임차인 자격 심사 및 결정",
+      "evidence": "수집·이용 목적",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          437.1,
+          342.8,
+          461.3,
+          354.8
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "personal_info_period_1",
+      "label": "보유·이용기간",
+      "section": "2. 개인정보 수집·이용 안내",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "개인정보 보유·이용기간을 적어요.",
+      "example": "신청자는 6개월",
+      "evidence": "보유·이용기간",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          541.6,
+          342.8,
+          563.2,
+          354.8
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "consent_1",
+      "label": "동의",
+      "section": "2. 개인정보 수집·이용 안내",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "개인정보 수집·이용에 동의해요.",
+      "example": null,
+      "evidence": "동의",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "non_consent_1",
+      "label": "미동의",
+      "section": "2. 개인정보 수집·이용 안내",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "개인정보 수집·이용에 미동의해요.",
+      "example": null,
+      "evidence": "미동의",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "third_party_recipient_1",
+      "label": "제공받는 자",
+      "section": "3. 개인정보의 제3자 제공 동의여부",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "개인정보를 제공받는 자를 적어요.",
+      "example": "국토교통부장관",
+      "evidence": "제공받는 자",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          120.5,
+          114.3,
+          149.2,
+          126.4
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "third_party_purpose_1",
+      "label": "제공목적",
+      "section": "3. 개인정보의 제3자 제공 동의여부",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "개인정보 제공 목적을 적어요.",
+      "example": "주택소유여부 검색",
+      "evidence": "제공목적",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          252.4,
+          114.3,
+          311.3,
+          126.4
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "third_party_items_1",
+      "label": "제공항목",
+      "section": "3. 개인정보의 제3자 제공 동의여부",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "제공할 개인정보 항목을 적어요.",
+      "example": "성명, 주민등록번호",
+      "evidence": "제공항목",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          416.2,
+          114.3,
+          476.5,
+          126.4
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "third_party_period_1",
+      "label": "보유·이용기간",
+      "section": "3. 개인정보의 제3자 제공 동의여부",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "제공된 개인정보의 보유·이용기간을 적어요.",
+      "example": "청약신청일로부터 6개월",
+      "evidence": "보유·이용기간",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "third_party_consent_1",
+      "label": "동의",
+      "section": "3. 개인정보의 제3자 제공 동의여부",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "제3자에게 개인정보 제공에 동의해요.",
+      "example": null,
+      "evidence": "동의",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "third_party_non_consent_1",
+      "label": "미동의",
+      "section": "3. 개인정보의 제3자 제공 동의여부",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "제3자에게 개인정보 제공에 미동의해요.",
+      "example": null,
+      "evidence": "미동의",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "contact_info_1",
+      "label": "유선·휴대전화번호",
+      "section": "4. 공공주택 관련 정보 제공을 위한 개인정보 수집·이용 안내",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "연락 가능한 전화번호를 적어요.",
+      "example": "010-1234-5678",
+      "evidence": "유선·휴대전화번호",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          224.3,
+          654.3,
+          559,
+          666.4
+        ],
+        "how": "text_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "info_consent_1",
+      "label": "동의",
+      "section": "4. 공공주택 관련 정보 제공을 위한 개인정보 수집·이용 안내",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "공공주택 관련 정보 제공에 동의해요.",
+      "example": null,
+      "evidence": "동의",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "info_non_consent_1",
+      "label": "미동의",
+      "section": "4. 공공주택 관련 정보 제공을 위한 개인정보 수집·이용 안내",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "공공주택 관련 정보 제공에 미동의해요.",
+      "example": null,
+      "evidence": "미동의",
+      "sensitive": false,
+      "box": null
+    }
+  ],
+  "notes": [
+    "위의 개인정보 수집·이용에 대한 동의를 거부할 권리가 있습니다."
+  ],
+  "warnings": [
+    "값 자리를 못 찾음 (별지에 적음): 성명, 관계, 관계, 동의, 미동의, 보유·이용기간, 동의, 미동의, 동의, 미동의"
+  ],
+  "checked": false
+}

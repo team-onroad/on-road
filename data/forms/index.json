@@ -1,5 +1,396 @@
 {
   "forms": {
+    "welfare-finance-consent": {
+      "title": "금융정보 등(금융 · 신용 · 보험정보) 제공 동의서",
+      "scope": "common",
+      "source": {
+        "kind": "admin_rule",
+        "name": "사회보장급여 관련 공통서식에 관한 고시",
+        "form_no": "별지 1의3",
+        "agency": "보건복지부",
+        "url": "https://www.law.go.kr/행정규칙/사회보장급여관련공통서식에관한고시"
+      },
+      "checked": false,
+      "fields": 8,
+      "policy_keys": [],
+      "docs": []
+    },
+    "jindo-privacy-consent": {
+      "title": "개인정보 수집 · 이용 및 제3자 제공 동의서 (진도 만원주택)",
+      "scope": "policy",
+      "source": {
+        "kind": "notice",
+        "name": "진도 청년드림 만원주택 입주자 모집 공고 (2026. 11. 17.)",
+        "form_no": "별첨 2",
+        "agency": "전남개발공사 주거복지센터",
+        "url": "https://www.jndc.co.kr/web/main/bbs/etc/7780"
+      },
+      "checked": false,
+      "fields": 22,
+      "policy_keys": [
+        "G032"
+      ],
+      "docs": [
+        {
+          "policy_key": "G032",
+          "doc_name": "개인정보 수집·이용 및 제3자 제공 동의서 [별첨 2]"
+        }
+      ]
+    },
+    "jindo-finance-consent": {
+      "title": "금융정보 등 제공 동의서 (진도 만원주택)",
+      "scope": "policy",
+      "source": {
+        "kind": "notice",
+        "name": "진도 청년드림 만원주택 입주자 모집 공고 (2026. 11. 17.)",
+        "form_no": "별첨 3",
+        "agency": "전남개발공사 주거복지센터",
+        "url": "https://www.jndc.co.kr/web/main/bbs/etc/7780"
+      },
+      "checked": false,
+      "fields": 12,
+      "policy_keys": [
+        "G032"
+      ],
+      "docs": [
+        {
+          "policy_key": "G032",
+          "doc_name": "금융정보 등(금융·신용·보험정보) 제공 동의서 [별첨 3]"
+        }
+      ]
+    },
+    "jindo-duplicate-confirm": {
+      "title": "예비입주자 중복선정 불가사항 확인서",
+      "scope": "policy",
+      "source": {
+        "kind": "notice",
+        "name": "진도 청년드림 만원주택 입주자 모집 공고 (2026. 11. 17.)",
+        "form_no": "별첨 4",
+        "agency": "전남개발공사 주거복지센터",
+        "url": "https://www.jndc.co.kr/web/main/bbs/etc/7780"
+      },
+      "checked": false,
+      "fields": 9,
+      "policy_keys": [
+        "G032"
+      ],
+      "docs": [
+        {
+          "policy_key": "G032",
+          "doc_name": "예비입주자 중복선정 불가사항 확인서 [별첨 4]"
+        }
+      ]
+    },
+    "jindo-priority-confirm": {
+      "title": "우선공급 청년 신청 확인서",
+      "scope": "policy",
+      "source": {
+        "kind": "notice",
+        "name": "진도 청년드림 만원주택 입주자 모집 공고 (2026. 11. 17.)",
+        "form_no": "별첨 5",
+        "agency": "전남개발공사 주거복지센터",
+        "url": "https://www.jndc.co.kr/web/main/bbs/etc/7780"
+      },
+      "checked": false,
+      "fields": 12,
+      "policy_keys": [
+        "G032"
+      ],
+      "docs": [
+        {
+          "policy_key": "G032",
+          "doc_name": "우선공급 청년 신청확인서 [별첨 5]"
+        }
+      ]
+    },
+    "jindo-household-confirm": {
+      "title": "우선공급 청년 세대구성 확인서",
+      "scope": "policy",
+      "source": {
+        "kind": "notice",
+        "name": "진도 청년드림 만원주택 입주자 모집 공고 (2026. 11. 17.)",
+        "form_no": "별첨 6",
+        "agency": "전남개발공사 주거복지센터",
+        "url": "https://www.jndc.co.kr/web/main/bbs/etc/7780"
+      },
+      "checked": false,
+      "fields": 5,
+      "policy_keys": [
+        "G032"
+      ],
+      "docs": [
+        {
+          "policy_key": "G032",
+          "doc_name": "우선공급 청년 세대구성 확인서 [별첨 6]"
+        }
+      ]
+    },
+    "jindo-startup-consent": {
+      "title": "취창업 예정자 입주 동의서",
+      "scope": "policy",
+      "source": {
+        "kind": "notice",
+        "name": "진도 청년드림 만원주택 입주자 모집 공고 (2026. 11. 17.)",
+        "form_no": "별첨 11",
+        "agency": "전남개발공사 주거복지센터",
+        "url": "https://www.jndc.co.kr/web/main/bbs/etc/7780"
+      },
+      "checked": false,
+      "fields": 12,
+      "policy_keys": [
+        "G032"
+      ],
+      "docs": [
+        {
+          "policy_key": "G032",
+          "doc_name": "취창업 예정자 입주동의서 [별첨 11]"
+        }
+      ]
+    },
+    "jindo-proxy": {
+      "title": "위임장 (진도 만원주택)",
+      "scope": "policy",
+      "source": {
+        "kind": "notice",
+        "name": "진도 청년드림 만원주택 입주자 모집 공고 (2026. 11. 17.)",
+        "form_no": "별첨 12",
+        "agency": "전남개발공사 주거복지센터",
+        "url": "https://www.jndc.co.kr/web/main/bbs/etc/7780"
+      },
+      "checked": false,
+      "fields": 11,
+      "policy_keys": [
+        "G032"
+      ],
+      "docs": [
+        {
+          "policy_key": "G032",
+          "doc_name": "위임장 [별첨 12]"
+        }
+      ]
+    },
+    "youth-apply": {
+      "title": "청년도전지원사업 참여 신청서 (청년용)",
+      "scope": "policy",
+      "source": {
+        "kind": "guideline",
+        "name": "2026년 청년도전지원사업 시행지침 (2026. 1.)",
+        "form_no": "서식 1",
+        "agency": "고용노동부",
+        "url": "https://moel.go.kr/news/notice/noticeView.do?bbs_seq=20260400674"
+      },
+      "checked": false,
+      "fields": 10,
+      "policy_keys": [
+        "G028",
+        "G033",
+        "G019",
+        "G023",
+        "G026"
+      ],
+      "docs": [
+        {
+          "policy_key": "G028",
+          "doc_name": "참여신청서"
+        },
+        {
+          "policy_key": "G033",
+          "doc_name": "참여신청서"
+        },
+        {
+          "policy_key": "G019",
+          "doc_name": null
+        },
+        {
+          "policy_key": "G023",
+          "doc_name": null
+        },
+        {
+          "policy_key": "G026",
+          "doc_name": null
+        }
+      ]
+    },
+    "youth-privacy-consent": {
+      "title": "개인정보 수집 · 이용 · 제공 및 고유식별정보 처리 동의서 (청년도전, 청년용)",
+      "scope": "policy",
+      "source": {
+        "kind": "guideline",
+        "name": "2026년 청년도전지원사업 시행지침 (2026. 1.)",
+        "form_no": "서식 1 (동의서)",
+        "agency": "고용노동부",
+        "url": "https://moel.go.kr/news/notice/noticeView.do?bbs_seq=20260400674"
+      },
+      "checked": false,
+      "fields": 12,
+      "policy_keys": [
+        "G019",
+        "G023",
+        "G028",
+        "G033",
+        "G026"
+      ],
+      "docs": [
+        {
+          "policy_key": "G019",
+          "doc_name": "통장사본 ※신청서 및 개인정보 동의서 등은 현장 작성"
+        },
+        {
+          "policy_key": "G023",
+          "doc_name": "통장사본 ※신청서 및 개인정보 동의서는 현장 작성"
+        },
+        {
+          "policy_key": "G028",
+          "doc_name": "개인정보 수집이용제공 동의서"
+        },
+        {
+          "policy_key": "G033",
+          "doc_name": "개인정보동의서"
+        },
+        {
+          "policy_key": "G026",
+          "doc_name": null
+        }
+      ]
+    },
+    "youth-counsel-survey": {
+      "title": "청년도전지원사업 참여자 상담원 문답표",
+      "scope": "policy",
+      "source": {
+        "kind": "guideline",
+        "name": "2026년 청년도전지원사업 시행지침 (2026. 1.)",
+        "form_no": "붙임 1",
+        "agency": "고용노동부",
+        "url": "https://moel.go.kr/news/notice/noticeView.do?bbs_seq=20260400674"
+      },
+      "checked": false,
+      "fields": 21,
+      "policy_keys": [
+        "G025",
+        "G028",
+        "G033"
+      ],
+      "docs": [
+        {
+          "policy_key": "G025",
+          "doc_name": "구직단념청년 문답표"
+        },
+        {
+          "policy_key": "G028",
+          "doc_name": "미취업청년문답표 등 세부내용 공고문 참고"
+        },
+        {
+          "policy_key": "G033",
+          "doc_name": "상담원문답표"
+        }
+      ]
+    },
+    "youth-program-fit": {
+      "title": "중 · 장기 프로그램 참여자 적합판단 질문지",
+      "scope": "policy",
+      "source": {
+        "kind": "guideline",
+        "name": "2026년 청년도전지원사업 시행지침 (2026. 1.)",
+        "form_no": "붙임 2 별지 2",
+        "agency": "고용노동부",
+        "url": "https://moel.go.kr/news/notice/noticeView.do?bbs_seq=20260400674"
+      },
+      "checked": false,
+      "fields": 4,
+      "policy_keys": [
+        "G033"
+      ],
+      "docs": [
+        {
+          "policy_key": "G033",
+          "doc_name": "중·장기 프로그램 참여자 적합판단 질문지"
+        }
+      ]
+    },
+    "youth-incentive-apply": {
+      "title": "청년도전지원사업 취(창)업 인센티브 지급 신청서",
+      "scope": "policy",
+      "source": {
+        "kind": "guideline",
+        "name": "2026년 청년도전지원사업 시행지침 (2026. 1.)",
+        "form_no": "서식 7",
+        "agency": "고용노동부",
+        "url": "https://moel.go.kr/news/notice/noticeView.do?bbs_seq=20260400674"
+      },
+      "checked": false,
+      "fields": 19,
+      "policy_keys": [
+        "G019",
+        "G023",
+        "G026",
+        "G028",
+        "G033"
+      ],
+      "docs": [
+        {
+          "policy_key": "G019",
+          "doc_name": null
+        },
+        {
+          "policy_key": "G023",
+          "doc_name": null
+        },
+        {
+          "policy_key": "G026",
+          "doc_name": null
+        },
+        {
+          "policy_key": "G028",
+          "doc_name": null
+        },
+        {
+          "policy_key": "G033",
+          "doc_name": null
+        }
+      ]
+    },
+    "gg-brokerage-claim": {
+      "title": "부동산 중개보수 청구서 (경기도)",
+      "scope": "policy",
+      "source": {
+        "kind": "notice",
+        "name": "경기부동산포털 부동산 중개보수 지원사업 서식",
+        "agency": "경기도",
+        "url": "https://gris.gg.go.kr/reb/selectRebRateSupView.do"
+      },
+      "checked": false,
+      "fields": 14,
+      "policy_keys": [
+        "G029"
+      ],
+      "docs": [
+        {
+          "policy_key": "G029",
+          "doc_name": "부동산 중개보수 청구서"
+        }
+      ]
+    },
+    "gg-privacy-consent": {
+      "title": "개인정보의 수집 · 이용 및 제3자 제공 동의서 (경기도 중개보수)",
+      "scope": "policy",
+      "source": {
+        "kind": "notice",
+        "name": "경기부동산포털 부동산 중개보수 지원사업 서식",
+        "agency": "경기도",
+        "url": "https://gris.gg.go.kr/reb/selectRebRateSupView.do"
+      },
+      "checked": false,
+      "fields": 11,
+      "policy_keys": [
+        "G029"
+      ],
+      "docs": [
+        {
+          "policy_key": "G029",
+          "doc_name": "개인정보 이용 동의서"
+        }
+      ]
+    },
     "mohw-settle-plan": {
       "title": "자립정착금 사용계획서",
       "scope": "policy",
@@ -596,10 +987,38 @@
         "doc_name": null
       }
     ],
+    "G019": [
+      {
+        "form_id": "youth-apply",
+        "doc_name": null
+      },
+      {
+        "form_id": "youth-privacy-consent",
+        "doc_name": "통장사본 ※신청서 및 개인정보 동의서 등은 현장 작성"
+      },
+      {
+        "form_id": "youth-incentive-apply",
+        "doc_name": null
+      }
+    ],
     "G021": [
       {
         "form_id": "mohw-settle-plan",
         "doc_name": "자립정착금 사용계획서"
+      }
+    ],
+    "G023": [
+      {
+        "form_id": "youth-apply",
+        "doc_name": null
+      },
+      {
+        "form_id": "youth-privacy-consent",
+        "doc_name": "통장사본 ※신청서 및 개인정보 동의서는 현장 작성"
+      },
+      {
+        "form_id": "youth-incentive-apply",
+        "doc_name": null
       }
     ],
     "G024": [
@@ -624,6 +1043,54 @@
         "doc_name": "2차 자립정착금 신청서"
       }
     ],
+    "G025": [
+      {
+        "form_id": "youth-counsel-survey",
+        "doc_name": "구직단념청년 문답표"
+      }
+    ],
+    "G026": [
+      {
+        "form_id": "youth-apply",
+        "doc_name": null
+      },
+      {
+        "form_id": "youth-privacy-consent",
+        "doc_name": null
+      },
+      {
+        "form_id": "youth-incentive-apply",
+        "doc_name": null
+      }
+    ],
+    "G028": [
+      {
+        "form_id": "youth-apply",
+        "doc_name": "참여신청서"
+      },
+      {
+        "form_id": "youth-privacy-consent",
+        "doc_name": "개인정보 수집이용제공 동의서"
+      },
+      {
+        "form_id": "youth-counsel-survey",
+        "doc_name": "미취업청년문답표 등 세부내용 공고문 참고"
+      },
+      {
+        "form_id": "youth-incentive-apply",
+        "doc_name": null
+      }
+    ],
+    "G029": [
+      {
+        "form_id": "gg-brokerage-claim",
+        "doc_name": "부동산 중개보수 청구서"
+      },
+      {
+        "form_id": "gg-privacy-consent",
+        "doc_name": "개인정보 이용 동의서"
+      }
+    ],
     "G030": [
       {
         "form_id": "mohw-settle-plan",
@@ -642,6 +1109,58 @@
       {
         "form_id": "jeonse-rent-apply",
         "doc_name": "전세임대주택 공급신청서"
+      }
+    ],
+    "G032": [
+      {
+        "form_id": "jindo-privacy-consent",
+        "doc_name": "개인정보 수집·이용 및 제3자 제공 동의서 [별첨 2]"
+      },
+      {
+        "form_id": "jindo-finance-consent",
+        "doc_name": "금융정보 등(금융·신용·보험정보) 제공 동의서 [별첨 3]"
+      },
+      {
+        "form_id": "jindo-duplicate-confirm",
+        "doc_name": "예비입주자 중복선정 불가사항 확인서 [별첨 4]"
+      },
+      {
+        "form_id": "jindo-priority-confirm",
+        "doc_name": "우선공급 청년 신청확인서 [별첨 5]"
+      },
+      {
+        "form_id": "jindo-household-confirm",
+        "doc_name": "우선공급 청년 세대구성 확인서 [별첨 6]"
+      },
+      {
+        "form_id": "jindo-startup-consent",
+        "doc_name": "취창업 예정자 입주동의서 [별첨 11]"
+      },
+      {
+        "form_id": "jindo-proxy",
+        "doc_name": "위임장 [별첨 12]"
+      }
+    ],
+    "G033": [
+      {
+        "form_id": "youth-apply",
+        "doc_name": "참여신청서"
+      },
+      {
+        "form_id": "youth-privacy-consent",
+        "doc_name": "개인정보동의서"
+      },
+      {
+        "form_id": "youth-counsel-survey",
+        "doc_name": "상담원문답표"
+      },
+      {
+        "form_id": "youth-program-fit",
+        "doc_name": "중·장기 프로그램 참여자 적합판단 질문지"
+      },
+      {
+        "form_id": "youth-incentive-apply",
+        "doc_name": null
       }
     ],
     "G034": [
@@ -794,36 +1313,20 @@
     "개인정보 수집, 이용, 제공 동의서",
     "개인정보 수집.이용.제공 동의서",
     "개인정보 수집·이용 및 제3자 제공 동의서",
-    "개인정보 수집·이용 및 제3자 제공 동의서 [별첨 2]",
     "개인정보 수집·이용·제공 동의서",
     "개인정보 수집·이용제공 동의서",
     "개인정보 수집·이용제공동의서(유효기간 : 보호종료 후 5년)",
-    "개인정보 수집이용제공 동의서",
     "개인정보 수집이용제공동의서 * 신청하는 모든 담당자 아동 각 1 부 씩 서명 날인 후 PDF파일로 제출",
     "개인정보 수집이용제공동의서 * 신청하는 모든 담당자 아동 각 1부 씩 서명 날인 후 PDF파일로 제출",
-    "개인정보 이용 동의서",
     "개인정보동의서",
-    "구직단념청년 문답표",
-    "금융정보 등(금융·신용·보험정보) 제공 동의서 [별첨 3]",
     "대학입학준비금 지원 신청서",
-    "미취업청년문답표 등 세부내용 공고문 참고",
-    "부동산 중개보수 청구서",
-    "상담원문답표",
     "수강료 납부 영수증 및 출석부를 첨부하여 매월  읍면동사무소에 능력개발비 지급 신청서 제출",
     "신청서",
     "신청서 등 관련서류 읍면사무소 비치",
     "신청서 및 가정위탁아동 중 초,중,고 재학생 중 학원수강료 또는 학습지 수강료 영수증",
     "신청서 및 개인정보 수집·이용동의서",
     "신청서 및 증빙서류",
-    "예비입주자 중복선정 불가사항 확인서 [별첨 4]",
-    "우선공급 청년 신청확인서 [별첨 5]",
-    "위임장 [별첨 12]",
     "입주신청서 [별첨 1]",
-    "중·장기 프로그램 참여자 적합판단 질문지",
-    "지원신청서 및 개인정보동의서",
-    "참여신청서",
-    "취창업 예정자 입주동의서 [별첨 11]",
-    "통장사본 ※신청서 및 개인정보 동의서 등은 현장 작성",
-    "통장사본 ※신청서 및 개인정보 동의서는 현장 작성"
+    "지원신청서 및 개인정보동의서"
   ]
 }

@@ -1,0 +1,247 @@
+{
+  "form_id": "youth-apply",
+  "policy_key": "form:youth-apply",
+  "title": "청년도전지원사업 참여 신청서 (청년용)",
+  "source": "https://moel.go.kr/news/notice/noticeView.do?bbs_seq=20260400674",
+  "fields": [
+    {
+      "id": "name",
+      "label": "성 명",
+      "section": null,
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "본인의 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "성 명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          159.9,
+          163.7,
+          290.0,
+          180.6
+        ],
+        "how": "text_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "id_number",
+      "label": "주민등록번호",
+      "section": null,
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민등록번호를 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          390.7,
+          151.3,
+          517.2,
+          191.3
+        ],
+        "how": "table_right",
+        "template_text": "-\n(만 세)"
+      }
+    },
+    {
+      "id": "address",
+      "label": "주 소",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "현재 거주하는 주소를 적어요.",
+      "example": "서울특별시 강남구 역삼동 123-45",
+      "evidence": "주 소",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          159.9,
+          195.0,
+          576,
+          212.0
+        ],
+        "how": "text_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "mobile_phone",
+      "label": "휴대전화",
+      "section": null,
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "휴대전화 번호를 적어요.",
+      "example": "010-9876-5432",
+      "evidence": "휴대전화",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          250.2,
+          213.8,
+          326.8,
+          236.2
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "email",
+      "label": "e-mail",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "이메일 주소를 적어요.",
+      "example": "honggildong@example.com",
+      "evidence": "e-mail",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          399.6,
+          213.8,
+          517.2,
+          236.2
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "participation_type",
+      "label": "참여유형",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "해당하는 참여유형을 모두 선택해요. 구직단념청년 / 자립준비(보호종료)청년 / 청소년복지시설 입·퇴소 청년 / 북한이탈 청년 / 지역특화 청년",
+      "example": null,
+      "evidence": "참여유형",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "account_number",
+      "label": "계좌번호",
+      "section": null,
+      "input_type": "account",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "본인의 계좌번호를 적어요.",
+      "example": null,
+      "evidence": "계좌번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          176.0,
+          340.0,
+          517.2,
+          362.4
+        ],
+        "how": "table_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "submission_documents",
+      "label": "첨 부 서 류",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "제출할 서류를 적어요.",
+      "example": "개인정보수집·이용·제공에 대한 동의서, 통장사본",
+      "evidence": "첨 부 서 류",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          345.9,
+          366.2,
+          515.2,
+          383.2
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "date",
+      "label": "년 월 일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청 날짜를 적어요.",
+      "example": null,
+      "evidence": "20 년 월 일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          214.4,
+          657.2,
+          380.2,
+          678.1
+        ],
+        "how": "date_line",
+        "template_text": "년 월 일"
+      }
+    },
+    {
+      "id": "signature",
+      "label": "신청인: (서명 또는 인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "서명 또는 도장을 해요.",
+      "example": null,
+      "evidence": "신청인: (서명 또는 인)",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          508.6,
+          708.0,
+          576,
+          725.0
+        ],
+        "how": "text_right",
+        "template_text": null
+      }
+    }
+  ],
+  "notes": [
+    "업무담당자 확인사항: 통장사본 제출",
+    "행정정보 공동이용 동의서 필요"
+  ],
+  "warnings": [
+    "작은 칸을 묶는 이름이라 버림: '연락처'",
+    "값 자리를 못 찾음 (별지에 적음): 참여유형"
+  ],
+  "checked": false
+}

@@ -1,0 +1,223 @@
+{
+  "form_id": "youth-privacy-consent",
+  "policy_key": "form:youth-privacy-consent",
+  "title": "개인정보 수집･이용･제공 및 고유식별정보 처리에 관한 동의서(청년용)",
+  "source": "https://moel.go.kr/news/notice/noticeView.do?bbs_seq=20260400674",
+  "fields": [
+    {
+      "id": "name",
+      "label": "성명",
+      "section": null,
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "본인의 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "id_number",
+      "label": "주민등록번호",
+      "section": null,
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민등록번호를 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": null
+    },
+    {
+      "id": "gender",
+      "label": "성별",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "성별을 적어요.",
+      "example": "남자",
+      "evidence": "성별",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "region",
+      "label": "거주지(시도)",
+      "section": null,
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "region",
+      "required": true,
+      "guide": "현재 거주하는 시도명을 적어요.",
+      "example": "서울특별시",
+      "evidence": "거주지(시도)",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "education",
+      "label": "최종학력",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "최종 학력을 적어요.",
+      "example": "대학교 졸업",
+      "evidence": "최종학력",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "phone",
+      "label": "(휴대)전화번호",
+      "section": null,
+      "input_type": "phone",
+      "value_source": "profile",
+      "profile_key": "phone",
+      "required": true,
+      "guide": "휴대전화 번호를 적어요.",
+      "example": "010-1234-5678",
+      "evidence": "(휴대)전화번호",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          401.3,
+          264.8,
+          576,
+          276.4
+        ],
+        "how": "text_right",
+        "template_text": null
+      }
+    },
+    {
+      "id": "operating_agency",
+      "label": "운영기관",
+      "section": "필수",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "운영기관의 이름을 적어요.",
+      "example": "한국고용정보원",
+      "evidence": "운영기관",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          366.8,
+          454.0,
+          396.4,
+          465.5
+        ],
+        "how": "cell_inline",
+        "template_text": null
+      }
+    },
+    {
+      "id": "providing_institution",
+      "label": "중앙부처, 지방자치단체 및 관련 기관·단체, 한국고용정보원",
+      "section": "필수",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "개인정보를 제공받는 기관을 적어요.",
+      "example": "서울특별시청",
+      "evidence": "중앙부처, 지방자치단체 및 관련 기관·단체, 한국고용정보원",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "retention_period",
+      "label": "사업종료일로부터 5년",
+      "section": "필수",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "개인정보 보유 기간을 적어요.",
+      "example": "5년",
+      "evidence": "사업종료일로부터 5년",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "signature",
+      "label": "서명",
+      "section": "3. 개인정보 목적외 사용 금지",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "서명을 해요.",
+      "example": null,
+      "evidence": "서명",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          470.2,
+          648.7,
+          510.5,
+          692.9
+        ],
+        "how": "table_below",
+        "template_text": null
+      }
+    },
+    {
+      "id": "agreement",
+      "label": "□동의 □미동의",
+      "section": "3.",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "개인정보 수집 및 이용에 동의하는지 선택해요.",
+      "example": null,
+      "evidence": "□동의 □미동의",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "date",
+      "label": "년 월 일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "날짜를 적어요.",
+      "example": null,
+      "evidence": "년 월 일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          374.4,
+          699.1,
+          508.3,
+          716.1
+        ],
+        "how": "date_line",
+        "template_text": "년 월 일"
+      }
+    }
+  ],
+  "notes": [
+    "귀하는 상기 1∼2번 사항에 대하여 각각 동의를 거부할 수 있습니다."
+  ],
+  "warnings": [
+    "값 자리를 못 찾음 (별지에 적음): 성명, 성별, 거주지(시도), 최종학력, 중앙부처, 지방자치단체 및 관련 기관·단체, 한국고용정보원, 사업종료일로부터 5년, □동의 □미동의"
+  ],
+  "checked": false
+}

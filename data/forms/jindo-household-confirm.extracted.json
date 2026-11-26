@@ -1,0 +1,83 @@
+{
+  "form_id": "jindo-household-confirm",
+  "policy_key": "G032",
+  "title": "우선공급 청년 세대구성(동거인) 확인서",
+  "source": "../data/forms/_work/extra/jindo/jindo-household-confirm.hwp",
+  "fields": [
+    {
+      "id": "relationship_with_applicant",
+      "label": "신청인과의 관계",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청인과의 관계를 적어요. 예를 들어 '형제'라고 쓸 수 있어요.",
+      "example": "형제",
+      "evidence": "신청인과의 관계",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "name",
+      "label": "성 명",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "동거인의 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "성 명",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "id_number",
+      "label": "주민등록번호",
+      "section": null,
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "동거인의 주민등록번호를 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": null
+    },
+    {
+      "id": "relationship_with_head",
+      "label": "(예정) 세대주와의 관계",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "세대주와의 관계를 적어요. 예를 들어 '본인'이라고 쓸 수 있어요.",
+      "example": "본인",
+      "evidence": "(예정) 세대주와의 관계",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "notes",
+      "label": "비고",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "추가적인 내용을 적어요. 필요 없으면 비워도 돼요.",
+      "example": "특이사항 없음",
+      "evidence": "비고",
+      "sensitive": false,
+      "box": null
+    }
+  ],
+  "notes": [
+    "전입으로 구성된 가구 또는 세대를 확인하기 위한 증빙서류를 기한 내 제출해야 함."
+  ],
+  "warnings": [],
+  "checked": false
+}

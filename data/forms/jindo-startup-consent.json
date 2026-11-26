@@ -1,0 +1,193 @@
+{
+  "form_id": "jindo-startup-consent",
+  "policy_key": "form:jindo-startup-consent",
+  "title": "취․창업 예정자 입주 동의서",
+  "source": "https://www.jndc.co.kr/web/main/bbs/etc/7780",
+  "fields": [
+    {
+      "id": "applicant_name",
+      "label": "성명 :",
+      "section": null,
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "신청인의 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "성명 :",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "applicant_address",
+      "label": "주민등록상주소 :",
+      "section": null,
+      "input_type": "address",
+      "value_source": "profile",
+      "profile_key": "region",
+      "required": true,
+      "guide": "주민등록상의 주소를 적어요.",
+      "example": "전라남도 진도군",
+      "evidence": "주민등록상주소 :",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "applicant_id_number",
+      "label": "주민등록번호 :",
+      "section": null,
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민등록번호를 손으로 써요.",
+      "example": null,
+      "evidence": "주민등록번호 :",
+      "sensitive": true,
+      "box": null
+    },
+    {
+      "id": "applicant_contact",
+      "label": "연락처 :",
+      "section": null,
+      "input_type": "phone",
+      "value_source": "profile",
+      "profile_key": "phone",
+      "required": true,
+      "guide": "연락 가능한 전화번호를 적어요.",
+      "example": "010-1234-5678",
+      "evidence": "연락처 :",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "application_type",
+      "label": "신청구분 :",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "취업 예정자 또는 창업 예정자 중 하나를 선택해요.",
+      "example": null,
+      "evidence": "신청구분 : □ 취업 예정자 □ 창업 예정자",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "expected_workplace",
+      "label": "예정 직장명(사업장명) :",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "예정된 직장이나 사업장의 이름을 적어요.",
+      "example": "홍길동 카페",
+      "evidence": "예정 직장명(사업장명) :",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "expected_start_date",
+      "label": "취·창업 예정일 :",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "취업 또는 창업 예정일을 적어요.",
+      "example": null,
+      "evidence": "취·창업 예정일 : 년 월 일",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "commitment_employment",
+      "label": "취·창업 이행",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "취·창업 예정자로서의 이행을 확인해요.",
+      "example": null,
+      "evidence": "□ 본인은 취·창업 예정자 자격으로 신청하였으며, 입주자모집 공고문 및 공급계약에서 정한 기한까지 취업 또는 창업 요건을 충족하여야 함을 확인함",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "commitment_document_submission",
+      "label": "서류제출· 변경통지",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "서류 제출 및 변경 통지에 동의해요.",
+      "example": null,
+      "evidence": "□ 본인은 정해진 기한까지 취업 또는 창업 사실을 확인할 수 있는 증빙서류를 제출하고, 예정 내용에 변경이 있는 경우 즉시 사업시행자 또는 관리기관에 알리며 추가 확인 요청에 성실히 협조하는 것에 동의함",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "commitment_contract_cancellation",
+      "label": "공급계약 해제 등",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "계약 해제 및 해지에 동의해요.",
+      "example": null,
+      "evidence": "□ 기한까지 요건을 충족하지 못하거나 증빙서류를 제출하지 않은 경우, 또는 제출 내용이 허위이거나 사실과 다른 경우에는 공고문 및 계약에서 정한 절차에 따라 당첨자 선정 취소, 공급계약 체결 거절, 체결된 공급계약 (임대차계약)의 해제·해지 및 입주 후 퇴거 등 조치가 이루어질 수 있음을 확인하고 이에 동의함.",
+      "sensitive": false,
+      "box": null
+    },
+    {
+      "id": "signature",
+      "label": "신청인 : (인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청인의 서명을 해요.",
+      "example": null,
+      "evidence": "신청인 : (인)",
+      "sensitive": true,
+      "box": null
+    },
+    {
+      "id": "submission_date",
+      "label": "년 월 일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청서를 제출하는 날짜를 적어요.",
+      "example": null,
+      "evidence": "년 월 일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          173.3,
+          338.2,
+          397.4,
+          359.2
+        ],
+        "how": "date_line",
+        "template_text": "년 월 일"
+      }
+    }
+  ],
+  "notes": [
+    "예치금·임대료 등의 정산은 해당 계약 및 관계 규정에 따름."
+  ],
+  "warnings": [
+    "값 자리를 못 찾음 (별지에 적음): 성명 :, 주민등록상주소 :, 연락처 :, 신청구분 :, 예정 직장명(사업장명) :, 취·창업 예정일 :, 취·창업 이행, 서류제출· 변경통지, 공급계약 해제 등"
+  ],
+  "checked": false
+}
