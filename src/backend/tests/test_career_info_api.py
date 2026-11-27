@@ -29,6 +29,8 @@ QNET_CODES = """<?xml version="1.0" encoding="UTF-8"?>
 <item><jmcd>7910</jmcd><jmfldnm>한식조리기능사</jmfldnm><qualgbcd>T</qualgbcd></item>
 <item><jmcd>7780</jmcd><jmfldnm>제빵기능사</jmfldnm><qualgbcd>T</qualgbcd></item>
 <item><jmcd>1320</jmcd><jmfldnm>정보처리기사</jmfldnm><qualgbcd>T</qualgbcd></item>
+<item><jmcd>2290</jmcd><jmfldnm>정보처리산업기사</jmfldnm><qualgbcd>T</qualgbcd></item>
+<item><jmcd>0800</jmcd><jmfldnm>사회복지사1급</jmfldnm><qualgbcd>S</qualgbcd></item>
 </items></body></response>"""
 
 QNET_ONE = {"header": {"resultCode": "00"}, "body": {"totalCount": 2, "items": [
@@ -423,3 +425,21 @@ def test_trainings_put_my_district_first(client, keys, monkeypatch):
     assert [i["title"] for i in body["items"]] == ["C", "A", "B"]
     assert body["items"][0]["same_district"] is True
     assert body["items"][2]["same_district"] is False  # 다른 시의 같은 이름 구
+
+
+def test_certificates_search_by_name(client, keys, fake_get):
+    external._code_cache.clear()
+    data = client.get("/api/career/certificates?q=정보처리").json()
+    assert data["available"] is True
+    assert [c["name"] for c in data["items"]] == ["정보처리기사", "정보처리산업기사"]
+    assert data["items"][0] == {"code": "1320", "name": "정보처리기사", "kind": "국가기술"}
+    # 띄어쓰기를 넣어도, 가운데 글자로도 찾는다
+    assert [c["code"] for c in client.get("/api/career/certificates?q=사회 복지").json()["items"]] == ["0800"]
+    assert client.get("/api/career/certificates?q=복지사").json()["items"][0]["kind"] == "국가전문"
+    assert client.get("/api/career/certificates?q=없는자격").json()["items"] == []
+
+
+def test_certificates_without_key(client, monkeypatch, fake_get):
+    monkeypatch.setattr(get_settings(), "qnet_service_key", None)
+    data = client.get("/api/career/certificates?q=제빵").json()
+    assert data["available"] is False and data["items"] == []

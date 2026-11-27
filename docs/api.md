@@ -1036,6 +1036,7 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 | 경로 | 쿼리 | 바깥 API | 서버 환경변수 |
 |---|---|---|---|
 | `/career/exams` | `cert` 자격증 이름 | 공공데이터포털 큐넷 국가자격 시험일정 | `QNET_SERVICE_KEY` |
+| `/career/certificates` | `q` 자격증 이름 일부 | 큐넷 국가자격 종목 목록 (하루 캐시) | `QNET_SERVICE_KEY` |
 | `/career/trainings` | `keyword`, `region`(선택, 시·도) | 고용24 국민내일배움카드 훈련과정 | `WORK24_TRAINING_KEY` |
 | `/career/trainings/detail` | `id`, `round`, `institution` (목록 항목의 값) | 고용24 훈련과정 과정/기관정보 | `WORK24_TRAINING_KEY` |
 | `/career/job-info` | `name` 직업 이름 | 커리어넷 직업백과, 키가 없으면 고용24 직업정보 | `CAREERNET_API_KEY` 또는 `WORK24_JOB_INFO_KEY` |
@@ -1050,6 +1051,7 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 
 - `available: false`: 키가 없거나 바깥 서버가 실패했다. `message` 를 그대로 보여 주면 된다 (실패한 응답은 캐시하지 않는다). 실패하면 `reason` 에 바깥 서버의 오류 사유(예: `HTTP 401`, `30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR`)
 - `exams`: 자격증 이름을 큐넷 종목 목록(국가자격 종목 목록 정보 API, 하루 캐시)에서 찾아 그 종목(`code`, `cert`)의 회차만 받는다. 끝나지 않은 회차만, 다가오는 날짜 순 최대 4개. 종목을 못 찾으면 `grade`(기능사 · 산업기사 · 기사 · 기능장 · 기술사, 이름 끝으로 판단) 전체 회차로 대신하고 `note` 를 준다. 등급도 없으면 items 는 빈 배열 항목: `name`, `year`, `round`, `written_apply_start/end`, `written_exam_start/end`, `written_pass`, `practical_apply_start/end`, `practical_exam_start/end`, `practical_pass` (YYYY-MM-DD 또는 null)
+- `certificates`: 교육 · 자격증 화면의 '자격증 추가' 검색. 이름(띄어쓰기 · 괄호 설명 무시)에 `q` 가 든 종목, 이름이 같은 것 → 앞부분이 같은 것 → 짧은 이름 순 최대 10개. 항목: `code`(종목코드), `name`, `kind`(국가기술 · 국가전문)
 - `trainings`: 오늘부터 6개월 안에 시작하는 과정, 최대 20개. `district`(구 · 군)를 주면 그 구(`same_district: true`) → 내 시 · 도(`nearby: true`) → 나머지, 같은 묶음 안에서는 시작일 순. 항목: `id`, `round`, `institution_id`, `title`, `institution`, `address`, `phone`, `start`, `end`, `cost`(실제 훈련비. 본인부담액은 과정 소개에서), `certificate`, `employment_rate`, `url`
 - `trainings/detail`: `items` 대신 `course` (없으면 null). `id`, `round`, `title`, `institution`, `address`, `homepage`, `field`, `target`, `days`, `hours`, `cost`(훈련비), `support`(정부지원금), `my_cost`(본인부담액), `grade`(기관 평가등급), `contact_phone`, `facilities`, `url`(고용24 과정 화면)
 - `duties`: 최대 8개. 항목: `code`(NCS 능력단위 코드), `unit`(능력단위명), `definition`, `field`, `group`(대 > 중 > 소분류), `skills`(지식·기술·태도 이름, 최대 8개)
