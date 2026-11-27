@@ -13,6 +13,8 @@ data class DocumentCreateDto(
     @SerializedName("policy_id") val policyId: Long? = null,
     @SerializedName("checklist_item_id") val checklistItemId: Long? = null,
     val context: String? = null,
+    /** policy_form 에서 그 정책의 여러 양식 중 하나. 없으면 정책 신청서 */
+    @SerializedName("form_id") val formId: String? = null,
 )
 
 /** POST /documents/upload: 양식 사진(JPG)·PDF 를 base64 로 (서버는 저장하지 않음) */

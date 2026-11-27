@@ -15,6 +15,17 @@ enum class LivingStatus(val label: String, val description: String) {
     LEFT("퇴소 후", "보호가 끝나고 혼자 생활하고 있어요")
 }
 
+/** 보호받던 곳 (서버 care_type). 받는 제도가 갈린다: 자립수당(아동복지시설 · 가정위탁) / 청소년복지시설 퇴소청소년 수당 */
+enum class CareType(val code: String, val label: String, val description: String) {
+    CHILD_FACILITY("child_facility", "아동복지시설", "보육원, 그룹홈(공동생활가정)"),
+    FOSTER("foster", "가정위탁", "위탁가정, 친인척 위탁 포함"),
+    YOUTH_FACILITY("youth_facility", "청소년복지시설", "청소년쉼터, 청소년자립지원관");
+
+    companion object {
+        fun of(code: String?): CareType? = entries.firstOrNull { it.code == code }
+    }
+}
+
 val REGIONS = listOf(
     "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기",
     "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"
@@ -37,6 +48,8 @@ data class UserProfile(
     val district: String? = null,
     /** 자녀 · 동생 (아동 대상 정책 판정) */
     val family: List<FamilyMember> = emptyList(),
+    /** 보호받던 곳. 모르면 null */
+    val careType: CareType? = null,
     /** 흥미 탐색 상위 유형 ("RA"). 아직 안 했으면 null */
     val interestCode: String? = null,
     /** 고른 관심 분야 (최대 3개, 직업 이름) */
@@ -75,6 +88,9 @@ data class UserUpdate(
     val clearDistrict: Boolean = false,
     /** 가족 목록 (보내면 통째로 바뀜, null 이면 그대로) */
     val family: List<FamilyMember>? = null,
+    /** 보호받던 곳 (null 이면 그대로, clearCareType 이면 지움 = 모름) */
+    val careType: CareType? = null,
+    val clearCareType: Boolean = false,
     /** 흥미 탐색 상위 유형 (null 이면 그대로) */
     val interestCode: String? = null,
     /** 관심 분야 (보내면 통째로 바뀜, null 이면 그대로) */
@@ -119,6 +135,8 @@ data class Policy(
     val sourceUrl: String = "",
     /** 조건 판정: "match"(기본 조건 해당) / "needs_check"(조건 확인 필요) / null(판정 없음) */
     val eligibility: String? = null,
+    /** 보호 상태 판정: "now" · "after_leave"(아직 보호 중, 퇴소 후 신청) · null(보호 상태와 상관없음) */
+    val leave: String? = null,
     /** 서버 짧은 요약 (검색 결과에만 있음). null 이면 target·amount·period 로 표시 */
     val cardSummary: PolicySummary? = null,
     /** 카드 한 줄 금액 (support_amount 정리). 금액이 없는 정책은 빈 값 → 카드에서 줄을 숨긴다 */
@@ -141,6 +159,8 @@ data class Policy(
     val periodYears: Int? = null,
     /** 같이 보면 좋은 정책 (상세에서만) */
     val relatedPolicies: List<RelatedPolicyItem> = emptyList(),
+    /** 같은 종류 중 이 정책의 자리 (상세에서만, 같은 종류를 2개 이상 받을 수 있을 때) */
+    val sameKind: SameKindInfo? = null,
     /** 받는 것 한 줄 ("주거(오피스텔) 지원"). 돈이 아닌 정책도 있어서 금액이 없으면 이걸 보여 준다. 상세에서만 */
     val benefit: String? = null,
     /** 나이 · 지역 말고 따로 확인할 대상 조건 (상세에서만) */
@@ -190,6 +210,31 @@ data class RecommendedPolicy(
     val amountUnit: String?,
     val amountValue: String?,
     val benefit: String?,
+    /** 같은 종류 중 이걸 고른 까닭 ("같은 종류 2개 중 받는 돈이 가장 커요"). 묶인 게 없으면 null */
+    val pickReason: String? = null,
+)
+
+/** 같은 종류 전체 (다른 지역 것까지). rule: 왜 하나만 받는지 한 줄 */
+data class SameKindGroup(
+    val kindTitle: String,
+    val rule: String,
+    val total: Int,
+    val picked: SameKindPick?,
+    val others: List<SameKindRow>,
+)
+
+data class SameKindPick(val policyId: String, val name: String, val region: String, val amountText: String?, val reason: String)
+
+/** mine: 내 조건(나이 · 지역)으로 받을 수 있음 */
+data class SameKindRow(val policyId: String, val name: String, val region: String, val amountText: String?, val mine: Boolean)
+
+/** 같은 종류 정책 묶음 안에서의 자리. isBest 가 false 면 best 가 내 조건에서 더 유리하다 */
+data class SameKindInfo(
+    val kindTitle: String,
+    val isBest: Boolean,
+    val reason: String,
+    val best: RoadmapAlternative,
+    val others: List<RoadmapAlternative>,
 )
 
 /** 맞춤 신청 로드맵 (3.32): 받을 수 있는 정책을 신청 시점별로. stage: before_leave · at_leave · now */
@@ -400,6 +445,8 @@ data class ChecklistDoc(
     /** 문서 AI 로 쓰는 서류면 그 문서 id 와 상태 (writing / exported) */
     val documentId: Long? = null,
     val documentStatus: String? = null,
+    /** 이 서류를 바로 쓸 수 있는 서버 양식 */
+    val forms: List<ChecklistForm> = emptyList(),
 ) {
     /** 문서 AI 로 써서 내보낸 서류: 체크가 문서를 따르고 체크리스트에서 직접 바꾸지 않는다 */
     val written: Boolean get() = documentStatus == "exported"
@@ -413,6 +460,8 @@ data class Checklist(
     val docs: List<ChecklistDoc>,
     /** 신청 예정일 (사용자가 정함). 없으면 null */
     val dueDate: java.time.LocalDate? = null,
+    /** 서류 목록에는 없지만 이 정책에 쓰는 서버 양식 */
+    val extraForms: List<ChecklistForm> = emptyList(),
 ) {
     val policyId: String get() = policy.id
     val policyName: String get() = policy.name
@@ -425,6 +474,9 @@ data class Checklist(
     val docChecked: Int get() = docs.count { it.checked && !it.notApplicable }
     val docProgress: Float get() = if (docTotal == 0) 0f else docChecked / docTotal.toFloat()
 }
+
+/** 체크리스트에서 바로 쓰는 서버 양식. notice: 공식 양식 대신 쓰는 양식일 때 서버 안내 */
+data class ChecklistForm(val formId: String, val title: String, val notice: String? = null)
 
 /** 체크 결과로 서버가 돌려준 항목 상태 (3.11) */
 data class ChecklistItemState(val itemId: Long, val checked: Boolean, val notApplicable: Boolean)

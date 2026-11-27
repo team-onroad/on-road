@@ -426,7 +426,7 @@ private fun RowCard(title: String, sub: String, onClick: (() -> Unit)?) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                 Spacer(Modifier.height(2.dp))
-                Text(sub, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(sub, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
             }
             if (onClick != null) {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(20.dp))

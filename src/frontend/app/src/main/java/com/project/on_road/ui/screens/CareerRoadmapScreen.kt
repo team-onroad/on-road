@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -69,16 +70,20 @@ class CareerRoadmapViewModel : ViewModel() {
     }
 
     fun load() {
+        // 휴대폰에 둔 관심 분야로 바로 그리고, 서버 값은 뒤에서 맞춘다 (들어오자마자 화면이 뜨게)
         tags = currentTags()
+        if (tags.isNotEmpty()) loading = false
         val userId = AppContainer.session.userId
         viewModelScope.launch {
             launch { PlanData.refresh(force = true) }
-            ProfileStore.refresh()
-            tags = currentTags()
+            if (tags.isEmpty() || ProfileStore.current == null) {
+                ProfileStore.refresh()
+                tags = currentTags()
+            }
             loading = false
             val today = LocalDate.now()
             val me = ProfileStore.current
-            tags.forEach { t ->
+            tags.filter { it.name !in infos }.forEach { t ->
                 launch {
                     val detail = if (t.jobId != null && userId != null) runCatching {
                         AppContainer.coachApi.jobDetail(userId, JobRecommendation(t.jobId, t.name, "", "", t.types), AppState.stage)
@@ -222,7 +227,9 @@ private fun ColumnScope.CareerBody(vm: CareerRoadmapViewModel, onNavigate: (Stri
             list.forEachIndexed { i, p ->
                 PeriodItem(p, first = i == 0, last = i == list.lastIndex) {
                     if (p.now) NowContent(vm, today)
-                    p.policies.forEach { item -> PolicyPlanCard(item) { onNavigate(Routes.policyDetail(item.policyId)) } }
+                    p.policies.forEach { item ->
+                        PolicyPlanCard(item, onOpen = { onNavigate(Routes.policyDetail(item.policyId)) }, onSameKind = { onNavigate(Routes.sameKind(item.policyId)) })
+                    }
                 }
             }
             Spacer(Modifier.height(32.dp))
@@ -276,18 +283,22 @@ private fun TopCard(tags: List<CareerTag>, base: LocalDate?, left: Boolean, onTa
 
 @Composable
 private fun PeriodItem(p: Period, first: Boolean, last: Boolean, content: @Composable ColumnScope.() -> Unit) {
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        Box(Modifier.width(24.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (first) Spacer(Modifier.height(6.dp)) else CareerLine(Modifier.height(6.dp))
-                Spacer(Modifier.height(10.dp))
-                if (last) Spacer(Modifier.weight(1f)) else CareerLine(Modifier.weight(1f))
-            }
-            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(9.dp).clip(CircleShape).background(if (p.now) OnRoadColors.Primary else OnRoadColors.BorderChip))
-            }
-        }
-        Spacer(Modifier.width(CareerSpace.LineToText))
+    // 세로 선은 그리기만 한다 (높이를 미리 재지 않아서 카드를 펼치고 접을 때 끊기지 않는다)
+    val line = OnRoadColors.BorderChip
+    val dotColor = if (p.now) OnRoadColors.Primary else OnRoadColors.BorderChip
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val x = 12.dp.toPx()
+                val dotY = 12.dp.toPx()
+                val w = 1.dp.toPx()
+                if (!first) drawLine(line, androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Offset(x, dotY), w)
+                if (!last) drawLine(line, androidx.compose.ui.geometry.Offset(x, dotY), androidx.compose.ui.geometry.Offset(x, size.height), w)
+                drawCircle(dotColor, 4.5.dp.toPx(), androidx.compose.ui.geometry.Offset(x, dotY))
+            },
+    ) {
+        Spacer(Modifier.width(24.dp + CareerSpace.LineToText))
         Column(Modifier.weight(1f).padding(bottom = if (last) 0.dp else CareerSpace.PeriodGap)) {
             Row(Modifier.padding(top = 1.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -308,11 +319,6 @@ private fun PeriodItem(p: Period, first: Boolean, last: Boolean, content: @Compo
             Column(verticalArrangement = Arrangement.spacedBy(CareerSpace.CardGap), content = content)
         }
     }
-}
-
-@Composable
-private fun CareerLine(modifier: Modifier = Modifier) {
-    Box(modifier.width(1.dp).background(OnRoadColors.BorderChip))
 }
 
 /* ── 지금: 내일배움카드 · 관심 분야 시험 · 가까운 훈련 과정 ── */
@@ -340,8 +346,7 @@ private fun NowContent(vm: CareerRoadmapViewModel, today: LocalDate) {
 /* ── 정책 카드: 같은 종류 중 고른 것 하나 + 마감 · 펼치면 나머지 ── */
 
 @Composable
-private fun PolicyPlanCard(item: RoadmapItem, onOpen: () -> Unit) {
-    var open by remember(item.policyId) { mutableStateOf(false) }
+private fun PolicyPlanCard(item: RoadmapItem, onOpen: () -> Unit, onSameKind: () -> Unit) {
     InfoCard(Modifier.fillMaxWidth(), onClick = onOpen) {
         Row(verticalAlignment = Alignment.Top) {
             Text(
@@ -374,30 +379,14 @@ private fun PolicyPlanCard(item: RoadmapItem, onOpen: () -> Unit) {
             style = OnRoadType.Caption,
             color = OnRoadColors.TextTertiary,
         )
-        if (item.alternatives.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Row(
-                Modifier.clip(OnRoadShapes.Chip).tap(pressed = 1f, onClickLabel = if (open) "접기" else "같은 종류 보기", onClick = { open = !open }).padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("같은 종류 ${item.alternatives.size + 1}개", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary)
-                Spacer(Modifier.width(2.dp))
-                ExpandChevron(open)
-            }
-            ExpandArea(open) {
-                Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    item.pickReason?.let { Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary) }
-                    Spacer(Modifier.height(2.dp))
-                    item.alternatives.forEach { a ->
-                        Row {
-                            Text(a.region, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, modifier = Modifier.width(44.dp))
-                            Text(a.name, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, modifier = Modifier.weight(1f))
-                            Spacer(Modifier.width(8.dp))
-                            Text(a.amountText ?: "금액 확인 필요", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
-                        }
-                    }
-                }
-            }
+        if (item.kindTitle != null) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "같은 종류 보기 ›",
+                style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+                color = OnRoadColors.TextSecondary,
+                modifier = Modifier.clip(OnRoadShapes.Chip).tap(onClick = onSameKind).padding(vertical = 4.dp),
+            )
         }
     }
 }

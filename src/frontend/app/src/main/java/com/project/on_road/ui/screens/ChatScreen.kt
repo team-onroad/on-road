@@ -722,8 +722,6 @@ private fun PlanCard(
                         listOfNotNull(whenText, item.amountText ?: item.benefit).joinToString(" · "),
                         style = OnRoadType.Caption2,
                         color = OnRoadColors.TextTertiary,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
             }

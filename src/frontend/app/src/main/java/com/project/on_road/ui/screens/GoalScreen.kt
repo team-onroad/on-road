@@ -171,7 +171,7 @@ fun ColumnScope.GoalTimelineBody(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Text("${title}까지", style = OnRoadType.Title2, color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${title}까지", style = OnRoadType.Title2, color = OnRoadColors.TextPrimary)
             Text(dText(ChronoUnit.DAYS.between(today, date)), style = OnRoadType.Hero, color = OnRoadColors.Primary)
             Text(date.format(goalDateFormat), style = OnRoadType.Caption, color = OnRoadColors.TextMuted)
         }
@@ -221,10 +221,8 @@ fun ColumnScope.GoalTimelineBody(
                                 style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
                                 color = if (checked) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
                                 textDecoration = if (checked) TextDecoration.LineThrough else null,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
                             )
-                            Text(task.description, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(task.description, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
                         }
                         task.link?.let { link ->
                             Icon(
@@ -292,8 +290,6 @@ private fun GoalTaskRow(t: GoalTask, days: Long, onToggle: () -> Unit, onRemove:
                     style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
                     color = if (t.done) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
                     textDecoration = if (t.done) TextDecoration.LineThrough else null,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 Text("${dText(days)} · ${t.date.format(goalDateFormat)}", style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, maxLines = 1)
             }

@@ -21,6 +21,8 @@ interface OnRoadApi {
         dDate: LocalDate? = null,
         /** 시 · 군 · 구 (선택). 시 · 군 · 구 정책을 맞게 고를 때 쓴다 */
         district: String? = null,
+        /** 보호받던 곳 (선택, 모르면 null) */
+        careType: CareType? = null,
     ): UserProfile
 
     /** 3.12 회원정보 수정 (퇴소 처리, 퇴소일·목표일 바꾸기). 바꿀 값만 채워서 보낸다 */
@@ -72,7 +74,7 @@ interface OnRoadApi {
     suspend fun getCredentials(userId: String): List<Credential> = emptyList()
     /** kind: education · certificate. code(정해진 교육)를 주면 name 은 없어도 된다. 같은 종류 · 이름이 있으면 날짜만 바뀐다 */
     suspend fun addCredential(userId: String, kind: String, name: String?, code: String? = null, doneOn: java.time.LocalDate? = null): Credential =
-        throw UnsupportedOperationException("교육 · 자격증 등록은 서버 연결이 필요해요")
+        throw UnsupportedOperationException("교육과 자격증 등록은 서버 연결이 필요해요")
     suspend fun deleteCredential(userId: String, credentialId: Long) {}
     /** 정책 조건과 이어지는 교육 (자립정착금 의무교육 · 자립수당 자립교육) */
     suspend fun getEducationOptions(): List<EducationOption> = DEFAULT_EDUCATION_OPTIONS
@@ -129,6 +131,9 @@ interface OnRoadApi {
 
     /** 홈 '나에게 맞는 지원 정책' (추천 순서). 서버가 없으면 빈 목록 */
     suspend fun getRecommendedPolicies(userId: String): List<RecommendedPolicy> = emptyList()
+
+    /** 같은 종류 정책 전체 (다른 지역 것까지). 묶이지 않는 정책이거나 못 받으면 null */
+    suspend fun getSameKind(userId: String, policyId: String): SameKindGroup? = null
 
     /** 3.32 맞춤 신청 로드맵. 서버가 없으면 null */
     suspend fun getPolicyRoadmap(userId: String): PolicyRoadmap? = null
@@ -440,6 +445,6 @@ internal object NextActionRules {
 
 /** 서버 목록을 못 받을 때 쓰는 정해진 교육 (서버 app/services/credentials.py 와 같은 값) */
 val DEFAULT_EDUCATION_OPTIONS = listOf(
-    EducationOption("settlement", "자립정착금 의무교육", "자립지원전담기관에서 듣는 금융 · 주거 자립교육이에요. 확인서를 내야 정착금이 나와요"),
-    EducationOption("finance", "자립수당 자립교육", "서민금융진흥원 · 아동권리보장원 온라인 자립교육이에요. 이수증을 내야 자립수당을 신청할 수 있어요"),
+    EducationOption("settlement", "자립정착금 의무교육", "자립지원전담기관에서 듣는 금융, 주거 자립교육이에요. 확인서를 내야 정착금이 나와요"),
+    EducationOption("finance", "자립수당 자립교육", "서민금융진흥원, 아동권리보장원 온라인 자립교육이에요. 이수증을 내야 자립수당을 신청할 수 있어요"),
 )

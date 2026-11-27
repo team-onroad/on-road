@@ -82,6 +82,7 @@ object AppContainer {
         ActivityStore.useAccount(session.userId)
         FormParser.init(context)
         com.project.on_road.notification.DueReminder.init(context)
+        com.project.on_road.notification.DeadlineReminder.init(context)
         AppState.load(session)
     }
 

@@ -31,6 +31,7 @@ import java.time.format.DateTimeFormatter
  * 나의 자립 조건: 한 화면에서 바로 누르고 고친다 (생년월일 · 사는 지역 · 지금 상황 · 퇴소일 · 지금 하는 일 · 가족 · 정책에서 확인한 조건).
  * 바꾼 게 있으면 아래 '저장하기'가 올라오고, 누르면 한 번에 저장해 홈 조건 · 추천, 정책 상세 '내 조건', 일정 로드맵에 반영한다.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MyConditionsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -45,6 +46,7 @@ fun MyConditionsScreen(onBack: () -> Unit) {
     var region by remember(p) { mutableStateOf(p?.region) }
     var district by remember(p) { mutableStateOf(p?.district) }
     var status by remember(p) { mutableStateOf(p?.status) }
+    var care by remember(p) { mutableStateOf(p?.careType) }
     var leave by remember(p) { mutableStateOf(p?.let { pp -> pp.dDate?.takeIf { pp.status != LivingStatus.LEFT } }) }
     var left by remember { mutableStateOf(MyConditions.leftDate) }
     var work by remember { mutableStateOf(session.workStatus) }
@@ -59,7 +61,7 @@ fun MyConditionsScreen(onBack: () -> Unit) {
     var saving by remember { mutableStateOf(false) }
 
     val changedProfile = p != null && (
-        birth != p.birthDate || region != p.region || district != p.district || status != p.status ||
+        birth != p.birthDate || region != p.region || district != p.district || status != p.status || care != p.careType ||
             (status != LivingStatus.LEFT && leave != p.dDate?.takeIf { p.status != LivingStatus.LEFT }) || family != p.family
         )
     val changedLocal = left != MyConditions.leftDate || work != session.workStatus || answers != answersAtStart.toMap()
@@ -84,6 +86,8 @@ fun MyConditionsScreen(onBack: () -> Unit) {
             status = status.takeIf { it != prof.status },
             dDate = leave.takeIf { status != LivingStatus.LEFT && it != prof.dDate },
             family = family.takeIf { it != prof.family },
+            careType = care.takeIf { it != prof.careType },
+            clearCareType = care == null && prof.careType != null,
             work = work.takeIf { workChanged },
             clearWork = workChanged && work == null,
         )
@@ -144,6 +148,19 @@ fun MyConditionsScreen(onBack: () -> Unit) {
             if (isLeft) CondField("퇴소한 날", left?.format(dot) ?: "넣지 않았어요") { pickingLeave = true }
             else CondField("퇴소 예정일", leave?.format(dot) ?: "정하지 않았어요") { pickingLeave = true }
         }
+
+        // ── 보호받던 곳 (받는 제도가 갈린다. 다시 누르면 '모름') ──
+        CondTitle(if (status == LivingStatus.LEFT) "보호받던 곳" else "지내는 곳")
+        Spacer(Modifier.height(CondSpace.TitleGap))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            com.project.on_road.data.CareType.entries.forEach { c -> ChoiceChip(c.label, selected = c == care) { care = if (care == c) null else c } }
+        }
+        Text(
+            care?.description ?: "고르지 않으면 모든 정책을 보여 드려요",
+            style = OnRoadType.Caption,
+            color = OnRoadColors.TextTertiary,
+            modifier = Modifier.padding(top = 6.dp),
+        )
 
         // ── 지금 하는 일 (다시 누르면 풀림) ──
         CondTitle("지금 하는 일")

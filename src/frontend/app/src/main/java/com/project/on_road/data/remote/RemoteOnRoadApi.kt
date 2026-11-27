@@ -18,6 +18,7 @@ import com.project.on_road.data.toChange
 import com.project.on_road.data.Checklist
 import com.project.on_road.data.ConditionCheck
 import com.project.on_road.data.ChecklistDoc
+import com.project.on_road.data.ChecklistForm
 import com.project.on_road.data.ChecklistItemState
 import com.project.on_road.data.ChecklistPolicy
 import com.project.on_road.data.ChecklistStep
@@ -84,6 +85,7 @@ class RemoteOnRoadApi(
         phone: String?,
         dDate: LocalDate?,
         district: String?,
+        careType: com.project.on_road.data.CareType?,
     ): UserProfile = Network.call {
         service.createUser(
             UserCreateDto(
@@ -94,6 +96,7 @@ class RemoteOnRoadApi(
                 phone = phone?.takeIf { it.isNotBlank() },
                 dDate = dDate?.toString(), // YYYY-MM-DD
                 district = district,
+                careType = careType?.code,
             )
         ).toProfile()
     }
@@ -116,6 +119,10 @@ class RemoteOnRoadApi(
             when {
                 update.clearDistrict -> add("district", JsonNull.INSTANCE)
                 update.district != null -> addProperty("district", update.district)
+            }
+            when {
+                update.clearCareType -> add("care_type", JsonNull.INSTANCE)
+                update.careType != null -> addProperty("care_type", update.careType.code)
             }
             update.interestCode?.let { addProperty("interest_code", it) }
             update.interestTags?.let { tags -> add("interest_tags", com.google.gson.JsonArray().apply { tags.forEach { add(it) } }) }
@@ -394,7 +401,18 @@ class RemoteOnRoadApi(
         Network.call { service.getRecommendedPolicies(userId) }.map {
             com.project.on_road.data.RecommendedPolicy(
                 it.policyId.toString(), it.name, categoryLabel(it.category), it.eligibility, it.whenText,
-                it.amountUnit, it.amountValue, it.benefit,
+                it.amountUnit, it.amountValue, it.benefit, it.pickReason,
+            )
+        }
+
+    override suspend fun getSameKind(userId: String, policyId: String): com.project.on_road.data.SameKindGroup? =
+        runCatching { Network.call { service.getSameKind(userId, policyId) } }.getOrNull()?.let { g ->
+            com.project.on_road.data.SameKindGroup(
+                kindTitle = g.kindTitle,
+                rule = g.rule,
+                total = g.total,
+                picked = g.picked?.let { com.project.on_road.data.SameKindPick(it.policyId.toString(), it.name, it.region, it.amountText, it.reason) },
+                others = g.others.orEmpty().map { com.project.on_road.data.SameKindRow(it.policyId.toString(), it.name, it.region, it.amountText, it.mine) },
             )
         }
 
@@ -618,6 +636,7 @@ private fun UserDto.toProfile() = UserProfile(
     },
     interestCode = interestCode,
     interestTags = interestTags.orEmpty(),
+    careType = com.project.on_road.data.CareType.of(careType),
 )
 
 private fun SearchResultDto.toPolicy() = Policy(
@@ -640,6 +659,7 @@ private fun SearchResultDto.toPolicy() = Policy(
     isOutdated = isOutdated,
     sourceUrl = sourceUrl,
     eligibility = eligibility.status,
+    leave = eligibility.leave,
     cardSummary = this.summary?.toModel(),
     amountShort = GovText.amount(supportAmount).orEmpty(),
     related = related,
@@ -665,6 +685,7 @@ private fun PolicyDetailDto.toPolicy() = Policy(
     isOutdated = isOutdated,
     sourceUrl = sourceUrl,
     eligibility = eligibility?.status,
+    leave = eligibility?.leave,
     amountShort = amountText ?: GovText.amount(supportAmount).orEmpty(),
     contact = contact.orEmpty(),
     region = region,
@@ -675,6 +696,10 @@ private fun PolicyDetailDto.toPolicy() = Policy(
     periodYears = periodYears,
     relatedPolicies = related.orEmpty().map {
         com.project.on_road.data.RelatedPolicyItem(it.policyId.toString(), it.name, it.agency, categoryLabel(it.category), it.amountText, it.benefit)
+    },
+    sameKind = sameKind?.let { k ->
+        fun alt(a: RoadmapAlternativeDto) = com.project.on_road.data.RoadmapAlternative(a.policyId.toString(), a.name, a.region, a.amountText)
+        com.project.on_road.data.SameKindInfo(k.kindTitle, k.isBest, k.reason, alt(k.best), k.others.orEmpty().map(::alt))
     },
     benefit = benefit,
     conditions = conditions.orEmpty(),
@@ -849,6 +874,8 @@ private fun applyMethods(text: String?): List<ApplyMethod> {
     }
 }
 
+private fun FormLinkDto.toModel() = ChecklistForm(formId, title, notice?.takeIf { it.isNotBlank() })
+
 private fun ChecklistDto.toChecklist(): Checklist {
     val docs = steps.flatMap { it.documents }.map {
         ChecklistDoc(
@@ -860,10 +887,12 @@ private fun ChecklistDto.toChecklist(): Checklist {
             shortLabel = it.shortLabel?.takeIf { l -> l.isNotBlank() },
             documentId = it.documentId,
             documentStatus = it.documentStatus,
+            forms = it.forms.orEmpty().map { f -> f.toModel() },
         )
     }
     return Checklist(
         id = checklistId,
+        extraForms = extraForms.orEmpty().map { it.toModel() },
         policy = policy.toModel(),
         steps = steps.mapNotNull { st ->
             val type = StepType.of(st.stepKey) ?: return@mapNotNull null

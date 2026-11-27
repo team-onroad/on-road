@@ -69,8 +69,6 @@ fun NextStepRow(step: NextStep, compact: Boolean = false, onClick: () -> Unit) {
                     step.label,
                     style = OnRoadType.Body2.copy(fontWeight = if (compact) FontWeight.Medium else FontWeight.Bold),
                     color = OnRoadColors.TextPrimary,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
                 if (!compact) {
                     Spacer(Modifier.height(2.dp))

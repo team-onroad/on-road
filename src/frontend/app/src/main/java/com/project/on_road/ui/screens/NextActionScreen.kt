@@ -90,7 +90,7 @@ internal fun ReasonLine(reason: String, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Outlined.Lightbulb, null, tint = OnRoadColors.Primary, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(4.dp))
-        Text(reason, style = OnRoadType.Micro, color = OnRoadColors.Primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(reason, style = OnRoadType.Micro, color = OnRoadColors.Primary)
     }
 }
 
@@ -115,11 +115,11 @@ fun NextActionScreen(
                     OnRoadCard(Modifier.fillMaxWidth(), borderColor = OnRoadColors.Primary) {
                         OnRoadTag("가장 먼저", style = TagStyle.Neutral)
                         Spacer(Modifier.height(12.dp))
-                        Text(first.title, style = OnRoadType.Title2, color = OnRoadColors.Primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(first.title, style = OnRoadType.Title2, color = OnRoadColors.Primary)
                         Spacer(Modifier.height(8.dp))
                         // 설명은 한 줄: 추천 이유가 있으면 이유, 없으면 설명
                         first.reason?.let { ReasonLine(it) }
-                            ?: Text(first.description, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            ?: Text(first.description, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
                         Spacer(Modifier.height(16.dp))
                         OnRoadButton(
                             first.kind.button(), { onAction(first) }, Modifier.fillMaxWidth(),

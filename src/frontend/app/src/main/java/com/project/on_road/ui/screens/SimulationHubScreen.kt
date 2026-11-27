@@ -158,8 +158,6 @@ private fun CalcRow(title: String, what: String, onClick: () -> Unit) {
                 what,
                 style = OnRoadType.Caption2,
                 color = OnRoadColors.TextQuaternary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 textAlign = androidx.compose.ui.text.style.TextAlign.End,
                 modifier = Modifier.weight(1f),
             )

@@ -104,8 +104,6 @@ fun EmptyState(
             message,
             style = OnRoadType.Caption,
             color = OnRoadColors.TextSecondary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         if (actionLabel != null && onAction != null) {

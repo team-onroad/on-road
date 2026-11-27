@@ -263,7 +263,7 @@ private fun ApplySection(
         if (record.savedPolicies.isEmpty()) {
             EmptyLine("정책 카드에서 저장하면 여기에 모여요.", "정책 찾기") { onNavigate(Routes.policy()) }
         } else {
-            Expandable(record.savedPolicies) { p -> RecordRow(p.name, listOf(p.agency, p.amount).filter { it.isNotBlank() }.joinToString(" · ")) { onOpenPolicy(p.id) } }
+            Expandable(record.savedPolicies) { p -> RecordRow(p.name, savedPolicyLine(p), subMaxLines = 1) { onOpenPolicy(p.id) } }
         }
         Spacer(Modifier.height(16.dp))
         SubLabel("완료한 신청")
@@ -408,7 +408,7 @@ private fun <T> Expandable(items: List<T>, row: @Composable (T) -> Unit) {
 
 /** 기록 한 줄: 흰 카드, 아이콘 없이 제목 · 설명 · (태그) */
 @Composable
-private fun RecordRow(title: String, sub: String, onClick: () -> Unit) {
+private fun RecordRow(title: String, sub: String, subMaxLines: Int = Int.MAX_VALUE, onClick: () -> Unit) {
     OnRoadCard(
         Modifier.fillMaxWidth(),
         background = OnRoadColors.SurfaceSubtle,
@@ -419,10 +419,16 @@ private fun RecordRow(title: String, sub: String, onClick: () -> Unit) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                 if (sub.isNotBlank()) {
                     Spacer(Modifier.height(2.dp))
-                    Text(sub, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        sub,
+                        style = OnRoadType.Caption2,
+                        color = OnRoadColors.TextTertiary,
+                        maxLines = subMaxLines,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
@@ -544,6 +550,28 @@ private fun KidLikedCard(liked: List<Pair<String, Int>>) {
     ) {
         Text("어릴 때 좋아했던 것", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
         Spacer(Modifier.height(2.dp))
-        Text(liked.take(4).joinToString(" · ") { it.first }, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(liked.take(4).joinToString(" · ") { it.first }, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
     }
+}
+/**
+ * 저장한 정책 카드 아래 한 줄: 담당 기관 · 부서 + 무엇을 지원하는지.
+ * 예) "보건복지부 청년정책팀 · 생활비 월 50만 원 지원", 금액이 없으면 "국토교통부 · 주거 지원"
+ */
+private fun savedPolicyLine(p: com.project.on_road.data.Policy): String {
+    val what = when (p.category) {
+        "주거" -> "주거비"
+        "생활·금융" -> "생활비"
+        "건강" -> "의료비"
+        "취업" -> "취업"
+        "교육" -> "교육비"
+        "자립" -> "자립"
+        else -> null
+    }
+    val amount = p.amountShort.ifBlank { p.amount.takeIf { it.length <= 16 }.orEmpty() }.trim()
+    val support = when {
+        amount.isNotEmpty() -> listOfNotNull(what, amount, "지원").joinToString(" ")
+        what != null -> "$what 지원"
+        else -> null
+    }
+    return listOfNotNull(p.agency.trim().takeIf { it.isNotEmpty() }, support).joinToString(" · ")
 }

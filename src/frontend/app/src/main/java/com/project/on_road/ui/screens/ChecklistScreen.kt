@@ -95,6 +95,7 @@ import com.project.on_road.data.AppContainer
 import com.project.on_road.data.ApplyMethod
 import com.project.on_road.data.Checklist
 import com.project.on_road.data.ChecklistDoc
+import com.project.on_road.data.ChecklistForm
 import com.project.on_road.data.ChecklistStep
 import com.project.on_road.data.ChecklistSummary
 import com.project.on_road.data.Links
@@ -286,6 +287,7 @@ fun ChecklistListScreen(
                     onStartTemplate = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.docWriter(templateId = it)) },
                     onRiskCheck = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.RISK) },
                     onActivityDraft = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.DOCUMENT) },
+                    onStartForm = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.docWriter(formId = it)) },
                     compact = true,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -375,8 +377,6 @@ private fun ChecklistSummaryCard(c: ChecklistSummary, onClick: () -> Unit) {
                 c.policyName,
                 style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
                 color = OnRoadColors.TextPrimary,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).sharedTitle(policyTitleKey(c.policyId)),
             )
             Spacer(Modifier.width(8.dp))
@@ -688,6 +688,8 @@ fun ChecklistScreen(
     onOpenDocs: (String) -> Unit = {},
     /** 문서 AI 로 쓴 서류 열기 */
     onOpenDocument: (Long) -> Unit = {},
+    /** 서버 양식으로 서류 쓰기 (정책 ID, 양식 ID, 체크리스트 서류 항목) */
+    onWriteForm: (Long, String, Long?) -> Unit = { _, _, _ -> },
     onNavigate: (String) -> Unit = {},
     vm: ChecklistViewModel = viewModel(),
 ) {
@@ -726,6 +728,9 @@ fun ChecklistScreen(
                         hasForm = hasForm,
                         onOpenDocs = { onOpenDocs(c.policyId) },
                         onOpenDocument = onOpenDocument,
+                        onWriteForm = { formId, itemId ->
+                            c.policyId.toLongOrNull()?.let { onWriteForm(it, formId, itemId) }
+                        },
                     )
                 }
                 // 마지막 단계를 끝낸 그 순간에만 알려 준다 (이미 끝난 체크리스트를 열 때는 조용히)
@@ -935,6 +940,7 @@ private fun DocsBody(
     hasForm: Boolean,
     onOpenDocs: () -> Unit,
     onOpenDocument: (Long) -> Unit,
+    onWriteForm: (String, Long?) -> Unit,
 ) {
     if (vm.situations.isNotEmpty()) {
         Text("이렇게 신청한다면", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
@@ -955,7 +961,29 @@ private fun DocsBody(
                 doc,
                 onClick = { doc.documentId?.takeIf { doc.written }?.let(onOpenDocument) ?: vm.toggleDoc(doc) },
                 onNotApplicable = { vm.toggleNotApplicable(doc) },
+                onForm = { onWriteForm(it.formId, doc.itemId) },
             )
+        }
+    }
+    // 서류 목록에는 없지만 이 정책에 쓰는 양식 (서류가 '이 중 하나'로 적혔거나 원문에 따로 안 적힌 경우)
+    if (c.extraForms.isNotEmpty()) {
+        Spacer(Modifier.height(18.dp))
+        Text("다른 양식", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
+        Spacer(Modifier.height(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            c.extraForms.forEach { f ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    // 서류 줄과 글자 시작을 맞춘다 (체크칸 자리만 비움)
+                    Spacer(Modifier.width(32.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(f.title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary)
+                        f.notice?.let {
+                            Text(it, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(top = 2.dp))
+                        }
+                        FormPill("양식 쓰기", Modifier.padding(top = 8.dp)) { onWriteForm(f.formId, null) }
+                    }
+                }
+            }
         }
     }
     // 수집 정책 중에는 필요 서류 목록이 없는 것이 있다 → 빈 칸 대신 확인할 곳을 알려 준다
@@ -1495,7 +1523,12 @@ private fun OriginalSheet(title: String, text: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -> Unit) {
+private fun DocRow(
+    doc: ChecklistDoc,
+    onClick: () -> Unit,
+    onNotApplicable: () -> Unit,
+    onForm: (ChecklistForm) -> Unit = {},
+) {
     val checked = doc.checked && !doc.notApplicable
     val short = doc.shortLabel
     val label = remember(doc.name, short) { docLabel(short ?: doc.name) }
@@ -1518,6 +1551,23 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
                 // 무엇인지 · 어디서 떼는지 (모르는 서류면 없음)
                 remember(doc.name) { com.project.on_road.data.DocGuide.explain(doc.name) }?.let {
                     Text(it, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(top = 2.dp))
+                }
+                // 서버 양식: 다 쓴 서류는 버튼 없이 '작성 완료'만
+                if (doc.forms.isNotEmpty() && !doc.written) {
+                    doc.forms.mapNotNull { it.notice }.distinct().forEach {
+                        Text(it, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(top = 4.dp))
+                    }
+                    // 양식이 둘이면 이름이 길어 위아래로 (자립정착금 사용계획서, 자립지원계획서)
+                    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        doc.forms.forEach { f ->
+                            val text = when {
+                                doc.forms.size == 1 && doc.documentStatus == "writing" -> "이어 쓰기"
+                                doc.forms.size > 1 || f.notice != null -> "${f.title} 쓰기"
+                                else -> "양식 쓰기"
+                            }
+                            FormPill(text) { onForm(f) }
+                        }
+                    }
                 }
                 if (short == null) {
                     DocCondition(doc.condition)
@@ -1559,6 +1609,22 @@ private fun DocRow(doc: ChecklistDoc, onClick: () -> Unit, onNotApplicable: () -
             }
         }
     }
+}
+
+/** 서류 줄 안의 작은 흰 버튼 (회색 테두리). 서버 양식으로 서류 쓰기 */
+@Composable
+private fun FormPill(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Text(
+        text,
+        style = OnRoadType.Caption2.copy(fontWeight = FontWeight.SemiBold),
+        color = OnRoadColors.TextPrimary,
+        modifier = modifier
+            .clip(OnRoadShapes.Chip)
+            .background(androidx.compose.ui.graphics.Color.White)
+            .border(1.dp, OnRoadColors.BorderChip, OnRoadShapes.Chip)
+            .tap(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    )
 }
 
 /** "방문: … 온라인: … 우편·팩스: …" 처럼 이어진 원문을 항목별로 줄을 나눈다 */

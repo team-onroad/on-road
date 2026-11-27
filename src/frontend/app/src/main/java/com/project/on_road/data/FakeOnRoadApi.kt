@@ -45,6 +45,7 @@ class FakeOnRoadApi(
         phone: String?,
         dDate: LocalDate?,
         district: String?,
+        careType: CareType?,
     ): UserProfile {
         latency(700)
         val user = UserProfile(
@@ -58,6 +59,7 @@ class FakeOnRoadApi(
             dDate = dDate,
             dDay = dDate?.let { java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() },
             district = district,
+            careType = careType,
         )
         users[user.userId] = user
         return user
@@ -77,6 +79,7 @@ class FakeOnRoadApi(
             dDay = dDate?.let { java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() },
             interestCode = update.interestCode ?: old.interestCode,
             interestTags = update.interestTags ?: old.interestTags,
+            careType = if (update.clearCareType) null else update.careType ?: old.careType,
         )
         users[userId] = user
         return user

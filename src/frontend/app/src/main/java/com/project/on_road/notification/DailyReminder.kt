@@ -128,6 +128,7 @@ object Notifications {
             DdayNotifier.cancel(context)
             DailyReminder.cancel(context)
             DueReminder.cancel(context)
+            DeadlineReminder.cancel(context)
             return
         }
         val leave = s.leaveDate
@@ -135,6 +136,7 @@ object Notifications {
         DailyReminder.ensureChannel(context)
         DailyReminder.schedule(context)
         DueReminder.reschedule(context)
+        DeadlineReminder.reschedule(context)
     }
 
     fun setEnabled(context: Context, on: Boolean) {

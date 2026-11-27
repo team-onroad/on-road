@@ -47,6 +47,10 @@ data class TrainingItemDto(
     val url: String?,
 )
 
+data class CertificateItemDto(val code: String?, val name: String?, val kind: String?)
+
+data class CertificatesDto(val available: Boolean, val items: List<CertificateItemDto>?, val message: String?)
+
 data class TrainingsDto(val available: Boolean, val items: List<TrainingItemDto>?, val message: String?)
 
 data class TrainingCourseDto(

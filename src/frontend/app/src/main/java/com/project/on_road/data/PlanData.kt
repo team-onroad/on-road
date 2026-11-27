@@ -76,7 +76,10 @@ object PlanData {
             policies = mine + saved
         }
         if (force || now - lastRefresh >= REFRESH_MS) {
-            runCatching { api.getPolicyRoadmap(userId) }.getOrNull()?.let { roadmap = it }
+            runCatching { api.getPolicyRoadmap(userId) }.getOrNull()?.let {
+                roadmap = it
+                com.project.on_road.notification.DeadlineReminder.reschedule()
+            }
             val r = runCatching { api.getReadiness(userId) }.getOrNull()
             if (r != null) {
                 readiness = r
@@ -93,7 +96,10 @@ object PlanData {
     suspend fun refreshRoadmap() {
         sync()
         val userId = AppContainer.session.userId ?: return
-        runCatching { AppContainer.api.getPolicyRoadmap(userId) }.getOrNull()?.let { roadmap = it }
+        runCatching { AppContainer.api.getPolicyRoadmap(userId) }.getOrNull()?.let {
+            roadmap = it
+            com.project.on_road.notification.DeadlineReminder.reschedule()
+        }
     }
 
     /** 맞춤 신청 로드맵 일정 (이미 신청을 시작했거나 저장한 정책은 뺀다) */

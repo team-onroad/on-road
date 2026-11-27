@@ -160,12 +160,21 @@ class DocWriterViewModel : ViewModel() {
         drafts.clear()
     }
 
-    fun start(documentId: Long?, policyId: Long?, templateId: String?, checklistItemId: Long?, context: String?) {
+    fun start(
+        documentId: Long?,
+        policyId: Long?,
+        templateId: String?,
+        checklistItemId: Long?,
+        context: String?,
+        formId: String? = null,
+    ) {
         if (started) return
         started = true
         // 하다가 나갔다 다시 들어오면: 보던 서류를 바로 보여 주고, 뒤에서 서버 내용으로 바꾼다
         cacheKey = when {
             documentId != null -> "doc:$documentId"
+            policyId != null && formId != null -> "doc-form:$policyId:$formId:${checklistItemId ?: 0}"
+            formId != null -> "doc-common:$formId"
             policyId != null -> "doc-policy:$policyId"
             else -> templateId?.let { "doc-template:$it" }
         }
@@ -181,7 +190,8 @@ class DocWriterViewModel : ViewModel() {
             runCatching {
                 when {
                     documentId != null -> repo.get(documentId)
-                    policyId != null -> repo.startPolicyForm(policyId, checklistItemId, context)
+                    policyId != null -> repo.startPolicyForm(policyId, checklistItemId, context, formId)
+                    formId != null -> repo.startCommonForm(formId, context)
                     else -> repo.startTemplate(templateId.orEmpty(), context)
                 }
             }.onSuccess { d ->
@@ -202,11 +212,11 @@ class DocWriterViewModel : ViewModel() {
     }
 
     /** 서류를 열지 못했을 때 '다시 시도' */
-    fun retry(documentId: Long?, policyId: Long?, templateId: String?, checklistItemId: Long?, context: String?) {
+    fun retry(documentId: Long?, policyId: Long?, templateId: String?, checklistItemId: Long?, context: String?, formId: String? = null) {
         started = false
         error = null
         loading = true
-        start(documentId, policyId, templateId, checklistItemId, context)
+        start(documentId, policyId, templateId, checklistItemId, context, formId)
     }
 
     fun switchMode(m: WriteMode) {
@@ -564,6 +574,7 @@ fun DocWriterScreen(
     templateId: String?,
     checklistItemId: Long? = null,
     context: String? = null,
+    formId: String? = null,
     onBack: () -> Unit,
     onNavigate: (String) -> Unit = {},
     vm: DocWriterViewModel = viewModel(),
@@ -572,7 +583,7 @@ fun DocWriterScreen(
     val ctx = LocalContext.current
     LaunchedEffect(Unit) {
         vm.attach(ctx)
-        vm.start(documentId, policyId, templateId, checklistItemId, context)
+        vm.start(documentId, policyId, templateId, checklistItemId, context, formId)
     }
     val d = vm.doc
     // 남은 칸·마지막으로 연 때를 휴대폰에 남긴다 → 이틀 넘게 안 열면 '쓰다 만 서류' 알림
@@ -590,7 +601,7 @@ fun DocWriterScreen(
             d == null -> Column(Modifier.padding(OnRoadDimens.ScreenPadding)) {
                 ErrorState(
                     vm.error,
-                    onRetry = { vm.retry(documentId, policyId, templateId, checklistItemId, context) },
+                    onRetry = { vm.retry(documentId, policyId, templateId, checklistItemId, context, formId) },
                     title = "서류를 열 수 없어요",
                 )
             }
@@ -1010,16 +1021,12 @@ private fun FieldCardBody(
                     f.name,
                     style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
                     color = OnRoadColors.TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.width(16.dp))
                 Text(
                     if (expanded) "" else text.ifBlank { "비워 둠" },
                     style = OnRoadType.Caption,
                     color = if (text.isBlank()) OnRoadColors.TextQuaternary else OnRoadColors.TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.End,
                     modifier = Modifier.weight(1f),
                 )

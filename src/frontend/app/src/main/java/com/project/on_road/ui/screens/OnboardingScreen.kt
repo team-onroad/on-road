@@ -97,7 +97,7 @@ import java.time.YearMonth
 
 /** DDATE: 퇴소 예정이면 퇴소 예정일, 퇴소 후면 목표일(건너뛰기 가능). 시설 생활이면 건너뜀 */
 /** LOGIN: 이 휴대폰에서 써 본 계정(또는 아이디)으로 다시 들어가기 */
-enum class OnboardStep { INTRO, LOGIN, WHO, NAME, BIRTH, REGION, DISTRICT, STATUS, DDATE, DONE }
+enum class OnboardStep { INTRO, LOGIN, WHO, NAME, BIRTH, REGION, DISTRICT, STATUS, CARE, DDATE, DONE }
 
 /** 단계별 만 나이 범위 (서버 규칙: 10세 이하 아동, 11~17세 청소년, 18세 이상 자립준비청년) */
 private fun ageRange(stage: UserStage): IntRange = when (stage) {
@@ -129,6 +129,11 @@ class OnboardingViewModel : ViewModel() {
         private set
     var status by mutableStateOf<LivingStatus?>(null)
         private set
+    /** 보호받던 곳 (모름이면 null, careAnswered 로 골랐는지 구분) */
+    var careType by mutableStateOf<com.project.on_road.data.CareType?>(null)
+        private set
+    var careAnswered by mutableStateOf(false)
+        private set
     /** 휴대폰 번호 (아동 온보딩에서 받음, 선택) */
     var phone by mutableStateOf<String?>(null)
         private set
@@ -157,6 +162,8 @@ class OnboardingViewModel : ViewModel() {
             // 시 · 군 · 구 정책을 정확히 고르려고 묻는다 (세종처럼 시 · 군 · 구가 없으면 건너뛴다)
             OnboardStep.DISTRICT.takeIf { com.project.on_road.data.Districts.of(region).isNotEmpty() },
             OnboardStep.STATUS,
+            // 보호받던 곳에 따라 받는 제도가 갈린다 (자립수당 / 청소년복지시설 퇴소청소년 수당)
+            OnboardStep.CARE,
             // 퇴소 예정 · 퇴소 후일 때만 날짜를 묻는다
             OnboardStep.DDATE.takeIf { status == LivingStatus.LEAVING_SOON || status == LivingStatus.LEFT },
             OnboardStep.DONE,
@@ -282,6 +289,7 @@ class OnboardingViewModel : ViewModel() {
     }
     fun selectDistrict(d: String) { district = d; cheer++ }
     fun selectStatus(s: LivingStatus) { status = s; cheer++ }
+    fun selectCare(c: com.project.on_road.data.CareType?) { careType = c; careAnswered = true; cheer++ }
 
     fun canNext(): Boolean = when (step) {
         OnboardStep.INTRO, OnboardStep.DONE -> true
@@ -293,6 +301,7 @@ class OnboardingViewModel : ViewModel() {
         OnboardStep.REGION -> region != null
         OnboardStep.DISTRICT -> district != null
         OnboardStep.STATUS -> status != null
+        OnboardStep.CARE -> careAnswered
         // 퇴소 예정일은 꼭 골라야 하고, 목표일은 비워 두거나 다 골라야 함
         OnboardStep.DDATE -> dDateHint == null && (if (dDateRequired) dDate != null else (dDate != null || (dYear == null && dMonth == null && dDay == null)))
     }
@@ -380,6 +389,7 @@ class OnboardingViewModel : ViewModel() {
                     phone = phone,
                     dDate = if (st == LivingStatus.IN_FACILITY) null else dDate,
                     district = district?.takeIf { it in com.project.on_road.data.Districts.of(reg) },
+                    careType = careType,
                 )
                 // user_id · 단계 · 상황 · 퇴소일을 앱에 저장 (홈·타임라인 D-day 가 같은 날짜를 씀)
                 AppContainer.applyProfile(profile)
@@ -724,6 +734,8 @@ private fun question(step: OnboardStep, status: LivingStatus?): Question = when 
     OnboardStep.REGION -> Question("지금 사는 지역은 어디인가요?", "시·도 기준으로 지원 정보를 골라 드려요.")
     OnboardStep.DISTRICT -> Question("어느 시·군·구에 사나요?", "시·군·구에서 주는 지원도 같이 찾아 드려요.")
     OnboardStep.STATUS -> Question("지금 어떤 상황인가요?", "상황에 맞는 할 일과 제도를 먼저 보여 드려요.")
+    OnboardStep.CARE -> if (status == LivingStatus.LEFT) Question("어디에서 보호를 받았나요?", "받는 제도가 달라서 물어봐요.")
+    else Question("어디에서 지내고 있나요?", "받는 제도가 달라서 물어봐요.")
     OnboardStep.DDATE -> if (status == LivingStatus.LEAVING_SOON) {
         Question("퇴소 예정일이 언제인가요?", "자립까지 남은 날(D-day)을 계산해 드려요.")
     } else {
@@ -796,6 +808,7 @@ private fun QuestionPage(vm: OnboardingViewModel) {
                             onSelect = vm::selectDistrict,
                         )
                         OnboardStep.STATUS -> StatusStep(vm)
+                        OnboardStep.CARE -> CareStep(vm)
                         OnboardStep.DDATE -> DDateStep(vm)
                         else -> Unit
                     }
@@ -977,6 +990,26 @@ private fun StatusStep(vm: OnboardingViewModel) {
                 onClick = { vm.selectStatus(s) },
             )
         }
+    }
+}
+
+@Composable
+private fun CareStep(vm: OnboardingViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        com.project.on_road.data.CareType.entries.forEach { c ->
+            SelectCard(
+                title = c.label,
+                description = c.description,
+                selected = vm.careAnswered && vm.careType == c,
+                onClick = { vm.selectCare(c) },
+            )
+        }
+        SelectCard(
+            title = "잘 모르겠어요",
+            description = "모든 정책을 보여 드려요",
+            selected = vm.careAnswered && vm.careType == null,
+            onClick = { vm.selectCare(null) },
+        )
     }
 }
 

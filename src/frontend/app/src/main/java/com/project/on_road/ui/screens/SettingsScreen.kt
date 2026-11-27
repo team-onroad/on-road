@@ -164,7 +164,7 @@ fun SettingsScreen(
                 "나의 자립 조건",
                 p?.let { listOfNotNull(it.region, it.district).joinToString(" ") + ", " + it.status.label } ?: "",
             ) { onOpenConditions() }
-            SettingRow("교육 · 자격증", "들은 교육과 딴 자격증 (신청 일정 · 이력서에 반영)") { onOpenCredentials() }
+            SettingRow("교육과 자격증", "들은 교육과 딴 자격증 (신청 일정, 이력서에 반영)") { onOpenCredentials() }
         }
 
         // ── 알림 · 음성 ──
@@ -484,7 +484,7 @@ internal fun SettingRow(
                 )
                 sub?.let {
                     Spacer(Modifier.height(2.dp))
-                    Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
                 }
             }
             trailing?.let {

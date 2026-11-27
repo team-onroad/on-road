@@ -45,8 +45,6 @@ fun RoadmapProgressCard(
             "${roadmap.jobName}까지",
             style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
             color = OnRoadColors.TextPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(10.dp))
         ProgressBar(roadmap.progress, Modifier.fillMaxWidth(), height = 5.dp)
@@ -79,11 +77,9 @@ fun RoadmapProgressCard(
                             s.title,
                             style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold),
                             color = if (checked) OnRoadColors.TextTertiary else OnRoadColors.TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                         if (compact) {
-                            Text(s.detail, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(s.detail, style = OnRoadType.Micro, color = OnRoadColors.TextTertiary)
                         }
                     }
                 }

@@ -151,6 +151,9 @@ interface OnRoadService {
     @GET("users/{userId}/policy-roadmap")
     suspend fun getPolicyRoadmap(@Path("userId") userId: String): PolicyRoadmapDto
 
+    @GET("users/{userId}/same-kind/{policyId}")
+    suspend fun getSameKind(@Path("userId") userId: String, @Path("policyId") policyId: String): SameKindGroupDto
+
     @GET("users/{userId}/recommended-policies")
     suspend fun getRecommendedPolicies(@Path("userId") userId: String): List<RecommendedPolicyDto>
 
@@ -223,6 +226,10 @@ interface OnRoadService {
     // 3.20 서류 양식 목록
     @GET("forms/templates")
     suspend fun formTemplates(@Query("stage") stage: String?): FormTemplatesDto
+
+    // 공통 양식 (퇴소 · 재보호 · 보호연장 신청서 등): 정책 없이 form_id 로 시작
+    @GET("forms/common")
+    suspend fun commonForms(): CommonFormListDto
 
     // 3.21 양식 항목
     @GET("forms/templates/{templateId}")
@@ -304,6 +311,9 @@ interface OnRoadService {
     @GET("career/exams")
     suspend fun careerExams(@Query("cert") cert: String): ExamsDto
 
+    @GET("career/certificates")
+    suspend fun careerCertificates(@Query("q") q: String): CertificatesDto
+
     @GET("career/trainings")
     suspend fun careerTrainings(
         @Query("keyword") keyword: String,
@@ -329,6 +339,7 @@ data class UserCreateDto(
     val status: String,
     @SerializedName("d_date") val dDate: String? = null,
     val district: String? = null,
+    @SerializedName("care_type") val careType: String? = null,
 )
 
 data class UserDto(
@@ -352,6 +363,7 @@ data class UserDto(
     val family: List<FamilyMemberDto>? = null,
     @SerializedName("interest_code") val interestCode: String? = null,
     @SerializedName("interest_tags") val interestTags: List<String>? = null,
+    @SerializedName("care_type") val careType: String? = null,
 )
 
 data class FamilyMemberDto(
@@ -367,6 +379,8 @@ data class EligibilityDto(
     val status: String,
     val age: String,
     val region: String,
+    /** 보호 상태: now(퇴소했고 퇴소한 사람이 받는 정책) · after_leave(아직 보호 중인데 퇴소해야 받는 정책) · null */
+    val leave: String? = null,
 )
 
 /** status: null 이면 새로 저장할 때 saved, 이미 저장했으면 그대로 · "receiving" 이면 지금 받고 있음 (3.36). null 은 보내지 않는다(Gson 기본) */
@@ -495,8 +509,41 @@ data class PolicyDetailDto(
     @SerializedName("doc_facts") val docFacts: List<String>? = null,
     /** 같이 보면 좋은 정책 (같은 분야 · 받을 수 있는 정책, 최대 3개) */
     val related: List<DetailRelatedDto>? = null,
+    @SerializedName("same_kind") val sameKind: SameKindDto? = null,
     /** 들어야 받을 수 있는 교육 (settlement · finance · null) */
     @SerializedName("required_education") val requiredEducation: String? = null,
+)
+
+data class SameKindGroupDto(
+    @SerializedName("kind_title") val kindTitle: String,
+    val rule: String,
+    val total: Int,
+    val picked: SameKindPickDto?,
+    val others: List<SameKindRowDto>? = null,
+)
+
+data class SameKindPickDto(
+    @SerializedName("policy_id") val policyId: Long,
+    val name: String,
+    val region: String,
+    @SerializedName("amount_text") val amountText: String?,
+    val reason: String,
+)
+
+data class SameKindRowDto(
+    @SerializedName("policy_id") val policyId: Long,
+    val name: String,
+    val region: String,
+    @SerializedName("amount_text") val amountText: String?,
+    val mine: Boolean = false,
+)
+
+data class SameKindDto(
+    @SerializedName("kind_title") val kindTitle: String,
+    @SerializedName("is_best") val isBest: Boolean,
+    val reason: String,
+    val best: RoadmapAlternativeDto,
+    val others: List<RoadmapAlternativeDto>? = null,
 )
 
 /** 정책 상세의 같이 보면 좋은 정책 (시뮬레이션의 RelatedPolicyDto 와 이름이 겹치지 않게 따로 둔다) */
@@ -591,6 +638,7 @@ data class RecommendedPolicyDto(
     @SerializedName("amount_unit") val amountUnit: String?,
     @SerializedName("amount_value") val amountValue: String?,
     val benefit: String? = null,
+    @SerializedName("pick_reason") val pickReason: String? = null,
 )
 
 data class CareerRoadmapDto(val recommended: String, val paths: List<CareerPathDto>)
@@ -718,6 +766,19 @@ data class ChecklistDocDto(
     /** 이 서류로 연결된 문서 AI 문서 (없으면 null). exported 면 체크를 앱에서 바꿀 수 없다 */
     @SerializedName("document_id") val documentId: Long? = null,
     @SerializedName("document_status") val documentStatus: String? = null,
+    /** 이 서류를 바로 쓸 수 있는 서버 양식 (없으면 빈 목록) */
+    val forms: List<FormLinkDto>? = null,
+)
+
+/** GET /forms/common */
+data class CommonFormListDto(val forms: List<FormLinkDto>?)
+
+/** 서버 양식 (POST /documents 에 form_id 로 시작). notice: 공식 양식 대신 쓰는 양식일 때 안내 */
+data class FormLinkDto(
+    @SerializedName("form_id") val formId: String,
+    val title: String,
+    val checked: Boolean = false,
+    val notice: String? = null,
 )
 
 data class ChecklistStepDto(
@@ -737,6 +798,8 @@ data class ChecklistDto(
     @SerializedName("document_progress") val documentProgress: DocumentProgressDto,
     val steps: List<ChecklistStepDto>,
     @SerializedName("due_date") val dueDate: String? = null,
+    /** 서류 목록에는 없지만 이 정책에 쓰는 양식 */
+    @SerializedName("extra_forms") val extraForms: List<FormLinkDto>? = null,
 )
 
 data class ChecklistItemDto(
