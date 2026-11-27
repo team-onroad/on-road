@@ -113,6 +113,8 @@ object Routes {
     const val SETTINGS = "settings"
     /** 나의 자립 조건 (나이 · 지역 · 상황 · 퇴소일 · 가족 · 확인한 조건) */
     const val MY_CONDITIONS = "settings/my-conditions"
+    /** 이수한 교육 · 취득한 자격증 (3.37) */
+    const val CREDENTIALS = "settings/credentials"
     const val POLICY = "policy?policyId={policyId}&q={q}"
     const val POLICY_DETAIL = "policy/detail/{policyId}"
     const val MY = "my"
@@ -554,9 +556,11 @@ private fun OnRoadGraph(
                 // 계정을 바꾸면 그 계정 단계의 홈으로 새로 연다
                 onSwitched = { nav.navigate(Routes.DASHBOARD) { popUpTo(nav.graph.id) { inclusive = true } } },
                 onOpenConditions = { go(Routes.MY_CONDITIONS) },
+                onOpenCredentials = { go(Routes.CREDENTIALS) },
             )
         }
         screen(Routes.MY_CONDITIONS) { MyConditionsScreen(onBack = back) }
+        screen(Routes.CREDENTIALS) { com.project.on_road.ui.screens.CredentialsScreen(onBack = back) }
 
         screen(
             Routes.POLICY,

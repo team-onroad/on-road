@@ -58,6 +58,19 @@ interface OnRoadService {
     @DELETE("users/{userId}/saved-policies/{policyId}")
     suspend fun unsavePolicy(@Path("userId") userId: String, @Path("policyId") policyId: String): retrofit2.Response<Unit>
 
+    // 이수한 교육 · 취득한 자격증 (3.37)
+    @GET("users/education-options")
+    suspend fun educationOptions(): List<EducationOptionDto>
+
+    @GET("users/{userId}/credentials")
+    suspend fun credentials(@Path("userId") userId: String): CredentialListDto
+
+    @POST("users/{userId}/credentials")
+    suspend fun addCredential(@Path("userId") userId: String, @Body body: CredentialCreateDto): CredentialDto
+
+    @DELETE("users/{userId}/credentials/{credentialId}")
+    suspend fun deleteCredential(@Path("userId") userId: String, @Path("credentialId") credentialId: Long): retrofit2.Response<Unit>
+
     // 분야별로 보기: 내 연령 · 지역에 맞는 정책을 분야 코드로 (검색 · AI 없이, category 없으면 전체)
     @GET("policies")
     suspend fun listPolicies(@Query("user_id") userId: String, @Query("category") category: String?): SearchResponseDto
@@ -356,13 +369,51 @@ data class EligibilityDto(
     val region: String,
 )
 
-data class SavePolicyDto(@SerializedName("policy_id") val policyId: Long)
+/** status: null 이면 새로 저장할 때 saved, 이미 저장했으면 그대로 · "receiving" 이면 지금 받고 있음 (3.36). null 은 보내지 않는다(Gson 기본) */
+data class SavePolicyDto(
+    @SerializedName("policy_id") val policyId: Long,
+    val status: String? = null,
+    @SerializedName("started_on") val startedOn: String? = null,
+)
 
 data class SavedPolicyListDto(val count: Int, val policies: List<SavedPolicyDto>)
 
-data class SavedPolicyDto(val policy: SavedPolicyRefDto)
+/** status: saved · receiving (예전 서버는 없음 → saved) */
+data class SavedPolicyDto(
+    val policy: SavedPolicyRefDto,
+    val status: String? = null,
+    @SerializedName("started_on") val startedOn: String? = null,
+)
 
 data class SavedPolicyRefDto(@SerializedName("policy_id") val policyId: Long)
+
+/** 3.37 교육 · 자격증 등록. code 를 주면 name 은 없어도 된다. null 은 보내지 않는다 */
+data class CredentialCreateDto(
+    val kind: String,
+    val code: String? = null,
+    val name: String? = null,
+    @SerializedName("done_on") val doneOn: String? = null,
+)
+
+data class CredentialDto(
+    @SerializedName("credential_id") val credentialId: Long,
+    val kind: String,
+    val code: String? = null,
+    val name: String,
+    @SerializedName("done_on") val doneOn: String? = null,
+)
+
+data class CredentialListDto(val count: Int, val credentials: List<CredentialDto>)
+
+data class EducationOptionDto(val code: String, val name: String, val description: String)
+
+data class RoadmapEducationDto(
+    val code: String,
+    val name: String,
+    val done: Boolean,
+    @SerializedName("done_on") val doneOn: String? = null,
+    val note: String,
+)
 
 data class SearchRequestDto(
     @SerializedName("user_id") val userId: String,
@@ -444,6 +495,8 @@ data class PolicyDetailDto(
     @SerializedName("doc_facts") val docFacts: List<String>? = null,
     /** 같이 보면 좋은 정책 (같은 분야 · 받을 수 있는 정책, 최대 3개) */
     val related: List<DetailRelatedDto>? = null,
+    /** 들어야 받을 수 있는 교육 (settlement · finance · null) */
+    @SerializedName("required_education") val requiredEducation: String? = null,
 )
 
 /** 정책 상세의 같이 보면 좋은 정책 (시뮬레이션의 RelatedPolicyDto 와 이름이 겹치지 않게 따로 둔다) */
@@ -470,6 +523,11 @@ data class RoadmapSummaryDto(
     @SerializedName("once_won") val onceWon: Long,
     @SerializedName("policy_count") val policyCount: Int,
     @SerializedName("match_count") val matchCount: Int,
+    // 받고 있는 정책 (3.36). 예전 서버는 없음 → 0
+    @SerializedName("receiving_count") val receivingCount: Int = 0,
+    @SerializedName("receiving_monthly_won") val receivingMonthlyWon: Long = 0,
+    @SerializedName("new_monthly_won") val newMonthlyWon: Long = 0,
+    @SerializedName("new_once_won") val newOnceWon: Long = 0,
 )
 
 data class RoadmapStageDto(val stage: String, val title: String, val items: List<RoadmapItemDto>)
@@ -491,6 +549,11 @@ data class RoadmapItemDto(
     @SerializedName("kind_title") val kindTitle: String? = null,
     @SerializedName("pick_reason") val pickReason: String? = null,
     val alternatives: List<RoadmapAlternativeDto>? = null,
+    /** 사용자가 받는 중으로 표시한 정책 (3.36) */
+    val receiving: Boolean = false,
+    @SerializedName("started_on") val startedOn: String? = null,
+    /** 들어야 받을 수 있는 교육과 이수 여부 (3.37) */
+    val education: RoadmapEducationDto? = null,
 )
 
 data class RoadmapAlternativeDto(

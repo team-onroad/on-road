@@ -1190,7 +1190,15 @@ private fun JobTabContent(
     if (certs.isNotEmpty()) {
         DetailSection("도움 되는 자격증") {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                certs.take(6).forEach { OnRoadTag(it, textStyle = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium)) }
+                LaunchedEffect(Unit) { com.project.on_road.data.CredentialStore.refresh() }
+                certs.take(6).forEach { c ->
+                    // 이미 딴 자격증 (설정 > 교육 · 자격증)
+                    if (com.project.on_road.data.CredentialStore.holds(c)) {
+                        OnRoadTag("$c · 취득함", style = TagStyle.PrimarySoft, textStyle = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium))
+                    } else {
+                        OnRoadTag(c, textStyle = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium))
+                    }
+                }
             }
         }
     }

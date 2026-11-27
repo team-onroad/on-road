@@ -251,6 +251,39 @@ class RemoteOnRoadApi(
         savedCache.clear()
     }
 
+    override suspend fun setReceiving(userId: String, policyId: String, receiving: Boolean) {
+        val id = policyId.toLongOrNull() ?: throw ApiException(404, "POLICY_NOT_FOUND", "정책을 찾을 수 없습니다.")
+        Network.call { service.savePolicy(userId, SavePolicyDto(id, status = if (receiving) "receiving" else "saved")) }
+        // 받는 중으로 바꾸면 관심 정책에도 담긴다 (서버도 같은 저장 줄)
+        session()?.let { it.savedPolicyIds = it.savedPolicyIds + policyId }
+        savedCache.clear()
+    }
+
+    override suspend fun getReceivingPolicyIds(userId: String): Set<String> =
+        Network.call { service.savedPolicies(userId) }.policies
+            .filter { it.status == "receiving" }
+            .map { it.policy.policyId.toString() }
+            .toSet()
+
+    // ---------------- 교육 이수 · 자격증 (3.37) ----------------
+
+    override suspend fun getCredentials(userId: String): List<com.project.on_road.data.Credential> =
+        Network.call { service.credentials(userId) }.credentials.map { it.toCredential() }
+
+    override suspend fun addCredential(
+        userId: String, kind: String, name: String?, code: String?, doneOn: LocalDate?,
+    ): com.project.on_road.data.Credential =
+        Network.call { service.addCredential(userId, CredentialCreateDto(kind, code, name, doneOn?.toString())) }.toCredential()
+
+    override suspend fun deleteCredential(userId: String, credentialId: Long) {
+        Network.call {
+            service.deleteCredential(userId, credentialId).also { if (!it.isSuccessful) throw retrofit2.HttpException(it) }
+        }
+    }
+
+    override suspend fun getEducationOptions(): List<com.project.on_road.data.EducationOption> =
+        Network.call { service.educationOptions() }.map { com.project.on_road.data.EducationOption(it.code, it.name, it.description) }
+
     /** 홈 · 비교 · 서류가 여러 번 부르니 1분 동안 다시 쓴다 (담기 · 빼기 하면 바로 비움) */
     private val savedCache = MemoCache<String, Set<String>>(60 * 1000L)
 
@@ -650,6 +683,7 @@ private fun PolicyDetailDto.toPolicy() = Policy(
     applyDeadline = applyDeadline,
     applySteps = applySteps.orEmpty(),
     docFacts = docFacts.orEmpty(),
+    requiredEducation = requiredEducation,
 )
 
 private fun String?.toDate(): LocalDate? = this?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
@@ -660,6 +694,10 @@ internal fun PolicyRoadmapDto.toRoadmap() = com.project.on_road.data.PolicyRoadm
     monthlyWon = summary.monthlyWon,
     onceWon = summary.onceWon,
     matchCount = summary.matchCount,
+    receivingCount = summary.receivingCount,
+    receivingMonthlyWon = summary.receivingMonthlyWon,
+    newMonthlyWon = summary.newMonthlyWon,
+    newOnceWon = summary.newOnceWon,
     stages = stages.map { s ->
         com.project.on_road.data.RoadmapStage(s.stage, s.title, s.items.map { i ->
             com.project.on_road.data.RoadmapItem(
@@ -672,6 +710,11 @@ internal fun PolicyRoadmapDto.toRoadmap() = com.project.on_road.data.PolicyRoadm
                 pickReason = i.pickReason,
                 alternatives = i.alternatives.orEmpty().map { a ->
                     com.project.on_road.data.RoadmapAlternative(a.policyId.toString(), a.name, a.region, a.amountText)
+                },
+                receiving = i.receiving,
+                startedOn = i.startedOn.toDate(),
+                education = i.education?.let { e ->
+                    com.project.on_road.data.RoadmapEducation(e.code, e.name, e.done, e.doneOn.toDate(), e.note)
                 },
             )
         })
@@ -947,3 +990,7 @@ private fun PolicySummaryDto.toModel(): PolicySummary? {
     val list = sections.map { SummarySection(it.label, it.items.filter { i -> i.isNotBlank() }) }.filter { it.items.isNotEmpty() }
     return if (list.isEmpty()) null else PolicySummary(list, notice?.takeIf { it.isNotBlank() }, verified)
 }
+
+private fun CredentialDto.toCredential() = com.project.on_road.data.Credential(
+    credentialId, kind, code, name, doneOn?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+)

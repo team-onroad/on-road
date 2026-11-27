@@ -31,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -96,6 +97,10 @@ object PolicyCache {
 /** 관심 정책: 검색 화면과 상세 화면이 같은 목록을 본다 */
 object PolicySaves {
     val ids = mutableStateListOf<String>()
+    /** 지금 받고 있다고 표시한 정책 (3.36). 받는 중이면 ids 에도 들어 있다 */
+    val receiving = mutableStateListOf<String>()
+    /** 받는 중 목록을 이 계정으로 한 번 받았는지 */
+    var receivingLoadedFor: String? = null
 }
 
 class PolicyDetailViewModel : ViewModel() {
@@ -124,6 +129,11 @@ class PolicyDetailViewModel : ViewModel() {
             if (PolicySaves.ids.isEmpty()) {
                 runCatching { api.getSavedPolicyIds(userId) }.onSuccess { PolicySaves.ids.clear(); PolicySaves.ids.addAll(it) }
             }
+            if (PolicySaves.receivingLoadedFor != userId) {
+                runCatching { api.getReceivingPolicyIds(userId) }.onSuccess {
+                    PolicySaves.receiving.clear(); PolicySaves.receiving.addAll(it); PolicySaves.receivingLoadedFor = userId
+                }
+            }
         }
         // 받아 둔 회원정보로 내 조건 줄을 바로 그리고, 뒤에서 새로 받아 맞춘다
         viewModelScope.launch { com.project.on_road.data.ProfileStore.refresh()?.let { profile = it } }
@@ -146,16 +156,40 @@ class PolicyDetailViewModel : ViewModel() {
         load(id)
     }
 
+    /** 지금 받고 있어요 켜기 · 끄기. 켜면 관심 정책에도 담기고, 끄면 관심 정책으로 남는다. 로드맵을 다시 받는다 */
+    fun toggleReceiving(id: String) {
+        val on = id !in PolicySaves.receiving
+        val wasSaved = id in PolicySaves.ids
+        if (on) { PolicySaves.receiving.add(id); if (!wasSaved) PolicySaves.ids.add(id) } else PolicySaves.receiving.remove(id)
+        OnRoadToast.show(if (on) "받고 있는 지원으로 표시했어요" else "받고 있는 지원에서 뺐어요")
+        viewModelScope.launch {
+            saveLock.withLock {
+                val result = com.project.on_road.data.BackgroundWork.write { api.setReceiving(userId, id, on) }.await()
+                result.exceptionOrNull()?.let {
+                    // 화면만 바뀌고 서버엔 안 들어갔으면 되돌린다 (그 사이 다시 누르지 않았을 때만)
+                    if ((id in PolicySaves.receiving) == on) {
+                        if (on) { PolicySaves.receiving.remove(id); if (!wasSaved) PolicySaves.ids.remove(id) } else PolicySaves.receiving.add(id)
+                    }
+                    OnRoadToast.show(it.userMessage("받고 있는 지원 표시를 바꾸지 못했어요."))
+                } ?: com.project.on_road.data.PlanData.refreshRoadmap()
+            }
+        }
+    }
+
     fun toggleSave(id: String) {
         val save = id !in PolicySaves.ids
         if (save) PolicySaves.ids.add(id) else PolicySaves.ids.remove(id)
+        // 관심 정책에서 빼면 서버 저장 줄이 지워져 받는 중 표시도 함께 사라진다
+        val wasReceiving = !save && PolicySaves.receiving.remove(id)
         OnRoadToast.show(if (save) "관심 정책에 담았어요" else "관심 정책에서 뺐어요")
         // 빠르게 여러 번 눌러도 누른 순서대로 서버에 보낸다 (마지막 상태가 서버와 같게)
         viewModelScope.launch {
             saveLock.withLock {
                 com.project.on_road.data.BackgroundWork.write { api.savePolicy(userId, id, save) }.await().onFailure {
                     // 화면에는 담겼는데 서버엔 저장되지 않았으면 되돌린다 (그 사이 다시 누르지 않았을 때만)
-                    if ((id in PolicySaves.ids) == save) { if (save) PolicySaves.ids.remove(id) else PolicySaves.ids.add(id) }
+                    if ((id in PolicySaves.ids) == save) {
+                        if (save) PolicySaves.ids.remove(id) else { PolicySaves.ids.add(id); if (wasReceiving) PolicySaves.receiving.add(id) }
+                    }
                     OnRoadToast.show(it.userMessage(if (save) "관심 정책에 담지 못했어요." else "관심 정책에서 빼지 못했어요."))
                 }
             }
@@ -232,6 +266,8 @@ fun PolicyDetailScreen(
                         onWrite = { onWrite(pol.id) },
                         onAsk = { onAsk("${pol.name} 신청하려면 어떻게 해야 해?") },
                         onOpenPolicy = onOpenPolicy,
+                        receiving = policyId in PolicySaves.receiving,
+                        onToggleReceiving = { tick(); vm.toggleReceiving(policyId) },
                     )
                 }
             }
@@ -263,6 +299,8 @@ private fun PolicyDetailBody(
     onWrite: () -> Unit,
     onAsk: () -> Unit,
     onOpenPolicy: (String) -> Unit,
+    receiving: Boolean = false,
+    onToggleReceiving: () -> Unit = {},
 ) {
     // ── 머리: 분야 · 이름 · 기관 · 기준일 ──
     OnRoadTag(policy.category, style = TagStyle.Neutral)
@@ -278,6 +316,12 @@ private fun PolicyDetailBody(
     Spacer(Modifier.height(DetailSpace.SummaryTop))
     // 상세 · 내 정보가 늦게 오면 그 묶음만 부드럽게 다시 나타난다 (뚝 바뀌지 않게)
     Appear(profile != null, policy.applyWays.size, policy.amountWon) { SummaryCard(policy, profile) }
+    Spacer(Modifier.height(DetailSpace.CardGap))
+    ReceivingCard(receiving, onToggleReceiving)
+    policy.requiredEducation?.let { code ->
+        Spacer(Modifier.height(DetailSpace.CardGap))
+        EducationCard(code)
+    }
 
     Spacer(Modifier.height(DetailSpace.Section))
     Appear(profile != null, policy.conditions.size, policy.exclusions.size) { ConditionSection(policy, profile, onWrite, onAsk) }
@@ -328,6 +372,86 @@ private fun DataCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = nul
             .padding(horizontal = DetailSpace.CardH, vertical = DetailSpace.CardV),
         content = content,
     )
+}
+
+/* ── 지금 받고 있어요 ────────────────────────────────────────────── */
+
+/** 이미 받고 있는 지원이면 켠다. 맞춤 신청 로드맵이 이 정책을 '받고 있어요'로 두고, 더 받을 수 있는 것만 따로 센다 */
+@Composable
+private fun ReceivingCard(receiving: Boolean, onToggle: () -> Unit) {
+    DataCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    if (receiving) "지금 받고 있는 지원이에요" else "이미 받고 있는 지원인가요?",
+                    style = OnRoadType.Body2.copy(fontWeight = FontWeight.SemiBold),
+                    color = OnRoadColors.TextPrimary,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    if (receiving) "로드맵에서 새로 신청할 지원과 따로 보여 줘요" else "켜 두면 로드맵이 더 받을 수 있는 지원만 골라 줘요",
+                    style = OnRoadType.Caption,
+                    color = OnRoadColors.TextTertiary,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            OnRoadSwitch(checked = receiving, onCheckedChange = { onToggle() })
+        }
+    }
+}
+
+/**
+ * 들어야 받을 수 있는 교육 (자립정착금 의무교육 · 자립수당 자립교육, 3.37).
+ * 이수했다고 넣으면 신청 일정(로드맵)에도 '이수함'으로 보인다. 날짜 · 다른 교육은 설정 > 교육 · 자격증에서
+ */
+@Composable
+private fun EducationCard(code: String) {
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { com.project.on_road.data.CredentialStore.refresh() }
+    val name = com.project.on_road.data.DEFAULT_EDUCATION_OPTIONS.firstOrNull { it.code == code }?.name ?: "의무교육"
+    val done = com.project.on_road.data.CredentialStore.items?.firstOrNull { it.isEducation && it.code == code }
+    var saving by remember { mutableStateOf(false) }
+    DataCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    if (done != null) "${name}을 이수했어요" else "${name}을 들어야 받아요",
+                    style = OnRoadType.Body2.copy(fontWeight = FontWeight.SemiBold),
+                    color = OnRoadColors.TextPrimary,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    when {
+                        done?.doneOn != null -> "${done.doneOn} 이수 · 확인서를 신청 서류와 같이 내요"
+                        done != null -> "확인서를 신청 서류와 같이 내요"
+                        code == "settlement" -> "자립지원전담기관에 교육 일정을 물어보세요"
+                        else -> "온라인 자립교육을 듣고 이수증을 받아 두세요"
+                    },
+                    style = OnRoadType.Caption,
+                    color = OnRoadColors.TextTertiary,
+                )
+            }
+            if (done == null && com.project.on_road.data.CredentialStore.items != null) {
+                Spacer(Modifier.width(12.dp))
+                OnRoadButton(
+                    text = "들었어요",
+                    onClick = {
+                        if (saving) return@OnRoadButton
+                        saving = true
+                        scope.launch {
+                            com.project.on_road.data.CredentialStore.add(com.project.on_road.data.Credential.EDUCATION, null, code, null)
+                                .onFailure { OnRoadToast.show("넣지 못했어요. 인터넷 연결을 확인해 주세요.") }
+                            saving = false
+                        }
+                    },
+                    variant = ButtonVariant.Outline,
+                    height = 40.dp,
+                    textStyle = OnRoadType.Body3,
+                    loading = saving,
+                )
+            }
+        }
+    }
 }
 
 /* ── 받는 금액 요약 ─────────────────────────────────────────────── */

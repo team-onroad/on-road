@@ -155,6 +155,8 @@ data class Policy(
     val applySteps: List<String> = emptyList(),
     /** 필요 서류를 짧게 정리한 구절 (상세에서만). 괄호 안은 언제 내는지. 비어 있으면 requiredDocs */
     val docFacts: List<String> = emptyList(),
+    /** 들어야 받을 수 있는 교육 (settlement: 자립정착금 의무교육 · finance: 자립수당 자립교육). 상세에서만 */
+    val requiredEducation: String? = null,
 )
 
 /**
@@ -199,6 +201,11 @@ data class PolicyRoadmap(
     val onceWon: Long,
     val matchCount: Int,
     val stages: List<RoadmapStage>,
+    /** 받고 있는 정책 수 · 그 월 금액, 받고 있는 것 말고 더 받을 수 있는 월 · 1회 금액 (3.36) */
+    val receivingCount: Int = 0,
+    val receivingMonthlyWon: Long = 0,
+    val newMonthlyWon: Long = 0,
+    val newOnceWon: Long = 0,
 )
 
 data class RoadmapStage(val stage: String, val title: String, val items: List<RoadmapItem>)
@@ -229,7 +236,28 @@ data class RoadmapItem(
     val pickReason: String? = null,
     /** 같은 종류의 다른 정책 (받는 돈이 큰 순서) */
     val alternatives: List<RoadmapAlternative> = emptyList(),
+    /** 지금 받고 있다고 표시한 정책 (새로 신청할 일정에는 넣지 않는다) */
+    val receiving: Boolean = false,
+    val startedOn: LocalDate? = null,
+    /** 들어야 받을 수 있는 교육 (자립정착금 의무교육 등)과 이수 여부. 교육 조건이 없으면 null */
+    val education: RoadmapEducation? = null,
 )
+
+/** 로드맵 항목의 의무교육 (3.37). note: "자립지원전담기관 의무교육을 먼저 들어야 받을 수 있어요" */
+data class RoadmapEducation(val code: String, val name: String, val done: Boolean, val doneOn: LocalDate?, val note: String)
+
+/** 이수한 교육 · 취득한 자격증 (3.37). kind: education · certificate, code: settlement · finance (정해진 교육) · null */
+data class Credential(val id: Long, val kind: String, val code: String?, val name: String, val doneOn: LocalDate?) {
+    val isEducation: Boolean get() = kind == EDUCATION
+
+    companion object {
+        const val EDUCATION = "education"
+        const val CERTIFICATE = "certificate"
+    }
+}
+
+/** 정책 조건과 이어지는 교육 (교육 추가에서 고름) */
+data class EducationOption(val code: String, val name: String, val description: String)
 
 data class RoadmapAlternative(val policyId: String, val name: String, val region: String, val amountText: String?)
 

@@ -198,12 +198,56 @@ class FakeOnRoadApi(
     override suspend fun savePolicy(userId: String, policyId: String, saved: Boolean) {
         latency(200)
         val set = this.saved.getOrPut(userId) { mutableSetOf() }
-        if (saved) set.add(policyId) else set.remove(policyId)
+        if (saved) set.add(policyId) else { set.remove(policyId); receiving[userId]?.remove(policyId) }
     }
 
     override suspend fun getSavedPolicyIds(userId: String): Set<String> {
         latency(200)
         return saved[userId]?.toSet().orEmpty()
+    }
+
+    /** 받고 있다고 표시한 정책 (가짜 모드는 앱이 켜져 있는 동안만) */
+    private val receiving = mutableMapOf<String, MutableSet<String>>()
+
+    override suspend fun setReceiving(userId: String, policyId: String, receiving: Boolean) {
+        latency(200)
+        saved.getOrPut(userId) { mutableSetOf() }.add(policyId)
+        val set = this.receiving.getOrPut(userId) { mutableSetOf() }
+        if (receiving) set.add(policyId) else set.remove(policyId)
+    }
+
+    override suspend fun getReceivingPolicyIds(userId: String): Set<String> {
+        latency(200)
+        return receiving[userId]?.toSet().orEmpty()
+    }
+
+    /** 이수한 교육 · 취득한 자격증 (가짜 모드는 앱이 켜져 있는 동안만) */
+    private val credentials = mutableMapOf<String, MutableList<Credential>>()
+    private var credentialSeq = 0L
+
+    override suspend fun getCredentials(userId: String): List<Credential> {
+        latency(200)
+        return credentials[userId]?.toList().orEmpty()
+    }
+
+    override suspend fun addCredential(userId: String, kind: String, name: String?, code: String?, doneOn: LocalDate?): Credential {
+        latency(200)
+        val label = name?.trim()?.takeIf { it.isNotEmpty() }
+            ?: DEFAULT_EDUCATION_OPTIONS.firstOrNull { it.code == code }?.name
+            ?: throw IllegalArgumentException("이름을 넣어 주세요.")
+        val list = credentials.getOrPut(userId) { mutableListOf() }
+        val i = list.indexOfFirst { it.kind == kind && it.name == label }
+        if (i >= 0) {
+            val updated = list[i].copy(doneOn = doneOn ?: list[i].doneOn, code = code ?: list[i].code)
+            list[i] = updated
+            return updated
+        }
+        return Credential(++credentialSeq, kind, code, label, doneOn).also { list.add(0, it) }
+    }
+
+    override suspend fun deleteCredential(userId: String, credentialId: Long) {
+        latency(200)
+        credentials[userId]?.removeAll { it.id == credentialId }
     }
 
     // ---------------- 체크리스트 ----------------

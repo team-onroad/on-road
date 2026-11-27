@@ -58,6 +58,25 @@ interface OnRoadApi {
     suspend fun savePolicy(userId: String, policyId: String, saved: Boolean)
     suspend fun getSavedPolicyIds(userId: String): Set<String>
 
+    /**
+     * 지금 받고 있는 정책 표시 (3.36). 받는 중이면 관심 정책에도 담긴다.
+     * receiving = false 면 관심 정책(saved)으로 되돌린다 (빼려면 savePolicy(…, false))
+     */
+    suspend fun setReceiving(userId: String, policyId: String, receiving: Boolean) {}
+    /** 받고 있다고 표시한 정책 id */
+    suspend fun getReceivingPolicyIds(userId: String): Set<String> = emptySet()
+
+    // ───── 교육 이수 · 자격증 (3.37) ─────
+
+    /** 최근 등록 순 */
+    suspend fun getCredentials(userId: String): List<Credential> = emptyList()
+    /** kind: education · certificate. code(정해진 교육)를 주면 name 은 없어도 된다. 같은 종류 · 이름이 있으면 날짜만 바뀐다 */
+    suspend fun addCredential(userId: String, kind: String, name: String?, code: String? = null, doneOn: java.time.LocalDate? = null): Credential =
+        throw UnsupportedOperationException("교육 · 자격증 등록은 서버 연결이 필요해요")
+    suspend fun deleteCredential(userId: String, credentialId: Long) {}
+    /** 정책 조건과 이어지는 교육 (자립정착금 의무교육 · 자립수당 자립교육) */
+    suspend fun getEducationOptions(): List<EducationOption> = DEFAULT_EDUCATION_OPTIONS
+
     // ───── 체크리스트 (3.4, 3.9 ~ 3.11) ─────
 
     /** 체크리스트 목록 (홈 3.4 의 checklists 전체) */
@@ -418,3 +437,9 @@ internal object NextActionRules {
         return actions.distinctBy { it.title }.sortedBy { it.priority }
     }
 }
+
+/** 서버 목록을 못 받을 때 쓰는 정해진 교육 (서버 app/services/credentials.py 와 같은 값) */
+val DEFAULT_EDUCATION_OPTIONS = listOf(
+    EducationOption("settlement", "자립정착금 의무교육", "자립지원전담기관에서 듣는 금융 · 주거 자립교육이에요. 확인서를 내야 정착금이 나와요"),
+    EducationOption("finance", "자립수당 자립교육", "서민금융진흥원 · 아동권리보장원 온라인 자립교육이에요. 이수증을 내야 자립수당을 신청할 수 있어요"),
+)

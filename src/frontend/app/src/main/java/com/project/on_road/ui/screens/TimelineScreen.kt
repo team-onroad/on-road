@@ -712,9 +712,11 @@ private val categoryWord = mapOf(
 private fun CashCard(r: com.project.on_road.data.PolicyRoadmap) {
     if (r.monthlyWon <= 0 && r.onceWon <= 0) return
     val others = r.stages.flatMap { it.items }
-        .filter { it.eligibility == "match" && it.amountText == null }
+        .filter { it.eligibility == "match" && it.amountText == null && !it.receiving }
         .mapNotNull { categoryWord[it.category] }
         .distinct()
+    // 받고 있다고 표시한 지원이 있으면: 지금 받는 돈과 더 받을 수 있는 돈을 나눠 보여 준다 (3.36)
+    val split = r.receivingCount > 0
     Spacer(Modifier.height(20.dp))
     OnRoadCard(
         Modifier.fillMaxWidth(),
@@ -723,21 +725,42 @@ private fun CashCard(r: com.project.on_road.data.PolicyRoadmap) {
         shape = OnRoadShapes.Item,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
     ) {
-        Text("현금으로 받는 지원", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
-        Spacer(Modifier.height(2.dp))
-        Text(
-            // 같은 종류(자립수당 · 정착금)는 하나만 센 최대 금액
-            if (r.monthlyWon > 0) "최대 월 ${wonText(r.monthlyWon)}" else "최대 ${wonText(r.onceWon)}",
-            style = OnRoadType.Title1,
-            color = OnRoadColors.TextPrimary,
-        )
-        val sub = listOfNotNull(
-            if (r.monthlyWon > 0 && r.onceWon > 0) "한 번에 받는 돈 최대 ${wonText(r.onceWon)}" else null,
-            if (others.isNotEmpty()) "그 밖에 ${others.joinToString(" · ")} 지원" else null,
-        )
-        if (sub.isNotEmpty()) {
+        if (split) {
+            Text("더 받을 수 있는 지원", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                when {
+                    r.newMonthlyWon > 0 -> "월 ${wonText(r.newMonthlyWon)} 더"
+                    r.newOnceWon > 0 -> "${wonText(r.newOnceWon)} 더"
+                    else -> "현금 지원은 다 받고 있어요"
+                },
+                style = OnRoadType.Title1,
+                color = OnRoadColors.TextPrimary,
+            )
+            val sub = listOfNotNull(
+                if (r.receivingMonthlyWon > 0) "지금 받는 돈 월 ${wonText(r.receivingMonthlyWon)}" else "받고 있는 지원 ${r.receivingCount}개",
+                if (r.newMonthlyWon > 0 && r.newOnceWon > 0) "한 번에 받는 돈 ${wonText(r.newOnceWon)}" else null,
+                if (others.isNotEmpty()) "그 밖에 ${others.joinToString(" · ")} 지원" else null,
+            )
             Spacer(Modifier.height(4.dp))
             Text(sub.joinToString(" · "), style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+        } else {
+            Text("현금으로 받는 지원", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                // 같은 종류(자립수당 · 정착금)는 하나만 센 최대 금액
+                if (r.monthlyWon > 0) "최대 월 ${wonText(r.monthlyWon)}" else "최대 ${wonText(r.onceWon)}",
+                style = OnRoadType.Title1,
+                color = OnRoadColors.TextPrimary,
+            )
+            val sub = listOfNotNull(
+                if (r.monthlyWon > 0 && r.onceWon > 0) "한 번에 받는 돈 최대 ${wonText(r.onceWon)}" else null,
+                if (others.isNotEmpty()) "그 밖에 ${others.joinToString(" · ")} 지원" else null,
+            )
+            if (sub.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(sub.joinToString(" · "), style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+            }
         }
     }
 }

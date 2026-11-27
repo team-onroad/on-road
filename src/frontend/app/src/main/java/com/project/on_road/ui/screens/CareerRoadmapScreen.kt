@@ -85,7 +85,9 @@ class CareerRoadmapViewModel : ViewModel() {
                     }.getOrNull() else null
                     put(TagInfo(t, detail))
                     // 국가 자격만 큐넷 일정이 있다 (민간 자격은 빼고 찾는다)
-                    val certs = detail?.certificates.orEmpty().filterNot { "민간" in it }
+                    // 이미 딴 자격증은 빼고 다음 시험을 찾는다
+                    com.project.on_road.data.CredentialStore.refresh()
+                    val certs = detail?.certificates.orEmpty().filterNot { "민간" in it || com.project.on_road.data.CredentialStore.holds(it) }
                     launch {
                         if (certs.isNotEmpty()) {
                             val ex = AppContainer.careerInfo.exams(certs)
@@ -353,9 +355,21 @@ private fun PolicyPlanCard(item: RoadmapItem, onOpen: () -> Unit) {
                 Text(it, style = OnRoadType.Body2.copy(fontWeight = FontWeight.SemiBold), color = OnRoadColors.TextPrimary)
             }
         }
+        val edu = item.education?.takeIf { !item.receiving }
+        if (item.receiving || edu != null) {
+            // 이미 받고 있는 지원 (정책 상세에서 표시, 3.36) · 들어야 받는 의무교육 (3.37)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (item.receiving) OnRoadTag("받고 있어요", style = TagStyle.PrimarySoft)
+                edu?.let { e ->
+                    if (e.done) OnRoadTag("교육 이수함", style = TagStyle.PrimarySoft)
+                    else OnRoadTag("의무교육 먼저", style = TagStyle.Neutral)
+                }
+            }
+        }
         Spacer(Modifier.height(3.dp))
         Text(
-            listOfNotNull(item.name.takeIf { item.kindTitle != null }, deadline(item) ?: item.benefit?.takeIf { item.amountText == null }).joinToString("\n")
+            listOfNotNull(item.name.takeIf { item.kindTitle != null }, deadline(item).takeIf { !item.receiving } ?: item.benefit?.takeIf { item.amountText == null }).joinToString("\n")
                 .ifBlank { item.applyNote },
             style = OnRoadType.Caption,
             color = OnRoadColors.TextTertiary,
