@@ -35,6 +35,7 @@ WORK24_DUTY_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInf
 
 SOURCES = {
     "exams": "큐넷 국가자격 시험일정",
+    "certificates": "큐넷 국가자격 종목",
     "trainings": "고용24 국민내일배움카드 훈련과정",
     "job_info": "커리어넷 직업백과",
     "job_info_work24": "고용24 직업정보",
@@ -190,6 +191,27 @@ def find_cert_code(cert: str) -> tuple[str, str, str] | None:
         return codes[key]
     starts = sorted(k for k in codes if k.startswith(key))
     return codes[starts[0]] if starts else None
+
+
+QUAL_KIND = {"T": "국가기술", "S": "국가전문"}
+
+
+def certificates(q: str, limit: int = 10) -> dict[str, Any]:
+    """자격증 이름 검색 (교육 · 자격증 화면의 '자격증 추가'). 큐넷 종목 목록(하루 캐시)에서 이름에 q 가 든 종목.
+    이름이 같은 것 → 앞부분이 같은 것 → 짧은 이름 순"""
+    if not get_settings().qnet_service_key:
+        return _missing_key("certificates")
+    key = _norm_cert(q)
+    if not key:
+        return _result("certificates", url="https://www.q-net.or.kr")
+    try:
+        codes = _qnet_codes()
+    except ExternalError as e:
+        return _failed("certificates", str(e) or None)
+    hits = [v for k, v in codes.items() if key in k]
+    hits.sort(key=lambda v: (_norm_cert(v[1]) != key, not _norm_cert(v[1]).startswith(key), len(v[1]), v[1]))
+    items = [{"code": code, "name": name, "kind": QUAL_KIND.get(gb)} for code, name, gb in hits[:limit]]
+    return _result("certificates", items, total=len(hits), url="https://www.q-net.or.kr")
 
 
 def _qnet_page(year: int, page: int, qualgb: str = "T", jm_cd: str | None = None) -> tuple[list[dict[str, Any]], int]:

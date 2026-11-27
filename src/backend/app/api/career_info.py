@@ -18,6 +18,11 @@ def get_exams(cert: Name, today: Today) -> dict[str, Any]:
     return external.exam_schedule(cert, today)
 
 
+@router.get("/certificates", summary="자격증 이름 검색 (큐넷 국가자격 종목)")
+def get_certificates(q: Name) -> dict[str, Any]:
+    return external.certificates(q)
+
+
 @router.get("/trainings", summary="국민내일배움카드 훈련과정 (고용24)")
 def get_trainings(
     keyword: Name,
