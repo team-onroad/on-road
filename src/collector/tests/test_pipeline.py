@@ -39,7 +39,8 @@ def test_collect_failure_stops_and_keeps_files(policies):
 def test_full_run_order_and_report(policies, monkeypatch):
     monkeypatch.setattr(pipeline, "step_convert", lambda *a, **k: pipeline.Step("쉬운 말 변환", True, "할 일 없음"))
     steps = pipeline.run_pipeline(TODAY, collect=_ok_collect, policies_path=policies)
-    assert [s.name for s in steps] == ["수집", "쉬운 말 변환", "노출 칸 반영", "시드 검사"] and all(s.ok for s in steps)
+    assert [s.name for s in steps] == ["수집", "쉬운 말 변환", "노출 칸 반영", "시드 검사", "신청 시기"] and all(s.ok for s in steps)
+    assert json.loads((policies.parent / "apply_schedule.json").read_text(encoding="utf-8"))  # 정책 파일 옆에 신청 시기
     text = pipeline.report(steps, TODAY, dry_run=False)
     assert "결과: 성공" in text and "새로 들어옴: G999" in text
     json.loads(policies.read_text(encoding="utf-8-sig"))  # 저장해도 올바른 정책 파일
@@ -57,6 +58,7 @@ def test_dry_run_writes_nothing(policies, monkeypatch):
     steps = pipeline.run_pipeline(TODAY, dry_run=True, collect=_ok_collect, policies_path=policies)
     assert "새로" in steps[2].summary and "(미리보기)" in steps[2].summary
     assert policies.read_bytes() == before
+    assert not (policies.parent / "apply_schedule.json").exists()
 
 
 def test_convert_respects_cost_cap(monkeypatch):
@@ -97,3 +99,34 @@ def test_facts_only_retry_is_counted_as_passed(monkeypatch):
     step = pipeline.step_convert(False, 3000, 4, convert=lambda *a: [
         {"policy_key": "G1", "facts": False, "levels": {}, "error": None}])
     assert "통과 0" in step.summary and "실패 1" in step.summary
+
+
+def test_cost_cap_counts_each_policy(monkeypatch):
+    # 앞쪽 정책이 비싸면(사실 + 단계 셋 = 380원) 평균으로 나눈 개수보다 적게 해야 상한을 지킨다
+    todo = [batch.Plan({"policy_key": "G1"}, True, ["L5", "L6", "L7"], ["사실: 없음"]),
+            *[batch.Plan({"policy_key": f"G{i}"}, False, ["L6"], ["L6: 없음"]) for i in range(2, 10)]]
+    monkeypatch.setattr(batch, "select", lambda *a, **k: [p.policy for p in todo])
+    monkeypatch.setattr(batch, "run", lambda *a, **k: (todo, []))
+    calls = []
+
+    def fake_convert(policies, workers, limit):
+        calls.append(limit)
+        return [{"policy_key": p.policy["policy_key"], "levels": {"L6": True}, "error": None} for p in todo[:limit]]
+
+    step = pipeline.step_convert(False, max_won=500, workers=4, convert=fake_convert)
+    assert calls == [2] and "약 480원" in step.summary  # 380 + 100 (평균이면 500 // 131 = 3개 → 580원)
+
+
+def test_scholarship_step_is_skipped_on_error_and_rest_continues(policies, monkeypatch):
+    monkeypatch.setattr(pipeline, "step_convert", lambda *a, **k: pipeline.Step("쉬운 말 변환", True, "할 일 없음"))
+
+    def down(**_):
+        raise RuntimeError("HTTP 401 활용신청 안 됨")
+
+    steps = pipeline.run_pipeline(TODAY, collect=_ok_collect, policies_path=policies, scholarships=down)
+    names = [s.name for s in steps]
+    assert names == ["수집", "쉬운 말 변환", "노출 칸 반영", "시드 검사", "장학금", "신청 시기"] and all(s.ok for s in steps)
+    assert "건너뜀" in steps[4].summary
+    # --reprocess 는 API 를 안 부르므로 장학금도 하지 않는다
+    steps = pipeline.run_pipeline(TODAY, reprocess=True, collect=_ok_collect, policies_path=policies, scholarships=down)
+    assert "장학금" not in [s.name for s in steps]

@@ -672,3 +672,20 @@ def test_normalize_amount_units():
     assert n("5,500원") == "5,500원"
     assert n("659,900천원") is None
     assert n(None) is None
+
+
+def test_write_json_failure_keeps_old_file(tmp_path, monkeypatch):
+    """쓰는 도중 실패해도 원래 파일은 그대로, 임시 파일은 남지 않는다"""
+    import collector.merge as merge_mod
+
+    path = tmp_path / "policies.json"
+    write_json(path, [{"policy_key": "G001"}])
+    before = path.read_bytes()
+
+    def broken(*a):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(merge_mod.os, "replace", broken)
+    with pytest.raises(OSError):
+        write_json(path, [{"policy_key": "G002"}])
+    assert path.read_bytes() == before and list(tmp_path.iterdir()) == [path]

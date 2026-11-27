@@ -210,8 +210,13 @@ class PolicySearcher:
         """evidences 뒤에 비슷한 정책을 붙인다 (백엔드는 evidences 를 정책별 카드로 묶으므로 그대로 카드가 된다).
         "related": True 는 답변 근거가 아니라는 표시 (백엔드는 쓰지 않고, 앱이 '비슷한 정책'으로 나눠 보여 줄 때 쓸 수 있음)"""
         used = {e["policy_key"] for e in out["evidences"]}
-        extra = self.related(question, candidate_policy_keys, used,
-                             exclude_names={_name_key(h.get("policy_name")) for h in cited})
+        try:
+            extra = self.related(question, candidate_policy_keys, used,
+                                 exclude_names={_name_key(h.get("policy_name")) for h in cited})
+        except Exception as e:
+            # 비슷한 정책은 덧붙이는 카드라, 이 검색(Chroma 한 번 더)이 실패해도 이미 만든 답변은 그대로 준다 (503 으로 버리지 않게)
+            logger.warning("비슷한 정책 찾기 실패, 답변만 돌려줌: %s", type(e).__name__)
+            return out
         return {**out, "evidences": out["evidences"] + [{**_evidence(h), "related": True} for h in extra]}
 
     def apply_chunk(self, policy_key: str) -> tuple[str, str, dict] | None:

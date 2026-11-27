@@ -676,3 +676,16 @@ def test_keyword_only_ignores_expand_header_word():
             metadatas=[{"policy_key": "X", "policy_name": "용어 사전", "source": "A", "section": "안내", "is_apply": False}])
     out = PolicySearcher(col, _broken_embed, FakeAnswer(), 1.0)("퇴소하고 받는 돈", ["X"])
     assert out["status"] == "no_evidence"  # '용어' + '지원금' 으로 넓힌 원문 용어 2개가 된 것처럼 보이면 안 됨
+
+
+def test_related_lookup_failure_keeps_answer(collection, monkeypatch):
+    """비슷한 정책 찾기(Chroma 한 번 더)가 실패해도 이미 만든 답변은 그대로 준다 (전에는 검색 전체가 503)"""
+    searcher = make_searcher(collection, FakeAnswer(draft(("자립수당은 매월 지급됩니다.", [1]))))
+
+    def broken(*a, **k):
+        raise RuntimeError("chroma")
+
+    monkeypatch.setattr(searcher, "related", broken)
+    out = searcher("자립수당 매월 얼마 받나요?", ["P001"])
+    RagOutput.model_validate(out)
+    assert out["status"] == "answered" and out["answer"] and not any(e.get("related") for e in out["evidences"])
