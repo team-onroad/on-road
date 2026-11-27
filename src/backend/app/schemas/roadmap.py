@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.schemas.credentials import RoadmapEducation
 from app.schemas.policies import Category, EligibilityValue
 
 RoadmapStage = Literal["before_leave", "at_leave", "now"]
@@ -70,7 +71,11 @@ class RoadmapItem(BaseModel):
     kind_title: str | None = None  # "자립정착금"
     pick_reason: str | None = None  # 같은 종류 중 이걸 고른 까닭 ("같은 종류 3개 중 받는 돈이 가장 커요")
     alternatives: list[RoadmapAlternative] = []  # 같은 종류의 다른 정책 (받는 돈이 큰 순서)
-    apply_note: str  # "퇴소 30일 전부터 미리 신청" 같은 한 줄
+    apply_note: str  # "퇴소 30일 전부터 미리 신청" 같은 한 줄 (받고 있으면 "지금 받고 있어요")
+    receiving: bool = False  # 사용자가 '받는 중'으로 저장한 정책 (saved_policies.status = receiving)
+    started_on: date | None = None  # 받기 시작한 날 (받는 중일 때 사용자가 넣은 값, 모르면 null)
+    # 들어야 받을 수 있는 교육 (자립정착금 의무교육 등)과 사용자가 이수했는지. 교육 조건이 없으면 null
+    education: RoadmapEducation | None = None
 
 
 class RoadmapStageGroup(BaseModel):
@@ -84,6 +89,10 @@ class RoadmapSummary(BaseModel):
     once_won: int  # 조건이 맞는(match) 1회 지급 최대 금액 (주기 없는 금액 포함, 같은 종류는 하나만)
     policy_count: int  # 로드맵에 든 정책 수 (확인 필요 포함)
     match_count: int
+    receiving_count: int = 0  # 그중 받고 있는 정책 수
+    receiving_monthly_won: int = 0  # 받고 있는 월 지급 금액 (같은 종류는 하나만)
+    new_monthly_won: int = 0  # 받고 있는 것 말고 더 받을 수 있는 월 금액 (조건 맞음, 같은 종류는 하나만)
+    new_once_won: int = 0  # 받고 있는 것 말고 더 받을 수 있는 1회 금액
 
 
 class PolicyRoadmap(BaseModel):

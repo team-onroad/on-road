@@ -23,6 +23,8 @@ from app.schemas.roadmap import (
 )
 from app.schemas.policies import SameKind, SameKindPolicy
 from app.services.policies import candidate_policies, eligibility_for
+from app.services.credentials import done_educations, required_education, roadmap_education
+from app.services.saved_policies import receiving as receiving_policies
 from db.models import Policy, User
 
 BEFORE_LEAVE_STATUSES = ("in_care", "leaving_soon")
@@ -163,7 +165,8 @@ def _benefit_value(item: RoadmapItem) -> int:
 
 def _pick_same_kind(groups: dict[str, list[RoadmapItem]]) -> None:
     """같은 종류는 하나만 남기고 나머지는 alternatives 로 붙인다.
-    고르는 순서: 조건이 맞는 것 → (자립수당은 앱이 직접 확인한 P 정책) → 받는 돈이 큰 것 → 내 지역 정책 → 먼저 신청 → 번호 순"""
+    고르는 순서: 지금 받고 있는 것 → 조건이 맞는 것 → (자립수당은 앱이 직접 확인한 P 정책) → 받는 돈이 큰 것
+    → 내 지역 정책 → 먼저 신청 → 번호 순"""
     order = {"before_leave": 0, "at_leave": 1, "now": 2}
     kinds: dict[str, list[tuple[str, RoadmapItem]]] = {}
     for stage, items in groups.items():
@@ -175,6 +178,7 @@ def _pick_same_kind(groups: dict[str, list[RoadmapItem]]) -> None:
         if len(members) <= 1:
             continue
         keep = min(members, key=lambda si: (
+            not si[1].receiving,
             si[1].eligibility != "match",
             key == "allowance" and not si[1].policy_key.startswith("P"),
             -_benefit_value(si[1]),
@@ -184,7 +188,10 @@ def _pick_same_kind(groups: dict[str, list[RoadmapItem]]) -> None:
         ))[1]
         others = [i for _, i in members if i is not keep]
         top = max(_benefit_value(i) for i in others)
-        if _benefit_value(keep) > top:
+        if keep.receiving:
+            # 같은 종류는 함께 받기 어려워서, 이미 받고 있으면 나머지는 새로 신청할 것으로 보지 않는다
+            reason = "지금 받고 있어서 같은 종류는 따로 신청하지 않아도 돼요"
+        elif _benefit_value(keep) > top:
             reason = f"같은 종류 {len(members)}개 중 받는 돈이 가장 커요"
         elif key == "allowance":
             # 아동복지시설 · 가정위탁(보건복지부)과 청소년복지시설(성평등가족부) 수당은 대상이 다르지만 함께 받을 수 없다
@@ -205,6 +212,33 @@ def _pick_same_kind(groups: dict[str, list[RoadmapItem]]) -> None:
             groups[stage] = [i for i in groups[stage] if i is keep or i not in others]
 
 
+def _mark_receiving(groups: dict[str, list[RoadmapItem]], got: dict[int, date | None]) -> None:
+    """사용자가 '받는 중'으로 저장한 정책: 신청할 때를 따지지 않고 '지금' 단계에 '지금 받고 있어요'로 둔다.
+    받기 시작한 날을 알면 지원이 끝나는 날(until)을 그날부터 센다. 후보에 없는 정책(나이 · 지역이 안 맞게 됨)은 보이지 않는다"""
+    if not got:
+        return
+    for stage in list(groups):
+        for item in [i for i in groups[stage] if i.policy_id in got]:
+            item.receiving = True
+            item.started_on = got[item.policy_id]
+            item.apply_from = None
+            item.apply_note = "지금 받고 있어요"
+            if item.started_on is not None and item.period_years:
+                item.until = _add_years(item.started_on, item.period_years)
+            if stage != "now":
+                groups[stage].remove(item)
+                groups["now"].append(item)
+
+
+def _mark_education(groups: dict[str, list[RoadmapItem]], policies: list[Policy],
+                    done: dict[str, date | None], today: date) -> None:
+    """의무교육을 들어야 받을 수 있는 정책 (자립정착금 · 자립수당)에 이수 여부를 붙인다"""
+    need = {p.id: required_education(p) for p in policies}
+    for g in groups.values():
+        for item in g:
+            item.education = roadmap_education(need.get(item.policy_id), done, today)
+
+
 def _monthly_equivalent(item: RoadmapItem) -> int:
     if item.amount_won is None:
         return 0
@@ -213,6 +247,7 @@ def _monthly_equivalent(item: RoadmapItem) -> int:
 
 def _sort_key(item: RoadmapItem):
     return (
+        item.receiving,  # 받고 있는 정책은 새로 신청할 것들 뒤로
         item.eligibility != "match",
         item.apply_from or date.max,
         -_monthly_equivalent(item),
@@ -242,10 +277,13 @@ def build_roadmap(db: Session, user: User, today: date) -> PolicyRoadmap:
     for p in later:
         stage, item = _item(p, user, today, leave, at_leave_only=True)
         groups[stage].append(item)
+    _mark_receiving(groups, receiving_policies(db, user))
+    _mark_education(groups, pool + later, done_educations(db, user), today)
     _pick_same_kind(groups)
 
     items = [i for g in groups.values() for i in g]
     matched = [i for i in items if i.eligibility == "match" and i.amount_won is not None]
+    new = [i for i in matched if not i.receiving]
     return PolicyRoadmap(
         base_date=leave,
         d_day=(leave - today).days if leave is not None else None,
@@ -254,6 +292,11 @@ def build_roadmap(db: Session, user: User, today: date) -> PolicyRoadmap:
             once_won=_max_sum([i for i in matched if i.amount_cycle in ("once", None)]),
             policy_count=len(items),
             match_count=sum(1 for i in items if i.eligibility == "match"),
+            receiving_count=sum(1 for i in items if i.receiving),
+            receiving_monthly_won=_max_sum(
+                [i for i in items if i.receiving and i.amount_won is not None and i.amount_cycle == "monthly"]),
+            new_monthly_won=_max_sum([i for i in new if i.amount_cycle == "monthly"]),
+            new_once_won=_max_sum([i for i in new if i.amount_cycle in ("once", None)]),
         ),
         stages=[
             RoadmapStageGroup(stage=s, title=STAGE_TITLES[s], items=sorted(g, key=_sort_key))
@@ -282,7 +325,9 @@ def personal_plan(db: Session, user: User, today: date) -> PersonalPlan | None:
     rm = build_roadmap(db, user, today)
     if rm.summary.match_count == 0:
         return None
-    items = [i for g in rm.stages for i in g.items if i.eligibility == "match" and i.amount_won is not None]
+    # 받고 있는 정책은 '더 받을 수 있는 것' 목록에 넣지 않는다
+    items = [i for g in rm.stages for i in g.items
+             if i.eligibility == "match" and i.amount_won is not None and not i.receiving]
     return PersonalPlan(
         base_date=rm.base_date,
         d_day=rm.d_day,
@@ -339,7 +384,8 @@ def recommend(db: Session, user: User, today: date, limit: int = RECOMMEND_LIMIT
     rm = build_roadmap(db, user, today)
     soon = rm.base_date is not None and (rm.base_date - today).days <= SOON_LEAVE_DAYS
     rows = []
-    pairs = [(g, i) for g in rm.stages for i in g.items if g.stage != "at_leave" or soon]
+    # 받고 있는 정책은 새로 추천하지 않는다
+    pairs = [(g, i) for g in rm.stages for i in g.items if (g.stage != "at_leave" or soon) and not i.receiving]
     if user.status in BEFORE_LEAVE_STATUSES and not soon:
         # 사전신청도 신청이 60일 안에 열리는 것만
         pairs = [(g, i) for g, i in pairs
@@ -408,6 +454,8 @@ def kind_of_name(name: str) -> str | None:
 
 
 def _short_reason(item: RoadmapItem, mine_count: int) -> str:
+    if item.receiving:
+        return "지금 받고 있는 정책이에요"
     if mine_count <= 1:
         return "내 조건에 맞는 건 이것 하나예요"
     if item.pick_reason and "받는 돈" in item.pick_reason:

@@ -129,6 +129,8 @@
 | 진로 로드맵 | GET | `/users/{user_id}/career-roadmap` | 취업·진학·직업훈련별 할 일, 연습·서류 연결, 관련 정책, 공식 사이트 (3.33) |
 | 같은 종류 정책 | GET | `/users/{user_id}/same-kind/{policy_id}` | 같은 종류(자립정착금 등) 전체, 다른 지역 것까지. `{kind, kind_title, rule, total, picked: {policy_id, name, region, amount_text, reason} \| null, others: [{policy_id, name, region, amount_text, mine}]}`. 받는 돈이 큰 순, 금액을 모르면 뒤. 묶이지 않는 정책이면 404 `SAME_KIND_NOT_FOUND` |
 | 추천 정책 | GET | `/users/{user_id}/recommended-policies` | 홈 '나에게 맞는 지원 정책', 추천 순서대로 최대 8개 (3.34) |
+| 저장 · 받는 중 | POST · GET · DELETE | `/users/{user_id}/saved-policies` | 정책 저장, 지금 받고 있는 정책 표시(`status: receiving`, `started_on`), 목록 · 취소 (3.36) |
+| 교육 이수 · 자격증 | POST · GET · DELETE | `/users/{user_id}/credentials`, `/users/education-options` | 이수한 교육 · 취득한 자격증 등록 · 목록 · 삭제. 로드맵 의무교육 표시와 이력서 초안에 쓴다 (3.37) |
 | 정책 검색 | POST | `/search` | 질문 → 조건 필터 → RAG 답변 + 근거 (상담 화면) |
 | 정책 상세 | GET | `/policies/{policy_id}` | 정책 카드·상세 정보 |
 | 쉬운 말 | GET | `/policies/{policy_id}/easy-text` | 단계별(L1~L7) 쉬운 말 보기 (3.23) |
@@ -436,6 +438,7 @@
 | `period_years` | `support_period`에 "보호종료 후 N년" 같은 표현이 없음 |
 | `benefit` | 카드 요약(`data/policy_facts`)이 없거나 검사를 통과하지 못함 |
 | `conditions` · `exclusions` | 빈 목록 `[]` (카드 요약이 없으면). 카드 요약의 '지원 대상' · '받을 수 없는 경우' 구절 |
+| `required_education` | 들어야 받을 수 있는 교육. `settlement`(자립정착금 의무교육) · `finance`(자립수당 자립교육) · null (3.37) |
 | `apply_ways` · `apply_deadline` | 빈 목록 `[]` · `null` (정리본이 없으면). `data/apply_guide.json`: 신청 방법을 갈래(`way`: 방문 · 온라인 · 우편·팩스 · 전화 · 카카오톡 · 따로 신청하지 않아요 · 기관이 대신 신청해요 · 문의 · 신청)별 쉬운 문장(`lines`)으로 다시 쓴 것. 고칠 때는 `scripts/build_apply_guide.py`를 고치고 실행 |
 | `apply_steps` · `doc_facts` | 빈 목록 `[]` (핵심 사실이 없으면). 신청 방법 · 필요 서류를 짧게 나눈 구절. 서류 구절의 괄호는 언제 내는지 ("방문 신청 시", "대리 신청 시"). 비어 있으면 앱은 `apply_method` · `required_docs` 원문을 정리해 보여 준다 |
 
@@ -943,6 +946,9 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 | `pick_reason` | 같은 종류 중 이걸 고른 까닭 ("같은 종류 3개 중 받는 돈이 가장 커요") |
 | `alternatives` | 같은 종류의 다른 정책 `[{policy_id, name, region, amount_text, eligibility}]`, 받는 돈이 큰 순서 |
 | `amount_*`, `period_years`, `benefit` | 3.6 과 같음 |
+| `receiving` · `started_on` | 사용자가 받는 중으로 저장한 정책이면 `true`와 받기 시작한 날 (3.36). 아니면 `false` · null |
+| `summary.receiving_*` · `summary.new_*` | 받고 있는 정책 수 · 월 금액과, 그것 말고 더 받을 수 있는 월 · 1회 금액 (3.36) |
+| `education` | 들어야 받을 수 있는 교육과 이수 여부 `{code, name, done, done_on, note}` (3.37). 교육 조건이 없는 정책은 null |
 
 - 빈 단계는 `stages`에서 빠진다. 순서는 `before_leave` → `at_leave` → `now`
 - 퇴소일이 있으면 퇴소일 나이로도 한 번 더 고른다. 오늘 나이로는 안 되지만 퇴소할 때 나이로는 되는 정책(만 18세 이상 조건 등)은 `at_leave`(사전신청이면 `before_leave`)에 넣고, `eligibility`도 퇴소일 기준
@@ -1018,6 +1024,7 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 - `amount_unit` · `amount_value`: 현금이 아니면 null (앱은 분야 이름을 대신 보여 준다)
 - 아직 보호 중이면 지금 받을 수 있는 정책 위주: `at_leave`(퇴소하면 신청)는 퇴소 예정일이 60일 안일 때만, `before_leave`(사전신청)는 신청 시작일이 60일 안일 때만 넣는다. 그 밖의 것은 3.32 로드맵에서만 보인다
 - 같은 종류(3.32 `kind`)는 내게 가장 유리한 하나만 들어간다. `kind_title` · `pick_reason` · `same_kind_count`(뺀 정책 수)로 까닭을 보여 줄 수 있다. 묶인 게 없으면 null · null · 0
+- 받는 중으로 저장한 정책(3.36)은 넣지 않는다 (이미 받고 있으니 새로 권하지 않는다)
 - 사용자가 없으면 404 `USER_NOT_FOUND`
 
 <br/>
@@ -1049,6 +1056,97 @@ AI 담당 신청서 작성 항목(`data/forms/{form_id}.json`, `src/formguide/`)
 - `job-info`: `items` 대신 `job` (없으면 null). `source` 로 커리어넷인지 고용24 인지 구분한다 (고용24 는 `url`, `orgs`, `work_life_balance` 가 비어 있고 되는 길은 `prepare.curriculum` 에 담는다). `id`, `name`, `summary`, `works`, `abilities`, `aptitudes`, `interests`, `certificates`, `majors`, `related_jobs`, `prepare {recruit, certificate, training, curriculum}`, `forecast`, `wage`, `wage_source`, `satisfaction`, `work_life_balance`, `orgs [{name, url}]`, `url`
 - `postings`: 최대 20개. 내 지역 먼저, 그다음 최근 등록 순. 항목: `id`, `company`, `title`, `pay_type`, `pay`, `region`, `education`, `career`, `holiday`, `registered`, `close`, `url`(모바일 공고 주소)
 - 쿼리 이름이 비었거나 40자를 넘으면 422 `VALIDATION_ERROR`
+
+<br/>
+
+### 3.36 `/users/{user_id}/saved-policies` — 저장한 정책 · 받고 있는 정책
+
+정책을 관심 있어 저장(`saved`)하거나 지금 받고 있다고 표시(`receiving`)한다. 받고 있는 정책은 맞춤 신청 로드맵(3.32)에서 '지금 받고 있어요'로 보이고, 같은 종류(자립수당 · 자립정착금 등)에서는 받고 있는 것이 남는다. 홈 추천(3.34)과 상담 `plan`에는 넣지 않는다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/users/{user_id}/saved-policies` | 저장 · 상태 바꾸기. 새로 저장하면 201, 이미 저장했으면 200 |
+| GET | `/users/{user_id}/saved-policies` | 저장 목록 (최근 저장 순) `{count, policies: [...]}` |
+| DELETE | `/users/{user_id}/saved-policies/{policy_id}` | 저장 취소 (저장 안 한 정책이어도 204) |
+
+**POST 요청**
+
+```json
+{"policy_id": 1, "status": "receiving", "started_on": "2025-07-01"}
+```
+
+| 필드 | 필수 | 설명 |
+|---|---|---|
+| `policy_id` | O | 정책 id |
+| `status` | X | `saved` · `receiving`. 새로 저장할 때 없으면 `saved`. 이미 저장한 정책에 주면 그 상태로 바꾸고, 없으면 그대로 둔다 (예전 앱 동작과 같음) |
+| `started_on` | X | 받기 시작한 날 (YYYY-MM-DD). `receiving` 일 때만 저장한다. 받는 중으로 다시 저장하면서 안 주면 원래 날짜를 두고, `saved` 로 바꾸면 지운다 |
+
+**응답 (POST 항목 · GET `policies[]`)**
+
+```json
+{"policy": {"policy_id": 1, "name": "자립준비청년 자립수당 지급", "agency": "보건복지부", "category": "living_cost",
+            "contact": "129", "apply_url": "https://...", "checked_at": "2026-10-12", "is_active": true},
+ "saved_at": "2026-11-27T10:00:00+09:00", "status": "receiving", "started_on": "2025-07-01"}
+```
+
+- 새로 저장할 때만 노출 정책(활성 · 쉬운 말 검증)인지 본다. 없거나 숨긴 정책이면 404 `POLICY_NOT_FOUND`. 이미 저장한 것은 정책이 숨겨져도 그대로 보이고 상태를 바꿀 수 있다
+- 형식 오류(모르는 `status`, 날짜 형식, 모르는 필드)는 422 `VALIDATION_ERROR`, 사용자가 없으면 404 `USER_NOT_FOUND` (422 보다 먼저)
+
+**맞춤 신청 로드맵(3.32)에 반영되는 것**
+
+- 받고 있는 정책: `receiving: true`, `started_on`, `apply_note: "지금 받고 있어요"`, `apply_from: null`. 퇴소 전 사용자여도 `now` 단계에 넣고, 단계 안에서는 새로 신청할 정책 뒤에 둔다
+- `until`: `started_on`과 `period_years`를 알면 받기 시작한 날 + 기간 (지원이 끝나는 날)
+- 같은 종류는 받고 있는 것을 먼저 남긴다 (`pick_reason`: "지금 받고 있어서 같은 종류는 따로 신청하지 않아도 돼요"). 받는 돈이 더 큰 정책이 있어도 `alternatives`로 보인다
+- `summary.receiving_count` · `receiving_monthly_won`: 받고 있는 정책 수와 월 금액. `new_monthly_won` · `new_once_won`: 받고 있는 것 말고 더 받을 수 있는 월 · 1회 금액 (조건 맞음, 같은 종류는 하나만). 앱은 "지금 매달 50만 원 받고 있어요 · 30만 원 더 받을 수 있어요"처럼 보여 줄 수 있다
+- 나이 · 지역이 맞지 않게 되어 후보에서 빠진 정책은 받는 중이어도 로드맵에 보이지 않는다
+
+<br/>
+
+### 3.37 `/users/{user_id}/credentials` — 이수한 교육 · 취득한 자격증
+
+이수한 교육(`education`)과 취득한 자격증(`certificate`)을 등록한다. 정해진 교육 2가지(`code`)는 정책 조건과 이어진다.
+
+| `code` | 이름 | 필요한 정책 |
+|---|---|---|
+| `settlement` | 자립정착금 의무교육 | 자립지원전담기관 의무교육 확인서를 내야 하는 자립정착금 (지역 정착금 대부분) |
+| `finance` | 자립수당 자립교육 | 서민금융진흥원 · 아동권리보장원 온라인 자립교육 이수증(또는 재무상담 확인서)을 내는 자립수당 |
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/users/education-options` | 정해진 교육 목록 `[{code, name, description}]` (앱의 교육 추가에서 고름) |
+| POST | `/users/{user_id}/credentials` | 등록. 새로 넣으면 201, 같은 종류 · 같은 이름이 있으면 날짜만 바꾸고 200 |
+| GET | `/users/{user_id}/credentials?kind=` | 목록 (최근 등록 순) `{count, credentials: [...]}`. `kind`로 거를 수 있다 |
+| DELETE | `/users/{user_id}/credentials/{credential_id}` | 삭제 (없는 항목이어도 204, 형식 오류는 404 `CREDENTIAL_NOT_FOUND`) |
+
+**POST 요청**
+
+```json
+{"kind": "education", "code": "settlement", "done_on": "2026-09-01"}
+{"kind": "certificate", "name": "컴퓨터활용능력 2급", "done_on": "2026-03-10"}
+```
+
+| 필드 | 필수 | 설명 |
+|---|---|---|
+| `kind` | O | `education` · `certificate` |
+| `code` | X | `education`일 때만. 주면 `name`을 안 줘도 정해진 이름으로 저장한다 |
+| `name` | △ | 1~60자 (앞뒤 공백 제거). `code`가 없으면 필수 |
+| `done_on` | X | 이수한 날 · 취득한 날 (YYYY-MM-DD). 오늘 이후면 422 |
+
+**응답 (POST 항목 · GET `credentials[]`)**
+
+```json
+{"credential_id": 1, "kind": "education", "code": "settlement", "name": "자립정착금 의무교육",
+ "done_on": "2026-09-01", "created_at": "2026-11-27T10:00:00+09:00"}
+```
+
+**반영되는 곳**
+
+- 맞춤 신청 로드맵(3.32) `education`: 이 교육이 필요한 정책(신청 서류 · 방법 · 대상 문장에 의무교육 · 이수증이 있음)에 붙는다
+  - 이수 안 함: `done: false`, `note: "자립지원전담기관 의무교육을 먼저 들어야 받을 수 있어요"`
+  - 이수함: `done: true`, `note: "자립정착금 의무교육을 이수했어요"`. 이수한 지 1년이 넘으면 "확인서를 지금도 인정하는지 기관에 물어보세요" (수료 후 1년이 지나면 인정하지 않는 지역이 있음)
+- 정책 상세(3.6) `required_education`: 사용자와 관계없이 이 정책에 필요한 교육 `code`
+- 이력서 초안(3.22 `type: resume`): 자격증은 '자격증'에 "컴퓨터활용능력 2급 (2026.03 취득)", 교육은 '경험·활동' 앞에 "자립정착금 의무교육 이수 (2026.09)"로 넣는다 (`source`: "내 자격증" · "내 교육 이수")
+- 사용자가 없으면 404 `USER_NOT_FOUND` (본문 422 보다 먼저). 탈퇴하면 같이 지운다
 
 <br/>
 

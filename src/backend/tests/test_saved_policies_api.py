@@ -42,7 +42,9 @@ def test_save_creates_201(api, db_session):
 
     assert res.status_code == 201, res.text
     data = res.json()
-    assert set(data) == {"policy", "saved_at"}
+    assert set(data) == {"policy", "saved_at", "status", "started_on"}
+    assert data["status"] == "saved"
+    assert data["started_on"] is None
     assert set(data["policy"]) == POLICY_KEYS
     assert data["policy"]["policy_id"] == policy.id
     assert data["policy"]["name"] == "청년 월세 지원"
@@ -72,6 +74,63 @@ def test_save_again_after_policy_hidden_returns_200(api, db_session):
     res = _save(api, user.id, policy.id)
     assert res.status_code == 200
     assert res.json()["policy"]["is_active"] is False
+
+
+def test_save_as_receiving_with_start_date(api, db_session):
+    user = make_user(db_session)
+    policy = make_policy(db_session)
+    res = api.post(_url(user.id), json={"policy_id": policy.id, "status": "receiving", "started_on": "2025-07-01"})
+
+    assert res.status_code == 201, res.text
+    assert res.json()["status"] == "receiving"
+    assert res.json()["started_on"] == "2025-07-01"
+    listed = api.get(_url(user.id)).json()["policies"][0]
+    assert (listed["status"], listed["started_on"]) == ("receiving", "2025-07-01")
+
+
+def test_save_again_with_status_changes_it(api, db_session):
+    """이미 저장한 정책에 status 를 주면 바꾼다 (200). status 가 없으면 그대로"""
+    user = make_user(db_session)
+    policy = make_policy(db_session)
+    _save(api, user.id, policy.id)
+
+    res = api.post(_url(user.id), json={"policy_id": policy.id, "status": "receiving", "started_on": "2025-07-01"})
+    assert res.status_code == 200
+    assert (res.json()["status"], res.json()["started_on"]) == ("receiving", "2025-07-01")
+
+    # 날짜 없이 다시 받는 중으로: 원래 날짜를 둔다. status 없이 저장: 그대로
+    assert api.post(_url(user.id), json={"policy_id": policy.id, "status": "receiving"}).json()["started_on"] == "2025-07-01"
+    assert _save(api, user.id, policy.id).json()["status"] == "receiving"
+
+    # saved 로 되돌리면 받기 시작한 날은 지운다
+    back = api.post(_url(user.id), json={"policy_id": policy.id, "status": "saved"}).json()
+    assert (back["status"], back["started_on"]) == ("saved", None)
+    assert _count(db_session) == 1
+
+
+def test_save_started_on_ignored_when_saved(api, db_session):
+    user = make_user(db_session)
+    policy = make_policy(db_session)
+    res = api.post(_url(user.id), json={"policy_id": policy.id, "started_on": "2025-07-01"})
+    assert (res.json()["status"], res.json()["started_on"]) == ("saved", None)
+
+
+@pytest.mark.parametrize("extra", [{"status": "done"}, {"status": 1}, {"started_on": "2025-13-01"}, {"started_on": 3}])
+def test_save_invalid_status_or_date_422(api, db_session, extra):
+    user = make_user(db_session)
+    policy = make_policy(db_session)
+    _assert_error(api.post(_url(user.id), json={"policy_id": policy.id, **extra}), 422, "VALIDATION_ERROR")
+
+
+def test_status_check_constraint(api, db_session):
+    user = make_user(db_session)
+    policy = make_policy(db_session)
+    with pytest.raises(IntegrityError):
+        db_session.execute(
+            text("INSERT INTO saved_policies (user_id, policy_id, status) VALUES (:u, :p, 'done')"),
+            {"u": user.id, "p": policy.id},
+        )
+    db_session.rollback()
 
 
 @pytest.mark.parametrize("overrides", [{"is_active": False}, {"easy_text_verified": False}])

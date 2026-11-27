@@ -1,5 +1,7 @@
 """서류 양식, 이력서·자기소개서·활동 기록 초안 (api.md 3.20~3.22). 앱 generateDocument 와 같은 규칙"""
 
+from datetime import date
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,7 @@ from app.schemas.forms import (
     TemplateList,
     TemplateSummary,
 )
+from app.services.credentials import rows as credential_rows
 from app.services.home import user_checklists
 from app.services.saved_policies import saved_count
 from db.models import Simulation, User
@@ -35,6 +38,11 @@ def template_list(stage: str | None) -> TemplateList:
 
 def template_detail(template_id: str) -> TemplateDetail:
     return TemplateDetail(**get_template(template_id).model_dump())
+
+
+def _when(d: date | None, suffix: str = "") -> str:
+    """이력서에 붙는 날짜 꼬리 " (2026.03 취득)". 날짜를 모르면 빈 문자열"""
+    return f" ({d.year}.{d.month:02d}{suffix})" if d is not None else ""
 
 
 def _blank(hint: str) -> Sentence:
@@ -75,6 +83,8 @@ def generate(db: Session, user: User, body: DocumentRequest) -> DocumentResponse
         else []
     )
 
+    mine: list[Sentence] = []  # 이력서에 넣은 교육 · 자격증 (기록으로 셈)
+
     def or_blank(hint: str) -> list[Sentence]:
         return records or [_blank(hint)]
 
@@ -85,11 +95,17 @@ def generate(db: Session, user: User, body: DocumentRequest) -> DocumentResponse
             Section(title="배운 점과 계획", sentences=[_blank("활동을 통해 배운 점과 앞으로의 계획을 적어 주세요.")]),
         ]
     elif body.type == "resume":
+        educations = [Sentence(text=f"{r.name} 이수{_when(r.done_on)}", source="내 교육 이수")
+                      for r in credential_rows(db, user, "education")]
+        certificates = [Sentence(text=f"{r.name}{_when(r.done_on, ' 취득')}", source="내 자격증")
+                        for r in credential_rows(db, user, "certificate")]
+        experience = educations + records
+        mine = educations + certificates
         sections = [
             Section(title="기본 정보", sentences=[_blank("이름, 연락처, 이메일을 적어 주세요.")]),
             Section(title="학력", sentences=[_blank("최종 학교부터 적어 주세요.")]),
-            Section(title="경험·활동", sentences=or_blank("아르바이트, 교육, 봉사 경험을 적어 주세요.")),
-            Section(title="자격증", sentences=[_blank("가진 자격증을 적어 주세요.")]),
+            Section(title="경험·활동", sentences=experience or [_blank("아르바이트, 교육, 봉사 경험을 적어 주세요.")]),
+            Section(title="자격증", sentences=certificates or [_blank("가진 자격증을 적어 주세요.")]),
         ]
     else:
         sections = [
@@ -98,4 +114,4 @@ def generate(db: Session, user: User, body: DocumentRequest) -> DocumentResponse
             Section(title="앞으로의 계획", sentences=[_blank("지원한 곳에서 하고 싶은 일을 적어 주세요.")]),
         ]
     # 흥미 탐색 결과는 기록 수에 안 셈 (앱과 같음)
-    return DocumentResponse(type=body.type, sections=sections, notice=NOTICE_RECORDS if records else NOTICE_EMPTY)
+    return DocumentResponse(type=body.type, sections=sections, notice=NOTICE_RECORDS if records or mine else NOTICE_EMPTY)

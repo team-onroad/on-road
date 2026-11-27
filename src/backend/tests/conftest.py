@@ -31,7 +31,7 @@ from db.session import get_db, make_engine
 
 TABLES = (
     "users", "family_members", "policies", "checklists", "checklist_items", "simulations", "roleplay_results",
-    "documents", "document_fields", "activity_logs", "saved_policies", "readiness_snapshots",
+    "documents", "document_fields", "activity_logs", "saved_policies", "readiness_snapshots", "user_credentials",
 )
 
 

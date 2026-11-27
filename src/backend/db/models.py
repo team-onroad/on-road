@@ -277,6 +277,27 @@ class SavedPolicy(Base):
     policy_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("policies.id", ondelete="RESTRICT"), nullable=False
     )
+    # saved(관심 있어 저장) · receiving(지금 받고 있음). 로드맵은 받고 있는 정책을 '받고 있어요'로 보여 준다
+    status: Mapped[str] = mapped_column(String(10), nullable=False, server_default=text("'saved'"))
+    started_on: Mapped[date | None] = mapped_column(Date)  # 받기 시작한 날 (receiving 일 때만, 모르면 null)
+    created_at: Mapped[datetime] = _created_at()
+
+
+class UserCredential(Base):
+    """이수한 교육 · 취득한 자격증"""
+
+    __tablename__ = "user_credentials"
+    __table_args__ = (UniqueConstraint("user_id", "kind", "name"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(12), nullable=False)  # education · certificate
+    # 정책 조건과 이어지는 교육 (settlement: 자립정착금 의무교육 · finance: 자립수당 자립교육). 그 밖은 null
+    code: Mapped[str | None] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    done_on: Mapped[date | None] = mapped_column(Date)  # 이수한 날 · 취득한 날 (모르면 null)
     created_at: Mapped[datetime] = _created_at()
 
 

@@ -12,6 +12,7 @@ ITEM_KEYS = {
     "policy_id", "policy_key", "name", "agency", "category", "eligibility", "amount_won", "amount_cycle",
     "amount_text", "benefit", "period_years", "max_total_won", "apply_from", "until", "apply_note",
     "age_until", "age_max", "region", "kind", "kind_title", "pick_reason", "alternatives",
+    "receiving", "started_on", "education",
 }
 
 
@@ -238,6 +239,86 @@ def test_only_one_allowance_listed(api, db_session):
     assert data["summary"]["monthly_won"] == 500_000
 
 
+def _receive(api, user, policy, started_on=None):
+    body = {"policy_id": policy.id, "status": "receiving"}
+    if started_on:
+        body["started_on"] = started_on
+    assert api.post(f"/api/users/{user.id}/saved-policies", json=body).status_code in (200, 201)
+
+
+def test_receiving_policy_marked_and_split_in_summary(api, db_session):
+    """받는 중으로 저장한 정책: '지금 받고 있어요', 지원 끝나는 날은 받기 시작한 날부터. 요약은 받는 돈과 더 받을 돈을 나눈다"""
+    got = make_policy(db_session, name="자립준비청년 자립수당 지급", support_amount="월 50만 원",
+                      support_period="보호종료 후 5년")
+    extra = make_policy(db_session, name="서초구 생활보조수당", support_amount="월 30만 원")
+    once = make_policy(db_session, name="자립정착금", support_amount="1,000만 원", support_period=None)
+    user = make_user(db_session)
+    _receive(api, user, got, "2025-07-01")
+
+    data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
+
+    now = _stage(data, "now")
+    assert _ids(now)[-1] == got.id  # 받는 중은 새로 신청할 것들 뒤로
+    item = now["items"][-1]
+    assert item["receiving"] is True
+    assert item["started_on"] == "2025-07-01"
+    assert item["apply_note"] == "지금 받고 있어요"
+    assert item["until"] == "2030-07-01"
+    assert all(i["receiving"] is False for i in now["items"] if i["policy_id"] in (extra.id, once.id))
+    s = data["summary"]
+    assert s["monthly_won"] == 800_000
+    assert s["receiving_count"] == 1
+    assert s["receiving_monthly_won"] == 500_000
+    assert s["new_monthly_won"] == 300_000
+    assert s["new_once_won"] == 10_000_000
+
+
+def test_receiving_kept_in_same_kind(api, db_session):
+    """같은 종류에서는 받고 있는 것을 남긴다 (돈이 더 큰 것이 있어도)"""
+    small = make_policy(db_session, name="자립정착금", support_amount="1,000만 원")
+    big = make_policy(db_session, name="구로형 자립정착금", support_amount="1,500만 원")
+    user = make_user(db_session)
+    _receive(api, user, small)
+
+    data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
+
+    assert _ids(_stage(data, "now")) == [small.id]
+    item = _stage(data, "now")["items"][0]
+    assert item["pick_reason"] == "지금 받고 있어서 같은 종류는 따로 신청하지 않아도 돼요"
+    assert [a["policy_id"] for a in item["alternatives"]] == [big.id]
+    assert data["summary"]["new_once_won"] == 0
+
+
+def test_receiving_moves_to_now_for_leaving_user(api, db_session):
+    pre = make_policy(db_session, name="자립수당", target_description="보호종료 자립준비청년",
+                      apply_method="보호종료 30일 전부터 사전 신청", support_amount="월 50만 원")
+    user = make_user(db_session, status="leaving_soon", d_date=date(2026, 12, 31))
+    _receive(api, user, pre)
+
+    data = api.get(f"/api/users/{user.id}/policy-roadmap").json()
+
+    assert [g["stage"] for g in data["stages"]] == ["now"]
+    assert data["stages"][0]["items"][0]["apply_from"] is None
+
+
+def test_saved_only_is_not_receiving(api, db_session):
+    p = make_policy(db_session)
+    user = make_user(db_session)
+    api.post(f"/api/users/{user.id}/saved-policies", json={"policy_id": p.id})
+    item = api.get(f"/api/users/{user.id}/policy-roadmap").json()["stages"][0]["items"][0]
+    assert item["receiving"] is False and item["started_on"] is None
+
+
+def test_recommended_skips_receiving(api, db_session):
+    got = make_policy(db_session, name="자립준비청년 자립수당 지급", support_amount="월 50만 원")
+    other = make_policy(db_session, name="청년 월세 지원", support_amount="월 20만 원")
+    user = make_user(db_session)
+    _receive(api, user, got)
+
+    ids = [r["policy_id"] for r in api.get(f"/api/users/{user.id}/recommended-policies").json()]
+    assert ids == [other.id]
+
+
 def test_child_household_policy_not_for_in_care(api, db_session):
     make_policy(db_session, name="소년소녀가정 지원", age_max=17, support_amount="월 20만 원",
                 target_description="만 18세 미만 아동이 가정을 이끄는 세대")
@@ -395,3 +476,52 @@ def test_extended_care_policies_are_now_for_18_plus_in_care(api, db_session):
     assert stage_of(adult, ext) == "now" and leave(adult, ext) == "now"
     assert stage_of(adult, leaver) == "at_leave" and leave(adult, leaver) == "after_leave"
     assert leave(teen, ext) == "after_leave"
+
+
+# ------------------------------------------------------------------ 의무교육 (3.37 교육 이수)
+
+
+def _settlement(db_session, **kw):
+    return make_policy(db_session, name="자립정착금 지원", support_amount="1,000만 원", support_period=None,
+                       target_description="보호종료아동", required_docs=["사용계획서", "1차 의무교육확인서"], **kw)
+
+
+def test_education_needed_when_not_done(api, db_session):
+    settle = _settlement(db_session)
+    plain = make_policy(db_session, name="청년 월세 지원")
+    user = make_user(db_session)
+
+    items = {i["policy_id"]: i for g in api.get(f"/api/users/{user.id}/policy-roadmap").json()["stages"]
+             for i in g["items"]}
+
+    edu = items[settle.id]["education"]
+    assert edu == {"code": "settlement", "name": "자립정착금 의무교육", "done": False, "done_on": None,
+                   "note": "자립지원전담기관 의무교육을 먼저 들어야 받을 수 있어요"}
+    assert items[plain.id]["education"] is None
+
+
+def test_education_done_and_stale(api, db_session):
+    settle = _settlement(db_session)
+    allowance = make_policy(db_session, name="보호종료아동 자립수당", support_amount="월 50만 원",
+                            required_docs=["신청서", "사이버 강의 이수증 1부"])
+    user = make_user(db_session)
+    base = f"/api/users/{user.id}/credentials"
+    assert api.post(base, json={"kind": "education", "code": "settlement", "done_on": "2026-09-01"}).status_code == 201
+    assert api.post(base, json={"kind": "education", "code": "finance", "done_on": "2025-08-01"}).status_code == 201
+
+    items = {i["policy_id"]: i for g in api.get(f"/api/users/{user.id}/policy-roadmap").json()["stages"]
+             for i in g["items"]}
+
+    assert items[settle.id]["education"]["done"] is True
+    assert items[settle.id]["education"]["done_on"] == "2026-09-01"
+    assert items[settle.id]["education"]["note"] == "자립정착금 의무교육을 이수했어요"
+    stale = items[allowance.id]["education"]
+    assert stale["code"] == "finance" and stale["done"] is True
+    assert stale["note"].startswith("이수한 지 1년이 넘었어요")
+
+
+def test_policy_detail_required_education(api, db_session):
+    settle = _settlement(db_session)
+    plain = make_policy(db_session)
+    assert api.get(f"/api/policies/{settle.id}").json()["required_education"] == "settlement"
+    assert api.get(f"/api/policies/{plain.id}").json()["required_education"] is None

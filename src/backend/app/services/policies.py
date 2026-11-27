@@ -33,6 +33,7 @@ from app.schemas.policies import (
     SearchResponse,
     SearchResult,
 )
+from app.services.credentials import required_education
 from db.models import Policy, User
 from db.seed import DUMMY_PREFIX
 
@@ -166,6 +167,7 @@ def to_detail(policy: Policy, today: date, user: User | None,
         period_years=parse_period_years(policy.support_period),
         benefit=ai_content.policy_benefit(policy.policy_key),
         conditions=ai_content.policy_section(policy.policy_key, "target"),
+        required_education=required_education(policy),
         exclusions=ai_content.policy_section(policy.policy_key, "exclusion"),
         apply_ways=guide.get("ways", []),
         apply_deadline=guide.get("deadline"),

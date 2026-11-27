@@ -7,7 +7,7 @@ from tests.factories import doc, make_policy, make_user
 
 USER_TABLES = (
     "checklists", "checklist_items", "simulations", "roleplay_results", "documents", "document_fields",
-    "activity_logs", "saved_policies", "readiness_snapshots",
+    "activity_logs", "saved_policies", "readiness_snapshots", "user_credentials",
 )
 MISSING_UUID = "00000000-0000-0000-0000-000000000000"
 ALLOCATIONS = {"housing": 300000, "food": 300000, "transport": 100000, "telecom": 50000, "other": 100000}
@@ -48,6 +48,7 @@ def _fill_records(api, user, policy):
                     json={"user_id": uid, "history": history, "save": True}).status_code == 200
     assert api.post(f"/api/users/{uid}/saved-policies", json={"policy_id": policy.id}).status_code == 201
     assert api.get(f"/api/users/{uid}/readiness").status_code == 200
+    assert api.post(f"/api/users/{uid}/credentials", json={"kind": "certificate", "name": "운전면허"}).status_code == 201
 
 
 # ------------------------------------------------------------------ 탈퇴

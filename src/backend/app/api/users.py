@@ -14,9 +14,10 @@ from app.schemas.career import CareerRoadmap
 from app.errors import AppError
 from app.schemas.roadmap import PolicyRoadmap, RecommendedPolicy, SameKindGroup
 from app.schemas.readiness import ActivityCreate, ActivityCreated, ActivityKind, ActivityList, ReadinessResponse
+from app.schemas.credentials import Credential, CredentialCreate, CredentialKind, CredentialList, EducationOption
 from app.schemas.saved_policies import SavedPolicy, SavedPolicyCreate, SavedPolicyList
 from app.schemas.users import UserCreate, UserResponse, UserUpdate
-from app.services import career, home, readiness, roadmap, saved_policies
+from app.services import career, credentials, home, readiness, roadmap, saved_policies
 from app.services import users as service
 from db.models import User
 from db.session import get_db
@@ -60,12 +61,29 @@ async def _update_body(request: Request, _user: ExistingUser) -> UserUpdate:
 UpdateBody = Annotated[UserUpdate, Depends(_update_body)]
 
 
+def _credential_body(_user: ExistingUser, payload: JsonBody) -> CredentialCreate:
+    # _user 를 먼저 선언해야 404 가 본문 422 보다 먼저
+    try:
+        return CredentialCreate.model_validate(payload)
+    except ValidationError as e:
+        raise RequestValidationError(e.errors(include_input=False)) from None
+
+
 def _saved_body(_user: ExistingUser, payload: JsonBody) -> SavedPolicyCreate:
     # _user 를 먼저 선언해야 404 가 본문 422 (깨진 JSON 포함) 보다 먼저
     try:
         return SavedPolicyCreate.model_validate(payload)
     except ValidationError as e:
         raise RequestValidationError(e.errors(include_input=False)) from None
+
+
+@router.get(
+    "/education-options",
+    response_model=list[EducationOption],
+    summary="정책 조건과 이어지는 교육 (교육 추가에서 고르는 목록)",
+)
+def list_education_options() -> list[EducationOption]:
+    return credentials.education_options()
 
 
 @router.post(
@@ -242,7 +260,7 @@ def list_saved_policies(user: ExistingUser, db: DB) -> SavedPolicyList:
 @router.post(
     "/{user_id}/saved-policies",
     response_model=SavedPolicy,
-    summary="정책 저장 (이미 저장했으면 그대로)",
+    summary="정책 저장 · 받는 중 표시 (이미 저장했으면 그대로, status 를 주면 그 상태로)",
     responses={
         201: {"description": "새로 저장", "model": SavedPolicy},
         404: {"description": "USER_NOT_FOUND / POLICY_NOT_FOUND"},
@@ -258,7 +276,7 @@ def list_saved_policies(user: ExistingUser, db: DB) -> SavedPolicyList:
 def save_policy(
     user: ExistingUser, body: Annotated[SavedPolicyCreate, Depends(_saved_body)], response: Response, db: DB
 ) -> SavedPolicy:
-    item, created = saved_policies.save(db, user, body.policy_id)
+    item, created = saved_policies.save(db, user, body)
     response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
     return item
 
@@ -271,4 +289,50 @@ def save_policy(
 )
 def unsave_policy(user: ExistingUser, policy_id: str, db: DB) -> Response:
     saved_policies.unsave(db, user, policy_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/{user_id}/credentials",
+    response_model=CredentialList,
+    summary="이수한 교육 · 취득한 자격증 목록 (kind 로 거르기)",
+    responses={404: ERROR_RESPONSES[404]},
+)
+def list_credentials(user: ExistingUser, db: DB, kind: CredentialKind | None = None) -> CredentialList:
+    return credentials.credential_list(db, user, kind)
+
+
+@router.post(
+    "/{user_id}/credentials",
+    response_model=Credential,
+    summary="교육 이수 · 자격증 등록 (같은 종류 · 이름이 있으면 날짜만 바꿈)",
+    responses={
+        201: {"description": "새로 등록", "model": Credential},
+        404: ERROR_RESPONSES[404],
+        422: ERROR_RESPONSES[422],
+    },
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": CredentialCreate.model_json_schema()}},
+        }
+    },
+)
+def add_credential(
+    user: ExistingUser, body: Annotated[CredentialCreate, Depends(_credential_body)], response: Response,
+    db: DB, today: Today,
+) -> Credential:
+    item, created = credentials.add(db, user, body, today)
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    return item
+
+
+@router.delete(
+    "/{user_id}/credentials/{credential_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="교육 · 자격증 삭제 (없는 항목이어도 성공)",
+    responses={404: {"description": "USER_NOT_FOUND / CREDENTIAL_NOT_FOUND (credential_id 형식 오류)"}},
+)
+def remove_credential(user: ExistingUser, credential_id: str, db: DB) -> Response:
+    credentials.remove(db, user, credential_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
