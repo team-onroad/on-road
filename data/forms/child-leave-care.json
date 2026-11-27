@@ -11,21 +11,22 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": false,
-      "guide": "신청서 접수 시 부여받은 번호를 적어요.",
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수번호",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          114.8,
-          118.9,
-          164.4,
-          144.8
+          115.8,
+          119.9,
+          163.4,
+          143.8
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -35,60 +36,23 @@
       "input_type": "date",
       "value_source": "office",
       "profile_key": null,
-      "required": false,
-      "guide": "신청서가 접수된 날짜를 적어요.",
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          227.8,
-          118.9,
-          279.3,
-          144.8
+          194.0,
+          119.9,
+          279,
+          143.8
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
-    },
-    {
-      "id": "processing_period",
-      "label": "처리기간",
-      "section": null,
-      "input_type": "text",
-      "value_source": "office",
-      "profile_key": null,
-      "required": false,
-      "guide": "처리 기간을 적어요.",
-      "example": "null",
-      "evidence": "처리기간",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          444.8,
-          119.7,
-          474.0,
-          132.7
-        ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "review_period",
-      "label": "심의 후 2일",
-      "section": null,
-      "input_type": "text",
-      "value_source": "office",
-      "profile_key": null,
-      "required": false,
-      "guide": "심의 후 예상되는 기간을 적어요.",
-      "example": "null",
-      "evidence": "심의 후 2일",
-      "sensitive": false,
-      "box": null
     },
     {
       "id": "applicant_name",
@@ -98,68 +62,335 @@
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "신청인의 이름을 적어요.",
-      "example": "홍길동",
+      "guide": "신청하는 사람(본인)의 이름을 적어요.",
+      "example": "김민지",
       "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          140.1,
-          218.6,
-          364.3,
-          232.6
+          138.1,
+          152.5,
+          365.3,
+          180.2
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "applicant_birth_date",
+      "label": "생년월일",
+      "section": "신청인",
+      "input_type": "date",
+      "value_source": "profile",
+      "profile_key": "birth_date",
+      "required": true,
+      "guide": "신청하는 사람의 생년월일을 적어요.",
+      "example": "2007-03-15",
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          407.7,
+          152.5,
+          540.9,
+          180.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "applicant_address",
+      "label": "주소",
+      "section": "신청인",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "신청하는 사람이 사는 곳 주소를 적어요.",
+      "example": "서울특별시 ○○구 ○○로 12",
+      "evidence": "주소",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          138.1,
+          182.2,
+          540.9,
+          210.1
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "child_name",
+      "label": "성명",
+      "section": "대상 아동",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호를 끝내려는 아동의 이름을 적어요. 본인이 신청하면 본인 이름이에요.",
+      "example": "김민지",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          138.1,
+          218.7,
+          365.3,
+          246.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "child_id_number",
+      "label": "주민등록번호",
+      "section": "대상 아동",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "대상 아동의 주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          425.7,
+          218.7,
+          540.9,
+          246.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "foster_or_admission_date",
       "label": "가정위탁 또는 입소 연월일",
-      "section": null,
+      "section": "대상 아동",
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "가정위탁 또는 입소된 날짜를 적어요.",
-      "example": "2022-01-01",
+      "guide": "가정위탁을 시작했거나 시설에 들어간 날을 적어요.",
+      "example": "2015-04-01",
       "evidence": "가정위탁 또는 입소 연월일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          234.6,
-          248.5,
-          306.1,
-          262.5
+          232.6,
+          248.4,
+          307.1,
+          276.3
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "end_or_leave_date",
+      "label": "보호조치의 종료 또는 퇴소 예정 연월일",
+      "section": "대상 아동",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호가 끝나거나 퇴소할 예정인 날을 적어요.",
+      "example": "2026-12-31",
+      "evidence": "보호조치의 종료 또는 퇴소 예정 연월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          480.1,
+          248.4,
+          540.9,
+          276.3
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "facility_name",
+      "label": "시설명",
+      "section": "대상 시설",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "지금 생활하는 시설(또는 위탁가정) 이름을 적어요.",
+      "example": "○○아동복지센터",
+      "evidence": "시설명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          147.1,
+          284.8,
+          365.3,
+          312.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "facility_phone",
+      "label": "전화번호",
+      "section": "대상 시설",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "시설 전화번호를 적어요.",
+      "example": "02-123-4567",
+      "evidence": "전화번호",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          407.7,
+          284.8,
+          540.9,
+          312.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "facility_address",
+      "label": "주소(소재지)",
+      "section": "대상 시설",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "시설 주소를 적어요.",
+      "example": "서울특별시 ○○구 ○○로 34",
+      "evidence": "주소(소재지)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          171.5,
+          314.7,
+          540.9,
+          342.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "leave_reason",
+      "label": "퇴소 사유",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호를 끝내거나 퇴소하려는 까닭을 적어요.",
+      "example": "만 18세가 되어 자립을 준비하려고 해요.",
+      "evidence": "퇴소 사유",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          115.8,
+          351.1,
+          540.9,
+          388.3
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "request_type",
+      "label": "보호조치의 종료 또는 퇴소",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호조치 종료인지 퇴소인지 골라요.",
+      "example": null,
+      "evidence": "보호조치의 종료 또는 퇴소",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          110.4,
+          408.0,
+          223.6,
+          423.1
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "보호조치의 종료",
+          "퇴소"
+        ],
+        "marks": {
+          "보호조치의 종료": [
+            142.3,
+            415.6
+          ],
+          "퇴소": [
+            211.6,
+            415.6
+          ]
+        },
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "date",
-      "label": "년 월 일",
+      "label": "신청일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
+      "guide": "신청하는 날짜를 적어요.",
       "example": "2023-10-01",
-      "evidence": "년 월 일",
+      "evidence": "신청일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          393.6,
-          429.9,
+          421.6,
+          430.9,
           540.9,
-          446.9
+          445.9
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "년월일",
+        "found_by": "layout_spec"
       }
     },
     {
@@ -170,21 +401,21 @@
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "신청인의 서명을 해요.",
+      "guide": "제출할 때 직접 서명하거나 도장을 찍어요.",
       "example": null,
       "evidence": "신청인 (서명 또는 인)",
-      "sensitive": true,
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          429.7,
-          458.2,
-          487.7,
+          277.4,
+          458.3,
+          486.7,
           474.2
         ],
         "how": "text_right",
         "template_text": null,
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     }
   ],

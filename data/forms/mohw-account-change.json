@@ -5,85 +5,34 @@
   "source": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787",
   "fields": [
     {
-      "id": "application_form",
-      "label": "복지급여계좌변경신청서",
-      "section": null,
-      "input_type": "account",
-      "value_source": "handwrite",
-      "profile_key": null,
-      "required": false,
-      "guide": "신청서 제목이에요.",
-      "example": null,
-      "evidence": "복지급여계좌변경신청서",
-      "sensitive": true,
-      "box": {
-        "page": 0,
-        "rect": [
-          310.0,
-          141.0,
-          400.8,
-          159.0
-        ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "processing_period",
-      "label": "처리기간",
-      "section": null,
-      "input_type": "other",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "처리 기간에 대한 안내에요.",
-      "example": null,
-      "evidence": "즉 시",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "applicant",
-      "label": "신 청 인 (복지대상자)",
-      "section": null,
-      "input_type": "other",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "신청인의 정보를 적어요.",
-      "example": "홍길동",
-      "evidence": "신 청 인 (복지대상자)",
-      "sensitive": false,
-      "box": null
-    },
-    {
       "id": "applicant_name",
-      "label": "성 명",
-      "section": "신 청 인 (복지대상자)",
+      "label": "성명",
+      "section": "신청인(복지대상자)",
       "input_type": "text",
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "본인의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "성 명",
+      "guide": "급여를 받는 본인의 이름을 적어요.",
+      "example": "김민지",
+      "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          231.6,
-          167.4,
-          315.2,
-          206.9
+          232.6,
+          168.4,
+          314.2,
+          205.9
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_birth_date",
       "label": "생년월일",
-      "section": "신 청 인 (복지대상자)",
+      "section": "신청인(복지대상자)",
       "input_type": "date",
       "value_source": "profile",
       "profile_key": "birth_date",
@@ -95,293 +44,270 @@
       "box": {
         "page": 0,
         "rect": [
-          379.4,
-          167.4,
-          481.0,
-          206.9
+          380.4,
+          168.4,
+          480.0,
+          205.9
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_address",
-      "label": "주 소",
-      "section": "신 청 인 (복지대상자)",
-      "input_type": "text",
-      "value_source": "profile",
-      "profile_key": "region",
+      "label": "주소",
+      "section": "신청인(복지대상자)",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
       "required": true,
-      "guide": "본인의 주소를 적어요.",
-      "example": "서울특별시 강남구",
-      "evidence": "주 소",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "applicant_phone",
-      "label": "(전화: )",
-      "section": "신 청 인 (복지대상자)",
-      "input_type": "phone",
-      "value_source": "profile",
-      "profile_key": "phone",
-      "required": true,
-      "guide": "본인의 전화번호를 적어요.",
-      "example": "010-1234-5678",
-      "evidence": "(전화: )",
+      "guide": "사는 곳 주소를 적어요.",
+      "example": "서울특별시 ○○구 ○○로 12",
+      "evidence": "주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          231.6,
-          246.4,
-          315.2,
-          285.9
+          223.4,
+          207.9,
+          329.2,
+          245.4
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "welfare_account",
-      "label": "복 지 급 여 계 좌",
-      "section": null,
-      "input_type": "account",
-      "value_source": "handwrite",
-      "profile_key": null,
+      "id": "applicant_phone",
+      "label": "전화",
+      "section": "신청인(복지대상자)",
+      "input_type": "phone",
+      "value_source": "profile",
+      "profile_key": "phone",
       "required": true,
-      "guide": "복지급여 계좌 정보를 적어요.",
-      "example": null,
-      "evidence": "복 지 급 여 계 좌",
-      "sensitive": true,
-      "box": null
-    },
-    {
-      "id": "current_account",
-      "label": "현 행",
-      "section": "복 지 급 여 계 좌",
-      "input_type": "other",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "현재 사용 중인 계좌 정보를 적어요.",
-      "example": null,
-      "evidence": "현 행",
+      "guide": "연락받을 전화번호를 적어요.",
+      "example": "010-1234-5678",
+      "evidence": "전화",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          330,
+          208.9,
+          478,
+          244.4
+        ],
+        "how": "table_right",
+        "template_text": "(전화:)",
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "current_bank",
       "label": "금융기관",
-      "section": "복 지 급 여 계 좌 > 현 행",
+      "section": "복지급여 계좌 > 현행",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "현재 계좌의 금융기관 이름을 적어요.",
-      "example": "우리은행",
+      "guide": "지금 급여를 받는 은행 이름을 적어요.",
+      "example": "국민은행",
       "evidence": "금융기관",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          231.6,
-          246.4,
-          315.2,
-          285.9
+          222.1,
+          247.4,
+          326.2,
+          284.9
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "current_account_holder",
-      "label": "예 금 주",
-      "section": "복 지 급 여 계 좌 > 현 행",
+      "label": "예금주",
+      "section": "복지급여 계좌 > 현행",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "현재 계좌의 예금주 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "예 금 주",
+      "guide": "지금 통장의 예금주(통장 주인) 이름을 적어요.",
+      "example": "김민지",
+      "evidence": "예금주",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          379.4,
-          246.4,
-          481.0,
-          285.9
+          380.4,
+          247.4,
+          480.0,
+          284.9
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "current_account_number",
       "label": "계좌번호",
-      "section": "복 지 급 여 계 좌 > 현 행",
+      "section": "복지급여 계좌 > 현행",
       "input_type": "account",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "현재 계좌의 계좌번호를 적어요.",
+      "guide": "지금 계좌번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "계좌번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          231.6,
-          285.9,
-          481.0,
-          325.3
+          232.6,
+          286.9,
+          480.0,
+          324.3
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
-    },
-    {
-      "id": "change_account",
-      "label": "변 경",
-      "section": "복 지 급 여 계 좌",
-      "input_type": "other",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "변경할 계좌 정보를 적어요.",
-      "example": null,
-      "evidence": "변 경",
-      "sensitive": false,
-      "box": null
     },
     {
       "id": "new_bank",
       "label": "금융기관",
-      "section": "복 지 급 여 계 좌 > 변 경",
+      "section": "복지급여 계좌 > 변경",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "변경할 계좌의 금융기관 이름을 적어요.",
+      "guide": "새로 급여를 받을 은행 이름을 적어요.",
       "example": "신한은행",
       "evidence": "금융기관",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          231.6,
-          325.3,
-          315.2,
-          364.8
+          222.1,
+          326.3,
+          326.2,
+          363.8
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "new_account_holder",
-      "label": "예 금 주",
-      "section": "복 지 급 여 계 좌 > 변 경",
+      "label": "예금주",
+      "section": "복지급여 계좌 > 변경",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "변경할 계좌의 예금주 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "예 금 주",
+      "guide": "새 통장의 예금주 이름을 적어요. 본인 이름이어야 해요.",
+      "example": "김민지",
+      "evidence": "예금주",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          379.4,
-          325.3,
-          481.0,
-          364.8
+          380.4,
+          326.3,
+          480.0,
+          363.8
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "new_account_number",
       "label": "계좌번호",
-      "section": "복 지 급 여 계 좌 > 변 경",
+      "section": "복지급여 계좌 > 변경",
       "input_type": "account",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "변경할 계좌의 계좌번호를 적어요.",
+      "guide": "새 계좌번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "계좌번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          231.6,
-          364.8,
-          481.0,
-          404.3
+          232.6,
+          365.8,
+          480.0,
+          403.3
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "date",
-      "label": "년 월 일",
+      "label": "신청일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
+      "guide": "신청하는 날짜를 적어요.",
       "example": "2023-10-01",
-      "evidence": "년 월 일",
+      "evidence": "신청일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          164.9,
+          192.9,
           502.9,
           333.1,
-          520.9
+          519.9
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "년월일",
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "signature",
-      "label": "신청인: (서명 또는 인)",
+      "label": "신청인 (서명 또는 인)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "신청인의 서명을 해요.",
+      "guide": "제출할 때 직접 서명하거나 도장을 찍어요.",
       "example": null,
-      "evidence": "신청인: (서명 또는 인)",
-      "sensitive": true,
+      "evidence": "신청인 (서명 또는 인)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          471.6,
-          537.9,
-          520,
-          551.9
+          322.3,
+          535.9,
+          404.8,
+          552.9
         ],
         "how": "text_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     }
   ],
   "notes": [
     "구비서류: 급여통장 사본 1부"
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 처리기간, 신 청 인 (복지대상자), 주 소, 현 행, 변 경"
-  ],
+  "warnings": [],
   "checked": false
 }

@@ -11,21 +11,22 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": false,
-      "guide": "신청서가 접수된 후 부여받는 번호예요.",
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수번호",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          99.5,
-          115.9,
-          215.3,
-          128.4
+          97.5,
+          116.9,
+          215.8,
+          147.4
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -35,36 +36,23 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": false,
-      "guide": "신청서가 접수된 날짜와 시간을 적어요.",
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수일시",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          258.8,
-          115.9,
-          366.5,
-          128.4
+          256.8,
+          116.9,
+          367.1,
+          147.4
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
-    },
-    {
-      "id": "processing_period",
-      "label": "처리기간 심의 후 2일",
-      "section": null,
-      "input_type": "text",
-      "value_source": "office",
-      "profile_key": null,
-      "required": false,
-      "guide": "신청서 처리에 걸리는 기간이에요.",
-      "example": null,
-      "evidence": "처리기간 심의 후 2일",
-      "sensitive": false,
-      "box": null
     },
     {
       "id": "applicant_name",
@@ -74,92 +62,484 @@
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "본인의 이름을 적어요.",
-      "example": "홍길동",
+      "guide": "다시 보호받으려는 본인의 이름을 적어요.",
+      "example": "김민지",
       "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          156.0,
-          242.8,
-          251.3,
-          256.7
+          154.0,
+          153.2,
+          367.4,
+          176.3
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_relationship",
-      "label": "관계",
+      "id": "applicant_id_number",
+      "label": "주민등록번호",
       "section": "신청인",
-      "input_type": "text",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          433.0,
+          153.2,
+          536.3,
+          176.3
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "applicant_address",
+      "label": "주소",
+      "section": "신청인",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청인과의 관계를 적어요.",
-      "example": "본인",
+      "guide": "지금 사는 곳 주소를 적어요.",
+      "example": "서울특별시 ○○구 ○○로 12",
+      "evidence": "주소",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          154.0,
+          178.3,
+          536.3,
+          201.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "applicant_phone",
+      "label": "연락처",
+      "section": "신청인",
+      "input_type": "phone",
+      "value_source": "profile",
+      "profile_key": "phone",
+      "required": true,
+      "guide": "연락받을 휴대전화 번호를 적어요.",
+      "example": "010-1234-5678",
+      "evidence": "연락처",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          164.1,
+          203.5,
+          536.3,
+          226.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "proxy_name",
+      "label": "성명",
+      "section": "대리인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "대리인이 신청할 때만 대리인 이름을 적어요.",
+      "example": "김○○",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          154.0,
+          243.1,
+          252.8,
+          266.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "proxy_relationship",
+      "label": "관계",
+      "section": "대리인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청인과 대리인의 관계를 적어요 (예: 언니, 시설 선생님).",
+      "example": "언니",
       "evidence": "관계",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          279.8,
-          242.8,
-          366.5,
-          256.7
+          277.8,
+          243.1,
+          368.0,
+          266.2
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "proxy_document",
-      "label": "대리인임을 증명할 수 있는 서류",
-      "section": null,
-      "input_type": "text",
+      "id": "proxy_id_number",
+      "label": "주민등록번호",
+      "section": "대리인",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "대리인의 주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          433.0,
+          243.1,
+          536.3,
+          266.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "proxy_address",
+      "label": "주소",
+      "section": "대리인",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "대리인임을 증명하는 서류를 적어요.",
+      "guide": "대리인의 주소를 적어요.",
       "example": null,
-      "evidence": "대리인임을 증명할 수 있는 서류",
+      "evidence": "주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          251.6,
-          577.4,
-          473.7,
-          589.5
+          154.0,
+          268.2,
+          536.3,
+          291.2
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "proxy_phone",
+      "label": "연락처",
+      "section": "대리인",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "대리인의 연락처를 적어요.",
+      "example": null,
+      "evidence": "연락처",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          164.1,
+          293.2,
+          536.3,
+          316.3
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "facility_or_foster_parent",
+      "label": "시설명 또는 위탁부모 성명",
+      "section": "보호이력",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "전에 보호받던 시설 이름이나 위탁부모 이름을 적어요.",
+      "example": "○○아동복지센터",
+      "evidence": "시설명 또는 위탁부모 성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          259.0,
+          322.1,
+          367.4,
+          352.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "care_end_date",
+      "label": "보호조치의 종료 또는 퇴소 연월일",
+      "section": "보호이력",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호가 끝났거나 퇴소한 날을 적어요.",
+      "example": "2025-02-28",
+      "evidence": "보호조치의 종료 또는 퇴소 연월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          369.4,
+          334.3,
+          536.3,
+          352.7
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "facility_address",
+      "label": "주소(시설 또는 위탁가정 소재지)",
+      "section": "보호이력",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호받던 시설이나 위탁가정의 주소를 적어요.",
+      "example": null,
+      "evidence": "주소(시설 또는 위탁가정 소재지)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          275.5,
+          354.7,
+          536.3,
+          385.3
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "care_type",
+      "label": "보호구분",
+      "section": "보호이력",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호받던 곳의 종류를 골라요.",
+      "example": null,
+      "evidence": "보호구분",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          129.2,
+          389.4,
+          428.1,
+          421.4
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "아동양육시설",
+          "공동생활가정",
+          "아동일시보호시설",
+          "아동보호치료시설",
+          "가정위탁",
+          "그 밖의 아동복지시설"
+        ],
+        "marks": {
+          "아동양육시설": [
+            138.6,
+            396.4
+          ],
+          "공동생활가정": [
+            228.6,
+            396.4
+          ],
+          "아동일시보호시설": [
+            318.6,
+            396.4
+          ],
+          "아동보호치료시설": [
+            138.6,
+            414.4
+          ],
+          "가정위탁": [
+            243.6,
+            414.4
+          ],
+          "그 밖의 아동복지시설": [
+            313.6,
+            414.4
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "re_care_reason",
+      "label": "재보호 사유",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "다시 보호받으려는 까닭을 골라요. 여러 개 골라도 돼요.",
+      "example": null,
+      "evidence": "재보호 사유",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          129.2,
+          430.6,
+          533.8,
+          462.5
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "대학 이하의 학교 재학ㆍ진학 준비",
+          "직업 관련 교육ㆍ훈련",
+          "장애ㆍ질병 등",
+          "심리·주거 또는 경제적 어려움 등",
+          "지적 능력 등"
+        ],
+        "marks": {
+          "대학 이하의 학교 재학ㆍ진학 준비": [
+            138.6,
+            437.5
+          ],
+          "직업 관련 교육ㆍ훈련": [
+            326.5,
+            437.5
+          ],
+          "장애ㆍ질병 등": [
+            455.1,
+            437.5
+          ],
+          "심리·주거 또는 경제적 어려움 등": [
+            138.6,
+            455.5
+          ],
+          "지적 능력 등": [
+            328.6,
+            455.5
+          ]
+        },
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "date",
-      "label": "년 월 일",
+      "label": "신청일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
+      "guide": "신청하는 날짜를 적어요.",
       "example": null,
-      "evidence": "년 월 일",
+      "evidence": "신청일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          381.7,
-          498.5,
+          409.7,
+          499.5,
           537.9,
-          515.5
+          514.5
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "년월일",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "applicant_signature",
+      "label": "신청인(대리인) (서명 또는 인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "제출할 때 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "신청인(대리인) (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          342.4,
+          519.8,
+          475.7,
+          535.8
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "proxy_consent_signature",
+      "label": "대리인(친족) (서명 또는 인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "친족이 대리 신청하며 행정정보 확인에 동의하면 대리인이 서명해요.",
+      "example": null,
+      "evidence": "대리인(친족) (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          342.4,
+          680.7,
+          476.9,
+          697.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     }
   ],

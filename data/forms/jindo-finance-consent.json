@@ -5,251 +5,703 @@
   "source": "https://www.jndc.co.kr/web/main/bbs/etc/7780",
   "fields": [
     {
-      "id": "relation",
-      "label": "관 계",
-      "section": "공공주택 신청자 인적사항",
+      "id": "applicant_name",
+      "label": "성명",
+      "section": "1. 공공주택 신청자",
       "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "name",
       "required": true,
-      "guide": "신청자와의 관계를 적어요.",
-      "example": "부모",
-      "evidence": "관 계",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "name",
-      "label": "성 명",
-      "section": "공공주택 신청자 인적사항",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "신청자의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "성 명",
+      "guide": "공공주택을 신청하는 사람 이름을 적어요.",
+      "example": "김민지",
+      "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          127.6,
-          120.0,
-          317.5,
-          164.6
+          129,
+          121,
+          316,
+          164
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "id_number",
-      "label": "주민등록번호 (외국인등록번호)",
-      "section": "공공주택 신청자 인적사항",
+      "id": "applicant_id_number",
+      "label": "주민등록번호(외국인등록번호)",
+      "section": "1. 공공주택 신청자",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "주민등록번호를 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
-      "evidence": "주민등록번호 (외국인등록번호)",
+      "evidence": "주민등록번호(외국인등록번호)",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          317.5,
-          120.0,
-          510.2,
-          164.6
-        ],
-        "how": "table_below",
-        "template_text": "-"
-      }
-    },
-    {
-      "id": "applicant",
-      "label": "신청자",
-      "section": "공공주택 신청자 인적사항",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "신청자의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "신청자",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          127.6,
-          120.0,
-          317.5,
-          164.6
+          318,
+          121,
+          509,
+          164
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": "-",
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "address",
-      "label": "주 소",
-      "section": "공공주택 신청자 인적사항",
-      "input_type": "text",
+      "label": "주소",
+      "section": "1. 공공주택 신청자",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청자의 주소를 적어요.",
-      "example": "서울특별시 강남구",
-      "evidence": "주 소",
+      "guide": "신청자 주소를 적어요.",
+      "example": null,
+      "evidence": "주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          127.6,
-          164.6,
-          510.2,
-          185.8
+          129,
+          166,
+          509,
+          185
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "relation_with_consent",
-      "label": "신청자와의 관 계",
-      "section": "금융정보 등 제공 동의자",
+      "id": "consenter1_relation",
+      "label": "신청자와의 관계",
+      "section": "2. 금융정보 제공 동의자 1",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "동의자와 신청자의 관계를 적어요.",
-      "example": "부모",
-      "evidence": "신청자와의 관 계",
+      "guide": "신청자와의 관계를 적어요 (본인이면 '본인').",
+      "example": "본인",
+      "evidence": "신청자와의 관계",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          78.9,
-          266.2,
-          123.1,
-          325.4
+          80,
+          267,
+          122,
+          324
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "consent_name",
-      "label": "동의자 성 명",
-      "section": "금융정보 등 제공 동의자",
+      "id": "consenter1_name",
+      "label": "동의자 성명",
+      "section": "2. 금융정보 제공 동의자 1",
       "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "name",
       "required": true,
-      "guide": "동의자의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "동의자 성 명",
+      "guide": "동의하는 사람의 이름을 적어요.",
+      "example": null,
+      "evidence": "동의자 성명",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          124,
+          267,
+          189,
+          324
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "consent_id_number",
-      "label": "주민등록번호 (외국인등록번호)",
-      "section": "금융정보 등 제공 동의자",
+      "id": "consenter1_id_number",
+      "label": "주민등록번호(외국인등록번호)",
+      "section": "2. 금융정보 제공 동의자 1",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "동의자의 주민등록번호를 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
-      "evidence": "주민등록번호 (외국인등록번호)",
+      "evidence": "주민등록번호(외국인등록번호)",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          191,
+          267,
+          371,
+          303
+        ],
+        "how": "table_right",
+        "template_text": "-",
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "phone",
+      "id": "consenter1_phone",
       "label": "휴대전화번호",
-      "section": "금융정보 등 제공 동의자",
+      "section": "2. 금융정보 제공 동의자 1",
       "input_type": "phone",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "phone",
       "required": true,
-      "guide": "동의자의 휴대전화번호를 적어요.",
-      "example": "010-1234-5678",
+      "guide": "동의하는 사람의 휴대전화 번호를 적어요.",
+      "example": null,
       "evidence": "휴대전화번호",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          190.0,
-          266.2,
-          376.7,
-          325.4
+          191,
+          305,
+          371,
+          324
         ],
-        "how": "table_below",
-        "template_text": "-\n- -"
+        "how": "table_right",
+        "template_text": "--",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "consent_financial_info",
-      "label": "금융정보 등의 제공을 동의함1) (서명 또는 인)",
-      "section": "금융정보 등 제공 동의자",
+      "id": "consenter1_consent_signature",
+      "label": "금융정보 등의 제공을 동의함 (서명 또는 인)",
+      "section": "2. 금융정보 제공 동의자 1",
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "금융정보 제공에 동의하는 서명을 해요.",
+      "guide": "금융정보 제공에 동의하면 직접 서명해요.",
       "example": null,
-      "evidence": "금융정보 등의 제공을 동의함1) (서명 또는 인)",
+      "evidence": "금융정보 등의 제공을 동의함 (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          373,
+          267,
+          438,
+          324
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter1_no_notice_signature",
+      "label": "제공 사실을 통보하지 않는 것에 동의함 (서명 또는 인)",
+      "section": "2. 금융정보 제공 동의자 1",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "제공 사실을 따로 알리지 않아도 되면 직접 서명해요 (안 하면 문자로 알려 줘요).",
+      "example": null,
+      "evidence": "제공 사실을 통보하지 않는 것에 동의함 (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          440,
+          267,
+          519,
+          324
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter2_relation",
+      "label": "신청자와의 관계",
+      "section": "2. 금융정보 제공 동의자 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청자와의 관계를 적어요 (본인이면 '본인').",
+      "example": "배우자",
+      "evidence": "신청자와의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          80,
+          326,
+          122,
+          384
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter2_name",
+      "label": "동의자 성명",
+      "section": "2. 금융정보 제공 동의자 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "동의하는 사람의 이름을 적어요.",
+      "example": null,
+      "evidence": "동의자 성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          124,
+          326,
+          189,
+          384
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter2_id_number",
+      "label": "주민등록번호(외국인등록번호)",
+      "section": "2. 금융정보 제공 동의자 2",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호(외국인등록번호)",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          376.7,
-          266.2,
-          438.7,
-          325.4
+          191,
+          326,
+          371,
+          362
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": "-",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "consent_notification",
-      "label": "금융정보 등의 제공 사실을 동의자에게 통보하지 않는 것에 동의함2) (서명 또는 인)",
-      "section": "금융정보 등 제공 동의자",
+      "id": "consenter2_phone",
+      "label": "휴대전화번호",
+      "section": "2. 금융정보 제공 동의자 2",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "동의하는 사람의 휴대전화 번호를 적어요.",
+      "example": null,
+      "evidence": "휴대전화번호",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          191,
+          364,
+          371,
+          384
+        ],
+        "how": "table_right",
+        "template_text": "--",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter2_consent_signature",
+      "label": "금융정보 등의 제공을 동의함 (서명 또는 인)",
+      "section": "2. 금융정보 제공 동의자 2",
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
-      "required": true,
-      "guide": "통보하지 않는 것에 동의하는 서명을 해요.",
+      "required": false,
+      "guide": "금융정보 제공에 동의하면 직접 서명해요.",
       "example": null,
-      "evidence": "금융정보 등의 제공 사실을 동의자에게 통보하지 않는 것에 동의함2) (서명 또는 인)",
+      "evidence": "금융정보 등의 제공을 동의함 (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          373,
+          326,
+          438,
+          384
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter2_no_notice_signature",
+      "label": "제공 사실을 통보하지 않는 것에 동의함 (서명 또는 인)",
+      "section": "2. 금융정보 제공 동의자 2",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "제공 사실을 따로 알리지 않아도 되면 직접 서명해요 (안 하면 문자로 알려 줘요).",
+      "example": null,
+      "evidence": "제공 사실을 통보하지 않는 것에 동의함 (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          440,
+          326,
+          519,
+          384
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter3_relation",
+      "label": "신청자와의 관계",
+      "section": "2. 금융정보 제공 동의자 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청자와의 관계를 적어요 (본인이면 '본인').",
+      "example": "배우자",
+      "evidence": "신청자와의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          80,
+          386,
+          122,
+          443
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter3_name",
+      "label": "동의자 성명",
+      "section": "2. 금융정보 제공 동의자 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "동의하는 사람의 이름을 적어요.",
+      "example": null,
+      "evidence": "동의자 성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          124,
+          386,
+          189,
+          443
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter3_id_number",
+      "label": "주민등록번호(외국인등록번호)",
+      "section": "2. 금융정보 제공 동의자 3",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호(외국인등록번호)",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          191,
+          386,
+          371,
+          422
+        ],
+        "how": "table_right",
+        "template_text": "-",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter3_phone",
+      "label": "휴대전화번호",
+      "section": "2. 금융정보 제공 동의자 3",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "동의하는 사람의 휴대전화 번호를 적어요.",
+      "example": null,
+      "evidence": "휴대전화번호",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          191,
+          424,
+          371,
+          443
+        ],
+        "how": "table_right",
+        "template_text": "--",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter3_consent_signature",
+      "label": "금융정보 등의 제공을 동의함 (서명 또는 인)",
+      "section": "2. 금융정보 제공 동의자 3",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "금융정보 제공에 동의하면 직접 서명해요.",
+      "example": null,
+      "evidence": "금융정보 등의 제공을 동의함 (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          373,
+          386,
+          438,
+          443
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter3_no_notice_signature",
+      "label": "제공 사실을 통보하지 않는 것에 동의함 (서명 또는 인)",
+      "section": "2. 금융정보 제공 동의자 3",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "제공 사실을 따로 알리지 않아도 되면 직접 서명해요 (안 하면 문자로 알려 줘요).",
+      "example": null,
+      "evidence": "제공 사실을 통보하지 않는 것에 동의함 (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          440,
+          386,
+          519,
+          443
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter4_relation",
+      "label": "신청자와의 관계",
+      "section": "2. 금융정보 제공 동의자 4",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청자와의 관계를 적어요 (본인이면 '본인').",
+      "example": "배우자",
+      "evidence": "신청자와의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          80,
+          445,
+          122,
+          502
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter4_name",
+      "label": "동의자 성명",
+      "section": "2. 금융정보 제공 동의자 4",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "동의하는 사람의 이름을 적어요.",
+      "example": null,
+      "evidence": "동의자 성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          124,
+          445,
+          189,
+          502
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter4_id_number",
+      "label": "주민등록번호(외국인등록번호)",
+      "section": "2. 금융정보 제공 동의자 4",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호(외국인등록번호)",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          191,
+          445,
+          371,
+          481
+        ],
+        "how": "table_right",
+        "template_text": "-",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter4_phone",
+      "label": "휴대전화번호",
+      "section": "2. 금융정보 제공 동의자 4",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "동의하는 사람의 휴대전화 번호를 적어요.",
+      "example": null,
+      "evidence": "휴대전화번호",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          191,
+          483,
+          371,
+          502
+        ],
+        "how": "table_right",
+        "template_text": "--",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter4_consent_signature",
+      "label": "금융정보 등의 제공을 동의함 (서명 또는 인)",
+      "section": "2. 금융정보 제공 동의자 4",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "금융정보 제공에 동의하면 직접 서명해요.",
+      "example": null,
+      "evidence": "금융정보 등의 제공을 동의함 (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          373,
+          445,
+          438,
+          502
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consenter4_no_notice_signature",
+      "label": "제공 사실을 통보하지 않는 것에 동의함 (서명 또는 인)",
+      "section": "2. 금융정보 제공 동의자 4",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "제공 사실을 따로 알리지 않아도 되면 직접 서명해요 (안 하면 문자로 알려 줘요).",
+      "example": null,
+      "evidence": "제공 사실을 통보하지 않는 것에 동의함 (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          440,
+          445,
+          519,
+          502
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "date",
-      "label": "년 월 일",
+      "label": "작성일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
+      "guide": "동의서를 쓰는 날짜를 적어요.",
       "example": null,
-      "evidence": "년 월 일",
+      "evidence": "작성일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          219.7,
-          732.2,
-          394.6,
-          750.1
+          203,
+          731,
+          392,
+          751
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "년월",
+        "found_by": "layout_spec"
       }
     }
   ],
@@ -257,8 +709,6 @@
     "공공주택의 공급을 신청하는 자가 이 동의서 제출을 2회 이상 거부·기피할 경우 신청이 각하될 수 있습니다.",
     "이 동의서는 최초로 공공주택의 공급을 신청할 때 한 번만 제출하면 됩니다."
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 관 계, 동의자 성 명"
-  ],
+  "warnings": [],
   "checked": false
 }

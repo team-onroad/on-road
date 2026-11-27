@@ -1,0 +1,570 @@
+{
+ "form_id": "jindo-privacy-consent",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "person1_name",
+   "label": "성명",
+   "section": "1. 동의하는 사람 1",
+   "required": true,
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "본인 이름을 적어요.",
+   "at": {
+    "rect": [
+     32,
+     176,
+     98,
+     199
+    ]
+   }
+  },
+  {
+   "id": "person1_id_number",
+   "label": "주민등록번호",
+   "section": "1. 동의하는 사람 1",
+   "required": true,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     100,
+     176,
+     197,
+     199
+    ]
+   }
+  },
+  {
+   "id": "person1_signature",
+   "label": "서명 (서명 또는 인)",
+   "section": "1. 동의하는 사람 1",
+   "required": true,
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "각자 직접 서명하거나 도장을 찍어요 (만 14세 미만은 보호자가).",
+   "at": {
+    "rect": [
+     250,
+     176,
+     301,
+     199
+    ]
+   }
+  },
+  {
+   "id": "person2_name",
+   "label": "성명",
+   "section": "1. 동의하는 사람 2",
+   "required": false,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "함께 전입할 가구원의 이름을 적어요.",
+   "at": {
+    "rect": [
+     32,
+     201,
+     98,
+     224
+    ]
+   }
+  },
+  {
+   "id": "person2_id_number",
+   "label": "주민등록번호",
+   "section": "1. 동의하는 사람 2",
+   "required": false,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     100,
+     201,
+     197,
+     224
+    ]
+   }
+  },
+  {
+   "id": "person2_relation",
+   "label": "청약자와의 관계",
+   "section": "1. 동의하는 사람 2",
+   "required": false,
+   "guide": "신청자와의 관계를 적어요 (예: 자녀, 부모).",
+   "at": {
+    "rect": [
+     199,
+     201,
+     248,
+     224
+    ]
+   }
+  },
+  {
+   "id": "person2_signature",
+   "label": "서명 (서명 또는 인)",
+   "section": "1. 동의하는 사람 2",
+   "required": false,
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "각자 직접 서명하거나 도장을 찍어요 (만 14세 미만은 보호자가).",
+   "at": {
+    "rect": [
+     250,
+     201,
+     301,
+     224
+    ]
+   }
+  },
+  {
+   "id": "person3_name",
+   "label": "성명",
+   "section": "1. 동의하는 사람 3",
+   "required": false,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "함께 전입할 가구원의 이름을 적어요.",
+   "at": {
+    "rect": [
+     32,
+     226,
+     98,
+     249
+    ]
+   }
+  },
+  {
+   "id": "person3_id_number",
+   "label": "주민등록번호",
+   "section": "1. 동의하는 사람 3",
+   "required": false,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     100,
+     226,
+     197,
+     249
+    ]
+   }
+  },
+  {
+   "id": "person3_relation",
+   "label": "청약자와의 관계",
+   "section": "1. 동의하는 사람 3",
+   "required": false,
+   "guide": "신청자와의 관계를 적어요 (예: 자녀, 부모).",
+   "at": {
+    "rect": [
+     199,
+     226,
+     248,
+     249
+    ]
+   }
+  },
+  {
+   "id": "person3_signature",
+   "label": "서명 (서명 또는 인)",
+   "section": "1. 동의하는 사람 3",
+   "required": false,
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "각자 직접 서명하거나 도장을 찍어요 (만 14세 미만은 보호자가).",
+   "at": {
+    "rect": [
+     250,
+     226,
+     301,
+     249
+    ]
+   }
+  },
+  {
+   "id": "person4_name",
+   "label": "성명",
+   "section": "1. 동의하는 사람 4",
+   "required": false,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "함께 전입할 가구원의 이름을 적어요.",
+   "at": {
+    "rect": [
+     32,
+     251,
+     98,
+     273
+    ]
+   }
+  },
+  {
+   "id": "person4_id_number",
+   "label": "주민등록번호",
+   "section": "1. 동의하는 사람 4",
+   "required": false,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     100,
+     251,
+     197,
+     273
+    ]
+   }
+  },
+  {
+   "id": "person4_relation",
+   "label": "청약자와의 관계",
+   "section": "1. 동의하는 사람 4",
+   "required": false,
+   "guide": "신청자와의 관계를 적어요 (예: 자녀, 부모).",
+   "at": {
+    "rect": [
+     199,
+     251,
+     248,
+     273
+    ]
+   }
+  },
+  {
+   "id": "person4_signature",
+   "label": "서명 (서명 또는 인)",
+   "section": "1. 동의하는 사람 4",
+   "required": false,
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "각자 직접 서명하거나 도장을 찍어요 (만 14세 미만은 보호자가).",
+   "at": {
+    "rect": [
+     250,
+     251,
+     301,
+     273
+    ]
+   }
+  },
+  {
+   "id": "person5_name",
+   "label": "성명",
+   "section": "1. 동의하는 사람 5",
+   "required": false,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "배우자가 있으면 이름을 적어요.",
+   "at": {
+    "rect": [
+     303,
+     176,
+     370,
+     199
+    ]
+   }
+  },
+  {
+   "id": "person5_id_number",
+   "label": "주민등록번호",
+   "section": "1. 동의하는 사람 5",
+   "required": false,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     372,
+     176,
+     463,
+     199
+    ]
+   }
+  },
+  {
+   "id": "person5_signature",
+   "label": "서명 (서명 또는 인)",
+   "section": "1. 동의하는 사람 5",
+   "required": false,
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "각자 직접 서명하거나 도장을 찍어요 (만 14세 미만은 보호자가).",
+   "at": {
+    "rect": [
+     516,
+     176,
+     568,
+     199
+    ]
+   }
+  },
+  {
+   "id": "person6_name",
+   "label": "성명",
+   "section": "1. 동의하는 사람 6",
+   "required": false,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "함께 전입할 가구원의 이름을 적어요.",
+   "at": {
+    "rect": [
+     303,
+     201,
+     370,
+     224
+    ]
+   }
+  },
+  {
+   "id": "person6_id_number",
+   "label": "주민등록번호",
+   "section": "1. 동의하는 사람 6",
+   "required": false,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     372,
+     201,
+     463,
+     224
+    ]
+   }
+  },
+  {
+   "id": "person6_relation",
+   "label": "청약자와의 관계",
+   "section": "1. 동의하는 사람 6",
+   "required": false,
+   "guide": "신청자와의 관계를 적어요 (예: 자녀, 부모).",
+   "at": {
+    "rect": [
+     465,
+     201,
+     514,
+     224
+    ]
+   }
+  },
+  {
+   "id": "person6_signature",
+   "label": "서명 (서명 또는 인)",
+   "section": "1. 동의하는 사람 6",
+   "required": false,
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "각자 직접 서명하거나 도장을 찍어요 (만 14세 미만은 보호자가).",
+   "at": {
+    "rect": [
+     516,
+     201,
+     568,
+     224
+    ]
+   }
+  },
+  {
+   "id": "person7_name",
+   "label": "성명",
+   "section": "1. 동의하는 사람 7",
+   "required": false,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "함께 전입할 가구원의 이름을 적어요.",
+   "at": {
+    "rect": [
+     303,
+     226,
+     370,
+     249
+    ]
+   }
+  },
+  {
+   "id": "person7_id_number",
+   "label": "주민등록번호",
+   "section": "1. 동의하는 사람 7",
+   "required": false,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     372,
+     226,
+     463,
+     249
+    ]
+   }
+  },
+  {
+   "id": "person7_relation",
+   "label": "청약자와의 관계",
+   "section": "1. 동의하는 사람 7",
+   "required": false,
+   "guide": "신청자와의 관계를 적어요 (예: 자녀, 부모).",
+   "at": {
+    "rect": [
+     465,
+     226,
+     514,
+     249
+    ]
+   }
+  },
+  {
+   "id": "person7_signature",
+   "label": "서명 (서명 또는 인)",
+   "section": "1. 동의하는 사람 7",
+   "required": false,
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "각자 직접 서명하거나 도장을 찍어요 (만 14세 미만은 보호자가).",
+   "at": {
+    "rect": [
+     516,
+     226,
+     568,
+     249
+    ]
+   }
+  },
+  {
+   "id": "person8_name",
+   "label": "성명",
+   "section": "1. 동의하는 사람 8",
+   "required": false,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "함께 전입할 가구원의 이름을 적어요.",
+   "at": {
+    "rect": [
+     303,
+     251,
+     370,
+     273
+    ]
+   }
+  },
+  {
+   "id": "person8_id_number",
+   "label": "주민등록번호",
+   "section": "1. 동의하는 사람 8",
+   "required": false,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     372,
+     251,
+     463,
+     273
+    ]
+   }
+  },
+  {
+   "id": "person8_relation",
+   "label": "청약자와의 관계",
+   "section": "1. 동의하는 사람 8",
+   "required": false,
+   "guide": "신청자와의 관계를 적어요 (예: 자녀, 부모).",
+   "at": {
+    "rect": [
+     465,
+     251,
+     514,
+     273
+    ]
+   }
+  },
+  {
+   "id": "person8_signature",
+   "label": "서명 (서명 또는 인)",
+   "section": "1. 동의하는 사람 8",
+   "required": false,
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "각자 직접 서명하거나 도장을 찍어요 (만 14세 미만은 보호자가).",
+   "at": {
+    "rect": [
+     516,
+     251,
+     568,
+     273
+    ]
+   }
+  },
+  {
+   "id": "consent_collection",
+   "label": "[필수] 개인정보 수집·이용 동의",
+   "input_type": "checkbox",
+   "guide": "동의해야 공급 신청을 받을 수 있어요.",
+   "at": {
+    "page": 0,
+    "marks_xy": {
+     "동의": [
+      458.5,
+      599.5
+     ],
+     "미동의": [
+      541.5,
+      599.5
+     ]
+    }
+   }
+  },
+  {
+   "id": "consent_third_party",
+   "label": "[필수] 개인정보 제3자 제공 동의",
+   "input_type": "checkbox",
+   "guide": "동의해야 공급 신청을 받을 수 있어요.",
+   "at": {
+    "page": 1,
+    "marks_xy": {
+     "동의": [
+      457,
+      594.5
+     ],
+     "미동의": [
+      539.5,
+      594.5
+     ]
+    }
+   }
+  },
+  {
+   "id": "consent_marketing",
+   "label": "[선택] 공공주택 정보 제공을 위한 개인정보 수집·이용 동의",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "새 공고 알림을 받고 싶으면 동의해요. 동의하지 않아도 신청에는 문제없어요.",
+   "at": {
+    "page": 1,
+    "marks_xy": {
+     "동의": [
+      454.5,
+      719
+     ],
+     "미동의": [
+      537,
+      719
+     ]
+    }
+   }
+  }
+ ]
+}

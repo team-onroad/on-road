@@ -1,0 +1,412 @@
+{
+ "form_id": "jindo-household-confirm",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "member1_name",
+   "label": "성명",
+   "section": "본인",
+   "required": true,
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "본인 이름을 적어요.",
+   "at": {
+    "rect": [
+     152,
+     260,
+     229,
+     301
+    ]
+   }
+  },
+  {
+   "id": "member1_id_number",
+   "label": "주민등록번호",
+   "section": "본인",
+   "required": true,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     231,
+     260,
+     382,
+     301
+    ]
+   }
+  },
+  {
+   "id": "member1_head_relation",
+   "label": "(예정) 세대주와의 관계",
+   "section": "본인",
+   "required": true,
+   "guide": "입주 뒤 세대주와의 관계를 적어요 (예: 본인, 형제).",
+   "example": "본인",
+   "at": {
+    "rect": [
+     384,
+     260,
+     473,
+     301
+    ]
+   }
+  },
+  {
+   "id": "member1_note",
+   "label": "비고",
+   "section": "본인",
+   "required": false,
+   "guide": "덧붙일 말이 있으면 적어요.",
+   "at": {
+    "rect": [
+     475,
+     260,
+     545,
+     301
+    ]
+   }
+  },
+  {
+   "id": "member2_name",
+   "label": "성명",
+   "section": "동거인",
+   "required": true,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "함께 살 사람의 이름을 적어요.",
+   "at": {
+    "rect": [
+     152,
+     303,
+     229,
+     343
+    ]
+   }
+  },
+  {
+   "id": "member2_id_number",
+   "label": "주민등록번호",
+   "section": "동거인",
+   "required": true,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     231,
+     303,
+     382,
+     343
+    ]
+   }
+  },
+  {
+   "id": "member2_head_relation",
+   "label": "(예정) 세대주와의 관계",
+   "section": "동거인",
+   "required": true,
+   "guide": "입주 뒤 세대주와의 관계를 적어요 (예: 본인, 형제).",
+   "example": "형제",
+   "at": {
+    "rect": [
+     384,
+     303,
+     473,
+     343
+    ]
+   }
+  },
+  {
+   "id": "member2_note",
+   "label": "비고",
+   "section": "동거인",
+   "required": false,
+   "guide": "덧붙일 말이 있으면 적어요.",
+   "at": {
+    "rect": [
+     475,
+     303,
+     545,
+     343
+    ]
+   }
+  },
+  {
+   "id": "member3_relation",
+   "label": "신청인과의 관계",
+   "section": "가구원 2",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 배우자).",
+   "at": {
+    "rect": [
+     49,
+     345,
+     150,
+     386
+    ]
+   }
+  },
+  {
+   "id": "member3_name",
+   "label": "성명",
+   "section": "가구원 2",
+   "required": false,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "함께 살 사람의 이름을 적어요.",
+   "at": {
+    "rect": [
+     152,
+     345,
+     229,
+     386
+    ]
+   }
+  },
+  {
+   "id": "member3_id_number",
+   "label": "주민등록번호",
+   "section": "가구원 2",
+   "required": false,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     231,
+     345,
+     382,
+     386
+    ]
+   }
+  },
+  {
+   "id": "member3_head_relation",
+   "label": "(예정) 세대주와의 관계",
+   "section": "가구원 2",
+   "required": false,
+   "guide": "입주 뒤 세대주와의 관계를 적어요 (예: 본인, 형제).",
+   "example": "형제",
+   "at": {
+    "rect": [
+     384,
+     345,
+     473,
+     386
+    ]
+   }
+  },
+  {
+   "id": "member3_note",
+   "label": "비고",
+   "section": "가구원 2",
+   "required": false,
+   "guide": "덧붙일 말이 있으면 적어요.",
+   "at": {
+    "rect": [
+     475,
+     345,
+     545,
+     386
+    ]
+   }
+  },
+  {
+   "id": "member4_relation",
+   "label": "신청인과의 관계",
+   "section": "가구원 3",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 배우자).",
+   "at": {
+    "rect": [
+     49,
+     388,
+     150,
+     428
+    ]
+   }
+  },
+  {
+   "id": "member4_name",
+   "label": "성명",
+   "section": "가구원 3",
+   "required": false,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "함께 살 사람의 이름을 적어요.",
+   "at": {
+    "rect": [
+     152,
+     388,
+     229,
+     428
+    ]
+   }
+  },
+  {
+   "id": "member4_id_number",
+   "label": "주민등록번호",
+   "section": "가구원 3",
+   "required": false,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     231,
+     388,
+     382,
+     428
+    ]
+   }
+  },
+  {
+   "id": "member4_head_relation",
+   "label": "(예정) 세대주와의 관계",
+   "section": "가구원 3",
+   "required": false,
+   "guide": "입주 뒤 세대주와의 관계를 적어요 (예: 본인, 형제).",
+   "example": "형제",
+   "at": {
+    "rect": [
+     384,
+     388,
+     473,
+     428
+    ]
+   }
+  },
+  {
+   "id": "member4_note",
+   "label": "비고",
+   "section": "가구원 3",
+   "required": false,
+   "guide": "덧붙일 말이 있으면 적어요.",
+   "at": {
+    "rect": [
+     475,
+     388,
+     545,
+     428
+    ]
+   }
+  },
+  {
+   "id": "member5_relation",
+   "label": "신청인과의 관계",
+   "section": "가구원 4",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 배우자).",
+   "at": {
+    "rect": [
+     49,
+     430,
+     150,
+     470
+    ]
+   }
+  },
+  {
+   "id": "member5_name",
+   "label": "성명",
+   "section": "가구원 4",
+   "required": false,
+   "value_source": "user",
+   "profile_key": null,
+   "guide": "함께 살 사람의 이름을 적어요.",
+   "at": {
+    "rect": [
+     152,
+     430,
+     229,
+     470
+    ]
+   }
+  },
+  {
+   "id": "member5_id_number",
+   "label": "주민등록번호",
+   "section": "가구원 4",
+   "required": false,
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     231,
+     430,
+     382,
+     470
+    ]
+   }
+  },
+  {
+   "id": "member5_head_relation",
+   "label": "(예정) 세대주와의 관계",
+   "section": "가구원 4",
+   "required": false,
+   "guide": "입주 뒤 세대주와의 관계를 적어요 (예: 본인, 형제).",
+   "example": "형제",
+   "at": {
+    "rect": [
+     384,
+     430,
+     473,
+     470
+    ]
+   }
+  },
+  {
+   "id": "member5_note",
+   "label": "비고",
+   "section": "가구원 4",
+   "required": false,
+   "guide": "덧붙일 말이 있으면 적어요.",
+   "at": {
+    "rect": [
+     475,
+     430,
+     545,
+     470
+    ]
+   }
+  },
+  {
+   "id": "date",
+   "label": "작성일",
+   "input_type": "date",
+   "guide": "확인서를 쓰는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "applicant_signature",
+   "label": "(1) 대표신청인 (인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "대표신청인이 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "대표신청인:",
+    "to": "(인)#1"
+   }
+  },
+  {
+   "id": "member_signature",
+   "label": "(2) 예비가구원 등 (인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "함께 살 사람이 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "예비가구원등:",
+    "to": "(인)#2"
+   }
+  }
+ ]
+}

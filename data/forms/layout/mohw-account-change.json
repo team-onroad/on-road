@@ -1,0 +1,146 @@
+{
+ "form_id": "mohw-account-change",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "applicant_name",
+   "label": "성명",
+   "section": "신청인(복지대상자)",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "급여를 받는 본인의 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "right_of": "성명"
+   }
+  },
+  {
+   "id": "applicant_birth_date",
+   "label": "생년월일",
+   "section": "신청인(복지대상자)",
+   "input_type": "date",
+   "value_source": "profile",
+   "profile_key": "birth_date",
+   "guide": "본인의 생년월일을 적어요.",
+   "at": {
+    "right_of": "생년월일"
+   }
+  },
+  {
+   "id": "applicant_address",
+   "label": "주소",
+   "section": "신청인(복지대상자)",
+   "input_type": "address",
+   "guide": "사는 곳 주소를 적어요.",
+   "example": "서울특별시 ○○구 ○○로 12",
+   "at": {
+    "right_of": "주소",
+    "to": "(전화:"
+   }
+  },
+  {
+   "id": "applicant_phone",
+   "label": "전화",
+   "section": "신청인(복지대상자)",
+   "input_type": "phone",
+   "value_source": "profile",
+   "profile_key": "phone",
+   "guide": "연락받을 전화번호를 적어요.",
+   "example": "010-1234-5678",
+   "at": {
+    "rect": [
+     330,
+     208.9,
+     478,
+     244.4
+    ]
+   }
+  },
+  {
+   "id": "current_bank",
+   "label": "금융기관",
+   "section": "복지급여 계좌 > 현행",
+   "guide": "지금 급여를 받는 은행 이름을 적어요.",
+   "example": "국민은행",
+   "at": {
+    "right_of": "금융기관#1",
+    "to": "예금주#1"
+   }
+  },
+  {
+   "id": "current_account_holder",
+   "label": "예금주",
+   "section": "복지급여 계좌 > 현행",
+   "guide": "지금 통장의 예금주(통장 주인) 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "right_of": "예금주#1"
+   }
+  },
+  {
+   "id": "current_account_number",
+   "label": "계좌번호",
+   "section": "복지급여 계좌 > 현행",
+   "input_type": "account",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "지금 계좌번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "계좌번호#1"
+   }
+  },
+  {
+   "id": "new_bank",
+   "label": "금융기관",
+   "section": "복지급여 계좌 > 변경",
+   "guide": "새로 급여를 받을 은행 이름을 적어요.",
+   "example": "신한은행",
+   "at": {
+    "right_of": "금융기관#2",
+    "to": "예금주#2"
+   }
+  },
+  {
+   "id": "new_account_holder",
+   "label": "예금주",
+   "section": "복지급여 계좌 > 변경",
+   "guide": "새 통장의 예금주 이름을 적어요. 본인 이름이어야 해요.",
+   "example": "김민지",
+   "at": {
+    "right_of": "예금주#2"
+   }
+  },
+  {
+   "id": "new_account_number",
+   "label": "계좌번호",
+   "section": "복지급여 계좌 > 변경",
+   "input_type": "account",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "새 계좌번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "계좌번호#2"
+   }
+  },
+  {
+   "id": "date",
+   "label": "신청일",
+   "input_type": "date",
+   "guide": "신청하는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#-1"
+   }
+  },
+  {
+   "id": "signature",
+   "label": "신청인 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "제출할 때 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "신청인:",
+    "to": "(서명또는인)"
+   }
+  }
+ ]
+}

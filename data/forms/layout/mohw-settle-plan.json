@@ -1,0 +1,383 @@
+{
+ "form_id": "mohw-settle-plan",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "applicant_name",
+   "label": "성명",
+   "section": "신청인",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "본인 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "rect": [
+     205,
+     186,
+     263,
+     215
+    ]
+   }
+  },
+  {
+   "id": "applicant_phone",
+   "label": "연락처",
+   "section": "신청인",
+   "input_type": "phone",
+   "value_source": "profile",
+   "profile_key": "phone",
+   "guide": "연락처를 적어요.",
+   "at": {
+    "rect": [
+     373,
+     186,
+     481,
+     201
+    ]
+   }
+  },
+  {
+   "id": "applicant_email",
+   "label": "E-mail",
+   "section": "신청인",
+   "required": false,
+   "guide": "이메일 주소가 있으면 적어요.",
+   "at": {
+    "rect": [
+     373,
+     202,
+     481,
+     216
+    ]
+   }
+  },
+  {
+   "id": "applicant_bank_name",
+   "label": "은행명",
+   "section": "신청인",
+   "guide": "정착금을 받을 통장의 은행 이름을 적어요.",
+   "example": "농협은행",
+   "at": {
+    "rect": [
+     205,
+     217,
+     263,
+     230
+    ]
+   }
+  },
+  {
+   "id": "applicant_account_number",
+   "label": "계좌번호",
+   "section": "신청인",
+   "input_type": "account",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "계좌번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     373,
+     217,
+     481,
+     230
+    ]
+   }
+  },
+  {
+   "id": "applicant_protection_account",
+   "label": "압류방지통장 여부",
+   "section": "신청인",
+   "input_type": "checkbox",
+   "guide": "정착금을 받을 통장이 압류방지통장인지 골라요.",
+   "at": {
+    "choices": "압류방지통장여부["
+   }
+  },
+  {
+   "id": "case_manager_name",
+   "label": "성명",
+   "section": "자립업무 담당자",
+   "value_source": "office",
+   "guide": "자립업무 담당자가 적는 칸이에요.",
+   "at": {
+    "rect": [
+     205,
+     251,
+     263,
+     268
+    ]
+   }
+  },
+  {
+   "id": "case_manager_phone",
+   "label": "휴대전화",
+   "section": "자립업무 담당자",
+   "value_source": "office",
+   "input_type": "phone",
+   "guide": "자립업무 담당자가 적는 칸이에요.",
+   "at": {
+    "rect": [
+     373,
+     251,
+     481,
+     268
+    ]
+   }
+  },
+  {
+   "id": "case_manager_affiliation",
+   "label": "소속",
+   "section": "자립업무 담당자",
+   "value_source": "office",
+   "guide": "자립업무 담당자가 적는 칸이에요.",
+   "at": {
+    "rect": [
+     205,
+     269,
+     263,
+     288
+    ]
+   }
+  },
+  {
+   "id": "case_manager_email",
+   "label": "E-mail",
+   "section": "자립업무 담당자",
+   "value_source": "office",
+   "guide": "자립업무 담당자가 적는 칸이에요.",
+   "at": {
+    "rect": [
+     373,
+     269,
+     481,
+     288
+    ]
+   }
+  },
+  {
+   "id": "usage1_purpose",
+   "label": "사용용도",
+   "section": "사용 계획 1",
+   "required": true,
+   "guide": "정착금을 어디에 쓸지 적어요 (예: 보증금, 가전 구입).",
+   "example": "원룸 보증금",
+   "at": {
+    "rect": [
+     75,
+     337,
+     263,
+     369
+    ]
+   }
+  },
+  {
+   "id": "usage1_amount",
+   "label": "금액",
+   "section": "사용 계획 1",
+   "input_type": "number",
+   "required": true,
+   "guide": "그 용도에 쓸 금액을 원 단위로 적어요.",
+   "example": "5000000",
+   "at": {
+    "rect": [
+     265,
+     337,
+     336,
+     369
+    ]
+   }
+  },
+  {
+   "id": "usage1_period",
+   "label": "사용기간",
+   "section": "사용 계획 1",
+   "required": true,
+   "guide": "언제 쓸지 적어요 (예: 2027년 1월).",
+   "example": "2027년 1월",
+   "at": {
+    "rect": [
+     338,
+     337,
+     407,
+     369
+    ]
+   }
+  },
+  {
+   "id": "usage1_remarks",
+   "label": "비고",
+   "section": "사용 계획 1",
+   "required": false,
+   "guide": "덧붙일 말이 있으면 적어요.",
+   "at": {
+    "rect": [
+     409,
+     337,
+     481,
+     369
+    ]
+   }
+  },
+  {
+   "id": "usage2_purpose",
+   "label": "사용용도",
+   "section": "사용 계획 2",
+   "required": false,
+   "guide": "정착금을 어디에 쓸지 적어요 (예: 보증금, 가전 구입).",
+   "example": "원룸 보증금",
+   "at": {
+    "rect": [
+     75,
+     371,
+     263,
+     402
+    ]
+   }
+  },
+  {
+   "id": "usage2_amount",
+   "label": "금액",
+   "section": "사용 계획 2",
+   "input_type": "number",
+   "required": false,
+   "guide": "그 용도에 쓸 금액을 원 단위로 적어요.",
+   "example": "5000000",
+   "at": {
+    "rect": [
+     265,
+     371,
+     336,
+     402
+    ]
+   }
+  },
+  {
+   "id": "usage2_period",
+   "label": "사용기간",
+   "section": "사용 계획 2",
+   "required": false,
+   "guide": "언제 쓸지 적어요 (예: 2027년 1월).",
+   "example": "2027년 1월",
+   "at": {
+    "rect": [
+     338,
+     371,
+     407,
+     402
+    ]
+   }
+  },
+  {
+   "id": "usage2_remarks",
+   "label": "비고",
+   "section": "사용 계획 2",
+   "required": false,
+   "guide": "덧붙일 말이 있으면 적어요.",
+   "at": {
+    "rect": [
+     409,
+     371,
+     481,
+     402
+    ]
+   }
+  },
+  {
+   "id": "usage3_purpose",
+   "label": "사용용도",
+   "section": "사용 계획 3",
+   "required": false,
+   "guide": "정착금을 어디에 쓸지 적어요 (예: 보증금, 가전 구입).",
+   "example": "원룸 보증금",
+   "at": {
+    "rect": [
+     75,
+     404,
+     263,
+     436
+    ]
+   }
+  },
+  {
+   "id": "usage3_amount",
+   "label": "금액",
+   "section": "사용 계획 3",
+   "input_type": "number",
+   "required": false,
+   "guide": "그 용도에 쓸 금액을 원 단위로 적어요.",
+   "example": "5000000",
+   "at": {
+    "rect": [
+     265,
+     404,
+     336,
+     436
+    ]
+   }
+  },
+  {
+   "id": "usage3_period",
+   "label": "사용기간",
+   "section": "사용 계획 3",
+   "required": false,
+   "guide": "언제 쓸지 적어요 (예: 2027년 1월).",
+   "example": "2027년 1월",
+   "at": {
+    "rect": [
+     338,
+     404,
+     407,
+     436
+    ]
+   }
+  },
+  {
+   "id": "usage3_remarks",
+   "label": "비고",
+   "section": "사용 계획 3",
+   "required": false,
+   "guide": "덧붙일 말이 있으면 적어요.",
+   "at": {
+    "rect": [
+     409,
+     404,
+     481,
+     436
+    ]
+   }
+  },
+  {
+   "id": "date",
+   "label": "작성일",
+   "input_type": "date",
+   "guide": "계획서를 쓰는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "applicant_signature",
+   "label": "신청인 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "신청인#2",
+    "to": "(서명또는인)#1",
+    "gap": 6
+   }
+  },
+  {
+   "id": "case_manager_signature",
+   "label": "자립업무담당자 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "office",
+   "guide": "자립업무 담당자가 서명해요.",
+   "at": {
+    "right_of": "자립업무담당자",
+    "to": "(서명또는인)#2",
+    "gap": 6
+   }
+  }
+ ]
+}

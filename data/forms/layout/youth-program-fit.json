@@ -1,0 +1,60 @@
+{
+ "form_id": "youth-program-fit",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "participation_intent",
+   "label": "중·장기 프로그램 참여의사",
+   "guide": "중 · 장기 프로그램에 참여할 생각이 어떤지 적어요.",
+   "example": "끝까지 참여하고 싶어요.",
+   "at": {
+    "rect": [
+     188,
+     236,
+     517,
+     332
+    ]
+   }
+  },
+  {
+   "id": "active_communication",
+   "label": "적극적 의사소통",
+   "guide": "운영 담당자와 적극적으로 이야기할 의지가 어떤지 적어요.",
+   "at": {
+    "rect": [
+     188,
+     366,
+     517,
+     459
+    ]
+   }
+  },
+  {
+   "id": "sustained_participation",
+   "label": "지속적 참여의지",
+   "guide": "꾸준히 참여해서 이수할 의지가 어떤지 적어요.",
+   "at": {
+    "rect": [
+     188,
+     493,
+     517,
+     586
+    ]
+   }
+  },
+  {
+   "id": "participation_motivation",
+   "label": "참여동기",
+   "guide": "이 사업에 참여하고 싶은 까닭을 적어요.",
+   "example": "일할 자신감을 키우고 싶어요.",
+   "at": {
+    "rect": [
+     188,
+     614,
+     517,
+     713
+    ]
+   }
+  }
+ ]
+}

@@ -6,133 +6,138 @@
   "fields": [
     {
       "id": "claimant_name",
-      "label": "성 명",
-      "section": "중 개 보 수 청 구 인",
+      "label": "성명",
+      "section": "중개보수 청구인",
       "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "name",
       "required": true,
-      "guide": "본인의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "성 명",
+      "guide": "중개보수를 돌려받을 사람(본인) 이름을 적어요.",
+      "example": "김민지",
+      "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          229.2,
-          152.0,
-          535.4,
-          192.1
+          230,
+          153,
+          535,
+          191
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "claimant_bank_name",
-      "label": "은 행 명",
-      "section": "중 개 보 수 청 구 인",
+      "label": "은행명",
+      "section": "중개보수 청구인",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "본인이 사용하는 은행 이름을 적어요.",
-      "example": "우리은행",
-      "evidence": "은 행 명",
+      "guide": "지원금을 받을 통장의 은행 이름을 적어요.",
+      "example": "농협은행",
+      "evidence": "은행명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          229.2,
-          192.1,
-          339.9,
-          232.2
+          230,
+          193,
+          339,
+          231
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "claimant_account_number",
       "label": "계좌번호",
-      "section": "중 개 보 수 청 구 인",
+      "section": "중개보수 청구인",
       "input_type": "account",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "본인의 계좌번호를 적어요.",
+      "guide": "계좌번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "계좌번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          421.8,
-          192.1,
-          535.4,
-          232.2
+          423,
+          193,
+          535,
+          231
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "contract_address",
       "label": "계약대상 주소",
-      "section": "중 개 보 수 청 구 인",
-      "input_type": "text",
+      "section": "중개보수 청구인",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "계약할 부동산의 주소를 적어요.",
-      "example": "서울특별시 강남구 테헤란로 123",
+      "guide": "계약한 집의 주소를 적어요.",
+      "example": "경기도 ○○시 ○○로 12, 101호",
       "evidence": "계약대상 주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          229.2,
-          232.2,
-          535.4,
-          275.8
+          230,
+          233,
+          535,
+          275
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "claimant_phone",
-      "label": "연락처 (핸드폰번호)",
-      "section": "중 개 보 수 청 구 인",
+      "label": "연락처(핸드폰번호)",
+      "section": "중개보수 청구인",
       "input_type": "phone",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "phone",
       "required": true,
-      "guide": "본인의 핸드폰 번호를 적어요.",
+      "guide": "휴대전화 번호를 적어요.",
       "example": "010-1234-5678",
-      "evidence": "연락처 (핸드폰번호)",
+      "evidence": "연락처(핸드폰번호)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          229.2,
-          275.8,
-          535.4,
-          318.4
+          230,
+          277,
+          535,
+          317
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "contract_type",
       "label": "계약유형",
-      "section": "중 개 보 수 청 구 인",
+      "section": "중개보수 청구인",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "계약 유형을 선택해요. 매매/전세/월세/기타 중 하나를 고르세요.",
+      "guide": "매매 · 전세 · 월세 · 기타 중 계약 종류를 골라요.",
       "example": null,
       "evidence": "계약유형",
       "sensitive": false,
@@ -170,93 +175,82 @@
             352.1
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "transaction_amount",
       "label": "거래금액(원)",
-      "section": "중 개 보 수 청 구 인",
+      "section": "중개보수 청구인",
       "input_type": "number",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "거래 금액을 원 단위로 적어요.",
+      "guide": "계약서에 적힌 거래금액(보증금)을 원 단위로 적어요.",
       "example": "50000000",
       "evidence": "거래금액(원)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          421.8,
-          318.4,
-          535.4,
-          366.8
+          423,
+          319,
+          535,
+          366
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "broker_fee",
-      "label": "중 개 보 수",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "중개 보수를 적어요.",
-      "example": "2500000",
-      "evidence": "중 개 보 수",
-      "sensitive": false,
-      "box": null
-    },
-    {
       "id": "broker_fee_amount",
-      "label": "금 액(원)",
+      "label": "중개보수 금액(원)",
       "section": null,
       "input_type": "number",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "중개 보수 금액을 원 단위로 적어요.",
-      "example": "2500000",
-      "evidence": "금 액(원)",
+      "guide": "공인중개사에게 낸 중개보수를 원 단위로 적어요 (영수증 금액).",
+      "example": "300000",
+      "evidence": "중개보수 금액(원)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          229.2,
-          366.8,
-          535.4,
-          410.4
+          230,
+          368,
+          535,
+          409
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "broker_name",
-      "label": "성 명",
+      "label": "성명",
       "section": "개업공인중개사",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "중개사의 이름을 적어요.",
+      "guide": "계약을 중개한 공인중개사 이름을 적어요.",
       "example": "김중개",
-      "evidence": "성 명",
+      "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          229.2,
-          410.4,
-          339.9,
-          454.3
+          230,
+          411,
+          339,
+          453
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -267,82 +261,71 @@
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "중개사무소의 이름을 적어요.",
-      "example": "부동산중개사무소",
+      "guide": "중개사무소 이름을 적어요.",
+      "example": "○○공인중개사사무소",
       "evidence": "중개사무소명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          421.8,
-          410.4,
-          535.4,
-          454.3
+          423,
+          411,
+          535,
+          453
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "submission_department",
-      "label": "서류 접수처",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "서류를 제출할 부서 이름을 적어요.",
-      "example": "서울시 부동산 담당부서",
-      "evidence": "서류 접수처",
-      "sensitive": false,
-      "box": null
-    },
-    {
       "id": "submission_date",
-      "label": "년 월 일",
+      "label": "청구일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
+      "guide": "청구하는 날짜를 적어요.",
       "example": null,
-      "evidence": "20 년 월 일",
+      "evidence": "청구일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          203.7,
-          679.4,
+          224.3,
+          680.5,
           370.6,
-          702.4
+          701.4
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "20년월일",
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "claimant_signature",
-      "label": "청구인 : (서명 또는 인)",
+      "label": "청구인 (서명 또는 인)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "서명 또는 도장을 해요.",
+      "guide": "직접 서명하거나 도장을 찍어요.",
       "example": null,
-      "evidence": "청구인 : (서명 또는 인)",
-      "sensitive": true,
+      "evidence": "청구인 (서명 또는 인)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          61.5,
-          723.3,
-          302.8,
-          739.3
+          356.8,
+          722.4,
+          453.7,
+          740.3
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     }
   ],
@@ -350,8 +333,6 @@
     "구비서류: 1. 개인정보의 수집·이용 및 제3자 제공 동의서 2. 국민기초생활수급자 증명서 또는 보호종료확인서 3. 주민등록표 등본(최근5년 주소변동사항 포함) 4. 매매(임대차)계약서 사본 5. 중개보수 영수증 사본 6. 통장 사본",
     "서류 접수처: 시·군 부동산 담당부서"
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 중 개 보 수, 서류 접수처"
-  ],
+  "warnings": [],
   "checked": false
 }

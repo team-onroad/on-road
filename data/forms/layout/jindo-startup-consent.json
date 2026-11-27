@@ -1,0 +1,144 @@
+{
+ "form_id": "jindo-startup-consent",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "applicant_name",
+   "label": "성명",
+   "section": "신청인",
+   "input_type": "text",
+   "value_source": "profile",
+   "guide": "신청인 이름을 적어요.",
+   "at": {
+    "right_of": "성명:",
+    "to": 340,
+    "gap": 8
+   },
+   "profile_key": "name"
+  },
+  {
+   "id": "applicant_address",
+   "label": "주민등록상주소",
+   "section": "신청인",
+   "input_type": "address",
+   "value_source": "user",
+   "guide": "주민등록상 주소를 적어요.",
+   "at": {
+    "right_of": "주민등록상주소:",
+    "to": 546,
+    "gap": 8
+   }
+  },
+  {
+   "id": "applicant_id_number",
+   "label": "주민등록번호",
+   "section": "신청인",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "주민등록번호:",
+    "to": 546,
+    "gap": 8
+   },
+   "sensitive": true
+  },
+  {
+   "id": "applicant_contact",
+   "label": "연락처",
+   "section": "신청인",
+   "input_type": "phone",
+   "value_source": "profile",
+   "guide": "연락처를 적어요.",
+   "at": {
+    "right_of": "연락처:",
+    "to": 340,
+    "gap": 8
+   },
+   "profile_key": "phone"
+  },
+  {
+   "id": "application_type",
+   "label": "신청구분",
+   "section": "신청인",
+   "input_type": "checkbox",
+   "guide": "취업 예정자인지 창업 예정자인지 골라요.",
+   "at": {
+    "choices": "신청구분:□"
+   }
+  },
+  {
+   "id": "expected_workplace",
+   "label": "예정 직장명(사업장명)",
+   "section": "신청인",
+   "input_type": "text",
+   "value_source": "user",
+   "guide": "취업할 회사나 창업할 사업장 이름을 적어요.",
+   "at": {
+    "right_of": "예정직장명(사업장명):",
+    "to": 546,
+    "gap": 8
+   }
+  },
+  {
+   "id": "expected_start_date",
+   "label": "취·창업 예정일",
+   "section": "신청인",
+   "input_type": "date",
+   "guide": "취업하거나 창업할 예정일을 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "commitment_employment",
+   "label": "취·창업 이행 동의",
+   "input_type": "checkbox",
+   "guide": "내용을 읽고 동의하면 골라요.",
+   "at": {
+    "mark": "□#4",
+    "option": "동의"
+   }
+  },
+  {
+   "id": "commitment_document_submission",
+   "label": "서류제출·변경통지 동의",
+   "input_type": "checkbox",
+   "guide": "내용을 읽고 동의하면 골라요.",
+   "at": {
+    "mark": "□#5",
+    "option": "동의"
+   }
+  },
+  {
+   "id": "commitment_contract_cancellation",
+   "label": "공급계약 해제 등 동의",
+   "input_type": "checkbox",
+   "guide": "내용을 읽고 동의하면 골라요.",
+   "at": {
+    "mark": "□#6",
+    "option": "동의"
+   }
+  },
+  {
+   "id": "submission_date",
+   "label": "작성일",
+   "input_type": "date",
+   "guide": "동의서를 쓰는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#2"
+   }
+  },
+  {
+   "id": "signature",
+   "label": "신청인 (인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "신청인:",
+    "to": "(인)"
+   }
+  }
+ ]
+}

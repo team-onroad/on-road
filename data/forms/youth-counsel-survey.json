@@ -6,23 +6,23 @@
   "fields": [
     {
       "id": "university_preparation",
-      "label": "향후 1년 이내, 대학 혹은 대학원 진학을 위해 준비 중입니까?",
-      "section": null,
+      "label": "① 향후 1년 이내, 대학 혹은 대학원 진학을 위해 준비 중입니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "대학이나 대학원 진학을 위해 준비하고 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 아니오 / ② 예",
+      "evidence": "① 향후 1년 이내, 대학 혹은 대학원 진학을 위해 준비 중입니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          158.0,
-          502.5,
-          181.5
+          462,
+          158,
+          516,
+          181
         ],
         "how": "checkbox",
         "template_text": null,
@@ -40,28 +40,28 @@
             175.3
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "job_field_interest",
-      "label": "향후 1년 이내, 취업하고 싶은 직업분야(혹은 기업)가 있습니까?",
-      "section": null,
+      "label": "② 향후 1년 이내, 취업하고 싶은 직업분야(혹은 기업)가 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "취업하고 싶은 직업 분야나 기업이 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 아니오 / ② 예",
+      "evidence": "② 향후 1년 이내, 취업하고 싶은 직업분야(혹은 기업)가 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          183.9,
-          502.5,
-          207.5
+          462,
+          183.1,
+          516,
+          207.0
         ],
         "how": "checkbox",
         "template_text": null,
@@ -79,28 +79,28 @@
             201.2
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "training_program_intent",
-      "label": "향후 1년 이내, 취업을 위해 직업훈련 프로그램 또는 현장실습에 참여할 의향이 있습니까?",
-      "section": null,
+      "label": "③ 향후 1년 이내, 취업을 위해 직업훈련 프로그램 또는 현장실습에 참여할 의향이 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "직업훈련 프로그램이나 현장실습에 참여할 의향이 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 아니오 / ② 예",
+      "evidence": "③ 향후 1년 이내, 취업을 위해 직업훈련 프로그램 또는 현장실습에 참여할 의향이 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          209.8,
-          502.5,
-          233.4
+          462,
+          209.0,
+          516,
+          232.9
         ],
         "how": "checkbox",
         "template_text": null,
@@ -118,28 +118,28 @@
             227.1
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "job_offer_acceptance",
-      "label": "연봉이 기대에 못 미쳐도, 경력개발을 위해 우선 취업할 의사가 있습니까?",
-      "section": null,
+      "label": "④ 연봉이 기대에 못 미쳐도, 경력개발을 위해 우선 취업할 의사가 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "연봉이 낮더라도 경력 개발을 위해 취업할 의사가 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 아니오 / ② 예",
+      "evidence": "④ 연봉이 기대에 못 미쳐도, 경력개발을 위해 우선 취업할 의사가 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          235.6,
-          502.5,
-          259.2
+          462,
+          234.9,
+          516,
+          258.7
         ],
         "how": "checkbox",
         "template_text": null,
@@ -157,28 +157,28 @@
             252.9
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "non_regular_job_acceptance",
-      "label": "정규직이 아니더라도, 경력개발을 위해 우선 취업할 의사가 있습니까?",
-      "section": null,
+      "label": "⑤ 정규직이 아니더라도, 경력개발을 위해 우선 취업할 의사가 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "정규직이 아니어도 경력 개발을 위해 취업할 의사가 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 아니오 / ② 예",
+      "evidence": "⑤ 정규직이 아니더라도, 경력개발을 위해 우선 취업할 의사가 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          261.5,
-          502.5,
-          285.1
+          462,
+          260.7,
+          516,
+          284.6
         ],
         "how": "checkbox",
         "template_text": null,
@@ -196,42 +196,67 @@
             278.8
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "new_challenge_acceptance",
-      "label": "본인의 학력 및 전공(기술)과 일치하지 않는 취업기회가 주어진다면, 새로운 도전을 위해 우선 취업할 의사가 있습니까?",
-      "section": null,
+      "label": "⑥ 본인의 학력 및 전공(기술)과 일치하지 않는 취업기회가 주어진다면, 새로운 도전을 위해 우선 취업할 의사가 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "학력이나 전공과 다르더라도 새로운 도전을 위해 취업할 의사가 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 아니오 / ② 예",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "job_anxiety",
-      "label": "취업의 어려움으로 인해 초조하거나 불안함을 느낀 적이 있습니까?",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "취업의 어려움으로 불안함을 느낀 적이 있는지 선택해요.",
-      "example": null,
-      "evidence": "① 예 / ② 아니오",
+      "evidence": "⑥ 본인의 학력 및 전공(기술)과 일치하지 않는 취업기회가 주어진다면, 새로운 도전을 위해 우선 취업할 의사가 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          313.3,
-          502.5,
-          336.8
+          462,
+          286.6,
+          516,
+          310.5
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "아니오",
+          "예"
+        ],
+        "marks": {
+          "아니오": [
+            466.5,
+            293.7
+          ],
+          "예": [
+            466.5,
+            304.8
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "job_anxiety",
+      "label": "⑦ 취업의 어려움으로 인해 초조하거나 불안함을 느낀 적이 있습니까?",
+      "section": "상담원 문답표",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "해당하는 답을 골라요.",
+      "example": null,
+      "evidence": "⑦ 취업의 어려움으로 인해 초조하거나 불안함을 느낀 적이 있습니까?",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          462,
+          312.5,
+          516,
+          336.2
         ],
         "how": "checkbox",
         "template_text": null,
@@ -249,28 +274,28 @@
             330.6
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "job_break",
-      "label": "취업의 어려움으로 인해 잠시 쉬고 싶다고 생각한 적이 있습니까?",
-      "section": null,
+      "label": "⑧ 취업의 어려움으로 인해 잠시 쉬고 싶다고 생각한 적이 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "취업의 어려움으로 쉬고 싶다고 생각한 적이 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 예 / ② 아니오",
+      "evidence": "⑧ 취업의 어려움으로 인해 잠시 쉬고 싶다고 생각한 적이 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          339.2,
-          502.5,
-          362.7
+          462,
+          338.2,
+          516,
+          362.1
         ],
         "how": "checkbox",
         "template_text": null,
@@ -288,28 +313,28 @@
             356.5
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "job_opportunity_give_up",
-      "label": "취업의 어려움으로 인해 목표했던 기업을 포기한 적이 있습니까?",
-      "section": null,
+      "label": "⑨ 취업의 어려움으로 인해 목표했던 기업을 포기한 적이 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "취업의 어려움으로 목표 기업을 포기한 적이 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 예 / ② 아니오",
+      "evidence": "⑨ 취업의 어려움으로 인해 목표했던 기업을 포기한 적이 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          365.1,
-          502.5,
-          388.7
+          462,
+          364.1,
+          516,
+          388.0
         ],
         "how": "checkbox",
         "template_text": null,
@@ -327,56 +352,106 @@
             382.4
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "certificate_experience",
-      "label": "최근 6개월 이내 자격증을 취득하거나, 취득을 위해 시험을 본 경험이 있습니까?",
-      "section": "자격증",
+      "label": "⑩ 최근 6개월 이내 자격증을 취득하거나, 취득을 위해 시험을 본 경험이 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "최근 6개월 이내 자격증을 취득했거나 시험 본 경험이 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 아니오 / ② 예",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "work_experience",
-      "label": "최근 6개월 이내 일을 한 경험(일의 종류, 고용보험 취득여부 등과 관계 없이)이 있습니까?",
-      "section": "근로 경험",
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "최근 6개월 이내에 일을 한 경험이 있는지 선택해요.",
-      "example": null,
-      "evidence": "① 없음 / ② 있음",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "employment_support_program",
-      "label": "최근 6개월 이내 직업훈련 외에 대학이나 민간기관에서 운영하는 취업지원 프로그램(이력서, 자기소개서, 면접 클리닉 등)에 참여한 적이 있습니까?",
-      "section": "취업 교육 이력",
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "최근 6개월 이내 취업지원 프로그램에 참여한 적이 있는지 선택해요.",
-      "example": null,
-      "evidence": "① 없음 / ② 있음",
+      "evidence": "⑩ 최근 6개월 이내 자격증을 취득하거나, 취득을 위해 시험을 본 경험이 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          448.4,
-          494.0,
-          471.9
+          462,
+          390.0,
+          516,
+          413.8
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "아니오",
+          "예"
+        ],
+        "marks": {
+          "아니오": [
+            466.5,
+            397.2
+          ],
+          "예": [
+            466.5,
+            408.2
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "work_experience",
+      "label": "⑪ 최근 6개월 이내 일을 한 경험(일의 종류, 고용보험 취득여부 등과 관계 없이)이 있습니까?",
+      "section": "상담원 문답표",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "해당하는 답을 골라요.",
+      "example": null,
+      "evidence": "⑪ 최근 6개월 이내 일을 한 경험(일의 종류, 고용보험 취득여부 등과 관계 없이)이 있습니까?",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          462,
+          415.8,
+          516,
+          439.7
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "없음",
+          "있음"
+        ],
+        "marks": {
+          "없음": [
+            466.5,
+            423.1
+          ],
+          "있음": [
+            466.5,
+            434.1
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "employment_support_program",
+      "label": "⑫ 최근 6개월 이내 직업훈련 외에 대학이나 민간기관에서 운영하는 취업지원 프로그램(이력서, 자기소개서, 면접 클리닉 등)에 참여한 적이 있습니까?",
+      "section": "상담원 문답표",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "해당하는 답을 골라요.",
+      "example": null,
+      "evidence": "⑫ 최근 6개월 이내 직업훈련 외에 대학이나 민간기관에서 운영하는 취업지원 프로그램(이력서, 자기소개서, 면접 클리닉 등)에 참여한 적이 있습니까?",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          462,
+          441.7,
+          516,
+          476.9
         ],
         "how": "checkbox",
         "template_text": null,
@@ -394,28 +469,28 @@
             465.7
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "household_or_childcare",
-      "label": "최근 6개월 이내 가사 또는 육아를 전담하신 적이 있습니까?",
-      "section": "전업 활동",
+      "label": "⑬ 최근 6개월 이내 가사 또는 육아를 전담하신 적이 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "최근 6개월 이내 가사나 육아를 전담한 적이 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 아니오 / ② 예",
+      "evidence": "⑬ 최근 6개월 이내 가사 또는 육아를 전담하신 적이 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          479.9,
-          502.5,
-          503.5
+          462,
+          478.9,
+          516,
+          502.7
         ],
         "how": "checkbox",
         "template_text": null,
@@ -433,56 +508,106 @@
             497.2
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "job_fair_attendance",
-      "label": "최근 6개월 내 취업박람회, 직업박람회 등 채용행사에 참석해본 적이 있습니까?",
-      "section": null,
+      "label": "⑭ 최근 6개월 내 취업박람회, 직업박람회 등 채용행사에 참석해본 적이 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "최근 6개월 내 채용행사에 참석한 적이 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 없음 / ② 있음",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "application_submission",
-      "label": "최근 6개월 내, 입사서류(이력서, 자기소개서 등)를 작성해 제출해본 적이 있습니까?",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "최근 6개월 내 입사서류를 작성해 제출한 적이 있는지 선택해요.",
-      "example": null,
-      "evidence": "① 없음 / ② 있음",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "job_center_visit",
-      "label": "최근 6개월 이내 시･군･구청 등 공공기관의 일자리센터 혹은 민간 직업 소개업체에 방문한 적이 있습니까?",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "최근 6개월 이내 일자리센터나 직업소개업체에 방문한 적이 있는지 선택해요.",
-      "example": null,
-      "evidence": "① 없음 / ② 있음",
+      "evidence": "⑭ 최근 6개월 내 취업박람회, 직업박람회 등 채용행사에 참석해본 적이 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          557.6,
-          494.0,
-          581.1
+          462,
+          504.7,
+          516,
+          528.5
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "없음",
+          "있음"
+        ],
+        "marks": {
+          "없음": [
+            466.5,
+            512.0
+          ],
+          "있음": [
+            466.5,
+            523.2
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "application_submission",
+      "label": "⑮ 최근 6개월 내, 입사서류(이력서, 자기소개서 등)를 작성해 제출해본 적이 있습니까?",
+      "section": "상담원 문답표",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "해당하는 답을 골라요.",
+      "example": null,
+      "evidence": "⑮ 최근 6개월 내, 입사서류(이력서, 자기소개서 등)를 작성해 제출해본 적이 있습니까?",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          462,
+          530.5,
+          516,
+          554.4
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "없음",
+          "있음"
+        ],
+        "marks": {
+          "없음": [
+            466.5,
+            537.9
+          ],
+          "있음": [
+            466.5,
+            549.0
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "job_center_visit",
+      "label": "⑯ 최근 6개월 이내 시･군･구청 등 공공기관의 일자리센터 혹은 민간 직업 소개업체에 방문한 적이 있습니까?",
+      "section": "상담원 문답표",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "해당하는 답을 골라요.",
+      "example": null,
+      "evidence": "⑯ 최근 6개월 이내 시･군･구청 등 공공기관의 일자리센터 혹은 민간 직업 소개업체에 방문한 적이 있습니까?",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          462,
+          556.4,
+          516,
+          580.3
         ],
         "how": "checkbox",
         "template_text": null,
@@ -500,28 +625,28 @@
             574.9
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "aptitude_test",
-      "label": "최근 6개월 이내 직업적성검사 등 직업심리검사를 받아본적이 있습니까?",
-      "section": null,
+      "label": "⑰ 최근 6개월 이내 직업적성검사 등 직업심리검사를 받아본적이 있습니까?",
+      "section": "상담원 문답표",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "최근 6개월 이내 직업적성검사를 받아본 적이 있는지 선택해요.",
+      "guide": "해당하는 답을 골라요.",
       "example": null,
-      "evidence": "① 없음 / ② 있음",
+      "evidence": "⑰ 최근 6개월 이내 직업적성검사 등 직업심리검사를 받아본적이 있습니까?",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          460.2,
-          583.4,
-          494.0,
-          607.1
+          462,
+          582.3,
+          516,
+          606.1
         ],
         "how": "checkbox",
         "template_text": null,
@@ -539,71 +664,113 @@
             600.8
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "self_esteem_decline",
-      "label": "내담자가 반복된 취업실패로 인해 자존감 하락 및 무기력함을 느끼고 있습니까?",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
+      "id": "q18_score",
+      "label": "⑱ 내담자가 반복된 취업실패로 인해 자존감 하락 및 무기력함을 느끼고 있습니까?",
+      "section": "재량점수 (상담사 작성)",
+      "input_type": "number",
+      "value_source": "office",
       "profile_key": null,
       "required": true,
-      "guide": "반복된 취업 실패로 자존감이 하락했는지 선택해요.",
+      "guide": "상담사가 점수를 적는 칸이에요.",
       "example": null,
-      "evidence": "① 없음 / ② 있음",
+      "evidence": "⑱ 내담자가 반복된 취업실패로 인해 자존감 하락 및 무기력함을 느끼고 있습니까?",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          462,
+          608.1,
+          516,
+          632.0
+        ],
+        "how": "table_right",
+        "template_text": "상담사재량",
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "future_uncertainty",
-      "label": "내담자가 자신의 미래를 위해 해야할 일들에 대해 막연함을 느끼고 있습니까?",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
+      "id": "q19_score",
+      "label": "⑲ 내담자가 자신의 미래를 위해 해야할 일들에 대해 막연함을 느끼고 있습니까?",
+      "section": "재량점수 (상담사 작성)",
+      "input_type": "number",
+      "value_source": "office",
       "profile_key": null,
       "required": true,
-      "guide": "미래를 위해 해야 할 일들에 대해 막연함을 느끼는지 선택해요.",
+      "guide": "상담사가 점수를 적는 칸이에요.",
       "example": null,
-      "evidence": "① 없음 / ② 있음",
+      "evidence": "⑲ 내담자가 자신의 미래를 위해 해야할 일들에 대해 막연함을 느끼고 있습니까?",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          462,
+          634.0,
+          516,
+          657.9
+        ],
+        "how": "table_right",
+        "template_text": "상담사재량",
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "communication_with_managers",
-      "label": "운영기관 매니저들과 의사소통이 잘 될 것으로 판단됩니까?",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
+      "id": "q20_score",
+      "label": "⑳ 운영기관 매니저들과 의사소통이 잘 될 것으로 판단됩니까?",
+      "section": "재량점수 (상담사 작성)",
+      "input_type": "number",
+      "value_source": "office",
       "profile_key": null,
       "required": true,
-      "guide": "운영기관 매니저들과 의사소통이 잘 될 것 같은지 선택해요.",
+      "guide": "상담사가 점수를 적는 칸이에요.",
       "example": null,
-      "evidence": "① 없음 / ② 있음",
+      "evidence": "⑳ 운영기관 매니저들과 의사소통이 잘 될 것으로 판단됩니까?",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          462,
+          659.9,
+          516,
+          672.4
+        ],
+        "how": "table_right",
+        "template_text": "상담사재량",
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "positive_attitude_formation",
-      "label": "청년도전지원사업 교육활동을 통해 구직과 관련한 긍정적 태도가 형성 될 수 있다고 보이십니까?",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
+      "id": "q21_score",
+      "label": "㉑ 청년도전지원사업 교육활동을 통해 구직과 관련한 긍정적 태도가 형성 될 수 있다고 보이십니까?",
+      "section": "재량점수 (상담사 작성)",
+      "input_type": "number",
+      "value_source": "office",
       "profile_key": null,
       "required": true,
-      "guide": "교육활동을 통해 긍정적인 태도가 형성될 수 있을지 선택해요.",
+      "guide": "상담사가 점수를 적는 칸이에요.",
       "example": null,
-      "evidence": "① 없음 / ② 있음",
+      "evidence": "㉑ 청년도전지원사업 교육활동을 통해 구직과 관련한 긍정적 태도가 형성 될 수 있다고 보이십니까?",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          462,
+          674.4,
+          516,
+          698.2
+        ],
+        "how": "table_right",
+        "template_text": "상담사재량",
+        "found_by": "layout_spec"
+      }
     }
   ],
   "notes": [
     "총합점수는 30점이며, 21점 이상이면 청년도전지원사업 참여자로 판정"
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 본인의 학력 및 전공(기술)과 일치하지 않는 취업기회가 주어진다면, 새로운 도전을 위해 우선 취업할 의사가 있습니까?, 최근 6개월 이내 자격증을 취득하거나, 취득을 위해 시험을 본 경험이 있습니까?, 최근 6개월 이내 일을 한 경험(일의 종류, 고용보험 취득여부 등과 관계 없이)이 있습니까?, 최근 6개월 내 취업박람회, 직업박람회 등 채용행사에 참석해본 적이 있습니까?, 최근 6개월 내, 입사서류(이력서, 자기소개서 등)를 작성해 제출해본 적이 있습니까?, 내담자가 반복된 취업실패로 인해 자존감 하락 및 무기력함을 느끼고 있습니까?, 내담자가 자신의 미래를 위해 해야할 일들에 대해 막연함을 느끼고 있습니까?, 운영기관 매니저들과 의사소통이 잘 될 것으로 판단됩니까?, 청년도전지원사업 교육활동을 통해 구직과 관련한 긍정적 태도가 형성 될 수 있다고 보이십니까?"
-  ],
+  "warnings": [],
   "checked": false
 }

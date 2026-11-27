@@ -1,0 +1,119 @@
+{
+ "form_id": "mohw-foster-consent",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "child_name",
+   "label": "이름",
+   "section": "아동",
+   "guide": "위탁보호를 받을 아동의 이름을 적어요.",
+   "example": "김○○",
+   "at": {
+    "right_of": "이름#1"
+   }
+  },
+  {
+   "id": "child_id_number",
+   "label": "주민등록번호",
+   "section": "아동",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "아동의 주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "주민등록번호#1"
+   }
+  },
+  {
+   "id": "guardian_name",
+   "label": "이름",
+   "section": "보호자",
+   "guide": "동의하는 보호자(부모 등)의 이름을 적어요.",
+   "example": "김○○",
+   "at": {
+    "right_of": "이름#2"
+   }
+  },
+  {
+   "id": "guardian_id_number",
+   "label": "주민등록번호",
+   "section": "보호자",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "보호자의 주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "주민등록번호#2"
+   }
+  },
+  {
+   "id": "guardian_address",
+   "label": "주소",
+   "section": "보호자",
+   "input_type": "address",
+   "guide": "보호자의 주소를 적어요.",
+   "at": {
+    "right_of": "주소"
+   }
+  },
+  {
+   "id": "guardian_relationship",
+   "label": "아동과의 관계",
+   "section": "보호자",
+   "guide": "보호자와 아동의 관계를 적어요 (예: 어머니).",
+   "example": "어머니",
+   "at": {
+    "right_of": "아동과의관계"
+   }
+  },
+  {
+   "id": "guardian_contact",
+   "label": "연락처",
+   "section": "보호자",
+   "input_type": "phone",
+   "guide": "보호자의 연락처를 적어요.",
+   "at": {
+    "right_of": "연락처"
+   }
+  },
+  {
+   "id": "foster_type",
+   "label": "위탁유형",
+   "input_type": "checkbox",
+   "guide": "일반 · 전문 · 일시 위탁가정 중 골라요.",
+   "at": {
+    "choices": "□일반위탁가정"
+   }
+  },
+  {
+   "id": "child_name_in_text",
+   "label": "아동( )을 가정위탁보호하는 것에 동의",
+   "guide": "위탁보호할 아동 이름을 다시 적어요.",
+   "at": {
+    "right_of": "아동(",
+    "to": ")을"
+   }
+  },
+  {
+   "id": "date",
+   "label": "동의일",
+   "input_type": "date",
+   "guide": "동의하는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#-1"
+   }
+  },
+  {
+   "id": "guardian_signature",
+   "label": "보호자 (인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "보호자가 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "보호자:",
+    "to": "(인)",
+    "gap": 8
+   }
+  }
+ ]
+}

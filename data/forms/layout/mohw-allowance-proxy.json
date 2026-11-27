@@ -1,0 +1,184 @@
+{
+ "form_id": "mohw-allowance-proxy",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "recipient_name",
+   "label": "성명",
+   "section": "지급대상 인적사항",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "자립수당을 받는 사람(본인)의 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "right_of": "성명#1",
+    "gap": 30
+   }
+  },
+  {
+   "id": "recipient_birth_date",
+   "label": "생년월일",
+   "section": "지급대상 인적사항",
+   "input_type": "date",
+   "value_source": "profile",
+   "profile_key": "birth_date",
+   "guide": "본인의 생년월일을 적어요.",
+   "at": {
+    "right_of": "생년월일#1",
+    "gap": 30
+   }
+  },
+  {
+   "id": "name",
+   "label": "성명(보호자)",
+   "section": "보호종료아동(위임자)",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "맡기는 사람(본인)의 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "right_of": "성명(보호자)",
+    "gap": 30
+   }
+  },
+  {
+   "id": "id_number",
+   "label": "주민등록번호(외국인등록번호)",
+   "section": "보호종료아동(위임자)",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "주민등록번호#1",
+    "gap": 30,
+    "x0": 362
+   }
+  },
+  {
+   "id": "phone",
+   "label": "전화번호",
+   "section": "보호종료아동(위임자)",
+   "input_type": "phone",
+   "required": false,
+   "guide": "집 전화가 있으면 적어요.",
+   "at": {
+    "right_of": "전화번호:#1",
+    "to": "휴대전화:#1"
+   }
+  },
+  {
+   "id": "mobile_phone",
+   "label": "휴대전화",
+   "section": "보호종료아동(위임자)",
+   "input_type": "phone",
+   "value_source": "profile",
+   "profile_key": "phone",
+   "guide": "휴대전화 번호를 적어요.",
+   "example": "010-1234-5678",
+   "at": {
+    "right_of": "휴대전화:#1"
+   }
+  },
+  {
+   "id": "address",
+   "label": "주소",
+   "section": "보호종료아동(위임자)",
+   "input_type": "address",
+   "guide": "사는 곳 주소를 적어요.",
+   "at": {
+    "right_of": "주소#1",
+    "gap": 30
+   }
+  },
+  {
+   "id": "proxy_name",
+   "label": "성명",
+   "section": "대리인(수임자)",
+   "guide": "대신 신청해 줄 사람의 이름을 적어요.",
+   "example": "이○○",
+   "at": {
+    "right_of": "성명#3",
+    "gap": 30
+   }
+  },
+  {
+   "id": "proxy_id_number",
+   "label": "주민등록번호(외국인등록번호)",
+   "section": "대리인(수임자)",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "대리인의 주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "주민등록번호#2",
+    "gap": 30,
+    "x0": 362
+   }
+  },
+  {
+   "id": "proxy_phone",
+   "label": "전화번호",
+   "section": "대리인(수임자)",
+   "input_type": "phone",
+   "required": false,
+   "guide": "대리인의 집 전화가 있으면 적어요.",
+   "at": {
+    "right_of": "전화번호:#2",
+    "to": "휴대전화:#2"
+   }
+  },
+  {
+   "id": "proxy_mobile_phone",
+   "label": "휴대전화",
+   "section": "대리인(수임자)",
+   "input_type": "phone",
+   "guide": "대리인의 휴대전화 번호를 적어요.",
+   "at": {
+    "right_of": "휴대전화:#2",
+    "to": "위임자와의관계"
+   }
+  },
+  {
+   "id": "proxy_relationship",
+   "label": "위임자와의 관계",
+   "section": "대리인(수임자)",
+   "guide": "본인과 대리인의 관계를 적어요 (예: 시설 선생님).",
+   "example": "시설 선생님",
+   "at": {
+    "right_of": "위임자와의관계"
+   }
+  },
+  {
+   "id": "proxy_address",
+   "label": "주소",
+   "section": "대리인(수임자)",
+   "input_type": "address",
+   "guide": "대리인의 주소를 적어요.",
+   "at": {
+    "right_of": "주소#2",
+    "gap": 30
+   }
+  },
+  {
+   "id": "date",
+   "label": "위임일",
+   "input_type": "date",
+   "guide": "위임하는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#-1"
+   }
+  },
+  {
+   "id": "signature",
+   "label": "(위임자) (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "본인이 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "(위임자):",
+    "to": "(서명또는인)"
+   }
+  }
+ ]
+}

@@ -5,75 +5,78 @@
   "source": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787",
   "fields": [
     {
-      "id": "application_date",
+      "id": "written_date",
       "label": "작성일",
-      "section": "자립지원계획서",
+      "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청서를 작성하는 날짜를 적어요.",
-      "example": "2023-10-01",
+      "guide": "계획서를 쓰는 날짜를 적어요.",
+      "example": "2026-11-27",
       "evidence": "작성일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          328.9,
-          155.8,
-          456.5,
-          171.8
+          295,
+          142,
+          360,
+          155
         ],
-        "how": "date_line",
-        "template_text": "년 월 일"
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "plan_year",
       "label": "계획연도",
-      "section": "자립지원계획서",
+      "section": null,
       "input_type": "number",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "계획하는 연도를 적어요.",
-      "example": "2026",
+      "guide": "몇 년도 계획인지 적어요.",
+      "example": "2027",
       "evidence": "계획연도",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          359.7,
-          141.3,
-          422.5,
-          156.1
+          362,
+          142,
+          421,
+          155
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "author",
       "label": "작성자",
-      "section": "자립지원계획서",
+      "section": null,
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "작성자의 이름을 적어요.",
+      "guide": "계획서를 쓴 사람(담당 선생님 등) 이름을 적어요.",
       "example": "홍길동",
       "evidence": "작성자",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          422.5,
-          141.3,
-          481.6,
-          156.1
+          423,
+          142,
+          481,
+          155
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -84,20 +87,21 @@
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "본인의 이름을 적어요.",
+      "guide": "본인 이름을 적어요.",
       "example": "홍길동",
       "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          133.3,
-          156.1,
-          186.8,
-          169.8
+          134,
+          157,
+          186,
+          169
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -108,20 +112,21 @@
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "본인의 성별을 적어요.",
-      "example": "남",
+      "guide": "성별을 적어요.",
+      "example": "여",
       "evidence": "성별",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          240.3,
-          156.1,
-          293.9,
-          169.8
+          241,
+          157,
+          293,
+          169
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -132,63 +137,114 @@
       "value_source": "profile",
       "profile_key": "birth_date",
       "required": true,
-      "guide": "본인의 생년월일을 적어요.",
+      "guide": "생년월일을 적어요.",
       "example": "2005-01-01",
       "evidence": "생년월일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          359.7,
-          156.1,
-          481.6,
-          169.8
+          356.9,
+          155.0,
+          456.5,
+          172.0
         ],
-        "how": "table_right",
-        "template_text": "년 월 일"
+        "how": "date_line",
+        "template_text": "년월일",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "school_info",
-      "label": "재학정보",
-      "section": null,
-      "input_type": "text",
+      "id": "school",
+      "label": "학교",
+      "section": "재학정보",
+      "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "현재 재학 중인 학교 정보를 적어요.",
-      "example": "서울고등학교",
-      "evidence": "재학정보",
+      "guide": "다니는 학교를 골라요.",
+      "example": null,
+      "evidence": "학교",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          297.4,
-          170.6,
-          479.6,
-          183.5
+          138.1,
+          183.8,
+          250.6,
+          208.9
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "중학교",
+          "고등학교",
+          "대학교",
+          "기타"
+        ],
+        "marks": {
+          "중학교": [
+            143.8,
+            190.7
+          ],
+          "고등학교": [
+            180.2,
+            190.7
+          ],
+          "대학교": [
+            223.8,
+            190.7
+          ],
+          "기타": [
+            143.8,
+            201.9
+          ]
+        },
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "school_type",
-      "label": "학교",
-      "section": null,
+      "id": "school_other",
+      "label": "학교 기타",
+      "section": "재학정보",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "'기타'를 골랐으면 내용을 적어요.",
+      "example": null,
+      "evidence": "학교 기타",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          166.0,
+          195.5,
+          214.5,
+          208.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "school_year",
+      "label": "학년",
+      "section": "재학정보",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "재학 중인 학교 유형을 선택해요.",
-      "example": "중학교/고등학교/대학교/기타( )",
-      "evidence": "□중학교 □고등학교 □대학교 □기타( )",
+      "required": false,
+      "guide": "학년(또는 휴학)을 골라요.",
+      "example": null,
+      "evidence": "학년",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
           361.7,
-          184.7,
+          183.8,
           480.9,
           208.9
         ],
@@ -204,59 +260,45 @@
         "marks": {
           "1학년": [
             367.4,
-            191.2
+            190.7
           ],
           "2학년": [
             393.5,
-            191.2
+            190.7
           ],
           "3학년": [
             419.8,
-            191.2
+            190.7
           ],
           "4학년": [
             458.9,
-            191.2
+            190.7
           ],
           "휴학": [
             367.4,
-            202.4
+            201.9
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
-    },
-    {
-      "id": "grade",
-      "label": "학 년",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "현재 학년을 선택해요.",
-      "example": "1학년/2학년/3학년/4학년/휴학",
-      "evidence": "□1학년 □2학년 □3학년 □4학년 □휴학",
-      "sensitive": false,
-      "box": null
     },
     {
       "id": "school_category",
       "label": "학교 유형",
-      "section": null,
+      "section": "재학정보",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "학교의 유형을 선택해요.",
+      "required": false,
+      "guide": "학교 유형을 골라요.",
       "example": "인문계/과학계/외국어계/실업계/예술계/체육계/농업계/직업전문학교/대안학교/검정고시/기타( )",
-      "evidence": "□인문계 □과학계 □외국어계 □실업계 □예술계 □체육계 □농업계 □직업전문학교 □대안학교 □검정고시 □기타( )",
+      "evidence": "학교 유형",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
           139.7,
-          209.4,
+          208.5,
           442.4,
           233.7
         ],
@@ -278,83 +320,138 @@
         "marks": {
           "인문계": [
             145.4,
-            215.9
+            215.4
           ],
           "과학계": [
             190.0,
-            215.9
+            215.4
           ],
           "외국어계": [
             258.8,
-            215.9
+            215.4
           ],
           "실업계": [
             310.4,
-            215.9
+            215.4
           ],
           "예술계": [
             363.0,
-            215.9
+            215.4
           ],
           "체육계": [
             415.6,
-            215.9
+            215.4
           ],
           "농업계": [
             145.4,
-            227.2
+            226.7
           ],
           "직업전문학교": [
             190.0,
-            227.2
+            226.7
           ],
           "대안학교": [
             255.7,
-            227.2
+            226.7
           ],
           "검정고시": [
             307.3,
-            227.2
+            226.7
           ],
           "기타": [
             358.9,
-            227.2
+            226.7
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "future_career",
-      "label": "희망진로 ( 택 1 ) 자립 계획(진학, 취업, 미정 중 선택 후 해당하는 칸만 작성)",
-      "section": null,
+      "id": "school_category_other",
+      "label": "학교 유형 기타",
+      "section": "재학정보",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "'기타'를 골랐으면 내용을 적어요.",
+      "example": null,
+      "evidence": "학교 유형 기타",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          381.1,
+          220.3,
+          421.5,
+          233.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "career_choice",
+      "label": "희망진로 (택1)",
+      "section": "희망진로 · 자립계획",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "희망하는 진로를 선택해요.",
-      "example": "진학/취업/미정",
-      "evidence": "□ 진 학",
+      "guide": "진학 · 취업 · 미정 중 하나를 고르고 그 칸만 써요.",
+      "example": null,
+      "evidence": "희망진로 (택1)",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          129.1,
+          274.1,
+          186.0,
+          397.4
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "진학",
+          "취업",
+          "미정"
+        ],
+        "marks": {
+          "진학": [
+            135.2,
+            281.6
+          ],
+          "취업": [
+            135.2,
+            355.8
+          ],
+          "미정": [
+            135.2,
+            389.9
+          ]
+        },
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "university_type",
       "label": "대학 구분",
-      "section": null,
+      "section": "희망진로 > 진학",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "희망하는 대학의 유형을 선택해요.",
+      "required": false,
+      "guide": "가고 싶은 대학 종류를 골라요.",
       "example": "1년제/비학위과정/2년제/3년제/4년제/대학원",
-      "evidence": "□1년제/비학위과정 □2년제 □3년제 □4년제 □대학원",
+      "evidence": "대학 구분",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
           191.7,
-          248.2,
+          247.3,
           292.1,
           272.4
         ],
@@ -370,85 +467,87 @@
         "marks": {
           "1년제/비학위과정": [
             197.3,
-            254.7
+            254.2
           ],
           "2년제": [
             266.1,
-            254.7
+            254.2
           ],
           "3년제": [
             197.3,
-            265.9
+            265.4
           ],
           "4년제": [
             235.4,
-            265.9
+            265.4
           ],
           "대학원": [
             265.3,
-            265.9
+            265.4
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "desired_university",
       "label": "희망 대학",
-      "section": null,
+      "section": "희망진로 > 진학",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "희망하는 대학 이름을 적어요.",
+      "required": false,
+      "guide": "가고 싶은 대학을 적어요.",
       "example": "서울대학교",
       "evidence": "희망 대학",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          386.4,
-          246.7,
-          481.6,
-          259.4
+          387,
+          248,
+          481,
+          258
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "desired_major",
       "label": "희망 학과",
-      "section": null,
+      "section": "희망진로 > 진학",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "희망하는 학과 이름을 적어요.",
+      "required": false,
+      "guide": "가고 싶은 학과를 적어요.",
       "example": "컴퓨터공학과",
       "evidence": "희망 학과",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          386.4,
-          259.4,
-          481.6,
-          272.0
+          387,
+          260,
+          481,
+          271
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "tuition_funding",
       "label": "등록금 조달 방안",
-      "section": null,
+      "section": "희망진로 > 진학",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "등록금을 어떻게 조달할지 선택해요.",
+      "required": false,
+      "guide": "등록금을 어떻게 마련할지 골라요 (여러 개 가능).",
       "example": "후원금/국가장학금/대학장학금/각급지자체 지원금/학자금대출/장학재단 등/친인척부담금(위탁가정외)/자립정착금/디딤씨앗통장(CDA)/자부담(아르바이트 등)/위탁가정/기타( )",
       "evidence": "등록금 조달 방안",
       "sensitive": false,
@@ -456,7 +555,7 @@
         "page": 0,
         "rect": [
           191.0,
-          286.5,
+          285.8,
           471.4,
           315.0
         ],
@@ -479,65 +578,90 @@
         "marks": {
           "후원금": [
             195.9,
-            292.0
+            291.6
           ],
           "국가장학금": [
             260.8,
-            292.0
+            291.6
           ],
           "대학장학금(각급대학)": [
             337.5,
-            292.0
+            291.6
           ],
           "각급지자체 지원금": [
             419.6,
-            292.0
+            291.6
           ],
           "학자금대출": [
             195.9,
-            300.7
+            300.4
           ],
           "장학재단 등": [
             260.8,
-            300.8
+            300.4
           ],
           "친인척부담금(위탁가정외)": [
             337.5,
-            300.8
+            300.4
           ],
           "자립정착금": [
             419.6,
-            300.8
+            300.4
           ],
           "디딤씨앗통장(CDA)": [
             195.9,
-            309.5
+            309.2
           ],
           "자부담(아르바이트 등)": [
             260.8,
-            309.5
+            309.2
           ],
           "위탁가정": [
             337.5,
-            309.5
+            309.2
           ],
           "기타": [
             419.6,
-            309.5
+            309.2
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "tuition_funding_other",
+      "label": "등록금 조달 기타",
+      "section": "희망진로 > 진학",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "'기타'를 골랐으면 내용을 적어요.",
+      "example": null,
+      "evidence": "등록금 조달 기타",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          437.3,
+          303.8,
+          470.7,
+          314.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "desired_job",
       "label": "희망 직종",
-      "section": null,
+      "section": "희망진로 > 취업",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "희망하는 직종을 선택해요.",
+      "required": false,
+      "guide": "일하고 싶은 직종을 골라요.",
       "example": "관리직/전문직/사무직/서비스직/판매직/농업/어업/기능직/기계조작/조립/단순노무직/기타( )",
       "evidence": "희망 직종",
       "sensitive": false,
@@ -545,7 +669,7 @@
         "page": 0,
         "rect": [
           190.7,
-          332.3,
+          331.6,
           428.6,
           353.2
         ],
@@ -566,99 +690,170 @@
         "marks": {
           "관리직": [
             195.6,
-            337.8
+            337.4
           ],
           "전문직": [
             234.3,
-            337.8
+            337.4
           ],
           "사무직": [
             273.1,
-            337.8
+            337.4
           ],
           "서비스직": [
             311.8,
-            337.8
+            337.4
           ],
           "판매직": [
             356.8,
-            337.8
+            337.4
           ],
           "농업/어업": [
             395.6,
-            337.8
+            337.4
           ],
           "기능직": [
             195.6,
-            347.7
+            347.4
           ],
           "기계조작/조립": [
             234.3,
-            347.7
+            347.4
           ],
           "단순노무직": [
             295.0,
-            347.7
+            347.4
           ],
           "기타": [
             346.3,
-            347.7
+            347.4
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "desired_job_other",
+      "label": "희망 직종 기타",
+      "section": "희망진로 > 취업",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "'기타'를 골랐으면 내용을 적어요.",
+      "example": null,
+      "evidence": "희망 직종 기타",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          365.8,
+          341.2,
+          419.3,
+          353.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "desired_job_title",
       "label": "희망 직업",
-      "section": null,
+      "section": "희망진로 > 취업",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "희망하는 직업을 적어요.",
-      "example": "소프트웨어 개발자",
+      "guide": "일하고 싶은 직업을 적어요.",
+      "example": "바리스타",
       "evidence": "희망 직업",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          186.8,
-          355.3,
-          481.6,
-          382.5
+          188,
+          356,
+          481,
+          381
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "housing_support",
-      "label": "희망주거 (필수)",
-      "section": null,
+      "id": "housing_government",
+      "label": "희망주거 - 정부지원",
+      "section": "희망주거 (필수)",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "희망하는 주거 형태를 선택해요.",
-      "example": "정부지원/공공임대/자립지원시설/공동생활가정/기타",
-      "evidence": "희망주거 (필수)",
+      "required": false,
+      "guide": "정부 지원 주거 중 원하는 것을 골라요.",
+      "example": null,
+      "evidence": "희망주거 - 정부지원",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
           190.7,
-          398.7,
+          398.0,
           414.2,
+          409.7
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "공공임대(LH·SH 전세임대 등)",
+          "자립지원시설",
+          "공동생활가정",
+          "기타"
+        ],
+        "marks": {
+          "공공임대(LH·SH 전세임대 등)": [
+            195.6,
+            403.8
+          ],
+          "자립지원시설": [
+            289.1,
+            403.8
+          ],
+          "공동생활가정": [
+            343.0,
+            403.8
+          ],
+          "기타": [
+            396.9,
+            403.8
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "housing_other_than_government",
+      "label": "희망주거 - 정부지원 외",
+      "section": "희망주거 (필수)",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "정부 지원이 아닌 주거 중 원하는 것을 골라요.",
+      "example": null,
+      "evidence": "희망주거 - 정부지원 외",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          190.7,
+          411.0,
+          405.6,
           432.7
         ],
         "how": "checkbox",
         "template_text": null,
         "options": [
-          "공공임대(LH,SH 전세임대 등)",
-          "자립지원시설",
-          "공동생활가정",
-          "기타",
           "전세",
           "월세",
           "자기소유의 집",
@@ -666,140 +861,92 @@
           "기숙사",
           "고시원",
           "친구집",
-          "귀가"
+          "귀가",
+          "기타"
         ],
         "marks": {
-          "공공임대(LH,SH 전세임대 등)": [
-            195.6,
-            404.2
-          ],
-          "자립지원시설": [
-            289.1,
-            404.2
-          ],
-          "공동생활가정": [
-            343.0,
-            404.2
-          ],
-          "기타": [
-            396.9,
-            404.2
-          ],
           "전세": [
             195.6,
-            417.2
+            416.9
           ],
           "월세": [
             231.7,
-            417.2
+            416.9
           ],
           "자기소유의 집": [
             267.8,
-            417.2
+            416.9
           ],
           "친인척": [
             336.1,
-            417.2
+            416.9
           ],
           "기숙사": [
             382.0,
-            417.2
+            416.9
           ],
           "고시원": [
             195.6,
-            427.2
+            426.9
           ],
           "친구집": [
             230.7,
-            427.2
+            426.9
           ],
           "귀가": [
             265.9,
-            427.2
+            426.9
+          ],
+          "기타": [
+            338.0,
+            426.9
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "housing_non_support",
-      "label": "정부지원 외",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "정부 지원 외의 주거 형태를 선택해요.",
-      "example": "전세/월세/자기소유의 집/친인척/기숙사/고시원/친구집/귀가/기타( )",
-      "evidence": "정부지원 외",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "current_status",
-      "label": "현재 상황",
-      "section": null,
+      "id": "housing_other",
+      "label": "희망주거 기타",
+      "section": "희망주거 (필수)",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "현재 상황을 간단히 적어요.",
-      "example": "현재 고등학교 3학년입니다.",
-      "evidence": "현재 상황",
+      "guide": "'기타'를 골랐으면 내용을 적어요.",
+      "example": null,
+      "evidence": "희망주거 기타",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          299.6,
-          433.1,
-          479.6,
-          446.0
+          361.1,
+          420.7,
+          429.1,
+          432.5
         ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "certificate_info",
-      "label": "자격증",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "보유한 자격증 정보를 적어요.",
-      "example": "정보처리기사",
-      "evidence": "자격증",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          186.8,
-          459.8,
-          250.7,
-          473.5
-        ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "certificate_field",
-      "label": "자격분야",
-      "section": "자격증",
+      "label": "자격 분야",
+      "section": "현재 상황 > 자격증",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "자격증의 분야를 선택해요.",
+      "required": false,
+      "guide": "가진 자격증 분야를 골라요.",
       "example": "전문직관련/사무직관련/서비스관련/기계/장치관련/기능직관련/기타",
-      "evidence": "자격분야",
+      "evidence": "자격 분야",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
           190.7,
-          448.4,
+          447.7,
           442.6,
           459.4
         ],
@@ -816,199 +963,191 @@
         "marks": {
           "전문직관련": [
             195.6,
-            453.9
+            453.6
           ],
           "사무직관련": [
             239.6,
-            453.9
+            453.6
           ],
           "서비스관련": [
             283.6,
-            453.9
+            453.6
           ],
           "기계/장치관련": [
             327.7,
-            453.9
+            453.6
           ],
           "기능직관련": [
             381.2,
-            453.9
+            453.6
           ],
           "기타": [
             425.2,
-            453.9
+            453.6
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "certificate_name",
       "label": "자격증명",
-      "section": "자격증",
+      "section": "현재 상황 > 자격증",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "자격증의 이름을 적어요.",
+      "required": false,
+      "guide": "가진 자격증 이름을 적어요.",
       "example": "정보처리기사",
       "evidence": "자격증명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          177.2,
-          460.6,
-          251.5,
-          474.6
+          188,
+          461,
+          250,
+          473
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "certificate_issuer",
       "label": "발급처",
-      "section": "자격증",
+      "section": "현재 상황 > 자격증",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "자격증을 발급한 기관을 적어요.",
+      "required": false,
+      "guide": "자격증을 준 기관을 적어요.",
       "example": "한국산업인력공단",
       "evidence": "발급처",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          283.9,
-          459.8,
-          359.7,
-          473.5
+          285,
+          461,
+          358,
+          473
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "certificate_issue_date",
       "label": "발급날짜",
-      "section": "자격증",
+      "section": "현재 상황 > 자격증",
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "자격증이 발급된 날짜를 적어요.",
+      "required": false,
+      "guide": "자격증 받은 날을 적어요.",
       "example": "2022-05-01",
       "evidence": "발급날짜",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          402.8,
-          459.8,
-          481.6,
-          473.5
+          404,
+          461,
+          481,
+          473
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
-    },
-    {
-      "id": "academy_info",
-      "label": "학원 지원",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "다니고 있는 학원 정보를 적어요.",
-      "example": "서울학원",
-      "evidence": "학원 지원",
-      "sensitive": false,
-      "box": null
     },
     {
       "id": "academy_name",
       "label": "학원명",
-      "section": "학원 지원",
+      "section": "현재 상황 > 학원 지원",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "다니고 있는 학원의 이름을 적어요.",
+      "required": false,
+      "guide": "다니는 학원 이름을 적어요.",
       "example": "서울학원",
       "evidence": "학원명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          186.8,
-          473.5,
-          250.7,
-          487.2
+          188,
+          475,
+          250,
+          486
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "academy_course",
       "label": "과정명",
-      "section": "학원 지원",
+      "section": "현재 상황 > 학원 지원",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "학원에서 수강하는 과정의 이름을 적어요.",
+      "required": false,
+      "guide": "학원 과정 이름을 적어요.",
       "example": "컴퓨터 기초",
       "evidence": "과정명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          283.9,
-          473.5,
-          359.7,
-          487.2
+          285,
+          475,
+          358,
+          486
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "academy_duration",
       "label": "교육기간",
-      "section": "학원 지원",
+      "section": "현재 상황 > 학원 지원",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "학원 교육 기간을 적어요.",
-      "example": "2023-01-01 ~ 2023-12-31",
+      "required": false,
+      "guide": "교육 기간을 적어요.",
+      "example": "2026.03~2026.08",
       "evidence": "교육기간",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          402.8,
-          473.5,
-          481.6,
-          487.2
+          404,
+          475,
+          481,
+          486
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "academy_funding_source",
       "label": "학원비 부담주체",
-      "section": "학원 지원",
+      "section": "현재 상황 > 학원 지원",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "학원비를 누가 부담하는지 선택해요.",
+      "required": false,
+      "guide": "학원비를 누가 내는지 골라요.",
       "example": "중앙정부/지방정부/후원자/시설/위탁가정/재단/사회복지공동모금회/본인/부모/친인척(위탁가정 외)/기타( )",
       "evidence": "학원비 부담주체",
       "sensitive": false,
@@ -1016,7 +1155,7 @@
         "page": 0,
         "rect": [
           191.2,
-          490.8,
+          490.0,
           437.6,
           512.8
         ],
@@ -1034,279 +1173,153 @@
         "marks": {
           "중앙정부": [
             196.4,
-            496.8
+            496.4
           ],
           "지방정부": [
             235.1,
-            496.8
+            496.4
           ],
           "후원자": [
             273.7,
-            496.8
+            496.4
           ],
           "시설/위탁가정": [
             306.1,
-            496.8
+            496.4
           ],
           "재단/사회복지공동모금회": [
             360.5,
-            496.8
+            496.4
           ],
           "본인/부모/친인척(위탁가정 외)": [
             196.4,
-            506.8
+            506.4
           ],
           "기타": [
             306.6,
-            506.8
+            506.4
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "training_info",
-      "label": "직업 훈련",
-      "section": null,
+      "id": "academy_funding_other",
+      "label": "학원비 부담주체 기타",
+      "section": "현재 상황 > 학원 지원",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "참여하고 있는 직업 훈련 정보를 적어요.",
-      "example": "IT 직업훈련",
-      "evidence": "직업 훈련",
+      "guide": "'기타'를 골랐으면 내용을 적어요.",
+      "example": null,
+      "evidence": "학원비 부담주체 기타",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          326.5,
+          500.6,
+          362.1,
+          512.3
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "training_institution",
       "label": "기관",
-      "section": "직업 훈련",
+      "section": "현재 상황 > 직업훈련",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "직업 훈련을 제공하는 기관 이름을 적어요.",
+      "required": false,
+      "guide": "직업훈련 기관을 적어요.",
       "example": "서울직업훈련원",
       "evidence": "기관",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          186.8,
-          514.9,
-          250.7,
-          528.6
+          188,
+          516,
+          250,
+          528
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "training_course",
       "label": "과정명",
-      "section": "직업 훈련",
+      "section": "현재 상황 > 직업훈련",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "직업 훈련 과정의 이름을 적어요.",
+      "required": false,
+      "guide": "훈련 과정 이름을 적어요.",
       "example": "웹 개발",
       "evidence": "과정명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          283.9,
-          514.9,
-          359.7,
-          528.6
+          285,
+          516,
+          358,
+          528
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "training_duration",
       "label": "기간",
-      "section": "직업 훈련",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "직업 훈련의 기간을 적어요.",
-      "example": "2023-01-01 ~ 2023-06-30",
-      "evidence": "기간",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          402.8,
-          514.9,
-          481.6,
-          528.6
-        ],
-        "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "training_field",
-      "label": "분야",
-      "section": "직업 훈련",
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "직업 훈련의 분야를 선택해요.",
-      "example": "관리직/전문직/사무직/서비스직/판매직/농업/어업/기능직/기계조작/조립/단순노무직/기타",
-      "evidence": "분야",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "training_funding_source",
-      "label": "훈련비 부담주체",
-      "section": "직업 훈련",
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "훈련비를 누가 부담하는지 선택해요.",
-      "example": "중앙정부/지방정부/후원자/시설/위탁가정/재단/사회복지공동모금회/본인/부모/친인척(위탁가정 외)/기타( )",
-      "evidence": "훈련비 부담주체",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          191.2,
-          554.6,
-          437.6,
-          576.6
-        ],
-        "how": "checkbox",
-        "template_text": null,
-        "options": [
-          "중앙정부",
-          "지방정부",
-          "후원자",
-          "시설/위탁가정",
-          "재단/사회복지공동모금회",
-          "본인/부모/친인척(위탁가정 외)",
-          "기타"
-        ],
-        "marks": {
-          "중앙정부": [
-            196.4,
-            560.5
-          ],
-          "지방정부": [
-            235.1,
-            560.5
-          ],
-          "후원자": [
-            273.7,
-            560.5
-          ],
-          "시설/위탁가정": [
-            306.1,
-            560.5
-          ],
-          "재단/사회복지공동모금회": [
-            360.5,
-            560.5
-          ],
-          "본인/부모/친인척(위탁가정 외)": [
-            196.4,
-            570.6
-          ],
-          "기타": [
-            306.6,
-            570.6
-          ]
-        },
-        "found_by": "fill_missing"
-      }
-    },
-    {
-      "id": "internship_info",
-      "label": "인턴쉽",
-      "section": null,
+      "section": "현재 상황 > 직업훈련",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "참여하고 있는 인턴쉽 정보를 적어요.",
-      "example": "IT 기업 인턴",
-      "evidence": "인턴쉽",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "internship_company",
-      "label": "회사명",
-      "section": "인턴쉽",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "인턴쉽을 하고 있는 회사 이름을 적어요.",
-      "example": "삼성전자",
-      "evidence": "회사명",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          186.8,
-          578.6,
-          306.2,
-          592.2
-        ],
-        "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "internship_duration",
-      "label": "기간",
-      "section": "인턴쉽",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "인턴쉽의 기간을 적어요.",
+      "guide": "훈련 기간을 적어요.",
       "example": "2023-01-01 ~ 2023-06-30",
       "evidence": "기간",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          359.7,
-          578.6,
-          481.6,
-          592.2
+          404,
+          516,
+          481,
+          528
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "internship_field",
-      "label": "분야",
-      "section": "인턴쉽",
+      "id": "training_field",
+      "label": "직업훈련 분야",
+      "section": "현재 상황 > 직업훈련",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "인턴쉽의 분야를 선택해요.",
+      "required": false,
+      "guide": "훈련 분야를 골라요.",
       "example": "관리직/전문직/사무직/서비스직/판매직/농업/어업/기능직/기계조작/조립/단순노무직/기타",
-      "evidence": "분야",
+      "evidence": "직업훈련 분야",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
           190.7,
-          530.3,
+          529.6,
           439.4,
           551.5
         ],
@@ -1327,79 +1340,308 @@
         "marks": {
           "관리직": [
             195.6,
-            535.8
+            535.4
           ],
           "전문직": [
             234.3,
-            535.8
+            535.4
           ],
           "사무직": [
             273.1,
-            535.8
+            535.4
           ],
           "서비스직": [
             311.8,
-            535.8
+            535.4
           ],
           "판매직": [
             367.6,
-            535.8
+            535.4
           ],
           "농업/어업": [
             406.4,
-            535.8
+            535.4
           ],
           "기능직": [
             195.6,
-            545.8
+            545.4
           ],
           "기계조작/조립": [
             234.3,
-            545.8
+            545.4
           ],
           "단순노무직": [
             313.0,
-            545.8
+            545.4
           ],
           "기타": [
             368.3,
-            545.5
+            545.2
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "mentor_info",
-      "label": "멘 토",
-      "section": null,
+      "id": "training_field_other",
+      "label": "직업훈련 분야 기타",
+      "section": "현재 상황 > 직업훈련",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "멘토에 대한 정보를 적어요.",
-      "example": "멘토 이름과 연락처",
-      "evidence": "멘 토",
+      "guide": "'기타'를 골랐으면 내용을 적어요.",
+      "example": null,
+      "evidence": "직업훈련 분야 기타",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          388.2,
+          539.3,
+          423.8,
+          551.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "mentor_type",
-      "label": "구분",
-      "section": "멘 토",
+      "id": "training_funding_source",
+      "label": "훈련비 부담주체",
+      "section": "현재 상황 > 직업훈련",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "멘토의 유형을 선택해요.",
-      "example": "보호종료 선배/자원봉사자/기업임원/휴먼네트워크/위탁부모/위탁가정의 자녀/친인척(형제자매포함)/기타",
-      "evidence": "구분",
+      "required": false,
+      "guide": "훈련비를 누가 내는지 골라요.",
+      "example": "중앙정부/지방정부/후원자/시설/위탁가정/재단/사회복지공동모금회/본인/부모/친인척(위탁가정 외)/기타( )",
+      "evidence": "훈련비 부담주체",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
           191.2,
-          616.1,
+          553.8,
+          437.6,
+          576.6
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "중앙정부",
+          "지방정부",
+          "후원자",
+          "시설/위탁가정",
+          "재단/사회복지공동모금회",
+          "본인/부모/친인척(위탁가정 외)",
+          "기타"
+        ],
+        "marks": {
+          "중앙정부": [
+            196.4,
+            560.2
+          ],
+          "지방정부": [
+            235.1,
+            560.2
+          ],
+          "후원자": [
+            273.7,
+            560.2
+          ],
+          "시설/위탁가정": [
+            306.1,
+            560.2
+          ],
+          "재단/사회복지공동모금회": [
+            360.5,
+            560.2
+          ],
+          "본인/부모/친인척(위탁가정 외)": [
+            196.4,
+            570.2
+          ],
+          "기타": [
+            306.6,
+            570.2
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "training_funding_other",
+      "label": "훈련비 부담주체 기타",
+      "section": "현재 상황 > 직업훈련",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "'기타'를 골랐으면 내용을 적어요.",
+      "example": null,
+      "evidence": "훈련비 부담주체 기타",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          326.5,
+          564.3,
+          362.1,
+          576.1
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "internship_company",
+      "label": "회사명",
+      "section": "현재 상황 > 인턴쉽",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "인턴 회사 이름을 적어요.",
+      "example": "삼성전자",
+      "evidence": "회사명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          188,
+          580,
+          305,
+          591
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "internship_duration",
+      "label": "기간",
+      "section": "현재 상황 > 인턴쉽",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "인턴 기간을 적어요.",
+      "example": "2023-01-01 ~ 2023-06-30",
+      "evidence": "기간",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          360,
+          580,
+          481,
+          591
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "internship_field",
+      "label": "인턴쉽 분야",
+      "section": "현재 상황 > 인턴쉽",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "인턴 분야를 골라요.",
+      "example": "관리직/전문직/사무직/서비스직/판매직/농업/어업/기능직/기계조작/조립/단순노무직/기타",
+      "evidence": "인턴쉽 분야",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          190.7,
+          593.5,
+          439.4,
+          615.3
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "관리직",
+          "전문직",
+          "사무직",
+          "서비스직",
+          "판매직",
+          "농업/어업",
+          "기능직",
+          "기계조작/조립",
+          "단순노무직",
+          "기타"
+        ],
+        "marks": {
+          "관리직": [
+            195.6,
+            599.4
+          ],
+          "전문직": [
+            234.3,
+            599.4
+          ],
+          "사무직": [
+            273.1,
+            599.4
+          ],
+          "서비스직": [
+            311.8,
+            599.4
+          ],
+          "판매직": [
+            367.6,
+            599.4
+          ],
+          "농업/어업": [
+            406.4,
+            599.4
+          ],
+          "기능직": [
+            195.6,
+            609.4
+          ],
+          "기계조작/조립": [
+            234.3,
+            609.4
+          ],
+          "단순노무직": [
+            313.0,
+            609.4
+          ],
+          "기타": [
+            367.9,
+            609.4
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "mentor_type",
+      "label": "멘토 구분",
+      "section": "현재 상황 > 멘토",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "멘토가 어떤 분인지 골라요.",
+      "example": "보호종료 선배/자원봉사자/기업임원/휴먼네트워크/위탁부모/위탁가정의 자녀/친인척(형제자매포함)/기타",
+      "evidence": "멘토 구분",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          191.2,
+          615.3,
           431.4,
           638.1
         ],
@@ -1418,105 +1660,132 @@
         "marks": {
           "보호종료 선배": [
             196.4,
-            622.1
+            621.7
           ],
           "자원봉사자": [
             251.2,
-            622.1
+            621.7
           ],
           "기업임원": [
             310.4,
-            622.1
+            621.7
           ],
           "휴먼네트워크": [
             388.7,
-            622.1
+            621.7
           ],
           "위탁부모": [
             196.4,
-            632.1
+            631.7
           ],
           "위탁가정의 자녀": [
             253.1,
-            632.1
+            631.7
           ],
           "친인척(형제자매포함)": [
             310.5,
-            632.1
+            631.7
           ],
           "기타": [
             381.1,
-            632.1
+            631.7
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "mentor_type_other",
+      "label": "멘토 구분 기타",
+      "section": "현재 상황 > 멘토",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "'기타'를 골랐으면 내용을 적어요.",
+      "example": null,
+      "evidence": "멘토 구분 기타",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          401.1,
+          625.8,
+          436.6,
+          637.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "mentor_name",
-      "label": "성명",
-      "section": "멘 토",
+      "label": "멘토 성명",
+      "section": "현재 상황 > 멘토",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "멘토의 이름을 적어요.",
+      "required": false,
+      "guide": "멘토 이름을 적어요.",
       "example": "김멘토",
-      "evidence": "성명",
+      "evidence": "멘토 성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          186.8,
-          637.4,
-          250.7,
-          659.8
+          188,
+          638,
+          250,
+          659
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "mentor_age",
-      "label": "연령",
-      "section": "멘 토",
+      "label": "멘토 연령",
+      "section": "현재 상황 > 멘토",
       "input_type": "number",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "멘토의 나이를 적어요.",
+      "required": false,
+      "guide": "멘토 나이를 적어요.",
       "example": "30",
-      "evidence": "연령",
+      "evidence": "멘토 연령",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          283.9,
-          637.4,
-          319.8,
-          659.8
+          285,
+          638,
+          319,
+          659
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "mentor_major",
-      "label": "전공",
-      "section": "멘 토",
+      "label": "멘토 전공",
+      "section": "현재 상황 > 멘토",
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "멘토의 전공을 선택해요.",
+      "required": false,
+      "guide": "멘토와 함께하는 분야를 골라요.",
       "example": "학습/취업/예체능/문화/인성/기타",
-      "evidence": "전공",
+      "evidence": "멘토 전공",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
           357.5,
-          639.2,
+          638.5,
           461.9,
           660.2
         ],
@@ -1533,38 +1802,36 @@
         "marks": {
           "학습": [
             362.4,
-            644.7
+            644.3
           ],
           "취업": [
             387.7,
-            644.7
+            644.3
           ],
           "예체능": [
             413.0,
-            644.7
+            644.3
           ],
           "문화": [
             444.6,
-            644.7
+            644.3
           ],
           "인성": [
             362.4,
-            654.7
+            654.3
           ],
           "기타": [
             387.7,
-            654.7
+            654.3
           ]
         },
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     }
   ],
   "notes": [
     "자립지원계획 수립 대상자 : 만15세 ~ 보호종료 전 (매년 1회 수립, 아동복지법 제39조 의거, 연장아동 포함)"
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 학 년, 희망진로 ( 택 1 ) 자립 계획(진학, 취업, 미정 중 선택 후 해당하는 칸만 작성), 정부지원 외, 학원 지원, 직업 훈련, 분야, 인턴쉽, 멘 토"
-  ],
+  "warnings": [],
   "checked": false
 }

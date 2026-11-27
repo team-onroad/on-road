@@ -1,0 +1,2798 @@
+{
+ "form_id": "welfare-apply",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "name",
+   "label": "성명",
+   "section": "신청인",
+   "input_type": "text",
+   "value_source": "profile",
+   "required": true,
+   "guide": "신청인(본인) 이름을 적어요.",
+   "at": {
+    "rect": [
+     110,
+     142,
+     161,
+     176
+    ],
+    "page": 0
+   },
+   "profile_key": "name"
+  },
+  {
+   "id": "id_number",
+   "label": "주민등록번호",
+   "section": "신청인",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     236,
+     142,
+     293,
+     176
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "relationship_with_head",
+   "label": "세대주와의 관계",
+   "section": "신청인",
+   "input_type": "text",
+   "value_source": "user",
+   "required": true,
+   "guide": "세대주와의 관계를 적어요 (본인이 세대주면 '본인').",
+   "at": {
+    "rect": [
+     355,
+     142,
+     395,
+     176
+    ],
+    "page": 0
+   },
+   "example": "본인"
+  },
+  {
+   "id": "phone",
+   "label": "전화번호",
+   "section": "신청인",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "집 전화가 있으면 적어요.",
+   "at": {
+    "rect": [
+     446,
+     142,
+     536,
+     176
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "address",
+   "label": "주소",
+   "section": "신청인",
+   "input_type": "address",
+   "value_source": "user",
+   "required": true,
+   "guide": "주민등록상 주소를 적어요.",
+   "at": {
+    "rect": [
+     110,
+     178,
+     395,
+     203
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "residence_address",
+   "label": "실거주지 주소",
+   "section": "신청인",
+   "input_type": "address",
+   "required": false,
+   "guide": "주민등록 주소와 실제 사는 곳이 다르면 사는 곳 주소를 적어요.",
+   "at": {
+    "right_of": "주소1):",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "mobile_phone",
+   "label": "휴대전화",
+   "section": "신청인",
+   "input_type": "phone",
+   "value_source": "profile",
+   "required": true,
+   "guide": "결과를 알려 줄 휴대전화 번호를 적어요.",
+   "at": {
+    "rect": [
+     446,
+     178,
+     536,
+     203
+    ],
+    "page": 0
+   },
+   "profile_key": "phone"
+  },
+  {
+   "id": "email",
+   "label": "전자우편",
+   "section": "신청인",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "이메일 주소가 있으면 적어요.",
+   "at": {
+    "rect": [
+     446,
+     205,
+     536,
+     230
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family1_relation",
+   "label": "세대주와의 관계",
+   "section": "가족사항 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "세대주와의 관계를 적어요.",
+   "at": {
+    "rect": [
+     77,
+     278,
+     127,
+     302
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family1_name",
+   "label": "성명",
+   "section": "가족사항 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "가족 이름을 적어요.",
+   "at": {
+    "rect": [
+     129,
+     278,
+     161,
+     302
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family1_id_number",
+   "label": "주민등록번호",
+   "section": "가족사항 1",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     163,
+     278,
+     250,
+     302
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "family1_living_together",
+   "label": "동거여부(미동거 사유)",
+   "section": "가족사항 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "함께 사는지 적고, 아니면 까닭을 적어요.",
+   "at": {
+    "rect": [
+     252,
+     278,
+     293,
+     302
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family1_education",
+   "label": "학력·재학여부(학교명/학년반)",
+   "section": "가족사항 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "학력이나 다니는 학교 · 학년을 적어요.",
+   "at": {
+    "rect": [
+     295,
+     278,
+     353,
+     302
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family1_health",
+   "label": "건강상태(장애/질병)",
+   "section": "가족사항 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "장애나 질병이 있으면 적어요.",
+   "at": {
+    "rect": [
+     355,
+     278,
+     395,
+     302
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family1_job",
+   "label": "직업",
+   "section": "가족사항 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "직업을 적어요.",
+   "at": {
+    "rect": [
+     397,
+     278,
+     444,
+     302
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family1_workplace",
+   "label": "직장명",
+   "section": "가족사항 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "직장 이름을 적어요.",
+   "at": {
+    "rect": [
+     446,
+     278,
+     490,
+     302
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family1_phone",
+   "label": "전화번호(집/직장)",
+   "section": "가족사항 1",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "전화번호를 적어요.",
+   "at": {
+    "rect": [
+     492,
+     278,
+     536,
+     302
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family2_relation",
+   "label": "세대주와의 관계",
+   "section": "가족사항 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "세대주와의 관계를 적어요.",
+   "at": {
+    "rect": [
+     77,
+     304,
+     127,
+     327
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family2_name",
+   "label": "성명",
+   "section": "가족사항 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "가족 이름을 적어요.",
+   "at": {
+    "rect": [
+     129,
+     304,
+     161,
+     327
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family2_id_number",
+   "label": "주민등록번호",
+   "section": "가족사항 2",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     163,
+     304,
+     250,
+     327
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "family2_living_together",
+   "label": "동거여부(미동거 사유)",
+   "section": "가족사항 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "함께 사는지 적고, 아니면 까닭을 적어요.",
+   "at": {
+    "rect": [
+     252,
+     304,
+     293,
+     327
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family2_education",
+   "label": "학력·재학여부(학교명/학년반)",
+   "section": "가족사항 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "학력이나 다니는 학교 · 학년을 적어요.",
+   "at": {
+    "rect": [
+     295,
+     304,
+     353,
+     327
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family2_health",
+   "label": "건강상태(장애/질병)",
+   "section": "가족사항 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "장애나 질병이 있으면 적어요.",
+   "at": {
+    "rect": [
+     355,
+     304,
+     395,
+     327
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family2_job",
+   "label": "직업",
+   "section": "가족사항 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "직업을 적어요.",
+   "at": {
+    "rect": [
+     397,
+     304,
+     444,
+     327
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family2_workplace",
+   "label": "직장명",
+   "section": "가족사항 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "직장 이름을 적어요.",
+   "at": {
+    "rect": [
+     446,
+     304,
+     490,
+     327
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family2_phone",
+   "label": "전화번호(집/직장)",
+   "section": "가족사항 2",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "전화번호를 적어요.",
+   "at": {
+    "rect": [
+     492,
+     304,
+     536,
+     327
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family3_relation",
+   "label": "세대주와의 관계",
+   "section": "가족사항 3",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "세대주와의 관계를 적어요.",
+   "at": {
+    "rect": [
+     77,
+     329,
+     127,
+     353
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family3_name",
+   "label": "성명",
+   "section": "가족사항 3",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "가족 이름을 적어요.",
+   "at": {
+    "rect": [
+     129,
+     329,
+     161,
+     353
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family3_id_number",
+   "label": "주민등록번호",
+   "section": "가족사항 3",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     163,
+     329,
+     250,
+     353
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "family3_living_together",
+   "label": "동거여부(미동거 사유)",
+   "section": "가족사항 3",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "함께 사는지 적고, 아니면 까닭을 적어요.",
+   "at": {
+    "rect": [
+     252,
+     329,
+     293,
+     353
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family3_education",
+   "label": "학력·재학여부(학교명/학년반)",
+   "section": "가족사항 3",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "학력이나 다니는 학교 · 학년을 적어요.",
+   "at": {
+    "rect": [
+     295,
+     329,
+     353,
+     353
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family3_health",
+   "label": "건강상태(장애/질병)",
+   "section": "가족사항 3",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "장애나 질병이 있으면 적어요.",
+   "at": {
+    "rect": [
+     355,
+     329,
+     395,
+     353
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family3_job",
+   "label": "직업",
+   "section": "가족사항 3",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "직업을 적어요.",
+   "at": {
+    "rect": [
+     397,
+     329,
+     444,
+     353
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family3_workplace",
+   "label": "직장명",
+   "section": "가족사항 3",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "직장 이름을 적어요.",
+   "at": {
+    "rect": [
+     446,
+     329,
+     490,
+     353
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family3_phone",
+   "label": "전화번호(집/직장)",
+   "section": "가족사항 3",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "전화번호를 적어요.",
+   "at": {
+    "rect": [
+     492,
+     329,
+     536,
+     353
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family4_relation",
+   "label": "세대주와의 관계",
+   "section": "가족사항 4",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "세대주와의 관계를 적어요.",
+   "at": {
+    "rect": [
+     77,
+     355,
+     127,
+     379
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family4_name",
+   "label": "성명",
+   "section": "가족사항 4",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "가족 이름을 적어요.",
+   "at": {
+    "rect": [
+     129,
+     355,
+     161,
+     379
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family4_id_number",
+   "label": "주민등록번호",
+   "section": "가족사항 4",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     163,
+     355,
+     250,
+     379
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "family4_living_together",
+   "label": "동거여부(미동거 사유)",
+   "section": "가족사항 4",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "함께 사는지 적고, 아니면 까닭을 적어요.",
+   "at": {
+    "rect": [
+     252,
+     355,
+     293,
+     379
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family4_education",
+   "label": "학력·재학여부(학교명/학년반)",
+   "section": "가족사항 4",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "학력이나 다니는 학교 · 학년을 적어요.",
+   "at": {
+    "rect": [
+     295,
+     355,
+     353,
+     379
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family4_health",
+   "label": "건강상태(장애/질병)",
+   "section": "가족사항 4",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "장애나 질병이 있으면 적어요.",
+   "at": {
+    "rect": [
+     355,
+     355,
+     395,
+     379
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family4_job",
+   "label": "직업",
+   "section": "가족사항 4",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "직업을 적어요.",
+   "at": {
+    "rect": [
+     397,
+     355,
+     444,
+     379
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family4_workplace",
+   "label": "직장명",
+   "section": "가족사항 4",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "직장 이름을 적어요.",
+   "at": {
+    "rect": [
+     446,
+     355,
+     490,
+     379
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "family4_phone",
+   "label": "전화번호(집/직장)",
+   "section": "가족사항 4",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "전화번호를 적어요.",
+   "at": {
+    "rect": [
+     492,
+     355,
+     536,
+     379
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "spouse_relation",
+   "label": "배우자 관계",
+   "section": "가족사항",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "배우자가 있으면 관계를 골라요.",
+   "at": {
+    "choices": "([]법률혼",
+    "x": [
+     100,
+     330
+    ]
+   }
+  },
+  {
+   "id": "foreign_passport_name1",
+   "label": "외국 여권 소지자명 1",
+   "section": "가족사항",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "아동수당 · 부모급여 등 신청 때 외국 여권을 가진 가족이 있으면 이름을 적어요.",
+   "at": {
+    "rect": [
+     442.8,
+     383,
+     483.5,
+     397
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "foreign_passport_name2",
+   "label": "외국 여권 소지자명 2",
+   "section": "가족사항",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "두 번째 사람 이름을 적어요.",
+   "at": {
+    "rect": [
+     492.5,
+     383,
+     533.2,
+     397
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "overseas_born_name1",
+   "label": "국외 출생자명 1",
+   "section": "가족사항",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "외국에서 태어난 가족이 있으면 이름을 적어요.",
+   "at": {
+    "rect": [
+     167.6,
+     397.5,
+     217.3,
+     411.5
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "overseas_born_name2",
+   "label": "국외 출생자명 2",
+   "section": "가족사항",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "두 번째 사람 이름을 적어요.",
+   "at": {
+    "rect": [
+     226.3,
+     397.5,
+     276.1,
+     411.5
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "dual_national_name1",
+   "label": "복수국적자명 1",
+   "section": "가족사항",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "복수국적 가족이 있으면 이름을 적어요.",
+   "at": {
+    "rect": [
+     421.1,
+     397.5,
+     470.7,
+     411.5
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "dual_national_name2",
+   "label": "복수국적자명 2",
+   "section": "가족사항",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "두 번째 사람 이름을 적어요.",
+   "at": {
+    "rect": [
+     479.8,
+     397.5,
+     529.5,
+     411.5
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter1_relation",
+   "label": "수급권자와의 관계",
+   "section": "부양의무자 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "수급권자와의 관계를 적어요 (부양의무자 조사 대상일 때만).",
+   "at": {
+    "rect": [
+     77,
+     454,
+     127,
+     478
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter1_name",
+   "label": "성명",
+   "section": "부양의무자 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "이름을 적어요.",
+   "at": {
+    "rect": [
+     129,
+     454,
+     161,
+     478
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter1_id_number",
+   "label": "주민등록번호",
+   "section": "부양의무자 1",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     163,
+     454,
+     250,
+     478
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "supporter1_address",
+   "label": "주소",
+   "section": "부양의무자 1",
+   "input_type": "address",
+   "value_source": "user",
+   "required": false,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     252,
+     454,
+     395,
+     478
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter1_household_count",
+   "label": "가구원 수",
+   "section": "부양의무자 1",
+   "input_type": "number",
+   "value_source": "user",
+   "required": false,
+   "guide": "가구원 수를 적어요.",
+   "at": {
+    "rect": [
+     397,
+     454,
+     444,
+     478
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter1_phone",
+   "label": "전화번호",
+   "section": "부양의무자 1",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "전화번호를 적어요.",
+   "at": {
+    "rect": [
+     446,
+     454,
+     536,
+     478
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter2_relation",
+   "label": "수급권자와의 관계",
+   "section": "부양의무자 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "수급권자와의 관계를 적어요 (부양의무자 조사 대상일 때만).",
+   "at": {
+    "rect": [
+     77,
+     480,
+     127,
+     504
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter2_name",
+   "label": "성명",
+   "section": "부양의무자 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "이름을 적어요.",
+   "at": {
+    "rect": [
+     129,
+     480,
+     161,
+     504
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter2_id_number",
+   "label": "주민등록번호",
+   "section": "부양의무자 2",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     163,
+     480,
+     250,
+     504
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "supporter2_address",
+   "label": "주소",
+   "section": "부양의무자 2",
+   "input_type": "address",
+   "value_source": "user",
+   "required": false,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     252,
+     480,
+     395,
+     504
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter2_household_count",
+   "label": "가구원 수",
+   "section": "부양의무자 2",
+   "input_type": "number",
+   "value_source": "user",
+   "required": false,
+   "guide": "가구원 수를 적어요.",
+   "at": {
+    "rect": [
+     397,
+     480,
+     444,
+     504
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter2_phone",
+   "label": "전화번호",
+   "section": "부양의무자 2",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "전화번호를 적어요.",
+   "at": {
+    "rect": [
+     446,
+     480,
+     536,
+     504
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter3_relation",
+   "label": "수급권자와의 관계",
+   "section": "부양의무자 3",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "수급권자와의 관계를 적어요 (부양의무자 조사 대상일 때만).",
+   "at": {
+    "rect": [
+     77,
+     506,
+     127,
+     530
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter3_name",
+   "label": "성명",
+   "section": "부양의무자 3",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "이름을 적어요.",
+   "at": {
+    "rect": [
+     129,
+     506,
+     161,
+     530
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter3_id_number",
+   "label": "주민등록번호",
+   "section": "부양의무자 3",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     163,
+     506,
+     250,
+     530
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "supporter3_address",
+   "label": "주소",
+   "section": "부양의무자 3",
+   "input_type": "address",
+   "value_source": "user",
+   "required": false,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     252,
+     506,
+     395,
+     530
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter3_household_count",
+   "label": "가구원 수",
+   "section": "부양의무자 3",
+   "input_type": "number",
+   "value_source": "user",
+   "required": false,
+   "guide": "가구원 수를 적어요.",
+   "at": {
+    "rect": [
+     397,
+     506,
+     444,
+     530
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter3_phone",
+   "label": "전화번호",
+   "section": "부양의무자 3",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "전화번호를 적어요.",
+   "at": {
+    "rect": [
+     446,
+     506,
+     536,
+     530
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter4_relation",
+   "label": "수급권자와의 관계",
+   "section": "부양의무자 4",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "수급권자와의 관계를 적어요 (부양의무자 조사 대상일 때만).",
+   "at": {
+    "rect": [
+     77,
+     532,
+     127,
+     556
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter4_name",
+   "label": "성명",
+   "section": "부양의무자 4",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "이름을 적어요.",
+   "at": {
+    "rect": [
+     129,
+     532,
+     161,
+     556
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter4_id_number",
+   "label": "주민등록번호",
+   "section": "부양의무자 4",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     163,
+     532,
+     250,
+     556
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "supporter4_address",
+   "label": "주소",
+   "section": "부양의무자 4",
+   "input_type": "address",
+   "value_source": "user",
+   "required": false,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     252,
+     532,
+     395,
+     556
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter4_household_count",
+   "label": "가구원 수",
+   "section": "부양의무자 4",
+   "input_type": "number",
+   "value_source": "user",
+   "required": false,
+   "guide": "가구원 수를 적어요.",
+   "at": {
+    "rect": [
+     397,
+     532,
+     444,
+     556
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "supporter4_phone",
+   "label": "전화번호",
+   "section": "부양의무자 4",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "전화번호를 적어요.",
+   "at": {
+    "rect": [
+     446,
+     532,
+     536,
+     556
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "payment1_relation",
+   "label": "신청인과의 관계",
+   "section": "급여계좌 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": true,
+   "guide": "통장 주인과 신청인의 관계를 적어요 (본인 통장이면 '본인').",
+   "at": {
+    "rect": [
+     77,
+     590,
+     127,
+     612
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "payment1_name",
+   "label": "성명",
+   "section": "급여계좌 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": true,
+   "guide": "예금주 이름을 적어요.",
+   "at": {
+    "rect": [
+     129,
+     590,
+     161,
+     612
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "payment1_bank",
+   "label": "금융기관명",
+   "section": "급여계좌 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": true,
+   "guide": "은행 이름을 적어요.",
+   "at": {
+    "rect": [
+     163,
+     590,
+     250,
+     612
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "payment1_account_number",
+   "label": "계좌번호",
+   "section": "급여계좌 1",
+   "input_type": "account",
+   "value_source": "handwrite",
+   "required": true,
+   "guide": "계좌번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     252,
+     590,
+     395,
+     612
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "payment1_remarks",
+   "label": "비고(사유)",
+   "section": "급여계좌 1",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "가구원이 아닌 사람 계좌나 디딤씨앗 · 압류방지통장이면 까닭을 적어요.",
+   "at": {
+    "rect": [
+     397,
+     590,
+     536,
+     612
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "payment2_relation",
+   "label": "신청인과의 관계",
+   "section": "급여계좌 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "통장 주인과 신청인의 관계를 적어요 (본인 통장이면 '본인').",
+   "at": {
+    "rect": [
+     77,
+     614,
+     127,
+     636
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "payment2_name",
+   "label": "성명",
+   "section": "급여계좌 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "예금주 이름을 적어요.",
+   "at": {
+    "rect": [
+     129,
+     614,
+     161,
+     636
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "payment2_bank",
+   "label": "금융기관명",
+   "section": "급여계좌 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "은행 이름을 적어요.",
+   "at": {
+    "rect": [
+     163,
+     614,
+     250,
+     636
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "payment2_account_number",
+   "label": "계좌번호",
+   "section": "급여계좌 2",
+   "input_type": "account",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "계좌번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     252,
+     614,
+     395,
+     636
+    ],
+    "page": 0
+   },
+   "sensitive": true
+  },
+  {
+   "id": "payment2_remarks",
+   "label": "비고(사유)",
+   "section": "급여계좌 2",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "가구원이 아닌 사람 계좌나 디딤씨앗 · 압류방지통장이면 까닭을 적어요.",
+   "at": {
+    "rect": [
+     397,
+     614,
+     536,
+     636
+    ],
+    "page": 0
+   }
+  },
+  {
+   "id": "notification_method",
+   "label": "통지방법",
+   "input_type": "checkbox",
+   "guide": "결과를 어떻게 받을지 골라요.",
+   "at": {
+    "choices": "[]서면"
+   }
+  },
+  {
+   "id": "notification_other",
+   "label": "통지방법 기타",
+   "required": false,
+   "guide": "'기타'를 골랐으면 방법을 적어요.",
+   "at": {
+    "right_of": "기타(",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "benefit_basic",
+   "label": "기초생활보장",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "받고 싶은 기초생활보장 급여를 골라요 (주거급여면 자가 · 임차도).",
+   "at": {
+    "page": 1,
+    "choices": "[]생계급여",
+    "names": {
+     "임차9": "임차",
+     "기타10)": "기타"
+    }
+   }
+  },
+  {
+   "id": "benefit_education",
+   "label": "기초생활보장 - 교육급여",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "교육급여(바우처)를 신청하면 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]교육급여"
+   }
+  },
+  {
+   "id": "benefit_infant1",
+   "label": "영유아 - 부모급여(현금)",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "부모급여(현금)를 신청하면 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]부모급여(현금)",
+    "names": {
+     "부모급여(현금) (대상자 이름": "부모급여(현금)"
+    }
+   }
+  },
+  {
+   "id": "benefit_infant1_name",
+   "label": "부모급여 대상자 이름",
+   "section": "사회보장급여 내용",
+   "input_type": "text",
+   "required": false,
+   "guide": "부모급여를 받을 아이 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     262.7,
+     139.7,
+     299.7,
+     151.7
+    ]
+   }
+  },
+  {
+   "id": "benefit_infant2",
+   "label": "영유아 - 양육수당",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "양육수당과 종류를 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]양육수당(대상자",
+    "names": {
+     "양육수당(대상자 이름": "양육수당"
+    }
+   }
+  },
+  {
+   "id": "benefit_infant2_name",
+   "label": "양육수당 대상자 이름",
+   "section": "사회보장급여 내용",
+   "input_type": "text",
+   "required": false,
+   "guide": "양육수당을 받을 아이 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     234.7,
+     150.1,
+     263.7,
+     162.1
+    ]
+   }
+  },
+  {
+   "id": "benefit_infant3",
+   "label": "영유아 - 아이돌봄서비스",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "종일제 · 시간제 아이돌봄 중 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]종일제",
+    "names": {
+     "종일제 아이돌봄서비스(대상자 이름": "종일제 아이돌봄서비스",
+     "시간제 아이돌봄서비스(대상자 이름": "시간제 아이돌봄서비스"
+    }
+   }
+  },
+  {
+   "id": "benefit_infant3_name_fullday",
+   "label": "종일제 아이돌봄 대상자 이름",
+   "section": "사회보장급여 내용",
+   "input_type": "text",
+   "required": false,
+   "guide": "아이 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     286.7,
+     160.4,
+     319.7,
+     172.5
+    ]
+   }
+  },
+  {
+   "id": "benefit_infant3_name_parttime",
+   "label": "시간제 아이돌봄 대상자 이름",
+   "section": "사회보장급여 내용",
+   "input_type": "text",
+   "required": false,
+   "guide": "아이 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     490.7,
+     160.4,
+     523.7,
+     172.5
+    ]
+   }
+  },
+  {
+   "id": "benefit_child_allowance",
+   "label": "아동수당",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "아동수당을 신청하면 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]지급대상아동",
+    "names": {
+     "지급대상아동이름": "아동수당"
+    },
+    "options": [
+     "지급대상아동이름"
+    ]
+   }
+  },
+  {
+   "id": "benefit_child_allowance_name1",
+   "label": "아동수당 지급대상 아동 이름 1",
+   "section": "사회보장급여 내용",
+   "input_type": "text",
+   "required": false,
+   "guide": "아동수당을 받을 아이 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     230.7,
+     172.3,
+     295.7,
+     184.3
+    ]
+   }
+  },
+  {
+   "id": "benefit_child_allowance_name2",
+   "label": "아동수당 지급대상 아동 이름 2",
+   "section": "사회보장급여 내용",
+   "input_type": "text",
+   "required": false,
+   "guide": "아동수당을 받을 아이 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     306.8,
+     172.3,
+     371.7,
+     184.3
+    ]
+   }
+  },
+  {
+   "id": "benefit_child_allowance_name3",
+   "label": "아동수당 지급대상 아동 이름 3",
+   "section": "사회보장급여 내용",
+   "input_type": "text",
+   "required": false,
+   "guide": "아동수당을 받을 아이 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     382.7,
+     172.3,
+     460,
+     184.3
+    ]
+   }
+  },
+  {
+   "id": "benefit_student",
+   "label": "아동·청소년 - 초·중·고 학생 교육비 지원",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "교육비 지원을 신청하면 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]초·중·고",
+    "options": [
+     "초·중·고"
+    ],
+    "names": {
+     "초·중·고": "초·중·고 학생 교육비 지원"
+    }
+   }
+  },
+  {
+   "id": "benefit_student_pc",
+   "label": "PC 신청 여부",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "PC 지원을 신청하는지 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "PC신청여부:[",
+    "x": [
+     255,
+     560
+    ],
+    "names": {
+     "미신청]": "미신청"
+    }
+   }
+  },
+  {
+   "id": "benefit_student_internet",
+   "label": "인터넷통신사",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "인터넷 통신사를 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "인터넷통신사:[",
+    "x": [
+     255,
+     560
+    ],
+    "names": {
+     "기타(": "기타"
+    }
+   }
+  },
+  {
+   "id": "benefit_student_internet_other",
+   "label": "인터넷통신사 기타",
+   "section": "사회보장급여 내용",
+   "input_type": "text",
+   "required": false,
+   "guide": "'기타'면 통신사 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     505.4,
+     220.5,
+     522.2,
+     232.6
+    ]
+   }
+  },
+  {
+   "id": "benefit_student_internet_name",
+   "label": "인터넷 가입(예정)자 성명",
+   "section": "사회보장급여 내용",
+   "input_type": "text",
+   "required": false,
+   "guide": "인터넷 가입자 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     306.5,
+     230.4,
+     339.4,
+     242.4
+    ]
+   }
+  },
+  {
+   "id": "benefit_student_internet_id",
+   "label": "인터넷 가입(예정)자 주민번호",
+   "section": "사회보장급여 내용",
+   "input_type": "id_number",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     386.4,
+     230.4,
+     475.4,
+     242.4
+    ]
+   },
+   "value_source": "handwrite",
+   "sensitive": true
+  },
+  {
+   "id": "benefit_student_consent",
+   "label": "정보 제공 동의 (필수)",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "PC · 인터넷 지원을 받으려면 정보 제공에 동의해요.",
+   "at": {
+    "page": 1,
+    "marks": {
+     "동의": "제공동의["
+    }
+   }
+  },
+  {
+   "id": "benefit_youth",
+   "label": "아동·청소년",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "해당 지원을 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]소년·소녀가정",
+    "names": {
+     "청소년특별지원(": "청소년특별지원",
+     "연장신청)": "연장신청"
+    }
+   }
+  },
+  {
+   "id": "benefit_senior",
+   "label": "노인 - 기초연금",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "기초연금을 신청하면 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]기초연금",
+    "names": {
+     "기초연금(": "기초연금",
+     "배우자 동시 신청)": "배우자 동시 신청"
+    }
+   }
+  },
+  {
+   "id": "benefit_disabled1",
+   "label": "장애인",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "해당 장애인 지원을 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]장애인연금",
+    "names": {
+     "장애인연금(": "장애인연금",
+     "차상위 부가급여)": "차상위 부가급여"
+    }
+   }
+  },
+  {
+   "id": "benefit_disabled2",
+   "label": "장애인 (2)",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "해당 장애인 지원을 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]장애아가족"
+   }
+  },
+  {
+   "id": "benefit_single_parent",
+   "label": "한부모 가족",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "한부모 가족 지원을 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]한부모가족지원"
+   }
+  },
+  {
+   "id": "benefit_other1",
+   "label": "기타 - 차상위",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "해당 지원을 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]차상위계층확인"
+   }
+  },
+  {
+   "id": "benefit_other2",
+   "label": "기타 - 시설이용 · 자산형성 등",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "해당 지원을 골라요. 자립준비청년 자립정착금 · 자산형성은 여기서 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]시설이용",
+    "names": {
+     "타법 의료급여11": "타법 의료급여"
+    }
+   }
+  },
+  {
+   "id": "benefit_other2_medical",
+   "label": "타법 의료급여 내용",
+   "section": "사회보장급여 내용",
+   "input_type": "text",
+   "required": false,
+   "guide": "타법 의료급여 내용을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     378.4,
+     325.4,
+     427.4,
+     337.5
+    ]
+   }
+  },
+  {
+   "id": "benefit_other3",
+   "label": "기타 - 서비스 의뢰",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "해당 서비스를 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]개발제한구역"
+   }
+  },
+  {
+   "id": "benefit_other4",
+   "label": "기타 - 다문화 · 가족센터",
+   "section": "사회보장급여 내용",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "해당 서비스를 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]다문화가족"
+   }
+  },
+  {
+   "id": "discount_qualification",
+   "label": "자격구분",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "요금 감면 자격을 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]기초생활보장수급자(",
+    "rows_below": 12,
+    "names": {
+     "기초생활보장수급자(": "기초생활보장수급자",
+     "교육)": "교육"
+    }
+   }
+  },
+  {
+   "id": "discount_all",
+   "label": "감면서비스 - 전체 신청",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "모든 감면 서비스를 대신 신청하려면 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "전체신청[",
+    "names": {
+     "※ 전체 서비스 (대행)신청 시 체크": "전체 신청"
+    }
+   }
+  },
+  {
+   "id": "discount_select",
+   "label": "감면서비스 - 선택 신청",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "받을 감면 서비스를 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]전기요금",
+    "rows_below": 14
+   }
+  },
+  {
+   "id": "electric_customer_number",
+   "label": "전기 고객번호",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "text",
+   "required": false,
+   "guide": "전기요금 고객번호를 적어요 (고지서에 있어요).",
+   "at": {
+    "page": 1,
+    "rect": [
+     130.7,
+     465.8,
+     173.8,
+     477.9
+    ]
+   }
+  },
+  {
+   "id": "district_heating_number",
+   "label": "지역난방 열사용자번호",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "text",
+   "required": false,
+   "guide": "지역난방 열사용자번호를 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     275.9,
+     465.8,
+     319.0,
+     477.9
+    ]
+   }
+  },
+  {
+   "id": "mobile_carrier",
+   "label": "이동통신사",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "휴대전화 통신사를 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "이동통신사:["
+   }
+  },
+  {
+   "id": "gas_contract_name",
+   "label": "도시가스 사용계약자명",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "text",
+   "required": false,
+   "guide": "도시가스 사용계약자 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     163.6,
+     476.4,
+     236.6,
+     488.4
+    ]
+   }
+  },
+  {
+   "id": "gas_company",
+   "label": "도시가스 사업자명",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "text",
+   "required": false,
+   "guide": "도시가스 회사 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     275.5,
+     476.4,
+     356.6,
+     488.4
+    ]
+   }
+  },
+  {
+   "id": "gas_customer_number",
+   "label": "도시가스 고객번호",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "text",
+   "required": false,
+   "guide": "도시가스 고객번호를 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     395.5,
+     476.4,
+     480.5,
+     488.4
+    ]
+   }
+  },
+  {
+   "id": "landline_contract_id",
+   "label": "유선전화 계약자 주민등록번호",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "id_number",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     222.4,
+     486.9,
+     273.9,
+     499.0
+    ]
+   },
+   "value_source": "handwrite",
+   "sensitive": true
+  },
+  {
+   "id": "landline_number",
+   "label": "유선전화 전화번호",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "phone",
+   "required": false,
+   "guide": "집 전화번호를 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     313.0,
+     486.9,
+     350.8,
+     499.0
+    ]
+   }
+  },
+  {
+   "id": "landline_company",
+   "label": "유선전화 사업자",
+   "section": "복지대상자 요금 감면(대행) 신청",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "유선전화 회사를 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "사업자:[",
+    "names": {
+     "LG유플러스)": "LG유플러스"
+    }
+   }
+  },
+  {
+   "id": "member1_relation",
+   "label": "신청인과의 관계",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 1",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     78,
+     527.5,
+     123,
+     536.5
+    ]
+   }
+  },
+  {
+   "id": "member1_name",
+   "label": "성명",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 1",
+   "input_type": "text",
+   "required": false,
+   "guide": "가구원 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     125,
+     527.5,
+     189,
+     536.5
+    ]
+   }
+  },
+  {
+   "id": "member1_id_number",
+   "label": "주민등록번호",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 1",
+   "input_type": "id_number",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     191,
+     527.5,
+     277,
+     536.5
+    ]
+   },
+   "value_source": "handwrite",
+   "sensitive": true
+  },
+  {
+   "id": "member1_mobile",
+   "label": "휴대전화 번호",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 1",
+   "input_type": "phone",
+   "required": false,
+   "guide": "휴대전화 번호를 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     279,
+     527.5,
+     366,
+     536.5
+    ]
+   }
+  },
+  {
+   "id": "member1_carrier",
+   "label": "이동통신사",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 1",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "통신사를 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]KT[]SK텔레콤[]LG유플러스#2"
+   }
+  },
+  {
+   "id": "member2_relation",
+   "label": "신청인과의 관계",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 2",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     78,
+     537.5,
+     123,
+     546.5
+    ]
+   }
+  },
+  {
+   "id": "member2_name",
+   "label": "성명",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 2",
+   "input_type": "text",
+   "required": false,
+   "guide": "가구원 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     125,
+     537.5,
+     189,
+     546.5
+    ]
+   }
+  },
+  {
+   "id": "member2_id_number",
+   "label": "주민등록번호",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 2",
+   "input_type": "id_number",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     191,
+     537.5,
+     277,
+     546.5
+    ]
+   },
+   "value_source": "handwrite",
+   "sensitive": true
+  },
+  {
+   "id": "member2_mobile",
+   "label": "휴대전화 번호",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 2",
+   "input_type": "phone",
+   "required": false,
+   "guide": "휴대전화 번호를 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     279,
+     537.5,
+     366,
+     546.5
+    ]
+   }
+  },
+  {
+   "id": "member2_carrier",
+   "label": "이동통신사",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 2",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "통신사를 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]KT[]SK텔레콤[]LG유플러스#3"
+   }
+  },
+  {
+   "id": "member3_relation",
+   "label": "신청인과의 관계",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 3",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     78,
+     547.5,
+     123,
+     556.5
+    ]
+   }
+  },
+  {
+   "id": "member3_name",
+   "label": "성명",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 3",
+   "input_type": "text",
+   "required": false,
+   "guide": "가구원 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     125,
+     547.5,
+     189,
+     556.5
+    ]
+   }
+  },
+  {
+   "id": "member3_id_number",
+   "label": "주민등록번호",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 3",
+   "input_type": "id_number",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     191,
+     547.5,
+     277,
+     556.5
+    ]
+   },
+   "value_source": "handwrite",
+   "sensitive": true
+  },
+  {
+   "id": "member3_mobile",
+   "label": "휴대전화 번호",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 3",
+   "input_type": "phone",
+   "required": false,
+   "guide": "휴대전화 번호를 적어요.",
+   "at": {
+    "page": 1,
+    "rect": [
+     279,
+     547.5,
+     366,
+     556.5
+    ]
+   }
+  },
+  {
+   "id": "member3_carrier",
+   "label": "이동통신사",
+   "section": "가구원 추가 기재 (휴대전화요금 할인 신청 시) 3",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "통신사를 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "[]KT[]SK텔레콤[]LG유플러스#4"
+   }
+  },
+  {
+   "id": "privacy_consent_1",
+   "label": "개인정보 수집·이용 동의 (1. 수집·이용에 관한 사항)",
+   "input_type": "checkbox",
+   "guide": "동의해야 급여를 신청할 수 있어요.",
+   "at": {
+    "page": 1,
+    "marks_xy": {
+     "동의": [
+      510.5,
+      684.5
+     ]
+    }
+   }
+  },
+  {
+   "id": "privacy_consent_2",
+   "label": "개인정보 제3자 제공 동의 (요금 감면 대행)",
+   "section": "개인정보 제3자 제공 동의",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "요금 감면을 대신 신청하려면 동의해요.",
+   "at": {
+    "page": 2,
+    "marks_xy": {
+     "동의": [
+      516.2,
+      123.0
+     ]
+    },
+    "rect": [
+     506,
+     116.0,
+     527,
+     130.0
+    ]
+   }
+  },
+  {
+   "id": "optional_consent_1",
+   "label": "기초생활보장 - 차상위계층 지원사업 신청 처리 동의",
+   "section": "선택적 동의",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "원하면 동의해요. 동의하지 않아도 되지만 해당 신청이 안 될 수 있어요.",
+   "at": {
+    "page": 2,
+    "marks_xy": {
+     "동의": [
+      516.2,
+      216.3
+     ]
+    },
+    "rect": [
+     506,
+     209.3,
+     527,
+     223.3
+    ]
+   }
+  },
+  {
+   "id": "optional_consent_2",
+   "label": "차상위계층 지원사업 - 기초생활보장급여 신청 동의",
+   "section": "선택적 동의",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "원하면 동의해요. 동의하지 않아도 되지만 해당 신청이 안 될 수 있어요.",
+   "at": {
+    "page": 2,
+    "marks_xy": {
+     "동의": [
+      516.2,
+      240.3
+     ]
+    },
+    "rect": [
+     506,
+     233.3,
+     527,
+     247.3
+    ]
+   }
+  },
+  {
+   "id": "optional_consent_3",
+   "label": "교육급여·교육비 지원 모두 신청 동의",
+   "section": "선택적 동의",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "원하면 동의해요. 동의하지 않아도 되지만 해당 신청이 안 될 수 있어요.",
+   "at": {
+    "page": 2,
+    "marks_xy": {
+     "동의": [
+      516.2,
+      260.8
+     ]
+    },
+    "rect": [
+     506,
+     253.8,
+     527,
+     267.8
+    ]
+   }
+  },
+  {
+   "id": "optional_consent_4",
+   "label": "부모급여 - 양육수당 처리 동의",
+   "section": "선택적 동의",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "원하면 동의해요. 동의하지 않아도 되지만 해당 신청이 안 될 수 있어요.",
+   "at": {
+    "page": 2,
+    "marks_xy": {
+     "동의": [
+      516.2,
+      277.3
+     ]
+    },
+    "rect": [
+     506,
+     270.3,
+     527,
+     284.3
+    ]
+   }
+  },
+  {
+   "id": "optional_consent_5",
+   "label": "장애인연금 - 장애수당 신청 처리 동의",
+   "section": "선택적 동의",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "원하면 동의해요. 동의하지 않아도 되지만 해당 신청이 안 될 수 있어요.",
+   "at": {
+    "page": 2,
+    "marks_xy": {
+     "동의": [
+      516.2,
+      293.2
+     ]
+    },
+    "rect": [
+     506,
+     286.2,
+     527,
+     300.2
+    ]
+   }
+  },
+  {
+   "id": "optional_consent_6",
+   "label": "사회복지공동모금회 등 서비스 연계 정보 제공 동의",
+   "section": "선택적 동의",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "원하면 동의해요. 동의하지 않아도 되지만 해당 신청이 안 될 수 있어요.",
+   "at": {
+    "page": 2,
+    "marks_xy": {
+     "동의": [
+      516.2,
+      312.9
+     ]
+    },
+    "rect": [
+     506,
+     305.9,
+     527,
+     319.9
+    ]
+   }
+  },
+  {
+   "id": "optional_consent_7",
+   "label": "가족센터 등 서비스 의뢰 정보 제공 동의",
+   "section": "선택적 동의",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "원하면 동의해요. 동의하지 않아도 되지만 해당 신청이 안 될 수 있어요.",
+   "at": {
+    "page": 2,
+    "marks_xy": {
+     "동의": [
+      516.2,
+      332.4
+     ]
+    },
+    "rect": [
+     506,
+     325.4,
+     527,
+     339.4
+    ]
+   }
+  },
+  {
+   "id": "optional_consent_8",
+   "label": "맞춤형 급여 안내(복지멤버십) 동의",
+   "section": "선택적 동의",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "원하면 동의해요. 동의하지 않아도 되지만 해당 신청이 안 될 수 있어요.",
+   "at": {
+    "page": 2,
+    "marks_xy": {
+     "동의": [
+      516.2,
+      352.1
+     ]
+    },
+    "rect": [
+     506,
+     345.1,
+     527,
+     359.1
+    ]
+   }
+  },
+  {
+   "id": "notice_confirm_6",
+   "label": "유의사항 6 확인 (에너지바우처 안내)",
+   "section": "유의사항",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "에너지바우처 안내를 읽었으면 확인해요.",
+   "at": {
+    "page": 2,
+    "marks_xy": {
+     "확인": [
+      516.2,
+      533.2
+     ]
+    },
+    "rect": [
+     506,
+     526,
+     527,
+     540
+    ]
+   }
+  },
+  {
+   "id": "application_date",
+   "label": "신청일",
+   "input_type": "date",
+   "guide": "신청하는 날짜를 적어요.",
+   "at": {
+    "page": 2,
+    "rect": [
+     420,
+     697,
+     536,
+     712
+    ],
+    "how": "date_line"
+   }
+  },
+  {
+   "id": "applicant_name_sign",
+   "label": "신청인(대리 신청인) 성명",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "신청인 이름을 적어요.",
+   "at": {
+    "page": 2,
+    "rect": [
+     387,
+     712.5,
+     463,
+     725.5
+    ]
+   }
+  },
+  {
+   "id": "applicant_signature",
+   "label": "신청인 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "이름 옆에 직접 서명해요.",
+   "at": {
+    "page": 2,
+    "rect": [
+     463,
+     712.5,
+     520,
+     725.5
+    ]
+   }
+  },
+  {
+   "id": "spouse_name_sign",
+   "label": "(배우자 동시 신청 시) 배우자 성명",
+   "required": false,
+   "guide": "배우자와 함께 신청할 때만 배우자 이름을 적어요.",
+   "at": {
+    "page": 2,
+    "rect": [
+     388,
+     725.5,
+     463,
+     738
+    ]
+   }
+  },
+  {
+   "id": "spouse_signature",
+   "label": "배우자 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "배우자가 직접 서명해요.",
+   "at": {
+    "page": 2,
+    "rect": [
+     463,
+     725.5,
+     520,
+     738
+    ]
+   }
+  }
+ ]
+}

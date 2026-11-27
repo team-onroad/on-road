@@ -11,21 +11,22 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": false,
-      "guide": "접수번호를 적어요.",
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수번호",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          94.0,
-          198.8,
-          520.4,
-          212.7
+          140,
+          184,
+          201,
+          198
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -35,170 +36,123 @@
       "input_type": "date",
       "value_source": "office",
       "profile_key": null,
-      "required": false,
-      "guide": "신청서를 제출한 날짜를 적어요.",
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수일자",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          94.0,
-          198.8,
-          520.4,
-          212.7
+          245,
+          184,
+          388,
+          198
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
-    },
-    {
-      "id": "processing_period",
-      "label": "처리기간 익월 말일",
-      "section": null,
-      "input_type": "text",
-      "value_source": "office",
-      "profile_key": null,
-      "required": false,
-      "guide": "처리기간을 적어요.",
-      "example": "null",
-      "evidence": "처리기간 익월 말일",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          94.0,
-          198.8,
-          520.4,
-          212.7
-        ],
-        "how": "table_below",
-        "template_text": null
-      }
-    },
-    {
-      "id": "applicant",
-      "label": "신청인 (수급자)",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "신청인의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "신청인 (수급자)",
-      "sensitive": false,
-      "box": null
     },
     {
       "id": "applicant_name",
       "label": "성명",
-      "section": "신청인 (수급자)",
+      "section": "신청인(수급자)",
       "input_type": "text",
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "본인의 이름을 적어요.",
-      "example": "홍길동",
+      "guide": "본인 이름을 적어요.",
+      "example": "김민지",
       "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          179.8,
-          213.3,
-          373.1,
-          228.3
+          177.8,
+          213.7,
+          373,
+          240.8
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_id_number",
       "label": "주민등록번호",
-      "section": "신청인 (수급자)",
+      "section": "신청인(수급자)",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "주민등록번호를 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "주민등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          442.1,
-          213.3,
-          518.4,
-          228.3
+          376.1,
+          226.8,
+          519.4,
+          240.8
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_address",
       "label": "주소",
-      "section": "신청인 (수급자)",
-      "input_type": "text",
+      "section": "신청인(수급자)",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "거주하는 주소를 적어요.",
-      "example": "서울특별시 강남구",
+      "guide": "사는 곳 주소를 적어요.",
+      "example": null,
       "evidence": "주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          94.0,
-          273.0,
-          520.4,
-          286.8
+          177.8,
+          242.8,
+          373,
+          272.0
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_phone",
       "label": "전화번호(휴대전화)",
-      "section": "신청인 (수급자)",
+      "section": "신청인(수급자)",
       "input_type": "phone",
       "value_source": "profile",
       "profile_key": "phone",
       "required": true,
-      "guide": "연락 가능한 전화번호를 적어요.",
+      "guide": "휴대전화 번호를 적어요.",
       "example": "010-1234-5678",
       "evidence": "전화번호(휴대전화)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          94.0,
-          273.0,
-          520.4,
-          286.8
+          376.1,
+          256.1,
+          519.4,
+          272.0
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
-    },
-    {
-      "id": "application_content",
-      "label": "신청 내용",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "신청 내용을 적어요.",
-      "example": "취업 인센티브 신청",
-      "evidence": "신청 내용",
-      "sensitive": false,
-      "box": null
     },
     {
       "id": "business_name",
@@ -208,20 +162,21 @@
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "사업장의 이름을 적어요.",
-      "example": "홍길동 카페",
+      "guide": "취업(창업)한 회사 이름을 적어요.",
+      "example": "○○카페",
       "evidence": "사업장명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          202.5,
-          286.8,
-          520.4,
-          310.7
+          203,
+          288,
+          519,
+          310
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -232,92 +187,80 @@
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "취업한 날짜를 적어요.",
+      "guide": "일을 시작한 날을 적어요.",
       "example": "2023-01-01",
       "evidence": "취업일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          202.5,
-          310.7,
-          520.4,
-          334.7
+          286.7,
+          315.6,
+          406.4,
+          332.6
         ],
-        "how": "table_right",
-        "template_text": "년 월 일"
+        "how": "date_line",
+        "template_text": "년월일",
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "business_location",
       "label": "소재지",
       "section": "신청 내용",
-      "input_type": "text",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "사업장의 소재지를 적어요.",
-      "example": "서울특별시 강남구",
+      "guide": "회사 주소를 적어요.",
+      "example": null,
       "evidence": "소재지",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          202.5,
-          334.7,
-          520.4,
-          358.6
+          203,
+          336,
+          519,
+          358
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "allowance_account",
-      "label": "수당수급 계좌번호",
-      "section": null,
-      "input_type": "account",
-      "value_source": "handwrite",
-      "profile_key": null,
-      "required": true,
-      "guide": "수당을 받을 계좌번호를 적어요.",
-      "example": null,
-      "evidence": "계좌번호",
-      "sensitive": true,
-      "box": {
-        "page": 0,
-        "rect": [
-          463.3,
-          405.6,
-          520.4,
-          434.9
-        ],
-        "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "allowance_account_checkbox",
-      "label": "[ ] 본인계좌",
+      "id": "own_account",
+      "label": "수당수급 계좌 - 본인계좌",
       "section": "수당수급 계좌번호",
-      "input_type": "account",
-      "value_source": "handwrite",
+      "input_type": "checkbox",
+      "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "본인 계좌를 선택해요.",
+      "guide": "본인 이름의 통장이면 골라요.",
       "example": null,
-      "evidence": "본인계좌",
-      "sensitive": true,
+      "evidence": "수당수급 계좌 - 본인계좌",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          202.5,
-          405.6,
-          265.2,
-          434.9
+          164.2,
+          377.2,
+          235.5,
+          392.2
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "본인계좌"
+        ],
+        "marks": {
+          "본인계좌": [
+            176.6,
+            384.7
+          ]
+        },
+        "found_by": "layout_spec"
       }
     },
     {
@@ -328,20 +271,21 @@
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "계좌의 예금주 이름을 적어요.",
+      "guide": "통장 주인 이름을 적어요.",
       "example": "홍길동",
       "evidence": "예금주",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          202.5,
-          405.6,
-          265.2,
-          434.9
+          203,
+          407,
+          264,
+          434
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -352,44 +296,71 @@
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "계좌가 있는 금융기관 이름을 적어요.",
-      "example": "우리은행",
+      "guide": "은행 이름을 적어요.",
+      "example": "농협은행",
       "evidence": "금융기관",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          333.6,
-          405.6,
-          394.9,
-          434.9
+          335,
+          407,
+          394,
+          434
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "allowance_account_number",
+      "label": "계좌번호",
+      "section": "수당수급 계좌번호",
+      "input_type": "account",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "계좌번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "계좌번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          464,
+          407,
+          519,
+          434
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "signature_date",
-      "label": "년 월 일",
+      "label": "신청일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "서명 날짜를 적어요.",
+      "guide": "신청하는 날짜를 적어요.",
       "example": "2023-01-01",
-      "evidence": "년 월 일",
+      "evidence": "신청일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          221.3,
-          529.5,
+          249.3,
+          530.5,
           401.8,
-          548.6
+          547.6
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "년월일",
+        "found_by": "layout_spec"
       }
     },
     {
@@ -400,35 +371,48 @@
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "서명을 해요.",
+      "guide": "직접 서명하거나 도장을 찍어요.",
       "example": null,
       "evidence": "신청인 (서명 또는 인)",
-      "sensitive": true,
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          523.1,
-          566.8,
-          576,
-          581.8
+          290.2,
+          565.8,
+          444.1,
+          582.8
         ],
         "how": "text_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "submission_documents",
-      "label": "신청인 제출서류",
+      "id": "local_government",
+      "label": "○○지자체(운영기관장) 귀하",
       "section": null,
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "제출할 서류를 적어요.",
-      "example": "근로계약서 사본",
-      "evidence": "근로계약서 사본 또는 취업 사실을 증명할 수 있는 서류",
+      "required": false,
+      "guide": "지자체(또는 운영기관) 이름을 적어요.",
+      "example": null,
+      "evidence": "○○지자체(운영기관장) 귀하",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          101.5,
+          594.6,
+          124.1,
+          613.6
+        ],
+        "how": "table_right",
+        "template_text": "○○",
+        "cover": true,
+        "found_by": "layout_spec"
+      }
     }
   ],
   "notes": [
@@ -436,8 +420,6 @@
     "수수료 없음",
     "취업 후 근속 3개월이 되는 날로부터 6개월 이내 신청"
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 신청인 (수급자), 신청 내용, 신청인 제출서류"
-  ],
+  "warnings": [],
   "checked": false
 }

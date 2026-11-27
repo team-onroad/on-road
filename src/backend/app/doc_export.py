@@ -35,7 +35,7 @@ GRAY = (0.45, 0.45, 0.45)
 LINE = (0.75, 0.75, 0.75)
 INK = (0.05, 0.1, 0.35)  # 원본 양식 위에 쓰는 글자 (볼펜 느낌의 진한 남색)
 FONT_NAME = "onroadkr"  # 양식 PDF 에 원래 있는 글꼴 이름과 겹치지 않게 (겹치면 그 글꼴의 일부 글자만 쓰게 됨)
-OVERLAY_SIZES = (10, 9, 8, 7)
+OVERLAY_SIZES = (10, 9, 8, 7, 6)  # 6: 좁은 표 칸(전화번호 · 주소)에서만 마지막으로
 BOX_INSET = 2.5
 SIGN_SIZE = 9
 _DATE_RE = re.compile(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})")
@@ -167,7 +167,8 @@ def has_layout(pdf: Path | bytes | None, rows: list[tuple[dict, str]]) -> bool:
 
 
 def _fill_date(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) -> bool:
-    """"    년   월   일" 칸: 숫자를 년·월·일 글자 앞에 맞춰 쓴다"""
+    """"    년   월   일" 칸: 숫자를 년·월·일 글자 앞에 맞춰 쓴다.
+    양식에 연도가 찍혀 있으면 ("2026년") 연도는 건너뛰고, "20  년" 처럼 앞 두 자리만 있으면 뒤 두 자리만 쓴다"""
     m = _DATE_RE.search(value)
     if not m:
         return False
@@ -177,17 +178,103 @@ def _fill_date(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) 
         if not hits:
             return False
         slots.append(hits[0])
+    numbers = [m.group(1), str(int(m.group(2))), str(int(m.group(3)))]
+    left = rect.x0
+    words = sorted(page.get_text("words", clip=rect), key=lambda w: w[0])
+    year_word = next((w for w in words if "년" in w[4] and w[0] <= slots[0].x0 + 1), None)
+    before = [w for w in words if w[2] <= slots[0].x0 + 0.5]
+    if year_word and re.match(r"^\d{4}\s*년", year_word[4]):
+        numbers[0] = ""  # "2026년" 이 찍혀 있음
+    elif year_word and re.match(r"^\d{2}년", year_word[4]):
+        # "20년" 이 붙어 찍혀 있음: 그 글자를 가리고 "2026년" 으로 다시 쓴다
+        full = f"{m.group(1)}년"
+        if _font().text_length(full, fontsize=size) <= slots[1].x0 - 4 - year_word[0]:
+            _cover_words(page, pymupdf.Rect(year_word[:4]))
+            page.insert_text((year_word[0], slots[0].y1 - slots[0].height * 0.2), full, fontname=FONT_NAME, fontsize=size, color=INK)
+            numbers[0] = ""
+            slots[0] = pymupdf.Rect(year_word[0], slots[0].y0, year_word[0] + _font().text_length(full, fontsize=size), slots[0].y1)
+    elif before and re.fullmatch(r"\d{2}", before[-1][4]):
+        numbers[0] = m.group(1)[len(before[-1][4]):] if m.group(1).startswith(before[-1][4]) else m.group(1)[2:]
+        left = before[-1][2]
     font = _font()
     placed = []
-    left = rect.x0
-    for number, slot in zip((m.group(1), str(int(m.group(2))), str(int(m.group(3)))), slots, strict=True):
+    for k, (number, slot) in enumerate(zip(numbers, slots, strict=True)):
+        if not number:
+            left = slot.x1
+            continue
         w = font.text_length(number, fontsize=size)
+        if k == 0 and before and slot.x0 - 3 - w < left + 1 and re.fullmatch(r"\d{2}", before[-1][4]):
+            # "20 년" 사이가 좁다: 찍힌 "20" 을 가리고 네 자리로
+            _cover_words(page, pymupdf.Rect(before[-1][:4]))
+            number, left = m.group(1), before[-1][0] - 1
+            w = font.text_length(number, fontsize=size)
         if slot.x0 - 3 - w < left + 1:  # 숫자가 앞 칸(항목 칸)이나 앞 단위 글자를 침범한다
             return False
         placed.append((slot.x0 - 3 - w, slot.y1 - slot.height * 0.2, number))
         left = slot.x1
     for x, y, number in placed:
         page.insert_text((x, y), number, fontname=FONT_NAME, fontsize=size, color=INK)
+    return True
+
+
+def _fill_dots(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) -> bool:
+    """"20  .   .   ." · ".   .   ." 날짜 칸: 숫자를 점 앞에 쓴다 (앞에 "20" 이 찍혀 있으면 연도 뒤 두 자리만)"""
+    m = _DATE_RE.search(value)
+    dots = sorted(page.search_for(".", clip=rect), key=lambda r: r.x0)
+    if not m or len(dots) < 2:
+        return False
+    words = sorted(page.get_text("words", clip=rect), key=lambda w: w[0])
+    year = m.group(1)
+    left = rect.x0
+    pre = [w for w in words if w[2] <= dots[0].x0 + 0.5 and re.fullmatch(r"\d{2}", w[4])]
+    if pre:
+        year = year[2:]
+        left = pre[-1][2]
+    numbers = [year, str(int(m.group(2))), str(int(m.group(3)))][: len(dots)]
+    font = _font()
+    placed = []
+    for number, dot in zip(numbers, dots, strict=False):
+        w = font.text_length(number, fontsize=size)
+        gap = min(2.0, max(0.5, dot.x0 - w - left - 0.5))
+        if dot.x0 - gap - w < left + 0.3:
+            return False
+        placed.append((dot.x0 - gap - w, dot.y1 - dot.height * 0.15, number))
+        left = dot.x1
+    for x, y, number in placed:
+        page.insert_text((x, y), number, fontname=FONT_NAME, fontsize=size, color=INK)
+    return True
+
+
+_PHONE_TEMPLATE = re.compile(r"^\(0?\)-?$")
+
+
+def _fill_phone_parens(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) -> bool:
+    """"휴대전화(   )    -" 칸: 앞자리는 괄호 안, 가운데는 ")" 와 "-" 사이, 끝자리는 "-" 뒤"""
+    parts = [p for p in re.split(r"[-\s)(]+", value) if p]
+    if len(parts) != 3:
+        return False
+    mid = (rect.y0 + rect.y1) / 2
+    words = sorted((w for w in page.get_text("words", clip=rect + (-1, -2, 1, 2)) if w[1] <= mid <= w[3]), key=lambda w: w[0])
+    opens = [w for w in words if w[4].endswith("(") or w[4].endswith("(0")]
+    closes = [w for w in words if w[4].startswith(")")]
+    if not opens or not closes:
+        return False
+    o = opens[0]
+    c = next((w for w in closes if w[0] > o[0]), None)
+    d = next((w for w in words if c and w[0] > c[2] and w[4].strip() in ("-", "－", "–", "‐", "−")), None)
+    if c is None or d is None:
+        return False
+    font = _font()
+    zero = o[4].endswith("(0")
+    first = parts[0][1:] if zero and parts[0].startswith("0") else parts[0]
+    start = o[2]
+    slots = [(first, start + 1, c[0] - 1), (parts[1], c[2] + 1, d[0] - 1), (parts[2], d[2] + 1, rect.x1)]
+    if any(font.text_length(t, fontsize=size) > x1 - x0 for t, x0, x1 in slots):
+        return False
+    baseline = o[3] - (o[3] - o[1]) * 0.2
+    for t, x0, x1 in slots:
+        w = font.text_length(t, fontsize=size)
+        page.insert_text(((x0 + x1 - w) / 2, baseline), t, fontname=FONT_NAME, fontsize=size, color=INK)
     return True
 
 
@@ -233,12 +320,17 @@ def _check_mark(page: pymupdf.Page, x: float, y: float, size: float = 7.5) -> No
 
 def _fill_checkbox(
     page: pymupdf.Page, rect: pymupdf.Rect, value: str, options: list[str], marks: dict | None = None,
+    circles: dict | None = None,
 ) -> bool:
     """고른 선택지 앞 "[ ]"·□ 안에 체크 표시. 양식 준비 때 찾아 둔 자리(marks)가 있으면 그 자리,
     없으면 선택지 글자 앞 "["를 찾는다 (선택지 앞에 "["가 없는 글자 — 칸 이름 등 — 는 건너뛴다)"""
     chosen = [p.strip() for p in value.split(",") if p.strip() in options]
     if not chosen:
         return False
+    if circles and all(opt in circles for opt in chosen):  # "(있음, 없음)" 처럼 낱말에 ○
+        for opt in chosen:
+            page.draw_oval(pymupdf.Rect(circles[opt]), color=INK, width=1.1)
+        return True
     if marks and all(opt in marks for opt in chosen):
         for opt in chosen:
             _check_mark(page, *marks[opt])
@@ -412,8 +504,17 @@ def render_overlay(pdf: Path | bytes, title: str, rows: list[tuple[dict, str]]) 
             rect = pymupdf.Rect(rect.x0, rect.y0, rect.x1 - mark_w - 6, rect.y1)
         if box.get("how") == "checkbox":
             options = spec.get("options") or box.get("options") or []
-            if not _fill_checkbox(page, pymupdf.Rect(box["rect"]), text, options, box.get("marks")):
+            if not _fill_checkbox(page, pymupdf.Rect(box["rect"]), text, options, box.get("marks"), box.get("circles")):
                 leftovers.append((spec, text))
+            continue
+        if box.get("cover"):  # 칸 안 예시 글자(000000-0000000, ○○)를 지우고 쓴다
+            _cover_words(page, rect)
+            template = ""
+        flat = re.sub(r"\s", "", template)
+        if spec.get("input_type") == "date" and flat and re.fullmatch(r"(\d{2})?[.\s]*", flat) and flat.count(".") >= 2:
+            if any(_fill_dots(page, rect, text, size) for size in OVERLAY_SIZES):
+                continue
+        if spec.get("input_type") == "phone" and _PHONE_TEMPLATE.match(flat) and _fill_phone_parens(page, rect, text, OVERLAY_SIZES[1]):
             continue
         is_date = box.get("how") == "date_line" or (template and all(u in template for u in ("년", "월", "일")))
         if is_date and _fill_date(page, rect, text, OVERLAY_SIZES[0]):

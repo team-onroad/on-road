@@ -113,6 +113,42 @@
 - 아직 별지로 가는 칸: 칸 이름과 자리가 멀거나 한 칸에 여러 칸이 섞인 표 (디딤씨앗 신청서 · 사용계획서, 진도 개인정보 · 금융정보 동의서, 사후관리 동의서 등).
   `--all --dry-run` 으로 찾은 자리를 보고 맞으면 review 에 더한다
 
+## 검수한 칸 배치 (`formguide.layout_spec`) — 11/28
+
+자동 추출(`layout.py` · `fill_missing`)은 제목 · 안내문 · 장식선을 칸으로 잡거나, 한 칸에 두 값이 섞이거나, 같은 줄 옆 칸을 침범하는 일이 많았다.
+그래서 **양식마다 사람이 원본 PDF 와 대조해 적은 배치 파일** `data/forms/layout/{form_id}.json` 을 두고, 이것으로 양식 JSON 의 칸 목록 · 자리를 통째로 만든다
+(P001-apply 는 이미 사람이 확인한 칸이라 배치 파일 없음 → 그대로). 35개 양식, 칸 약 550 → 920.
+
+```
+cd src
+python -m formguide.layout_spec                 # 배치 파일 있는 양식 모두 다시 만들기
+python -m formguide.layout_spec welfare-apply   # 하나만
+python -m formguide.audit welfare-apply         # 입력 자리 후보(빈 칸 · □ · 밑줄 · 20 . . .)와 칸 비교: 빠진 자리 · 엉뚱한 자리 찾기
+```
+
+배치 파일 형식 (칸 하나):
+
+```json
+{"id": "stay_start", "label": "체류기간(시작)", "input_type": "date", "at": {"date": "체류기간", "pad": 2}}
+```
+
+- 배치 파일이 기준: `input_type`(기본 text) · `value_source`(기본 user) · `required`(기본 true)는 여기서 정한다. 예전 JSON 의 설명 · 예시는 타입이 같을 때만 물려받는다
+- `at` 으로 자리 찾기. 글자는 `"신청인#2"`(두 번째) · `"#-1"`(마지막)로 고른다 (같은 y 의 글자 조각은 한 줄로 합쳐서 찾음)
+  - `rect` 좌표 직접 · `right_of` 이름 오른쪽 빈 자리(다음 칸 이름이나 세로선 앞까지, `to` · `x0` · `pad` · `rows`) · `cell_right` 오른쪽 칸 · `under` / `below` 아래 칸
+  - `date` "년 월 일" · "20 . . ." 날짜 자리, `choices` ①②③ · 1·2·3 선택지 줄, `marks` □ 앞 표시 자리, `marks_xy` 좌표로, `words` "(있음, 없음)" 처럼 글자에 ○
+  - `around` · `mark` 한 글자 둘레
+- 기간 "~" 은 시작 · 끝 두 칸으로 나눈다 (`*_start` / `*_end`). 선택지 이름의 쉼표는 "·" 로 (여러 개 고른 값 "가, 나" 와 헷갈림)
+- 칸 플래그: `cover`(칸 안 예시 글자 000000-0000000 · ○○ 를 지우고 씀) · `sign_mark` · `align`
+- 만든 칸 box 에 `found_by: layout_spec`
+
+내보내기(`doc_export.render_overlay`)가 함께 바뀐 것:
+"20 . . ." · ". . ." 날짜는 점 앞에 숫자, "2026년" 이 찍혀 있으면 월 · 일만, "20  년" 은 뒤 두 자리,
+"( )    -" 전화칸은 괄호 · 줄표 사이에 나눠 씀, `circles` 가 있는 선택은 ○, 글자 크기 10→6pt 까지 줄여서도 안 들어가면 별지.
+
+확인: `formguide/tests/test_layout_spec.py`(배치 파일과 저장된 JSON 이 같은지 · 칸 겹침 · 선택지) ·
+`backend/tests/test_doc_export_forms.py`(점 날짜 · 찍힌 연도 · 괄호 전화 · ○ · 예시 덮기).
+배치를 고치면 `layout_spec` 으로 다시 만들고, 견본 값으로 내보낸 PDF 를 원본 위에서 눈으로 본다.
+
 ## 다시 만들기 · 양식 추가
 
 ```

@@ -6,201 +6,260 @@
   "fields": [
     {
       "id": "applicant_name",
-      "label": "신청인 성명 :",
-      "section": null,
+      "label": "성명",
+      "section": "신청인",
       "input_type": "text",
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "신청인의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "신청인 성명 :",
+      "guide": "신청인 이름을 적어요.",
+      "example": "김민지",
+      "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          98.1,
-          170.4,
-          564.5,
+          97.1,
+          170.8,
+          339,
           189.8
         ],
         "how": "text_right",
         "template_text": null,
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_address",
-      "label": "주민등록상주소 :",
-      "section": null,
+      "label": "주민등록상주소",
+      "section": "신청인",
       "input_type": "address",
-      "value_source": "profile",
-      "profile_key": "region",
+      "value_source": "user",
+      "profile_key": null,
       "required": true,
-      "guide": "주민등록상의 주소를 적어요.",
+      "guide": "주민등록상 주소를 적어요.",
       "example": "전라남도 진도군",
-      "evidence": "주민등록상주소 :",
+      "evidence": "주민등록상주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          165.1,
-          193.8,
-          564.5,
+          164.1,
+          194.2,
+          545,
           213.2
         ],
         "how": "text_right",
         "template_text": null,
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_id_number",
-      "label": "주민등록번호 :",
-      "section": null,
+      "label": "주민등록번호",
+      "section": "신청인",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "주민등록번호를 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
-      "evidence": "주민등록번호 :",
+      "evidence": "주민등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          148.5,
-          221.1,
-          564.5,
+          147.5,
+          221.5,
+          545,
           240.4
         ],
         "how": "text_right",
         "template_text": null,
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_contact",
-      "label": "연락처 :",
-      "section": null,
+      "label": "연락처",
+      "section": "신청인",
       "input_type": "phone",
       "value_source": "profile",
       "profile_key": "phone",
       "required": true,
-      "guide": "연락 가능한 전화번호를 적어요.",
+      "guide": "연락처를 적어요.",
       "example": "010-1234-5678",
-      "evidence": "연락처 :",
+      "evidence": "연락처",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          113.1,
-          245.2,
-          564.5,
+          112.1,
+          245.6,
+          339,
           264.6
         ],
         "how": "text_right",
         "template_text": null,
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "agreement_1",
-      "label": "1세대 1주택 신청 원칙",
+      "label": "1세대 1주택 신청 원칙 동의",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "동의 여부를 체크해요.",
+      "guide": "내용을 읽고 동의하면 골라요.",
       "example": null,
-      "evidence": "□",
+      "evidence": "1세대 1주택 신청 원칙 동의",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          151.8,
+          358.9,
+          169.9,
+          376.9
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의"
+        ],
+        "marks": {
+          "동의": [
+            160.9,
+            367.9
+          ]
+        },
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "agreement_2",
-      "label": "예외가 적용되지 않는 경우",
+      "label": "예외가 적용되지 않는 경우 동의",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "동의 여부를 체크해요.",
+      "guide": "내용을 읽고 동의하면 골라요.",
       "example": null,
-      "evidence": "□",
+      "evidence": "예외가 적용되지 않는 경우 동의",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          151.8,
+          444.1,
+          169.9,
+          462.1
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의"
+        ],
+        "marks": {
+          "동의": [
+            160.9,
+            453.1
+          ]
+        },
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "agreement_3",
-      "label": "위반 시 전부 무효 및 자격상실",
+      "label": "위반 시 전부 무효 및 자격상실 동의",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "동의 여부를 체크해요.",
+      "guide": "내용을 읽고 동의하면 골라요.",
       "example": null,
-      "evidence": "□",
+      "evidence": "위반 시 전부 무효 및 자격상실 동의",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          151.8,
+          529.2,
+          169.9,
+          547.2
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의"
+        ],
+        "marks": {
+          "동의": [
+            160.9,
+            538.2
+          ]
+        },
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "date",
-      "label": "2026년 월 일",
+      "label": "작성일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
+      "guide": "확인서를 쓰는 날짜를 적어요.",
       "example": null,
-      "evidence": "2026년 월 일",
+      "evidence": "작성일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          385.2,
-          628.2,
-          559,
-          645.2
+          233.9,
+          627.2,
+          383.2,
+          646.2
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "date_line",
+        "template_text": "2026년월일",
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_signature",
-      "label": "신청인 : (인)",
+      "label": "신청인 (인)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "신청인의 서명을 해요.",
+      "guide": "직접 서명하거나 도장을 찍어요.",
       "example": null,
-      "evidence": "신청인 : (인)",
-      "sensitive": true,
+      "evidence": "신청인 (인)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          470.9,
+          390.4,
           666.2,
-          528.9,
+          527.9,
           685.2
         ],
         "how": "text_right",
         "template_text": null,
-        "found_by": "fill_missing"
+        "found_by": "layout_spec"
       }
     }
   ],
   "notes": [
     "중복신청이 확인되면 해당 세대의 신청은 모두 무효 처리됩니다."
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 1세대 1주택 신청 원칙, 예외가 적용되지 않는 경우, 위반 시 전부 무효 및 자격상실"
-  ],
+  "warnings": [],
   "checked": false
 }

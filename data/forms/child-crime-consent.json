@@ -5,269 +5,309 @@
   "source": "https://www.law.go.kr/법령/아동복지법시행규칙",
   "fields": [
     {
-      "id": "target",
-      "label": "대 상 자",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "대상자의 정보를 적어요.",
-      "example": "홍길동",
-      "evidence": "대 상 자",
-      "sensitive": false,
-      "box": null
-    },
-    {
       "id": "target_name_korean",
-      "label": "성 명",
-      "section": "대 상 자",
+      "label": "성명 (한글)",
+      "section": "대상자",
       "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "name",
       "required": true,
-      "guide": "이름을 한글로 적어요.",
-      "example": "홍길동",
-      "evidence": "성 명",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "target_name_native",
-      "label": "(자국어)",
-      "section": "대 상 자",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "이름을 자국어로 적어요.",
-      "example": "홍길동",
-      "evidence": "(자국어)",
+      "guide": "범죄경력 조회에 동의하는 사람의 이름을 한글로 적어요.",
+      "example": "김민지",
+      "evidence": "성명 (한글)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          382.4,
-          140.6,
-          522.7,
-          153.6
+          178.8,
+          139.2,
+          342.0,
+          174.6
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "target_name_native",
+      "label": "성명 (자국어)",
+      "section": "대상자",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "외국인이면 자기 나라 글자로 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "성명 (자국어)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          380.4,
+          139.2,
+          523.7,
+          174.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "target_name_chinese",
-      "label": "(한자)",
-      "section": "대 상 자",
+      "label": "성명 (한자)",
+      "section": "대상자",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "이름을 한자로 적어요.",
-      "example": "null",
-      "evidence": "(한자)",
+      "guide": "한자 이름이 있으면 적어요.",
+      "example": "金敏智",
+      "evidence": "성명 (한자)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          150.5,
-          213.0,
-          289.3,
-          252.7
+          178.8,
+          176.6,
+          342.0,
+          212.0
         ],
-        "how": "table_below",
-        "template_text": "-"
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "target_name_english",
-      "label": "(영문)",
-      "section": "대 상 자",
+      "label": "성명 (영문)",
+      "section": "대상자",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "이름을 영어로 적어요.",
+      "guide": "외국인이면 영문 이름을 적어요.",
       "example": "Hong Gil Dong",
-      "evidence": "(영문)",
+      "evidence": "성명 (영문)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          388.2,
-          213.0,
-          524.7,
-          252.7
+          371.4,
+          176.6,
+          523.7,
+          212.0
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "target_id_number",
       "label": "주민등록번호",
-      "section": "대 상 자",
+      "section": "대상자",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "주민등록번호를 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "주민등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          150.5,
-          213.0,
-          289.3,
-          252.7
+          151.5,
+          214.0,
+          292.8,
+          251.7
         ],
         "how": "table_right",
-        "template_text": "-"
+        "template_text": "-",
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "target_foreign_id",
-      "label": "외국인인 경우: 국적 과 여권번호 또는 외국인등록번호",
-      "section": "대 상 자",
+      "label": "외국인인 경우: 국적과 여권번호 또는 외국인등록번호",
+      "section": "대상자",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": false,
-      "guide": "국적과 여권번호 또는 외국인등록번호를 적어요.",
+      "guide": "외국인이면 국적과 여권번호(또는 외국인등록번호)를 직접 적어요.",
       "example": null,
-      "evidence": "외국인인 경우: 국적 과 여권번호 또는 외국인등록번호",
+      "evidence": "외국인인 경우: 국적과 여권번호 또는 외국인등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          388.2,
-          213.0,
-          524.7,
-          252.7
+          389.2,
+          214,
+          523.7,
+          251.7
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "target_address",
-      "label": "주 소",
-      "section": "대 상 자",
-      "input_type": "text",
+      "label": "주소",
+      "section": "대상자",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "주소를 적어요.",
-      "example": "서울특별시 강남구",
-      "evidence": "주 소",
+      "guide": "사는 곳 주소를 적어요.",
+      "example": "서울특별시 ○○구 ○○로 12",
+      "evidence": "주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          150.5,
-          252.7,
-          524.7,
-          290.1
+          151.5,
+          253.7,
+          523.7,
+          289.1
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "target_phone",
-      "label": "전화번호",
-      "section": "대 상 자",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "전화번호를 적어요.",
-      "example": "010-1234-5678",
-      "evidence": "전화번호",
-      "sensitive": false,
-      "box": null
-    },
-    {
       "id": "target_home_phone",
-      "label": "자택:",
-      "section": "대 상 자",
+      "label": "전화번호 (자택)",
+      "section": "대상자",
       "input_type": "phone",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "자택 전화번호를 적어요.",
-      "example": "null",
-      "evidence": "자택:",
+      "guide": "집 전화가 있으면 적어요.",
+      "example": null,
+      "evidence": "전화번호 (자택)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          179.5,
-          302.0,
-          296.5,
-          316.0
+          177.5,
+          291.1,
+          297.5,
+          326.5
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "target_mobile_phone",
-      "label": "휴대전화:",
-      "section": "대 상 자",
+      "label": "전화번호 (휴대전화)",
+      "section": "대상자",
       "input_type": "phone",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "phone",
       "required": true,
       "guide": "휴대전화 번호를 적어요.",
-      "example": "010-9876-5432",
-      "evidence": "휴대전화:",
+      "example": "010-1234-5678",
+      "evidence": "전화번호 (휴대전화)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          347.8,
-          302.0,
-          522.7,
-          316.0
+          345.8,
+          291.1,
+          523.7,
+          326.5
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "date",
-      "label": "년 월 일",
-      "section": "날짜 줄",
+      "label": "동의일",
+      "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "날짜를 적어요.",
+      "guide": "동의하는 날짜를 적어요.",
       "example": "2023-10-01",
-      "evidence": "년 월 일",
+      "evidence": "동의일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          369.4,
-          410.8,
+          397.4,
+          411.8,
           525.6,
-          427.8
+          426.8
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "년월일",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "signature",
+      "label": "동의자 (서명 또는 인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "제출할 때 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "동의자 (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          380.7,
+          447.1,
+          461.4,
+          463.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "police_agency",
+      "label": "경찰청장(　　지방경찰청장) 귀하",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "사는 지역의 지방경찰청 이름을 적어요 (예: 서울).",
+      "example": "서울",
+      "evidence": "경찰청장(　　지방경찰청장) 귀하",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          122.7,
+          484.2,
+          169.6,
+          499.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     }
   ],
   "notes": [
     "대상자가 외국인인 경우 한글과 자국어ㆍ영문의 성명, 국적과 함께 여권번호 또는 외국인등록번호를 적습니다."
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 대 상 자, 성 명, 전화번호"
-  ],
+  "warnings": [],
   "checked": false
 }

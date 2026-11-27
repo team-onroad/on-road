@@ -12,196 +12,299 @@
       "value_source": "office",
       "profile_key": null,
       "required": true,
-      "guide": "신청서 접수 후 부여받은 번호를 적어요.",
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수번호",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          455.5,
-          61.5,
-          524.2,
-          75.3
+          457,
+          60,
+          522,
+          74
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_name",
-      "label": "성 명",
+      "id": "name",
+      "label": "성명",
       "section": "신청인",
       "input_type": "text",
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "본인의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "성 명",
+      "guide": "신청인 이름을 적어요.",
+      "example": "김민지",
+      "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          143.1,
-          75.3,
-          313.8,
-          89.1
+          133.2,
+          76.3,
+          318.2,
+          88.1
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_id_number",
+      "id": "id_number",
       "label": "주민등록번호",
       "section": "신청인",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "주민등록번호를 정확히 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "주민등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          388.4,
-          75.3,
-          524.2,
-          89.1
+          389.4,
+          76.3,
+          523.2,
+          88.1
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_address",
-      "label": "주 소",
+      "id": "address",
+      "label": "주소",
       "section": "신청인",
-      "input_type": "text",
-      "value_source": "profile",
-      "profile_key": "region",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
       "required": true,
-      "guide": "현재 거주하는 주소를 적어요.",
-      "example": "서울특별시 강남구",
-      "evidence": "주 소",
+      "guide": "지금 사는 곳 주소를 적어요.",
+      "example": null,
+      "evidence": "주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          143.1,
-          89.1,
-          524.2,
-          102.8
+          144.1,
+          90.1,
+          523.2,
+          101.8
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_phone",
-      "label": "전화번호",
-      "section": "신청인",
+      "id": "mobile_phone",
+      "label": "휴대전화",
+      "section": "신청인 전화번호",
       "input_type": "phone",
       "value_source": "profile",
       "profile_key": "phone",
       "required": true,
-      "guide": "전화번호를 적어요.",
-      "example": "02-1234-5678",
-      "evidence": "전화번호",
+      "guide": "휴대전화 번호를 적어요.",
+      "example": "010-1234-5678",
+      "evidence": "휴대전화",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          182.5,
+          103.3,
+          321.5,
+          113.6
+        ],
+        "how": "table_right",
+        "template_text": "0)-",
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "applicant_mobile_phone",
-      "label": "휴대전화(0 ) - 집전화 ( ) -",
-      "section": "신청인",
+      "id": "home_phone",
+      "label": "집전화",
+      "section": "신청인 전화번호",
       "input_type": "phone",
-      "value_source": "profile",
-      "profile_key": "phone",
-      "required": true,
-      "guide": "휴대전화와 집전화를 적어요.",
-      "example": "010-1234-5678/02-8765-4321",
-      "evidence": "휴대전화(0 ) - 집전화 ( ) -",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "집 전화가 있으면 적어요.",
+      "example": null,
+      "evidence": "집전화",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          173.5,
+          113.6,
+          333.2,
+          124.6
+        ],
+        "how": "table_right",
+        "template_text": "()-",
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "applicant_local_government",
-      "label": "해당시․군․구 전입일",
+      "id": "move_in_date",
+      "label": "해당 시·군·구 전입일",
       "section": "신청인",
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "전입한 날짜를 적어요.",
+      "guide": "지금 사는 시 · 군 · 구로 전입신고한 날을 적어요.",
       "example": null,
-      "evidence": "전입일",
+      "evidence": "해당 시·군·구 전입일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          388.4,
-          102.8,
-          524.2,
-          126.7
+          402.2,
+          106.9,
+          507.9,
+          122.8
         ],
-        "how": "table_right",
-        "template_text": "년 월 일"
+        "how": "date_line",
+        "template_text": "년월일",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "priority",
-      "label": "신청순 위",
+      "id": "application_priority",
+      "label": "신청순위",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "해당하는 항목을 모두 선택해요. 생계·의료급여 수급자, 한부모가족, 주거지원 시급 가구, 장애인등록증 교부자(월평균소득 70%이하), 고령자, 월평균소득 50%이하인 자, 장애인등록증 교부자(월평균소득 100%이하)",
+      "guide": "해당하는 신청 자격을 골라요 (1순위 · 2순위).",
       "example": null,
-      "evidence": "신청순 위",
+      "evidence": "신청순위",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          117.9,
+          148.0,
+          483.6,
+          200.5
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "생계·의료급여 수급자",
+          "한부모가족",
+          "주거지원 시급 가구",
+          "월평균소득 50%이하인 자",
+          "장애인등록증교부자(월평균소득 100%이하)",
+          "장애인등록증 교부자(월평균소득 70%이하)",
+          "고령자"
+        ],
+        "marks": {
+          "생계·의료급여 수급자": [
+            123.9,
+            154.5
+          ],
+          "한부모가족": [
+            123.9,
+            164.3
+          ],
+          "주거지원 시급 가구": [
+            123.9,
+            174.3
+          ],
+          "월평균소득 50%이하인 자": [
+            333.1,
+            169.3
+          ],
+          "장애인등록증교부자(월평균소득 100%이하)": [
+            333.1,
+            179.2
+          ],
+          "장애인등록증 교부자(월평균소득 70%이하)": [
+            123.9,
+            184.2
+          ],
+          "고령자": [
+            123.9,
+            194.1
+          ]
+        },
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "housing_asset_status",
-      "label": "주택 및 자산현 황",
+      "label": "주택 및 자산현황",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "해당하는 항목을 선택해요. 무주택, 자산 및 자동차",
+      "guide": "무주택이면 '무주택', 자산 기준 이하이면 '자산 및 자동차'도 골라요.",
       "example": null,
-      "evidence": "주택 및 자산현 황",
+      "evidence": "주택 및 자산현황",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          104.0,
+          200.3,
+          525.1,
+          218.7
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "무주택",
+          "자산 및 자동차 기준 이하"
+        ],
+        "marks": {
+          "무주택": [
+            110.9,
+            211.7
+          ],
+          "자산 및 자동차 기준 이하": [
+            178.9,
+            207.3
+          ]
+        },
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "submission_date",
-      "label": "년 월 일",
+      "id": "date",
+      "label": "신청일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청서를 제출하는 날짜를 적어요.",
+      "guide": "신청하는 날짜를 적어요.",
       "example": null,
-      "evidence": "년 월 일",
+      "evidence": "신청일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          223.9,
-          274.1,
+          251.9,
+          274.3,
           357.7,
-          291.1
+          290.2
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "년월일",
+        "found_by": "layout_spec"
       }
     },
     {
@@ -212,43 +315,503 @@
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "서명을 해주세요.",
+      "guide": "직접 서명하거나 도장을 찍어요.",
       "example": null,
       "evidence": "신청인 (인)",
-      "sensitive": true,
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          512.9,
-          275.3,
-          559,
-          289.2
+          480.8,
+          274.9,
+          520.9,
+          291.0
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": "(인)",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "agreement",
-      "label": "본인은 전세임대주택 입주자격(갱신계약 포함) 심사 및 입주 후 관리를 위해 무주택세대구성원 전원의 소득 및 재산 등을 조회할 수 있도록 공공기관에서 보유하고 있는 무주택세대구성원의 정보 열람 및 제공에 동의합니다.",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
+      "id": "score_residence_eval",
+      "label": "① 연속 거주기간 평가",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
       "profile_key": null,
       "required": true,
-      "guide": "동의하는 경우 체크해요.",
+      "guide": "주민센터가 적는 칸이에요.",
       "example": null,
-      "evidence": "동의합니다.",
+      "evidence": "① 연속 거주기간 평가",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          429,
+          356,
+          484,
+          395
+        ],
+        "how": "table_right",
+        "template_text": "()년",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "score_residence_points",
+      "label": "① 연속 거주기간 평점",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "① 연속 거주기간 평점",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          486,
+          356,
+          523,
+          395
+        ],
+        "how": "table_right",
+        "template_text": "()점",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "score_dependents_eval",
+      "label": "② 부양가족의 수 평가",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "② 부양가족의 수 평가",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          429,
+          397,
+          484,
+          436
+        ],
+        "how": "table_right",
+        "template_text": "()인",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "score_dependents_points",
+      "label": "② 부양가족의 수 평점",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "② 부양가족의 수 평점",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          486,
+          397,
+          523,
+          436
+        ],
+        "how": "table_right",
+        "template_text": "()점",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "score_savings_eval",
+      "label": "③ 청약저축 가입 평가",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "③ 청약저축 가입 평가",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          429,
+          502,
+          484,
+          541
+        ],
+        "how": "table_right",
+        "template_text": "()회",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "score_savings_points",
+      "label": "③ 청약저축 가입 평점",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "③ 청약저축 가입 평점",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          486,
+          502,
+          523,
+          541
+        ],
+        "how": "table_right",
+        "template_text": "()점",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "score_non_housing_eval",
+      "label": "④ 비정상거처 거주 평가",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "④ 비정상거처 거주 평가",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          429,
+          543,
+          484,
+          582
+        ],
+        "how": "table_right",
+        "template_text": "()",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "score_non_housing_points",
+      "label": "④ 비정상거처 거주 평점",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "④ 비정상거처 거주 평점",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          486,
+          543,
+          523,
+          582
+        ],
+        "how": "table_right",
+        "template_text": "()점",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "score_rent_ratio_eval",
+      "label": "⑤ 소득 대비 임차료 비율 평가",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "⑤ 소득 대비 임차료 비율 평가",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          429,
+          584,
+          484,
+          641
+        ],
+        "how": "table_right",
+        "template_text": "()%",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "score_rent_ratio_points",
+      "label": "⑤ 소득 대비 임차료 비율 평점",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "⑤ 소득 대비 임차료 비율 평점",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          486,
+          584,
+          523,
+          641
+        ],
+        "how": "table_right",
+        "template_text": "()점",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "bonus_children_eval",
+      "label": "별도가점 자녀수 평가",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "별도가점 자녀수 평가",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          429,
+          438,
+          484,
+          457
+        ],
+        "how": "table_right",
+        "template_text": "-자녀수()",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "bonus_children_points",
+      "label": "별도가점 자녀수 평점",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "별도가점 자녀수 평점",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          486,
+          438,
+          523,
+          457
+        ],
+        "how": "table_right",
+        "template_text": "()점",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "bonus_support_eval",
+      "label": "별도가점 부양 평가",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "별도가점 부양 평가",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          429,
+          459,
+          484,
+          479
+        ],
+        "how": "table_right",
+        "template_text": "-부양()",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "bonus_support_points",
+      "label": "별도가점 부양 평점",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "별도가점 부양 평점",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          486,
+          459,
+          523,
+          479
+        ],
+        "how": "table_right",
+        "template_text": "()점",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "bonus_disabled_eval",
+      "label": "별도가점 장애인 평가",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "별도가점 장애인 평가",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          429,
+          481,
+          484,
+          500
+        ],
+        "how": "table_right",
+        "template_text": "-장애인()",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "bonus_disabled_points",
+      "label": "별도가점 장애인 평점",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "별도가점 장애인 평점",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          486,
+          481,
+          523,
+          500
+        ],
+        "how": "table_right",
+        "template_text": "()점",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "total_score",
+      "label": "총점",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "총점",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          263,
+          657,
+          326,
+          668
+        ],
+        "how": "table_right",
+        "template_text": "점",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "checker_affiliation",
+      "label": "소속",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "소속",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          356,
+          657,
+          417,
+          668
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "checker_signature",
+      "label": "확인자 (인)",
+      "section": "동일순위 경쟁 시 배점 (주민센터 작성)",
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민센터가 적는 칸이에요.",
+      "example": null,
+      "evidence": "확인자 (인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          457,
+          657,
+          523,
+          668
+        ],
+        "how": "table_right",
+        "template_text": "(인)",
+        "found_by": "layout_spec"
+      }
     }
   ],
   "notes": [
     "지원되는 전세임대주택은 주거용으로만 사용하여야 함.",
     "자산확인 결과 부적격자로 판명될 경우 입주자격에서 탈락될 수 있습니다."
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 전화번호, 휴대전화(0 ) - 집전화 ( ) -, 신청순 위, 주택 및 자산현 황, 본인은 전세임대주택 입주자격(갱신계약 포함) 심사 및 입주 후 관리를 위해 무주택세대구성원 전원의 소득 및 재산 등을 조회할 수 있도록 공공기관에서 보유하고 있는 무주택세대구성원의 정보 열람 및 제공에 동의합니다."
-  ],
+  "warnings": [],
   "checked": false
 }

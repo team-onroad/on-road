@@ -5,181 +5,632 @@
   "source": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787",
   "fields": [
     {
-      "id": "date",
-      "label": "20 년 월 일",
-      "section": null,
-      "input_type": "date",
-      "value_source": "user",
-      "profile_key": null,
+      "id": "row1_name",
+      "label": "성명",
+      "section": "1번",
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
       "required": true,
-      "guide": "신청하는 날짜를 적어요.",
-      "example": "2023-10-01",
-      "evidence": "20 년 월 일",
+      "guide": "위탁가정 가족의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          481.9,
-          538.8,
-          555.6,
-          646.5
+          221,
+          314,
+          292,
+          345
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "field_2",
-      "label": "신청인:",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "신청인의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "신청인:",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          354.9,
-          596.1,
-          520,
-          611.6
-        ],
-        "how": "text_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "field_3",
-      "label": "시･군･구청장(가정위탁지원센터장) 귀하",
-      "section": null,
-      "input_type": "other",
-      "value_source": "office",
-      "profile_key": null,
-      "required": false,
-      "guide": "담당자의 이름을 적어요.",
-      "example": null,
-      "evidence": "시･군･구청장(가정위탁지원센터장) 귀하",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          474.4,
-          646.5,
-          553.6,
-          658.2
-        ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "field_4",
-      "label": "연번",
-      "section": null,
-      "input_type": "number",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "가족의 번호를 적어요.",
-      "example": "1",
-      "evidence": "연번",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "field_5",
-      "label": "신청인과의 관계",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "신청인과의 관계를 적어요.",
-      "example": "본인",
-      "evidence": "신청인과의 관계",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "field_6",
-      "label": "성 명",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "가족의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "성 명",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          219.6,
-          313.2,
-          293.3,
-          345.9
-        ],
-        "how": "table_below",
-        "template_text": null
-      }
-    },
-    {
-      "id": "field_7",
+      "id": "row1_birth_date",
       "label": "생년월일",
-      "section": null,
+      "section": "1번",
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "가족의 생년월일을 적어요.",
-      "example": "2000-01-01",
+      "guide": "생년월일을 적어요.",
+      "example": null,
       "evidence": "생년월일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          293.3,
-          313.2,
-          386.8,
-          345.9
+          294,
+          314,
+          386,
+          345
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "field_8",
+      "id": "row1_signature",
       "label": "서명 또는 날인",
+      "section": "1번",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "각자 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "서명 또는 날인",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          388,
+          314,
+          459,
+          345
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row2_relation",
+      "label": "신청인과의 관계",
+      "section": "2번",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청인과의 관계를 적어요 (예: 배우자, 자녀).",
+      "example": null,
+      "evidence": "신청인과의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          130,
+          347,
+          219,
+          378
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row2_name",
+      "label": "성명",
+      "section": "2번",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "위탁가정 가족의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          221,
+          347,
+          292,
+          378
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row2_birth_date",
+      "label": "생년월일",
+      "section": "2번",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "생년월일을 적어요.",
+      "example": null,
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          294,
+          347,
+          386,
+          378
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row2_signature",
+      "label": "서명 또는 날인",
+      "section": "2번",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "각자 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "서명 또는 날인",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          388,
+          347,
+          459,
+          378
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row3_relation",
+      "label": "신청인과의 관계",
+      "section": "3번",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청인과의 관계를 적어요 (예: 배우자, 자녀).",
+      "example": null,
+      "evidence": "신청인과의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          130,
+          380,
+          219,
+          411
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row3_name",
+      "label": "성명",
+      "section": "3번",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "위탁가정 가족의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          221,
+          380,
+          292,
+          411
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row3_birth_date",
+      "label": "생년월일",
+      "section": "3번",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "생년월일을 적어요.",
+      "example": null,
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          294,
+          380,
+          386,
+          411
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row3_signature",
+      "label": "서명 또는 날인",
+      "section": "3번",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "각자 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "서명 또는 날인",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          388,
+          380,
+          459,
+          411
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row4_relation",
+      "label": "신청인과의 관계",
+      "section": "4번",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청인과의 관계를 적어요 (예: 배우자, 자녀).",
+      "example": null,
+      "evidence": "신청인과의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          130,
+          413,
+          219,
+          443
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row4_name",
+      "label": "성명",
+      "section": "4번",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "위탁가정 가족의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          221,
+          413,
+          292,
+          443
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row4_birth_date",
+      "label": "생년월일",
+      "section": "4번",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "생년월일을 적어요.",
+      "example": null,
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          294,
+          413,
+          386,
+          443
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row4_signature",
+      "label": "서명 또는 날인",
+      "section": "4번",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "각자 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "서명 또는 날인",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          388,
+          413,
+          459,
+          443
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row5_relation",
+      "label": "신청인과의 관계",
+      "section": "5번",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청인과의 관계를 적어요 (예: 배우자, 자녀).",
+      "example": null,
+      "evidence": "신청인과의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          130,
+          445,
+          219,
+          476
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row5_name",
+      "label": "성명",
+      "section": "5번",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "위탁가정 가족의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          221,
+          445,
+          292,
+          476
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row5_birth_date",
+      "label": "생년월일",
+      "section": "5번",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "생년월일을 적어요.",
+      "example": null,
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          294,
+          445,
+          386,
+          476
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row5_signature",
+      "label": "서명 또는 날인",
+      "section": "5번",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "각자 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "서명 또는 날인",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          388,
+          445,
+          459,
+          476
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row6_relation",
+      "label": "신청인과의 관계",
+      "section": "6번",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청인과의 관계를 적어요 (예: 배우자, 자녀).",
+      "example": null,
+      "evidence": "신청인과의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          130,
+          478,
+          219,
+          509
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row6_name",
+      "label": "성명",
+      "section": "6번",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "위탁가정 가족의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          221,
+          478,
+          292,
+          509
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row6_birth_date",
+      "label": "생년월일",
+      "section": "6번",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "생년월일을 적어요.",
+      "example": null,
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          294,
+          478,
+          386,
+          509
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "row6_signature",
+      "label": "서명 또는 날인",
+      "section": "6번",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "각자 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "서명 또는 날인",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          388,
+          478,
+          459,
+          509
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "date",
+      "label": "작성일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "동의서를 쓰는 날짜를 적어요.",
+      "example": "2023-10-01",
+      "evidence": "작성일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          316.5,
+          555.0,
+          414.8,
+          573.0
+        ],
+        "how": "date_line",
+        "template_text": "20년월일",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "applicant_signature",
+      "label": "신청인 (서명)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "서명하거나 날인해요.",
+      "guide": "신청인이 이름을 쓰고 서명해요.",
       "example": null,
-      "evidence": "서명 또는 날인",
-      "sensitive": true,
+      "evidence": "신청인 (서명)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          386.8,
-          313.2,
-          460.5,
-          345.9
+          352.9,
+          594.6,
+          473,
+          612.6
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     }
   ],
   "notes": [],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 연번, 신청인과의 관계"
-  ],
+  "warnings": [],
   "checked": false
 }

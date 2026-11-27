@@ -1,0 +1,518 @@
+{
+ "form_id": "mohw-didim-withdraw",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "child_name",
+   "label": "성명",
+   "section": "지원신청 아동",
+   "input_type": "text",
+   "value_source": "profile",
+   "required": true,
+   "guide": "아동(본인) 이름을 적어요.",
+   "at": {
+    "rect": [
+     191,
+     158,
+     268,
+     170
+    ]
+   },
+   "profile_key": "name"
+  },
+  {
+   "id": "child_id_number",
+   "label": "주민등록번호",
+   "section": "지원신청 아동",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     361,
+     158,
+     481,
+     170
+    ]
+   },
+   "sensitive": true
+  },
+  {
+   "id": "child_phone",
+   "label": "전화",
+   "section": "지원신청 아동",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "집 전화가 있으면 적어요.",
+   "at": {
+    "rect": [
+     191,
+     172,
+     261,
+     183
+    ]
+   }
+  },
+  {
+   "id": "child_mobile",
+   "label": "휴대전화",
+   "section": "지원신청 아동",
+   "input_type": "phone",
+   "value_source": "profile",
+   "required": true,
+   "guide": "휴대전화 번호를 적어요.",
+   "at": {
+    "rect": [
+     311,
+     172,
+     359,
+     183
+    ]
+   },
+   "profile_key": "phone"
+  },
+  {
+   "id": "child_email",
+   "label": "E-mail",
+   "section": "지원신청 아동",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "이메일이 있으면 적어요.",
+   "at": {
+    "rect": [
+     411,
+     172,
+     481,
+     183
+    ]
+   }
+  },
+  {
+   "id": "child_address",
+   "label": "주소",
+   "section": "지원신청 아동",
+   "input_type": "address",
+   "value_source": "user",
+   "required": true,
+   "guide": "주민등록상 주소를 적어요.",
+   "at": {
+    "rect": [
+     229.6,
+     185,
+     481,
+     197
+    ]
+   }
+  },
+  {
+   "id": "child_residence",
+   "label": "거주지*",
+   "section": "지원신청 아동",
+   "input_type": "address",
+   "value_source": "user",
+   "required": false,
+   "guide": "주소와 사는 곳이 달라 거주지 근처 신한은행 지점에서 받으려면 적어요.",
+   "at": {
+    "rect": [
+     229.6,
+     199,
+     481,
+     211
+    ]
+   }
+  },
+  {
+   "id": "protection_type",
+   "label": "보호구분 (해당란에 한 개만 표시)",
+   "input_type": "checkbox",
+   "guide": "아동이 보호받는 형태를 하나만 골라요.",
+   "at": {
+    "choices": "❏아동양육시설",
+    "rows_below": 45
+   }
+  },
+  {
+   "id": "guardian_name",
+   "label": "성명",
+   "section": "후견인(법정대리인)",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "후견인(법정대리인) 이름을 적어요.",
+   "at": {
+    "rect": [
+     227,
+     267,
+     272,
+     279
+    ]
+   }
+  },
+  {
+   "id": "guardian_id_number",
+   "label": "주민등록번호",
+   "section": "후견인(법정대리인)",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     361,
+     267,
+     481,
+     279
+    ]
+   },
+   "sensitive": true
+  },
+  {
+   "id": "guardian_relation",
+   "label": "관계",
+   "section": "후견인(법정대리인)",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "아동과의 관계를 적어요.",
+   "at": {
+    "rect": [
+     227,
+     281,
+     261,
+     293
+    ]
+   }
+  },
+  {
+   "id": "guardian_phone",
+   "label": "전화",
+   "section": "후견인(법정대리인)",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "전화번호를 적어요.",
+   "at": {
+    "rect": [
+     311,
+     281,
+     359,
+     293
+    ]
+   }
+  },
+  {
+   "id": "guardian_mobile",
+   "label": "휴대전화",
+   "section": "후견인(법정대리인)",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "휴대전화 번호를 적어요.",
+   "at": {
+    "rect": [
+     411,
+     281,
+     481,
+     293
+    ]
+   }
+  },
+  {
+   "id": "guardian_address",
+   "label": "주소",
+   "section": "후견인(법정대리인)",
+   "input_type": "address",
+   "value_source": "user",
+   "required": false,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     266.0,
+     295,
+     481,
+     307
+    ]
+   }
+  },
+  {
+   "id": "carer_name",
+   "label": "성명",
+   "section": "보호자",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "보호자 이름을 적어요.",
+   "at": {
+    "rect": [
+     227,
+     309,
+     272,
+     321
+    ]
+   }
+  },
+  {
+   "id": "carer_id_number",
+   "label": "주민등록번호",
+   "section": "보호자",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     361,
+     309,
+     481,
+     321
+    ]
+   },
+   "sensitive": true
+  },
+  {
+   "id": "carer_relation",
+   "label": "관계",
+   "section": "보호자",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "아동과의 관계를 적어요.",
+   "at": {
+    "rect": [
+     227,
+     323,
+     261,
+     335
+    ]
+   }
+  },
+  {
+   "id": "carer_phone",
+   "label": "전화",
+   "section": "보호자",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "전화번호를 적어요.",
+   "at": {
+    "rect": [
+     311,
+     323,
+     359,
+     335
+    ]
+   }
+  },
+  {
+   "id": "carer_mobile",
+   "label": "휴대전화",
+   "section": "보호자",
+   "input_type": "phone",
+   "value_source": "user",
+   "required": false,
+   "guide": "휴대전화 번호를 적어요.",
+   "at": {
+    "rect": [
+     411,
+     323,
+     481,
+     335
+    ]
+   }
+  },
+  {
+   "id": "carer_address",
+   "label": "주소",
+   "section": "보호자",
+   "input_type": "address",
+   "value_source": "user",
+   "required": false,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     266.0,
+     337,
+     481,
+     349
+    ]
+   }
+  },
+  {
+   "id": "payment_type",
+   "label": "지급구분",
+   "section": "지급구분",
+   "input_type": "checkbox",
+   "guide": "만기해지 · 만기 후 인출 · 조기인출 · 중도해지 중 골라요.",
+   "at": {
+    "choices": "❏만기해지",
+    "rows_below": 95,
+    "options": [
+     "만기해지",
+     "만기후 적립예금 인출",
+     "조기인출",
+     "중도해지(환수)"
+    ]
+   }
+  },
+  {
+   "id": "usage_type",
+   "label": "사용용도",
+   "section": "지급구분",
+   "input_type": "checkbox",
+   "guide": "적립금을 쓸 곳을 골라요 (만 18세 이후 자립용도).",
+   "at": {
+    "choices": "❏학자금",
+    "rows_below": 26,
+    "x": [
+     194,
+     482
+    ]
+   }
+  },
+  {
+   "id": "usage_other",
+   "label": "사용용도 기타",
+   "section": "지급구분",
+   "required": false,
+   "guide": "'기타'를 골랐으면 쓸 곳을 적어요.",
+   "at": {
+    "right_of": "기타:#1",
+    "to": 481,
+    "gap": 5,
+    "pad": 1.2
+   }
+  },
+  {
+   "id": "usage_details",
+   "label": "사용용도 세부내용 요약",
+   "section": "지급구분",
+   "guide": "어디에 얼마를 쓰는지 짧게 적어요 (사업계획서 · 청구서를 붙여요).",
+   "example": "대학 등록금 2,000,000원",
+   "at": {
+    "right_of": "<사용용도세부내용요약>",
+    "to": 481,
+    "gap": 5,
+    "pad": 1.2
+   }
+  },
+  {
+   "id": "cancellation_reason",
+   "label": "해지사유",
+   "section": "지급구분",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "중도해지(환수)일 때만 까닭을 골라요.",
+   "at": {
+    "choices": "❏사망"
+   }
+  },
+  {
+   "id": "cancellation_other",
+   "label": "해지사유 기타",
+   "section": "지급구분",
+   "required": false,
+   "guide": "'기타'를 골랐으면 까닭을 적어요.",
+   "at": {
+    "right_of": "기타:#2",
+    "to": 481,
+    "gap": 5,
+    "pad": 1.2
+   }
+  },
+  {
+   "id": "deposit_account_holder",
+   "label": "예금주명",
+   "section": "입금정보",
+   "input_type": "text",
+   "value_source": "user",
+   "required": true,
+   "guide": "돈을 받을 통장의 예금주 이름을 적어요.",
+   "at": {
+    "rect": [
+     186,
+     478,
+     268,
+     504
+    ]
+   }
+  },
+  {
+   "id": "deposit_bank_name",
+   "label": "은행명",
+   "section": "입금정보",
+   "input_type": "text",
+   "value_source": "user",
+   "required": true,
+   "guide": "돈을 받을 은행 이름을 적어요.",
+   "at": {
+    "rect": [
+     321,
+     478,
+     481,
+     490
+    ]
+   }
+  },
+  {
+   "id": "deposit_account_number",
+   "label": "계좌번호",
+   "section": "입금정보",
+   "input_type": "account",
+   "value_source": "handwrite",
+   "required": true,
+   "guide": "계좌번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     321,
+     492,
+     481,
+     504
+    ]
+   },
+   "sensitive": true
+  },
+  {
+   "id": "consultation_service",
+   "label": "받은 전문상담 서비스",
+   "section": "",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "받은 재무 · 진로 등 전문상담이 있으면 적어요.",
+   "at": {
+    "rect": [
+     129,
+     506,
+     481,
+     542
+    ]
+   }
+  },
+  {
+   "id": "application_date",
+   "label": "신청일",
+   "input_type": "date",
+   "guide": "신청하는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#1",
+    "pad": 1
+   }
+  },
+  {
+   "id": "applicant_signature",
+   "label": "신청인 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "신청인:",
+    "to": "(서명또는인)",
+    "gap": 5,
+    "pad": 1.2
+   }
+  }
+ ]
+}

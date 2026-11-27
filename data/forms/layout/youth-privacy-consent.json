@@ -1,0 +1,110 @@
+{
+ "form_id": "youth-privacy-consent",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "name_and_id",
+   "label": "성명(주민등록번호)",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "이름과 주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     102,
+     650,
+     228,
+     670
+    ]
+   }
+  },
+  {
+   "id": "phone",
+   "label": "(연락처)",
+   "input_type": "phone",
+   "value_source": "profile",
+   "profile_key": "phone",
+   "guide": "연락처를 적어요.",
+   "at": {
+    "right_of": "(연락처)",
+    "to": 228,
+    "gap": 5
+   }
+  },
+  {
+   "id": "consent_collection",
+   "label": "1. 수집·이용 동의",
+   "input_type": "checkbox",
+   "guide": "개인정보 수집 · 이용에 동의하는지 골라요 (동의해야 참여할 수 있어요).",
+   "at": {
+    "choices": "□동의#1",
+    "rows_below": 14,
+    "x": [
+     271,
+     333
+    ]
+   }
+  },
+  {
+   "id": "consent_provision",
+   "label": "2. 제공 동의",
+   "input_type": "checkbox",
+   "guide": "개인정보 제공에 동의하는지 골라요.",
+   "at": {
+    "choices": "□동의#2",
+    "rows_below": 14,
+    "x": [
+     333,
+     394
+    ]
+   }
+  },
+  {
+   "id": "consent_unique_id",
+   "label": "3. 고유식별정보처리 동의",
+   "input_type": "checkbox",
+   "guide": "주민등록번호 처리에 동의하는지 골라요.",
+   "at": {
+    "choices": "□동의□미동의",
+    "x": [
+     394,
+     470
+    ]
+   }
+  },
+  {
+   "id": "signature",
+   "label": "서명",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "직접 서명해요.",
+   "at": {
+    "rect": [
+     471,
+     650,
+     509,
+     692
+    ]
+   }
+  },
+  {
+   "id": "date",
+   "label": "동의일",
+   "input_type": "date",
+   "guide": "동의하는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "local_government",
+   "label": "지자체명 귀하",
+   "required": false,
+   "guide": "신청하는 시 · 군 · 구 이름을 적어요.",
+   "cover": true,
+   "at": {
+    "around": "지자체명",
+    "pad": 1
+   }
+  }
+ ]
+}

@@ -9,9 +9,8 @@ from formguide.fill_missing import FORMS_DIR, _clean_option, locate_missing
 
 def _spec_without_new_boxes(form_id: str) -> dict:
     spec = json.loads((FORMS_DIR / f"{form_id}.json").read_text(encoding="utf-8"))
-    for f in spec["fields"]:
-        if (f.get("box") or {}).get("found_by"):
-            f["box"] = None
+    for f in spec["fields"]:  # 자리를 모두 지우고 다시 찾게
+        f["box"] = None
     return spec
 
 

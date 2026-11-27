@@ -12,20 +12,21 @@
       "value_source": "office",
       "profile_key": null,
       "required": true,
-      "guide": "신청서가 접수된 후 부여받은 번호를 적어요.",
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수번호",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          117.1,
-          124.5,
-          177.3,
-          147.2
+          98.8,
+          125.5,
+          177.1,
+          146.2
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -36,58 +37,271 @@
       "value_source": "office",
       "profile_key": null,
       "required": true,
-      "guide": "신청서가 접수된 날짜를 적어요.",
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          236.9,
-          124.5,
-          297.2,
-          147.2
+          209.1,
+          125.5,
+          416.0,
+          146.2
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "processing_period",
-      "label": "처리기간",
-      "section": null,
+      "id": "child_name",
+      "label": "성명",
+      "section": "대상아동",
       "input_type": "text",
-      "value_source": "office",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "보호기간을 연장하려는 아동(본인)의 이름을 적어요.",
+      "example": "김민지",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          142.5,
+          153.8,
+          383.8,
+          181.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "child_id_number",
+      "label": "주민등록번호",
+      "section": "대상아동",
+      "input_type": "id_number",
+      "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "신청서 처리에 필요한 기간을 적어요.",
-      "example": "3일",
-      "evidence": "처리기간",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          449.7,
+          153.8,
+          534.5,
+          181.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "facility_name",
+      "label": "보호시설명",
+      "section": "대상아동",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "지금 생활하는 시설 이름을 적어요.",
+      "example": "○○아동복지센터",
+      "evidence": "보호시설명",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          172.5,
+          183.4,
+          534.5,
+          211.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "facility_address",
+      "label": "소재지",
+      "section": "대상아동",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "시설 주소를 적어요.",
+      "example": null,
+      "evidence": "소재지",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          152.5,
+          213.0,
+          534.5,
+          240.8
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "admission_date",
+      "label": "입소연월일",
+      "section": "대상아동",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "시설에 들어간 날을 적어요.",
+      "example": "2015-04-01",
+      "evidence": "입소연월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          177.4,
+          242.8,
+          297.7,
+          270.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "extension_start",
+      "label": "연장기간 (시작)",
+      "section": "대상아동",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호를 연장하는 기간의 시작일을 적어요.",
+      "example": "2027-01-01",
+      "evidence": "연장기간 (시작)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          342.7,
+          242.8,
+          438.4,
+          270.4
+        ],
+        "how": "text_right",
+        "template_text": "...",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "extension_end",
+      "label": "연장기간 (끝)",
+      "section": "대상아동",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호를 연장하는 기간의 끝나는 날을 적어요.",
+      "example": "2028-12-31",
+      "evidence": "연장기간 (끝)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          450.8,
+          242.8,
+          534.5,
+          270.4
+        ],
+        "how": "text_right",
+        "template_text": "...",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "extension_reason",
+      "label": "연장사유",
+      "section": "대상아동",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보호기간을 늘려야 하는 까닭을 적어요 (증명 서류를 함께 내요).",
+      "example": "대학 재학 중이라 졸업 때까지 연장이 필요해요.",
+      "evidence": "연장사유",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          167.5,
+          272.4,
+          534.5,
+          299.0
+        ],
+        "how": "text_right",
+        "template_text": "(첨부하는증명자료참조)",
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "date",
-      "label": "년 월 일",
+      "label": "신청일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청서를 작성하는 날짜를 적어요.",
+      "guide": "신청하는 날짜를 적어요.",
       "example": "2023-10-01",
-      "evidence": "년 월 일",
+      "evidence": "신청일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          378.5,
-          343.9,
+          406.5,
+          345.0,
           534.7,
-          360.9
+          359.9
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "년월일",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "director_signature",
+      "label": "아동복지시설의 장 (서명 또는 날인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "시설장이 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "아동복지시설의 장 (서명 또는 날인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          297.1,
+          368.5,
+          467.6,
+          384.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     }
   ],
