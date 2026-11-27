@@ -117,3 +117,15 @@ def test_resume_draft_uses_credentials(api, db_session):
     assert sections["자격증"] == [("컴퓨터활용능력 2급 (2026.03 취득)", "내 자격증")]
     assert sections["경험·활동"] == [("자립정착금 의무교육 이수 (2026.09)", "내 교육 이수")]
     assert data["notice"].startswith("앱에 기록된 내용만")
+
+
+def test_add_same_twice_keeps_one_row(api, db_session):
+    """같은 칸을 빠르게 두 번 눌러도 한 줄만 (두 번째는 200, 같은 id)"""
+    user = make_user(db_session)
+    body = {"kind": "education", "code": "settlement"}
+    first = api.post(_url(user.id), json=body)
+    second = api.post(_url(user.id), json=body)
+
+    assert (first.status_code, second.status_code) == (201, 200)
+    assert first.json()["credential_id"] == second.json()["credential_id"]
+    assert db_session.execute(text("SELECT count(*) FROM user_credentials")).scalar() == 1

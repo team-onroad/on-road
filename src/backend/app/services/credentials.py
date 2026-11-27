@@ -10,6 +10,7 @@ import re
 from datetime import date
 
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
@@ -70,22 +71,27 @@ def add(db: Session, user: User, body: CredentialCreate, today: date) -> tuple[C
     if body.done_on is not None and body.done_on > today:
         raise AppError(422, "VALIDATION_ERROR", "요청 값이 올바르지 않습니다. (done_on)")
     name = body.name or EDUCATIONS[body.code][0]
+    # 동시 요청(같은 칸을 빠르게 두 번 누름) 대비: UNIQUE(user_id, kind, name) 충돌이면 넣지 않고 있는 줄을 고친다
+    new_id = db.scalar(
+        insert(UserCredential)
+        .values(user_id=user.id, kind=body.kind, code=body.code, name=name, done_on=body.done_on)
+        .on_conflict_do_nothing(index_elements=[UserCredential.user_id, UserCredential.kind, UserCredential.name])
+        .returning(UserCredential.id)
+    )
+    db.commit()
+    if new_id is not None:
+        return _out(db.get(UserCredential, new_id)), True
     row = db.scalars(select(UserCredential).where(
         UserCredential.user_id == user.id, UserCredential.kind == body.kind, UserCredential.name == name,
-    )).one_or_none()
-    if row is not None:
+    )).one()
+    if body.done_on is not None or body.code is not None:
         if body.done_on is not None:
             row.done_on = body.done_on
         if body.code is not None:
             row.code = body.code
         db.commit()
         db.refresh(row)
-        return _out(row), False
-    row = UserCredential(user_id=user.id, kind=body.kind, code=body.code, name=name, done_on=body.done_on)
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    return _out(row), True
+    return _out(row), False
 
 
 def remove(db: Session, user: User, credential_id: str) -> None:

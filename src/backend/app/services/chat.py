@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import pii, profile_signal, sse
@@ -16,10 +17,11 @@ from app.rag_client import SearchPolicies
 from app.rules import calc_age, calc_d_day, calc_stage
 from app.schemas.chat import ChatRequest, ChatResponse, Contact
 from app.money import normalize_amounts
+from app.services import my_check
 from app.services.policies import search
-from app.services.roadmap import is_broad_question, personal_plan
+from app.services.roadmap import build_roadmap, is_broad_question, personal_plan
 from app.services.writer import HANDOFF_MESSAGE, handoff_for
-from db.models import User
+from db.models import Policy, User
 
 logger = logging.getLogger(__name__)
 
@@ -130,9 +132,20 @@ def _route(
         intent = intent_job.result() if intent_job else intent
     if intent == "policy":
         found = search(db, user, body.message, today, rag)
+        roadmap = None
         if found.answer:
             found.answer = normalize_amounts(found.answer)  # "300천원" → "30만 원" (앱 표기와 같게)
-        plan = personal_plan(db, user, today) if is_broad_question(body.message) else None
+            # 답변 끝에 이 사람 기준 판정 · 더 유리한 방법 (규칙). answer 글에 붙여서 응답 형식은 그대로.
+            # 덧붙이기가 실패해도 답변은 그대로 나간다
+            try:
+                roadmap = build_roadmap(db, user, today)
+                ids = [r.policy_id for r in found.results]
+                by_id = {p.id: p for p in db.scalars(select(Policy).where(Policy.id.in_(ids)))} if ids else {}
+                note = my_check.lines(db, user, found.results, by_id, today, roadmap)
+                found.answer = my_check.append_to(found.answer, note)
+            except Exception as e:  # noqa: BLE001
+                logger.error("내 조건 덧붙이기 실패: %s", type(e).__name__)
+        plan = personal_plan(db, user, today, roadmap) if is_broad_question(body.message) else None
         return ChatResponse(type="policy", message=None, search=found, contacts=[], plan=plan)
     return None
 

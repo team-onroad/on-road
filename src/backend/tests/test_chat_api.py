@@ -107,7 +107,10 @@ def test_policy_search_matches_search_api(api, db_session, llm, rag):
     chat = _chat(api, user.id, message="자립수당").json()["search"]
     search = api.post("/api/search", json={"user_id": str(user.id), "question": "자립수당"}).json()
 
-    assert chat == search
+    # 상담은 답변 끝에 '내 조건으로 보면'을 붙인다 (정책 카드 · 판정은 검색과 같다)
+    assert chat["results"] == search["results"]
+    assert chat["answer"].startswith(search["answer"])
+    assert "[내 조건으로 보면]" in chat["answer"]
     assert rag.calls[0]["candidate_policy_keys"] == rag.calls[1]["candidate_policy_keys"] == ["P001"]
 
 
@@ -381,7 +384,7 @@ def test_broad_policy_question_has_plan(api, db_session, llm, rag):
 
     data = _chat(api, user.id, message="퇴소하면 받을 수 있는 게 뭐가 있어?").json()
 
-    assert data["search"]["answer"] == "월 50만 원을 받아요"
+    assert data["search"]["answer"].startswith("월 50만 원을 받아요")
     plan = data["plan"]
     assert plan["base_date"] == "2026-12-31"
     assert plan["monthly_won"] == 500_000
@@ -408,3 +411,76 @@ def test_counsel_has_no_plan(api, db_session, llm, rag):
     user = make_user(db_session)
     data = _chat(api, user.id, message="요즘 너무 힘들어").json()
     assert data["type"] == "counsel" and data["plan"] is None
+
+
+# ------------------------------------------------------------------ 내 조건으로 보면 (답변 끝 규칙 문장)
+
+
+def _note(data):
+    answer = data["search"]["answer"]
+    assert "[내 조건으로 보면]" in answer
+    return answer.split("[내 조건으로 보면]", 1)[1].strip().splitlines()
+
+
+def test_my_check_receiving_policy(api, db_session, llm, rag):
+    user = make_user(db_session)
+    got = make_policy(db_session, policy_key="P001", name="자립준비청년 자립수당 지급")
+    api.post(f"/api/users/{user.id}/saved-policies", json={"policy_id": got.id, "status": "receiving"})
+    llm.intent = "policy"
+    rag.answer_with(("P001", "근거"))
+
+    assert _note(_chat(api, user.id, message="자립수당").json()) == ["- 자립수당 지급: 지금 받고 있는 지원이에요."]
+
+
+def test_my_check_education_and_better_same_kind(api, db_session, llm, rag):
+    user = make_user(db_session)
+    make_policy(db_session, policy_key="T101", name="가 자립정착금 지원", support_amount="500만 원", support_period=None,
+                required_docs=["사용계획서", "의무교육확인서"])
+    make_policy(db_session, policy_key="T102", name="나 자립정착금 지원", support_amount="1,500만 원", support_period=None)
+    llm.intent = "policy"
+    rag.answer_with(("T101", "근거"))
+
+    lines = _note(_chat(api, user.id, message="정착금").json())
+
+    assert len(lines) == 1
+    assert lines[0].startswith("- 가 자립정착금 지원: 나이 · 지역 조건은 맞아요.")
+    assert "자립정착금 의무교육을 먼저 들어야 해요" in lines[0]
+    assert "같은 종류 중에는 나 자립정착금 지원(1,500만 원)이 더 유리해요" in lines[0]
+
+
+def test_my_check_short_name():
+    from app.services.my_check import short_name
+
+    assert short_name("서리풀 희망사다리 프로젝트 자립준비청년(보호종료아동) 생활보조수당 지원") == "서리풀 생활보조수당 지원"
+    assert short_name("자립준비청년 자립수당 지급") == "자립수당 지급"
+
+
+@pytest.mark.parametrize(("text", "want"), [
+    ("서초구 1년 이상 거주 자립준비청년(보호종료아동)", "서초구 1년 이상 거주"),
+    ("기준중위소득 50% 이하 청년", "기준중위소득 50% 이하"),
+    ("아동복지시설 퇴소 후 5년 이내 미혼 무주택자", "미혼 무주택자"),
+    ("보호종료 5년 이내 자립준비청년", ""),  # 앱이 이미 판정한 조건만 있으면 묻지 않는다
+])
+def test_my_check_clean_condition(text, want):
+    from app.services.my_check import clean_condition
+
+    assert clean_condition(text) == want
+
+
+def test_my_check_failure_keeps_answer(api, db_session, llm, rag, monkeypatch):
+    """덧붙이기가 실패해도 답변은 그대로 나간다 (시연 중 상담이 멈추지 않게)"""
+    from app.services import my_check
+
+    def boom(*_a, **_k):
+        raise RuntimeError("테스트")
+
+    monkeypatch.setattr(my_check, "lines", boom)
+    user = make_user(db_session)
+    make_policy(db_session, policy_key="P001")
+    llm.intent = "policy"
+    rag.answer_with(("P001", "근거"), answer="근거 기반 답변")
+
+    res = _chat(api, user.id, message="자립수당")
+
+    assert res.status_code == 200
+    assert res.json()["search"]["answer"] == "근거 기반 답변"

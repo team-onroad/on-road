@@ -320,9 +320,9 @@ def is_broad_question(message: str) -> bool:
     return bool(_BROAD.search(message))
 
 
-def personal_plan(db: Session, user: User, today: date) -> PersonalPlan | None:
-    """조건이 맞는(match) 정책이 없으면 None"""
-    rm = build_roadmap(db, user, today)
+def personal_plan(db: Session, user: User, today: date, roadmap: PolicyRoadmap | None = None) -> PersonalPlan | None:
+    """조건이 맞는(match) 정책이 없으면 None. roadmap: 이미 만든 로드맵 (상담에서 한 번만 만들려고)"""
+    rm = roadmap or build_roadmap(db, user, today)
     if rm.summary.match_count == 0:
         return None
     # 받고 있는 정책은 '더 받을 수 있는 것' 목록에 넣지 않는다
