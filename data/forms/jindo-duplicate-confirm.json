@@ -16,7 +16,18 @@
       "example": "홍길동",
       "evidence": "신청인 성명 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          98.1,
+          170.4,
+          564.5,
+          189.8
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "applicant_address",
@@ -30,7 +41,18 @@
       "example": "전라남도 진도군",
       "evidence": "주민등록상주소 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          165.1,
+          193.8,
+          564.5,
+          213.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "applicant_id_number",
@@ -44,7 +66,18 @@
       "example": null,
       "evidence": "주민등록번호 :",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          148.5,
+          221.1,
+          564.5,
+          240.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "applicant_contact",
@@ -58,7 +91,18 @@
       "example": "010-1234-5678",
       "evidence": "연락처 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          113.1,
+          245.2,
+          564.5,
+          264.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "agreement_1",
@@ -138,14 +182,25 @@
       "example": null,
       "evidence": "신청인 : (인)",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          470.9,
+          666.2,
+          528.9,
+          685.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     }
   ],
   "notes": [
     "중복신청이 확인되면 해당 세대의 신청은 모두 무효 처리됩니다."
   ],
   "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 신청인 성명 :, 주민등록상주소 :, 연락처 :, 1세대 1주택 신청 원칙, 예외가 적용되지 않는 경우, 위반 시 전부 무효 및 자격상실"
+    "값 자리를 못 찾음 (별지에 적음): 1세대 1주택 신청 원칙, 예외가 적용되지 않는 경우, 위반 시 전부 무효 및 자격상실"
   ],
   "checked": false
 }

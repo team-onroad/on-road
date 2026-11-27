@@ -16,7 +16,18 @@
       "example": "홍길동",
       "evidence": "성명 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          98.1,
+          193.8,
+          564.5,
+          213.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "applicant_address",
@@ -30,7 +41,18 @@
       "example": "전라남도 진도군",
       "evidence": "주민등록상주소 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          165.1,
+          217.2,
+          564.5,
+          236.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "applicant_id_number",
@@ -44,7 +66,18 @@
       "example": null,
       "evidence": "주민등록번호 :",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          148.5,
+          244.5,
+          564.5,
+          263.8
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "applicant_contact",
@@ -58,7 +91,18 @@
       "example": "010-1234-5678",
       "evidence": "연락처 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          113.1,
+          268.6,
+          564.5,
+          288.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "application_type",
@@ -86,7 +130,18 @@
       "example": "홍길동 카페",
       "evidence": "예정 직장명(사업장명) :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          200.2,
+          315.4,
+          564.5,
+          334.8
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "expected_start_date",
@@ -156,7 +211,18 @@
       "example": null,
       "evidence": "신청인 : (인)",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          470.9,
+          701.0,
+          528.9,
+          720.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "submission_date",
@@ -187,7 +253,7 @@
     "예치금·임대료 등의 정산은 해당 계약 및 관계 규정에 따름."
   ],
   "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 성명 :, 주민등록상주소 :, 연락처 :, 신청구분 :, 예정 직장명(사업장명) :, 취·창업 예정일 :, 취·창업 이행, 서류제출· 변경통지, 공급계약 해제 등"
+    "값 자리를 못 찾음 (별지에 적음): 신청구분 :, 취·창업 예정일 :, 취·창업 이행, 서류제출· 변경통지, 공급계약 해제 등"
   ],
   "checked": false
 }

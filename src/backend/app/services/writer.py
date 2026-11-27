@@ -280,6 +280,13 @@ def _resolve_source(db: Session, body: DocumentCreate) -> tuple[str, str, list[d
             raise AppError(404, "FORM_NOT_FOUND", "서류 양식을 찾을 수 없습니다.") from None
         policy_id = get_visible_policy(db, str(body.policy_id)).id if body.policy_id is not None else None
         return body.source_id, title, fields, policy_id
+    if body.policy_id is None:
+        # 공통 양식 (퇴소 신청서 · 보호기간 연장 신청서 등): 정책 없이 사용자마다 하나
+        common = doc_spec.common_form_spec(body.form_id)
+        if common is None:
+            raise AppError(404, "FORM_NOT_FOUND", "서류 양식을 찾을 수 없습니다.")
+        form_id, title, fields = common
+        return f"{form_id}{FORM_SCOPE_SEP}u", title, fields, None
     policy = get_visible_policy(db, str(body.policy_id))
     found = doc_spec.policy_form_spec(policy.policy_key, body.form_id)
     if found is None and body.form_id is not None:

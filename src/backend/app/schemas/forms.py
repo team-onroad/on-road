@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 
 from app.codes import DOC_TYPES
 from app.forms import FormField, Stage
+from app.schemas.checklists import FormLink
 
 INT_MAX = 2**31 - 1
 INTEREST_MAX = 500
@@ -20,6 +21,13 @@ class TemplateSummary(BaseModel):
 
 class TemplateList(BaseModel):
     templates: list[TemplateSummary]
+
+
+class CommonFormList(BaseModel):
+    """정책과 상관없이 직접 내는 공통 양식 (퇴소 신청서 · 보호기간 연장 신청서 등).
+    누르면 POST /documents 에 source_type: policy_form, form_id 만 (policy_id 없이) 보내 시작한다"""
+
+    forms: list[FormLink]
 
 
 class TemplateDetail(TemplateSummary):

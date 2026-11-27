@@ -178,7 +178,18 @@
       "example": null,
       "evidence": "휴대전화",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          336.3,
+          252.5,
+          370.1,
+          268.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "case_manager_email",
@@ -391,7 +402,8 @@
     "아동복지법 제38조제1항제1호의2호에 의하여 자립정착금을 아래와 같이 신청합니다."
   ],
   "warnings": [
-    "작은 칸을 묶는 이름이라 버림: '연락처'"
+    "작은 칸을 묶는 이름이라 버림: '연락처'",
+    "값 자리를 못 찾음 (별지에 적음): 자립업무 담당자 성명, 자립업무 담당자 소속, 자립업무 담당자 E-mail"
   ],
   "checked": false
 }

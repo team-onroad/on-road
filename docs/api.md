@@ -142,6 +142,7 @@
 | 체크리스트 | GET | `/checklists/{checklist_id}` | 체크리스트 상세 조회 |
 | 체크리스트 | PATCH | `/checklists/{checklist_id}/items/{item_id}` | 단계·서류 항목 체크 토글 |
 | 문서 AI | POST | `/documents` | 서류 작성 시작 (3.25, [document-ai.md](document-ai.md)) |
+| 문서 AI | GET | `/forms/common` | 공통 양식 목록: 퇴소 · 재보호 · 보호연장 신청서 등 정책과 상관없이 직접 내는 서류. 누르면 `POST /documents` 에 `source_type: policy_form`, `form_id` 만 (`policy_id` 없이) ([policy-forms.md](policy-forms.md)) |
 | 문서 AI | GET | `/users/{user_id}/documents` | 내 서류 목록 (3.26) |
 | 문서 AI | GET | `/documents/{document_id}` | 작성 화면 (3.27) |
 | 문서 AI | PATCH | `/documents/{document_id}/fields/{field_id}` | 칸 수정·완료 (3.28) |

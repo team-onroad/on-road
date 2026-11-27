@@ -174,7 +174,18 @@
       "example": null,
       "evidence": "신청인 (서명 또는 인)",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          429.7,
+          458.2,
+          487.7,
+          474.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     }
   ],
   "notes": [

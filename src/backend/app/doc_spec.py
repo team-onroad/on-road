@@ -116,6 +116,17 @@ def template_spec(template_id: str) -> tuple[str, list[dict]]:
     return t.name, from_template(t)
 
 
+def common_form_spec(form_id: str) -> tuple[str, str, list[dict]] | None:
+    """공통 양식 (정책 없이 시작). (form_id, 제목, 칸 목록). 공통 양식이 아니면 None"""
+    spec = ai_content.common_form(form_id)
+    if spec is None:
+        return None
+    fields = from_form_spec(spec)
+    for f in fields:
+        f["checked"] = spec.checked
+    return spec.form_id, spec.title, fields
+
+
 def policy_form_spec(policy_key: str, form_id: str | None = None) -> tuple[str, str, list[dict]] | None:
     """(form_id, 제목, 칸 목록). 정책 신청서 항목이 없으면 None.
     form_id 를 주면 그 정책에 연결된 양식 중 그것 (data/forms/index.json), 안 주면 정책 신청서(find_form).

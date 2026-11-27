@@ -16,7 +16,18 @@
       "example": "서울특별시 강남구 테헤란로 123",
       "evidence": "위임자 주소",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          145.7,
+          475.2,
+          564.5,
+          494.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "delegate_id_number",
@@ -30,7 +41,18 @@
       "example": null,
       "evidence": "위임자 주민등록번호",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          145.9,
+          496.0,
+          564.5,
+          514.9
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "delegate_name",
@@ -44,7 +66,18 @@
       "example": "홍길동",
       "evidence": "위임자 성명",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          145.7,
+          516.7,
+          304.5,
+          535.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "delegate_phone",
@@ -58,7 +91,18 @@
       "example": "010-1234-5678",
       "evidence": "위임자 연락처",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          346.5,
+          516.7,
+          564.5,
+          535.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "agent_address",
@@ -72,7 +116,18 @@
       "example": "부산광역시 해운대구 해운대해변로 456",
       "evidence": "대리인 주소",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          145.7,
+          577.5,
+          564.5,
+          596.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "agent_id_number",
@@ -86,7 +141,18 @@
       "example": null,
       "evidence": "대리인 주민등록번호",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          145.9,
+          598.2,
+          564.5,
+          617.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "agent_name",
@@ -100,7 +166,18 @@
       "example": "김철수",
       "evidence": "대리인 성명",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          145.7,
+          619.1,
+          304.5,
+          638.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "agent_phone",
@@ -114,7 +191,18 @@
       "example": "010-9876-5432",
       "evidence": "대리인 연락처",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          346.5,
+          619.1,
+          564.5,
+          638.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "date",
@@ -176,7 +264,7 @@
     "'2026년 월 일': 근거 문장이 원문과 달라 근거를 지움 (근거: '작성 날짜')",
     "'위 임 자(신청자) (인)': 근거 문장이 원문과 달라 근거를 지움 (근거: '위임자 서명')",
     "'수 임 자(대리인) (인)': 근거 문장이 원문과 달라 근거를 지움 (근거: '대리인 서명')",
-    "값 자리를 못 찾음 (별지에 적음): 위 임 자(신청자) 주 소 :, 위 임 자(신청자) 성 명 :, 위 임 자(신청자) 연락처) :, 수 임 자(대리인) 주 소 :, 수 임 자(대리인) 성 명 :, 수 임 자(대리인) 연락처) :"
+    "값 자리를 못 찾음 (별지에 적음): 위 임 자(신청자) (인), 수 임 자(대리인) (인)"
   ],
   "checked": false
 }

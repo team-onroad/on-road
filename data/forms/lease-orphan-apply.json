@@ -312,7 +312,18 @@
       "example": null,
       "evidence": "신청인 (서명 또는 인)",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          422.4,
+          492.1,
+          480.4,
+          508.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     }
   ],
   "notes": [
@@ -320,7 +331,7 @@
     "전세주택 무이자 지원은 해당 아동ㆍ청소년의 나이가 20세가 될 때까지 지원됩니다."
   ],
   "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 주 소, 전화번호, 입주희망주택"
+    "값 자리를 못 찾음 (별지에 적음): 주민등록번호, 주 소, 전화번호, 입주희망주택"
   ],
   "checked": false
 }

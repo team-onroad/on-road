@@ -16,7 +16,18 @@
       "example": "홍길동",
       "evidence": "대표신청인 성명 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          98.1,
+          158.2,
+          564.5,
+          177.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "representative_address",
@@ -30,7 +41,18 @@
       "example": "전라남도 진도군",
       "evidence": "대표신청인 주민등록상주소 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          165.1,
+          177.6,
+          564.5,
+          197.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "representative_id_number",
@@ -44,7 +66,18 @@
       "example": null,
       "evidence": "대표신청인 주민등록번호 :",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          148.5,
+          201.2,
+          564.5,
+          220.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "representative_phone",
@@ -58,7 +91,18 @@
       "example": "010-1234-5678",
       "evidence": "대표신청인 연락처 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          113.1,
+          221.3,
+          564.5,
+          240.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "cohabitant_name",
@@ -72,7 +116,18 @@
       "example": "김철수",
       "evidence": "대표신청인의 예비 세대원 성명 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          98.1,
+          279.9,
+          564.5,
+          299.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "cohabitant_id_number",
@@ -86,7 +141,18 @@
       "example": null,
       "evidence": "대표신청인의 예비 세대원 주민등록번호 :",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          148.5,
+          303.3,
+          564.5,
+          322.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "cohabitant_phone",
@@ -100,7 +166,18 @@
       "example": "010-9876-5432",
       "evidence": "대표신청인의 예비 세대원 연락처 :",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          113.1,
+          323.6,
+          564.5,
+          342.9
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "personal_info_consent",
@@ -142,7 +219,18 @@
       "example": null,
       "evidence": "2026년 월 일",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          430.1,
+          523.9,
+          564.5,
+          542.8
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "fill_missing"
+      }
     },
     {
       "id": "representative_signature",
@@ -197,7 +285,7 @@
     "제출처: 전남개발공사 사장 귀하"
   ],
   "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 대표신청인 성명 :, 대표신청인 주민등록상주소 :, 대표신청인 연락처 :, 대표신청인의 예비 세대원 성명 :, 대표신청인의 예비 세대원 연락처 :, 개인 정보 ․ 금융 정보 □, 거주 사실 □, 년 월 일"
+    "값 자리를 못 찾음 (별지에 적음): 개인 정보 ․ 금융 정보 □, 거주 사실 □"
   ],
   "checked": false
 }

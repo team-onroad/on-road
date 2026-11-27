@@ -260,6 +260,24 @@ def policy_forms(policy_key: str) -> list[dict]:
     return out
 
 
+def common_forms() -> list[dict]:
+    """정책과 상관없이 보호 중 · 퇴소 사용자가 직접 내는 공통 양식 (연결표 scope: common) [{form_id, title, checked, notice}].
+    퇴소 신청서 · 보호기간 연장 신청서처럼 특정 정책 서류가 아니어서 신청 준비 화면에 안 나오는 것. 양식 파일이 없는 것은 뺀다"""
+    out = []
+    for fid, meta in sorted((_forms_index().get("forms") or {}).items(), key=lambda kv: (kv[1] or {}).get("title") or kv[0]):
+        if not isinstance(meta, dict) or meta.get("scope") != "common" or load_form(fid) is None:
+            continue
+        out.append({"form_id": fid, "title": meta.get("title") or fid, "checked": bool(meta.get("checked")),
+                    "notice": meta.get("notice") if meta.get("substitute") else None})
+    return out
+
+
+def common_form(form_id: str) -> FormSpec | None:
+    """공통 양식이면 그 양식 (아니면 None)"""
+    meta = form_meta(form_id)
+    return load_form(form_id) if meta and meta.get("scope") == "common" else None
+
+
 def form_for_policy(policy_key: str, form_id: str) -> FormSpec | None:
     """정책 신청 화면에서 고른 양식. 그 정책에 연결된 양식이거나(연결표) 그 정책의 기존 신청서(find_form)일 때만"""
     linked = any(f["form_id"] == form_id for f in policy_forms(policy_key))
