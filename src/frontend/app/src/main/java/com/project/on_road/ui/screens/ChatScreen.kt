@@ -121,21 +121,23 @@ private val helpContacts = listOf(
     HelpContact("긴급 신고", "위험한 상황일 때", "112"),
 )
 
-/** 단계별 첫 질문 예시 */
-private fun startersFor(stage: UserStage): List<String> = when (stage) {
-    UserStage.YOUNG_ADULT -> listOf(
-        "퇴소하면 매달 받을 수 있는 돈이 있어?",
-        "혼자 살 집은 어떻게 구해?",
-        "취업 준비는 뭐부터 해야 할까?",
-        "요즘 앞으로가 너무 막막해",
-    )
-    else -> listOf(
-        "받을 수 있는 장학금이 있어?",
-        "진로를 어떻게 정해야 할지 모르겠어",
-        "아르바이트할 때 알아야 할 게 있어?",
-        "요즘 친구 관계가 힘들어",
+/** 질문 칩을 만들 때 보는 내 조건 (가족 · 하는 일 · 받는 중 · 자격증) */
+private fun suggestContext(stage: UserStage): com.project.on_road.data.ChatSuggestions.Context {
+    val family = com.project.on_road.data.ProfileStore.current?.family.orEmpty()
+    return com.project.on_road.data.ChatSuggestions.Context(
+        youngAdult = stage == UserStage.YOUNG_ADULT,
+        student = AppContainer.session.workStatus == com.project.on_road.data.WorkStatus.STUDENT,
+        sibling = family.any { it.relation == "sibling" },
+        child = family.any { it.relation == "child" },
+        receiving = (com.project.on_road.data.PlanData.roadmap?.receivingCount ?: 0) > 0,
+        certificates = com.project.on_road.data.CredentialStore.certificates.isNotEmpty(),
+        district = com.project.on_road.data.ProfileStore.current?.district,
     )
 }
+
+/** 첫 질문 예시: 내 조건에 맞는 찾기 주제 */
+private fun startersFor(stage: UserStage): List<String> =
+    com.project.on_road.data.ChatSuggestions.starters(suggestContext(stage))
 
 /** 질문 길이 (3.15 message 1~500자) */
 private const val MESSAGE_LIMIT = 500
@@ -325,6 +327,11 @@ fun ChatScreen(
     vm: ChatViewModel = viewModel(),
 ) {
     LaunchedEffect(chatId) { vm.resumeOnce(chatId) }
+    // 질문 칩이 받는 중 · 자격증을 보려면 한 번 받아 둔다 (이미 있으면 다시 안 부름)
+    LaunchedEffect(Unit) {
+        com.project.on_road.data.CredentialStore.refresh()
+        if (com.project.on_road.data.PlanData.roadmap == null) com.project.on_road.data.PlanData.refreshRoadmap()
+    }
     LaunchedEffect(initialQuestion) { vm.askInitial(initialQuestion) }
     val listState = rememberLazyListState()
     val inputFocus = remember { FocusRequester() }
@@ -419,7 +426,18 @@ fun ChatScreen(
                     BotMessage(
                         msg = msg,
                         time = time,
-                        starters = if (msg.id == 0L && vm.messages.size == 1) startersFor(AppState.stage) else emptyList(),
+                        starters = when {
+                            msg.id == 0L && vm.messages.size == 1 -> startersFor(AppState.stage)
+                            // 마지막 답변 아래: 방금 나온 정책으로 이어 찾기 + 아직 안 찾은 주제
+                            msg.id != 0L && !vm.sending && msg.id == vm.messages.lastOrNull()?.id && msg.kind != ChatKind.LOCAL ->
+                                com.project.on_road.data.ChatSuggestions.followUps(
+                                    suggestContext(AppState.stage),
+                                    msg.policies.map { it.name },
+                                    vm.messages.filter { it.role == ChatRole.USER }.map { it.text },
+                                )
+                            else -> emptyList()
+                        },
+                        startersFirst = msg.id == 0L,
                         onStarter = { vm.send(it) },
                         onOpenPolicy = onOpenPolicy,
                         onPrepare = onPrepare,
@@ -753,6 +771,8 @@ private fun BotMessage(
     time: String,
     starters: List<String>,
     onStarter: (String) -> Unit,
+    /** true: 첫 인사 아래 칩 (자주 묻는 주제 + 개인정보 안내), false: 답변 아래 '이어서 찾기' */
+    startersFirst: Boolean = true,
     onOpenPolicy: (String) -> Unit,
     onPrepare: (String) -> Unit,
     onAskMore: () -> Unit = {},
@@ -924,7 +944,11 @@ private fun BotMessage(
                 Spacer(Modifier.height(ChatSpace.StarterTop))
                 // 자주 묻는 주제: 작은 라벨 + 글 길이만큼만 차지하는 둥근 칩 (여러 개가 줄 바꿔 흐른다)
                 Text(
-                    if (AppState.stage == UserStage.YOUNG_ADULT) "청년들이 자주 묻는 주제" else "청소년들이 자주 묻는 주제",
+                    when {
+                        !startersFirst -> "이어서 많이 묻는 질문"
+                        AppState.stage == UserStage.YOUNG_ADULT -> "자립준비청년이 많이 헷갈리는 질문"
+                        else -> "퇴소 전에 많이 헷갈리는 질문"
+                    },
                     style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium),
                     color = OnRoadColors.TextTertiary,
                 )
@@ -948,12 +972,14 @@ private fun BotMessage(
                     }
                 }
                 // 대화 내용은 서버를 거쳐 외부 AI 로 간다. 서버가 번호·주소를 가리지만 다 잡지는 못해서 처음에 한 번 알린다
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    "전화번호·주소·계좌번호 같은 개인정보는 적지 말아 주세요. 질문 내용은 답변을 만들기 위해 AI 서비스로 전달돼요.",
-                    style = OnRoadType.Caption2,
-                    color = OnRoadColors.TextTertiary,
-                )
+                if (startersFirst) {
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "전화번호·주소·계좌번호 같은 개인정보는 적지 말아 주세요. 질문 내용은 답변을 만들기 위해 AI 서비스로 전달돼요.",
+                        style = OnRoadType.Caption2,
+                        color = OnRoadColors.TextTertiary,
+                    )
+                }
             }
         }
     }

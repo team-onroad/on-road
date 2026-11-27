@@ -3,17 +3,23 @@ package com.project.on_road.data
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 
 /**
- * 이수한 교육 · 취득한 자격증 (3.37). 설정의 '교육 · 자격증' 화면과 정책 상세가 같이 본다.
+ * 이수한 교육 · 취득한 자격증 (3.37). 설정의 '교육 · 자격증' 화면과 정책 상세 · 진로 · 상담 칩이 같이 본다.
  * 넣거나 지우면 맞춤 신청 로드맵(의무교육 이수 표시)을 다시 받는다.
  */
 object CredentialStore {
-    /** null: 아직 못 받음 */
-    var items by mutableStateOf<List<Credential>?>(null)
-        private set
-    private var loadedFor: String? = null
+    private var loaded by mutableStateOf<List<Credential>?>(null)
+    private var loadedFor by mutableStateOf<String?>(null)
+    /** 여러 화면이 동시에 처음 불러도 서버에는 한 번만 묻는다 */
+    private val lock = Mutex()
+
+    /** 지금 계정의 목록. null: 아직 못 받음 (계정을 바꾸면 다시 받기 전까지 null — 다른 사람 것이 보이지 않게) */
+    val items: List<Credential>?
+        get() = loaded.takeIf { loadedFor != null && loadedFor == AppContainer.session.userId }
 
     val educations: List<Credential> get() = items.orEmpty().filter { it.isEducation }
     val certificates: List<Credential> get() = items.orEmpty().filter { !it.isEducation }
@@ -30,10 +36,13 @@ object CredentialStore {
 
     suspend fun refresh(force: Boolean = false): List<Credential>? {
         val userId = AppContainer.session.userId ?: return null
-        if (!force && loadedFor == userId && items != null) return items
-        return runCatching { AppContainer.api.getCredentials(userId) }.getOrNull()?.also {
-            items = it
-            loadedFor = userId
+        return lock.withLock {
+            // 기다리는 동안 다른 화면이 이미 받아 왔으면 그걸 쓴다
+            if (!force && loadedFor == userId && loaded != null) return@withLock loaded
+            runCatching { AppContainer.api.getCredentials(userId) }.getOrNull()?.also {
+                loaded = it
+                loadedFor = userId
+            }
         }
     }
 
@@ -41,25 +50,28 @@ object CredentialStore {
         val userId = AppContainer.session.userId ?: return Result.failure(IllegalStateException("로그인이 필요해요"))
         val result = BackgroundWork.write { AppContainer.api.addCredential(userId, kind, name, code, doneOn) }.await()
         val c = result.getOrNull() ?: return result
-        items = listOf(c) + items.orEmpty().filterNot { it.id == c.id }
-        loadedFor = userId
+        if (loadedFor == userId) {
+            loaded = listOf(c) + loaded.orEmpty().filterNot { it.id == c.id }
+        } else {
+            refresh(force = true) // 다른 계정 목록이 남아 있었으면 새로 받는다
+        }
         if (c.isEducation) PlanData.refreshRoadmap()
         return result
     }
 
     suspend fun delete(item: Credential): Result<Unit> {
         val userId = AppContainer.session.userId ?: return Result.failure(IllegalStateException("로그인이 필요해요"))
-        val before = items
-        items = items.orEmpty().filterNot { it.id == item.id }
+        val before = loaded
+        loaded = loaded.orEmpty().filterNot { it.id == item.id }
         val result = BackgroundWork.write { AppContainer.api.deleteCredential(userId, item.id) }.await()
-        if (result.isFailure) items = before
+        if (result.isFailure) loaded = before
         else if (item.isEducation) PlanData.refreshRoadmap()
         return result
     }
 
     /** 계정을 바꾸거나 지우면 */
     fun clear() {
-        items = null
+        loaded = null
         loadedFor = null
     }
 }
