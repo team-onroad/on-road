@@ -12,33 +12,47 @@
     },
     {
       "item": "benefit",
-      "text": "보호종료청소년 1인당 200만 원 지급",
+      "text": "1인당 200만원 지급",
       "src": [
-        "S1",
-        "S2",
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "현금 200만원 지급",
+      "src": [
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "200만 원",
+      "src": [
         "S3"
-      ],
-      "key": true
-    },
-    {
-      "item": "apply",
-      "text": "해당 아동 보호시설장의 공문 신청",
-      "src": [
-        "S4"
-      ],
-      "key": true
-    },
-    {
-      "item": "apply",
-      "text": "신청기한: 상시신청",
-      "src": [
-        "S4"
       ],
       "key": false
     },
     {
+      "item": "apply",
+      "text": "시설장의 공문 신청",
+      "src": [
+        "S4"
+      ],
+      "key": true
+    },
+    {
       "item": "exclusion",
       "text": "개인 신청절차 없음",
+      "src": [
+        "S4"
+      ],
+      "key": true
+    },
+    {
+      "item": "period",
+      "text": "신청기한: 상시신청",
       "src": [
         "S4"
       ],
@@ -64,14 +78,22 @@
       "item": "benefit",
       "label": "지원 내용",
       "items": [
-        "보호종료청소년 1인당 200만 원 지급"
+        "1인당 200만원 지급",
+        "현금 200만원 지급"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "신청기한: 상시신청"
       ]
     },
     {
       "item": "apply",
       "label": "신청 방법",
       "items": [
-        "해당 아동 보호시설장의 공문 신청"
+        "시설장의 공문 신청"
       ]
     }
   ],
@@ -113,8 +135,7 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "해당 아동 보호시설장의 공문 신청",
-          "신청기한: 상시신청"
+          "시설장의 공문 신청"
         ]
       }
     ]
@@ -132,9 +153,9 @@
     "unit_gaps": []
   },
   "judge_issues": [],
-  "source_hash": "c5d508a895113b7c",
+  "source_hash": "36b4cc3ba93f12e8",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:12:46+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:25:08+00:00"
 }

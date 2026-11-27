@@ -12,42 +12,41 @@
     },
     {
       "item": "benefit",
-      "text": "학원 수강료 및 학습지 수강료 최대 10만 원 이내 지원",
+      "text": "학원 수강료 및 학습지 수강료 최대 10만원 이내 지원",
       "src": [
-        "S2",
-        "S3"
+        "S2"
       ],
       "key": true
     },
     {
+      "item": "benefit",
+      "text": "최대 10만 원",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
       "item": "apply",
-      "text": "거주지 관할 동 주민센터 방문 신청",
+      "text": "방문 신청",
       "src": [
         "S4"
       ],
       "key": true
     },
     {
-      "item": "apply",
+      "item": "docs",
+      "text": "신청서 및 가정위탁아동 중 초,중,고 재학생 중 학원수강료 또는 학습지 수강료 영수증",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    },
+    {
+      "item": "period",
       "text": "신청기한: 상시신청",
       "src": [
         "S4"
-      ],
-      "key": false
-    },
-    {
-      "item": "docs",
-      "text": "신청서",
-      "src": [
-        "S5"
-      ],
-      "key": false
-    },
-    {
-      "item": "docs",
-      "text": "가정위탁아동 중 초·중·고 재학생 중 학원수강료 또는 학습지 수강료 영수증",
-      "src": [
-        "S5"
       ],
       "key": false
     }
@@ -64,14 +63,21 @@
       "item": "benefit",
       "label": "지원 내용",
       "items": [
-        "학원 수강료 및 학습지 수강료 최대 10만 원 이내 지원"
+        "학원 수강료 및 학습지 수강료 최대 10만원 이내 지원"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "신청기한: 상시신청"
       ]
     },
     {
       "item": "apply",
       "label": "신청 방법",
       "items": [
-        "거주지 관할 동 주민센터 방문 신청"
+        "방문 신청"
       ]
     }
   ],
@@ -99,19 +105,18 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "거주지 관할 동 주민센터 방문 신청",
-          "신청기한: 상시신청"
+          "방문 신청"
         ]
       }
     ]
   },
   "doc_labels": {
-    "신청서 및 가정위탁아동 중 초,중,고 재학생 중 학원수강료 또는 학습지 수강료 영수증": "신청서"
+    "신청서 및 가정위탁아동 중 초,중,고 재학생 중 학원수강료 또는 학습지 수강료 영수증": "신청서 및 가정위탁아동 중 초,중,고 재학생 중 학원수강료 또는 학습지 수강료 영수증"
   },
   "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
   "passed": true,
   "auto_checks_passed": true,
-  "attempts": 2,
+  "attempts": 1,
   "checks": {
     "format_problems": [],
     "too_long": [],
@@ -119,10 +124,18 @@
     "missing_units": [],
     "unit_gaps": []
   },
-  "judge_issues": [],
-  "source_hash": "89dc31dcbd0de2cc",
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "주민센터 : 거주지 관할 동 주민센터 방문",
+      "converted": "방문 신청",
+      "reason": "주민센터 방문 신청임을 명시한 부분이 줄어듦"
+    }
+  ],
+  "source_hash": "67cfba0e810b3e30",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:15:16+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:26:39+00:00"
 }

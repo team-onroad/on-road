@@ -4,7 +4,7 @@
   "facts": [
     {
       "item": "target",
-      "text": "서초구 1년 이상 거주 자립준비청년",
+      "text": "서초구에서 1년 이상 거주 중인 자립준비청년(보호종료아동)",
       "src": [
         "S1"
       ],
@@ -12,12 +12,20 @@
     },
     {
       "item": "benefit",
-      "text": "서초구 1년 이상 거주 자립준비청년 자립정착금 연 500만 원 지원",
+      "text": "자립정착금 연 500만 원 지원",
       "src": [
         "S2",
         "S3"
       ],
       "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "서초구에서 1년 이상 거주한 자립준비청년(보호종료아동)",
+      "src": [
+        "S2"
+      ],
+      "key": false
     },
     {
       "item": "apply",
@@ -26,6 +34,14 @@
         "S4"
       ],
       "key": true
+    },
+    {
+      "item": "period",
+      "text": "신청기한: 상시신청",
+      "src": [
+        "S4"
+      ],
+      "key": false
     }
   ],
   "card": [
@@ -33,14 +49,21 @@
       "item": "target",
       "label": "지원 대상",
       "items": [
-        "서초구 1년 이상 거주 자립준비청년"
+        "서초구에서 1년 이상 거주 중인 자립준비청년(보호종료아동)"
       ]
     },
     {
       "item": "benefit",
       "label": "지원 내용",
       "items": [
-        "서초구 1년 이상 거주 자립준비청년 자립정착금 연 500만 원 지원"
+        "자립정착금 연 500만 원 지원"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "신청기한: 상시신청"
       ]
     },
     {
@@ -57,7 +80,7 @@
         "item": "target",
         "label": "지원 대상",
         "items": [
-          "서초구 1년 이상 거주 자립준비청년"
+          "서초구에서 1년 이상 거주 중인 자립준비청년(보호종료아동)"
         ]
       }
     ],
@@ -66,7 +89,7 @@
         "item": "target",
         "label": "지원 대상",
         "items": [
-          "서초구 1년 이상 거주 자립준비청년"
+          "서초구에서 1년 이상 거주 중인 자립준비청년(보호종료아동)"
         ]
       }
     ],
@@ -92,18 +115,10 @@
     "missing_units": [],
     "unit_gaps": []
   },
-  "judge_issues": [
-    {
-      "type": "changed",
-      "severity": "low",
-      "original": "자립준비청년(보호종료아동)",
-      "converted": "자립준비청년",
-      "reason": "자립준비청년의 정의로 포함된 '보호종료아동'이 생략됨"
-    }
-  ],
-  "source_hash": "f83fac53bf2fd21e",
+  "judge_issues": [],
+  "source_hash": "f9cecf2c5351f0b5",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:09:41+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:23:02+00:00"
 }

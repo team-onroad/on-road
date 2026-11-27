@@ -20,7 +20,7 @@
     },
     {
       "item": "benefit",
-      "text": "1,500천원",
+      "text": "150만 원",
       "src": [
         "S3"
       ],
@@ -35,7 +35,7 @@
       "key": true
     },
     {
-      "item": "apply",
+      "item": "period",
       "text": "신청기한: 상시신청",
       "src": [
         "S4"
@@ -56,6 +56,13 @@
       "label": "지원 내용",
       "items": [
         "가정위탁아동 대학진학 시 1,500천원/1인/1회 지원"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "신청기한: 상시신청"
       ]
     },
     {
@@ -90,8 +97,7 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "방문신청",
-          "신청기한: 상시신청"
+          "방문신청"
         ]
       }
     ]
@@ -100,7 +106,7 @@
   "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
   "passed": true,
   "auto_checks_passed": true,
-  "attempts": 2,
+  "attempts": 1,
   "checks": {
     "format_problems": [],
     "too_long": [],
@@ -109,9 +115,9 @@
     "unit_gaps": []
   },
   "judge_issues": [],
-  "source_hash": "fb585d0bd962ad26",
+  "source_hash": "6c0752a810273da1",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:15:44+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:27:43+00:00"
 }

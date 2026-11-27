@@ -4,7 +4,7 @@
   "facts": [
     {
       "item": "target",
-      "text": "가정위탁 양육보조금 지원 대상",
+      "text": "가정위탁 대상자",
       "src": [
         "S1"
       ],
@@ -12,20 +12,43 @@
     },
     {
       "item": "benefit",
-      "text": "가정위탁아동 1인 월 4만 원",
+      "text": "가정위탁아동 1인 × 월 4만 원",
       "src": [
-        "S2",
-        "S3"
+        "S2"
       ],
       "key": true
     },
     {
+      "item": "benefit",
+      "text": "월 4만 원",
+      "src": [
+        "S3"
+      ],
+      "key": false
+    },
+    {
       "item": "apply",
-      "text": "개인 신청절차 없음",
+      "text": "신청기한: 신청불요",
       "src": [
         "S4"
       ],
       "key": true
+    },
+    {
+      "item": "docs",
+      "text": "아동발달지원계좌로 입금",
+      "src": [
+        "S2"
+      ],
+      "key": false
+    },
+    {
+      "item": "exclusion",
+      "text": "개인 신청절차 없음",
+      "src": [
+        "S4"
+      ],
+      "key": false
     }
   ],
   "card": [
@@ -33,21 +56,28 @@
       "item": "target",
       "label": "지원 대상",
       "items": [
-        "가정위탁 양육보조금 지원 대상"
+        "가정위탁 대상자"
+      ]
+    },
+    {
+      "item": "exclusion",
+      "label": "받을 수 없는 경우",
+      "items": [
+        "개인 신청절차 없음"
       ]
     },
     {
       "item": "benefit",
       "label": "지원 내용",
       "items": [
-        "가정위탁아동 1인 월 4만 원"
+        "가정위탁아동 1인 × 월 4만 원"
       ]
     },
     {
       "item": "apply",
       "label": "신청 방법",
       "items": [
-        "개인 신청절차 없음"
+        "신청기한: 신청불요"
       ]
     }
   ],
@@ -57,7 +87,14 @@
         "item": "target",
         "label": "지원 대상",
         "items": [
-          "가정위탁 양육보조금 지원 대상"
+          "가정위탁 대상자"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "개인 신청절차 없음"
         ]
       }
     ],
@@ -66,7 +103,14 @@
         "item": "target",
         "label": "지원 대상",
         "items": [
-          "가정위탁 양육보조금 지원 대상"
+          "가정위탁 대상자"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "개인 신청절차 없음"
         ]
       }
     ],
@@ -75,7 +119,7 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "개인 신청절차 없음"
+          "신청기한: 신청불요"
         ]
       }
     ]
@@ -84,7 +128,7 @@
   "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
   "passed": true,
   "auto_checks_passed": true,
-  "attempts": 1,
+  "attempts": 2,
   "checks": {
     "format_problems": [],
     "too_long": [],
@@ -92,10 +136,18 @@
     "missing_units": [],
     "unit_gaps": []
   },
-  "judge_issues": [],
-  "source_hash": "c57579d5b47cab59",
+  "judge_issues": [
+    {
+      "type": "changed",
+      "severity": "low",
+      "original": "가정위탁 양육보조금 지원 대상 지원",
+      "converted": "가정위탁 대상자",
+      "reason": "원문에서는 '가정위탁 양육보조금 지원 대상 지원'이라고 명시했으나, 변환문에서는 '가정위탁 대상자'로 줄여 표현함."
+    }
+  ],
+  "source_hash": "645e888c03a4de25",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:15:00+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:26:14+00:00"
 }

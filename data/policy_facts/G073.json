@@ -12,16 +12,15 @@
     },
     {
       "item": "benefit",
-      "text": "교통비 1일 2.4천원 지원",
+      "text": "1일 2,400원 지원",
       "src": [
-        "S2",
-        "S3"
+        "S2"
       ],
       "key": true
     },
     {
       "item": "benefit",
-      "text": "지원인원 8명 정도",
+      "text": "지원인원: 8명 정도",
       "src": [
         "S2"
       ],
@@ -29,11 +28,43 @@
     },
     {
       "item": "apply",
+      "text": "별도 신청 없음",
+      "src": [
+        "S4"
+      ],
+      "key": true
+    },
+    {
+      "item": "period",
+      "text": "상시신청",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "exclusion",
       "text": "개인 신청절차 없음",
       "src": [
         "S4"
       ],
       "key": true
+    },
+    {
+      "item": "docs",
+      "text": "문의처: 아동청소년과/054-639-6375",
+      "src": [
+        "S5"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "지원 금액: 2,400원",
+      "src": [
+        "S3"
+      ],
+      "key": false
     }
   ],
   "card": [
@@ -45,17 +76,31 @@
       ]
     },
     {
+      "item": "exclusion",
+      "label": "받을 수 없는 경우",
+      "items": [
+        "개인 신청절차 없음"
+      ]
+    },
+    {
       "item": "benefit",
       "label": "지원 내용",
       "items": [
-        "교통비 1일 2.4천원 지원"
+        "1일 2,400원 지원"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "상시신청"
       ]
     },
     {
       "item": "apply",
       "label": "신청 방법",
       "items": [
-        "개인 신청절차 없음"
+        "별도 신청 없음"
       ]
     }
   ],
@@ -67,6 +112,13 @@
         "items": [
           "가정위탁아동 중 중고등학생"
         ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "개인 신청절차 없음"
+        ]
       }
     ],
     "condition_check": [
@@ -76,6 +128,13 @@
         "items": [
           "가정위탁아동 중 중고등학생"
         ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "개인 신청절차 없음"
+        ]
       }
     ],
     "apply": [
@@ -83,7 +142,7 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "개인 신청절차 없음"
+          "별도 신청 없음"
         ]
       }
     ]
@@ -101,9 +160,9 @@
     "unit_gaps": []
   },
   "judge_issues": [],
-  "source_hash": "24f0f77138b2bc85",
+  "source_hash": "e19c8a3d39c9ee54",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:15:51+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:27:56+00:00"
 }

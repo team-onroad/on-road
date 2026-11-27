@@ -4,30 +4,20 @@
   "facts": [
     {
       "item": "target",
-      "text": "8세 이후 보호종료 아동복지시설 보호종료 5년 이내 아동",
+      "text": "8세 이후 보호 종료 아동",
       "src": [
-        "S1",
-        "S2"
+        "S1"
       ],
       "key": true
     },
     {
       "item": "target",
-      "text": "보호 종료 전 30일 이내 신청",
+      "text": "보호 종료 5년 이내 아동",
       "src": [
         "S1",
         "S2"
       ],
-      "key": false
-    },
-    {
-      "item": "target",
-      "text": "8세 이후 가정위탁 보호종료 5년 이내 아동 (보호 종료 전 30일 이내 신청)",
-      "src": [
-        "S1",
-        "S2"
-      ],
-      "key": false
+      "key": true
     },
     {
       "item": "benefit",
@@ -41,7 +31,7 @@
     },
     {
       "item": "apply",
-      "text": "방문 신청, 온라인 신청",
+      "text": "방문 신청",
       "src": [
         "S4"
       ],
@@ -49,11 +39,36 @@
     },
     {
       "item": "apply",
-      "text": "상시신청",
+      "text": "온라인 신청",
       "src": [
         "S4"
       ],
+      "key": true
+    },
+    {
+      "item": "period",
+      "text": "보호 종료 전 30일 이내 신청",
+      "src": [
+        "S1",
+        "S2"
+      ],
       "key": false
+    },
+    {
+      "item": "exclusion",
+      "text": "보호 종료 5년 초과 아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
+    },
+    {
+      "item": "exclusion",
+      "text": "보호 종료 전 신청하지 않은 아동",
+      "src": [
+        "S1"
+      ],
+      "key": true
     }
   ],
   "card": [
@@ -61,7 +76,16 @@
       "item": "target",
       "label": "지원 대상",
       "items": [
-        "8세 이후 보호종료 아동복지시설 보호종료 5년 이내 아동"
+        "8세 이후 보호 종료 아동",
+        "보호 종료 5년 이내 아동"
+      ]
+    },
+    {
+      "item": "exclusion",
+      "label": "받을 수 없는 경우",
+      "items": [
+        "보호 종료 5년 초과 아동",
+        "보호 종료 전 신청하지 않은 아동"
       ]
     },
     {
@@ -72,10 +96,18 @@
       ]
     },
     {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "보호 종료 전 30일 이내 신청"
+      ]
+    },
+    {
       "item": "apply",
       "label": "신청 방법",
       "items": [
-        "방문 신청, 온라인 신청"
+        "방문 신청",
+        "온라인 신청"
       ]
     }
   ],
@@ -85,9 +117,16 @@
         "item": "target",
         "label": "지원 대상",
         "items": [
-          "8세 이후 보호종료 아동복지시설 보호종료 5년 이내 아동",
-          "보호 종료 전 30일 이내 신청",
-          "8세 이후 가정위탁 보호종료 5년 이내 아동 (보호 종료 전 30일 이내 신청)"
+          "8세 이후 보호 종료 아동",
+          "보호 종료 5년 이내 아동"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "보호 종료 5년 초과 아동",
+          "보호 종료 전 신청하지 않은 아동"
         ]
       }
     ],
@@ -96,9 +135,16 @@
         "item": "target",
         "label": "지원 대상",
         "items": [
-          "8세 이후 보호종료 아동복지시설 보호종료 5년 이내 아동",
-          "보호 종료 전 30일 이내 신청",
-          "8세 이후 가정위탁 보호종료 5년 이내 아동 (보호 종료 전 30일 이내 신청)"
+          "8세 이후 보호 종료 아동",
+          "보호 종료 5년 이내 아동"
+        ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "보호 종료 5년 초과 아동",
+          "보호 종료 전 신청하지 않은 아동"
         ]
       }
     ],
@@ -107,15 +153,15 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "방문 신청, 온라인 신청",
-          "상시신청"
+          "방문 신청",
+          "온라인 신청"
         ]
       }
     ]
   },
   "doc_labels": {},
   "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
-  "passed": true,
+  "passed": false,
   "auto_checks_passed": true,
   "attempts": 4,
   "checks": {
@@ -125,18 +171,10 @@
     "missing_units": [],
     "unit_gaps": []
   },
-  "judge_issues": [
-    {
-      "type": "changed",
-      "severity": "low",
-      "original": "기타 : 복지로 사이트, 가정위탁지원센터",
-      "converted": "",
-      "reason": "복지로 사이트와 가정위탁지원센터를 언급하지 않음"
-    }
-  ],
-  "source_hash": "ecf374621e47fd9f",
+  "judge_issues": null,
+  "source_hash": "355d44c536a7d68a",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:09:58+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:23:14+00:00"
 }

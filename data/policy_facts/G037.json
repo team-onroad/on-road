@@ -12,20 +12,35 @@
     },
     {
       "item": "benefit",
-      "text": "18세 이상 보호종료아동: 1,000만 원 지원, 1회",
+      "text": "18세 이상 보호종료아동에게 1,000만 원 지원(1회)",
       "src": [
-        "S2",
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "1,000만 원",
+      "src": [
         "S3"
+      ],
+      "key": false
+    },
+    {
+      "item": "apply",
+      "text": "방문 신청",
+      "src": [
+        "S4"
       ],
       "key": true
     },
     {
       "item": "apply",
-      "text": "읍·면·동 주민센터 방문 신청",
+      "text": "읍,면,동 주민센터 방문 신청",
       "src": [
         "S4"
       ],
-      "key": true
+      "key": false
     },
     {
       "item": "apply",
@@ -36,7 +51,7 @@
       "key": false
     },
     {
-      "item": "apply",
+      "item": "period",
       "text": "신청기한: 상시신청",
       "src": [
         "S4"
@@ -56,14 +71,21 @@
       "item": "benefit",
       "label": "지원 내용",
       "items": [
-        "18세 이상 보호종료아동: 1,000만 원 지원, 1회"
+        "18세 이상 보호종료아동에게 1,000만 원 지원(1회)"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "신청기한: 상시신청"
       ]
     },
     {
       "item": "apply",
       "label": "신청 방법",
       "items": [
-        "읍·면·동 주민센터 방문 신청"
+        "방문 신청"
       ]
     }
   ],
@@ -91,9 +113,9 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "읍·면·동 주민센터 방문 신청",
-          "가정위탁지원센터 신청",
-          "신청기한: 상시신청"
+          "방문 신청",
+          "읍,면,동 주민센터 방문 신청",
+          "가정위탁지원센터 신청"
         ]
       }
     ]
@@ -102,7 +124,7 @@
   "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
   "passed": true,
   "auto_checks_passed": true,
-  "attempts": 2,
+  "attempts": 3,
   "checks": {
     "format_problems": [],
     "too_long": [],
@@ -116,12 +138,12 @@
       "severity": "low",
       "original": "아동복지시설 퇴소, 가정위탁보호 종료 아동",
       "converted": "18세 이상 보호종료아동",
-      "reason": "아동복지시설 퇴소와 가정위탁보호 종료 아동이라는 구체적인 예시가 빠지고 상위어로 줄어듦"
+      "reason": "아동복지시설 퇴소와 가정위탁보호 종료 아동을 '보호종료아동'으로 줄임"
     }
   ],
-  "source_hash": "834b493fa49fd729",
+  "source_hash": "59f4553c3a5c3488",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:12:41+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:24:59+00:00"
 }

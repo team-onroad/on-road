@@ -12,39 +12,23 @@
     },
     {
       "item": "benefit",
-      "text": "대학진학자금 1인당 2백만원 한도 실비 지원",
+      "text": "가정위탁아동 대학진학자금 1인당 200만 원, 1회 한도",
       "src": [
         "S2"
       ],
       "key": true
     },
     {
-      "item": "benefit",
-      "text": "1회 한도",
-      "src": [
-        "S2"
-      ],
-      "key": false
-    },
-    {
-      "item": "benefit",
-      "text": "1인당 2백만원",
-      "src": [
-        "S3"
-      ],
-      "key": false
-    },
-    {
       "item": "apply",
-      "text": "보호자 읍면사무소 방문 신청",
+      "text": "방문 신청 (보호자가 읍면사무소 방문)",
       "src": [
         "S4"
       ],
       "key": true
     },
     {
-      "item": "apply",
-      "text": "상시신청",
+      "item": "period",
+      "text": "신청기한: 상시신청",
       "src": [
         "S4"
       ],
@@ -60,9 +44,17 @@
     },
     {
       "item": "docs",
-      "text": "가족관계증명서",
+      "text": "가족관계증명서 (민원처리법률 제10조의2에 의거)",
       "src": [
         "S6"
+      ],
+      "key": false
+    },
+    {
+      "item": "benefit",
+      "text": "1인당 200만 원",
+      "src": [
+        "S3"
       ],
       "key": false
     }
@@ -79,14 +71,21 @@
       "item": "benefit",
       "label": "지원 내용",
       "items": [
-        "대학진학자금 1인당 2백만원 한도 실비 지원"
+        "가정위탁아동 대학진학자금 1인당 200만 원, 1회 한도"
+      ]
+    },
+    {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "신청기한: 상시신청"
       ]
     },
     {
       "item": "apply",
       "label": "신청 방법",
       "items": [
-        "보호자 읍면사무소 방문 신청"
+        "방문 신청 (보호자가 읍면사무소 방문)"
       ]
     }
   ],
@@ -114,15 +113,14 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "보호자 읍면사무소 방문 신청",
-          "상시신청"
+          "방문 신청 (보호자가 읍면사무소 방문)"
         ]
       }
     ]
   },
   "doc_labels": {
     "신청서 및 증빙서류": "신청서 및 증빙서류",
-    "민원처리법률 제10조의2에 의거 가족관계증명서": "가족관계증명서"
+    "민원처리법률 제10조의2에 의거 가족관계증명서": "가족관계증명서 (민원처리법률 제10조의2에 의거)"
   },
   "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
   "passed": true,
@@ -135,18 +133,10 @@
     "missing_units": [],
     "unit_gaps": []
   },
-  "judge_issues": [
-    {
-      "type": "changed",
-      "severity": "low",
-      "original": "읍면 행정복지센터",
-      "converted": "읍면사무소",
-      "reason": "기관 이름을 줄인 것"
-    }
-  ],
-  "source_hash": "9f65f584472dbd1e",
+  "judge_issues": [],
+  "source_hash": "0b57151a941429d8",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:15:27+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:27:35+00:00"
 }

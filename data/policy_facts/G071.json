@@ -12,20 +12,19 @@
     },
     {
       "item": "benefit",
-      "text": "가정위탁아동대상 학습지원비 지원",
+      "text": "매월 최대 100천원 지급",
       "src": [
         "S2"
       ],
-      "key": false
+      "key": true
     },
     {
       "item": "benefit",
-      "text": "매월 최대 100천 원 지급",
+      "text": "최대 10만 원",
       "src": [
-        "S2",
         "S3"
       ],
-      "key": true
+      "key": false
     },
     {
       "item": "apply",
@@ -36,31 +35,23 @@
       "key": true
     },
     {
-      "item": "apply",
-      "text": "주민센터: 해당 읍면에 신청",
+      "item": "docs",
+      "text": "제출서류 없음",
       "src": [
-        "S4"
-      ],
-      "key": false
-    },
-    {
-      "item": "apply",
-      "text": "학원비 영수증 제출",
-      "src": [
-        "S4"
+        "S5"
       ],
       "key": false
     },
     {
       "item": "period",
-      "text": "상시신청",
+      "text": "신청기한: 상시신청",
       "src": [
         "S4"
       ],
       "key": false
     },
     {
-      "item": "docs",
+      "item": "exclusion",
       "text": "제출서류 없음",
       "src": [
         "S5"
@@ -77,17 +68,24 @@
       ]
     },
     {
+      "item": "exclusion",
+      "label": "받을 수 없는 경우",
+      "items": [
+        "제출서류 없음"
+      ]
+    },
+    {
       "item": "benefit",
       "label": "지원 내용",
       "items": [
-        "매월 최대 100천 원 지급"
+        "매월 최대 100천원 지급"
       ]
     },
     {
       "item": "period",
       "label": "지원 기간",
       "items": [
-        "상시신청"
+        "신청기한: 상시신청"
       ]
     },
     {
@@ -106,6 +104,13 @@
         "items": [
           "가정위탁아동"
         ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "제출서류 없음"
+        ]
       }
     ],
     "condition_check": [
@@ -115,6 +120,13 @@
         "items": [
           "가정위탁아동"
         ]
+      },
+      {
+        "item": "exclusion",
+        "label": "받을 수 없는 경우",
+        "items": [
+          "제출서류 없음"
+        ]
       }
     ],
     "apply": [
@@ -122,9 +134,7 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "방문 신청",
-          "주민센터: 해당 읍면에 신청",
-          "학원비 영수증 제출"
+          "방문 신청"
         ]
       }
     ]
@@ -135,7 +145,7 @@
   "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
   "passed": true,
   "auto_checks_passed": true,
-  "attempts": 2,
+  "attempts": 3,
   "checks": {
     "format_problems": [],
     "too_long": [],
@@ -143,18 +153,10 @@
     "missing_units": [],
     "unit_gaps": []
   },
-  "judge_issues": [
-    {
-      "type": "changed",
-      "severity": "low",
-      "original": "신청기한: 상시신청",
-      "converted": "상시신청",
-      "reason": "신청기한이 '지원 기간'으로 표현됨"
-    }
-  ],
-  "source_hash": "6694889c181eb523",
+  "judge_issues": [],
+  "source_hash": "074846c951e264ee",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:15:45+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:27:42+00:00"
 }

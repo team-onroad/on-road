@@ -4,7 +4,7 @@
   "facts": [
     {
       "item": "target",
-      "text": "가정위탁아동(문화누리카드 대상 제외)",
+      "text": "가정위탁아동 (문화누리카드 대상 제외)",
       "src": [
         "S1"
       ],
@@ -14,32 +14,31 @@
       "item": "benefit",
       "text": "1명당 월 10,000원 제공",
       "src": [
-        "S2",
+        "S2"
+      ],
+      "key": true
+    },
+    {
+      "item": "benefit",
+      "text": "월 1만 원",
+      "src": [
         "S3"
-      ],
-      "key": true
-    },
-    {
-      "item": "apply",
-      "text": "개인 신청절차 없음, 신청불가",
-      "src": [
-        "S4"
-      ],
-      "key": true
-    },
-    {
-      "item": "apply",
-      "text": "신청기한: 반기별 신청(연2회)",
-      "src": [
-        "S4"
       ],
       "key": false
     },
     {
-      "item": "exclusion",
-      "text": "문화누리카드 대상 제외",
+      "item": "apply",
+      "text": "개인 신청절차 없음",
       "src": [
-        "S1"
+        "S4"
+      ],
+      "key": true
+    },
+    {
+      "item": "period",
+      "text": "신청기한: 반기별 신청 (연 2회)",
+      "src": [
+        "S4"
       ],
       "key": false
     }
@@ -49,14 +48,7 @@
       "item": "target",
       "label": "지원 대상",
       "items": [
-        "가정위탁아동(문화누리카드 대상 제외)"
-      ]
-    },
-    {
-      "item": "exclusion",
-      "label": "받을 수 없는 경우",
-      "items": [
-        "문화누리카드 대상 제외"
+        "가정위탁아동 (문화누리카드 대상 제외)"
       ]
     },
     {
@@ -67,10 +59,17 @@
       ]
     },
     {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "신청기한: 반기별 신청 (연 2회)"
+      ]
+    },
+    {
       "item": "apply",
       "label": "신청 방법",
       "items": [
-        "개인 신청절차 없음, 신청불가"
+        "개인 신청절차 없음"
       ]
     }
   ],
@@ -80,14 +79,7 @@
         "item": "target",
         "label": "지원 대상",
         "items": [
-          "가정위탁아동(문화누리카드 대상 제외)"
-        ]
-      },
-      {
-        "item": "exclusion",
-        "label": "받을 수 없는 경우",
-        "items": [
-          "문화누리카드 대상 제외"
+          "가정위탁아동 (문화누리카드 대상 제외)"
         ]
       }
     ],
@@ -96,14 +88,7 @@
         "item": "target",
         "label": "지원 대상",
         "items": [
-          "가정위탁아동(문화누리카드 대상 제외)"
-        ]
-      },
-      {
-        "item": "exclusion",
-        "label": "받을 수 없는 경우",
-        "items": [
-          "문화누리카드 대상 제외"
+          "가정위탁아동 (문화누리카드 대상 제외)"
         ]
       }
     ],
@@ -112,8 +97,7 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "개인 신청절차 없음, 신청불가",
-          "신청기한: 반기별 신청(연2회)"
+          "개인 신청절차 없음"
         ]
       }
     ]
@@ -122,7 +106,7 @@
   "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
   "passed": true,
   "auto_checks_passed": true,
-  "attempts": 2,
+  "attempts": 4,
   "checks": {
     "format_problems": [],
     "too_long": [],
@@ -134,14 +118,14 @@
     {
       "type": "changed",
       "severity": "low",
-      "original": "가정위탁아동(문화누리카드 대상 제외)",
-      "converted": "가정위탁아동(문화누리카드 대상 제외)",
-      "reason": "괄호 속 예시를 그대로 사용하여 줄임으로 봄."
+      "original": "신청기한: 반기별 신청(연2회)",
+      "converted": "신청기한: 반기별 신청 (연 2회)",
+      "reason": "신청기한의 표현이 약간 다름"
     }
   ],
-  "source_hash": "d5b5daff310a7d46",
+  "source_hash": "c440c280a0fe8c0e",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:15:04+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:26:37+00:00"
 }

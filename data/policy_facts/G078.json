@@ -20,7 +20,7 @@
     },
     {
       "item": "benefit",
-      "text": "지원 금액: 10백만원",
+      "text": "1,000만 원",
       "src": [
         "S3"
       ],
@@ -28,7 +28,7 @@
     },
     {
       "item": "apply",
-      "text": "관할 읍면동 주민센터 방문 신청",
+      "text": "방문 신청",
       "src": [
         "S4"
       ],
@@ -36,6 +36,14 @@
     },
     {
       "item": "apply",
+      "text": "주민센터: 관할 읍면동 주민센터 신청",
+      "src": [
+        "S4"
+      ],
+      "key": false
+    },
+    {
+      "item": "period",
       "text": "신청기한: 상시신청",
       "src": [
         "S4"
@@ -59,10 +67,17 @@
       ]
     },
     {
+      "item": "period",
+      "label": "지원 기간",
+      "items": [
+        "신청기한: 상시신청"
+      ]
+    },
+    {
       "item": "apply",
       "label": "신청 방법",
       "items": [
-        "관할 읍면동 주민센터 방문 신청"
+        "방문 신청"
       ]
     }
   ],
@@ -90,8 +105,8 @@
         "item": "apply",
         "label": "신청 방법",
         "items": [
-          "관할 읍면동 주민센터 방문 신청",
-          "신청기한: 상시신청"
+          "방문 신청",
+          "주민센터: 관할 읍면동 주민센터 신청"
         ]
       }
     ]
@@ -100,7 +115,7 @@
   "notice": "나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
   "passed": true,
   "auto_checks_passed": true,
-  "attempts": 2,
+  "attempts": 1,
   "checks": {
     "format_problems": [],
     "too_long": [],
@@ -109,9 +124,9 @@
     "unit_gaps": []
   },
   "judge_issues": [],
-  "source_hash": "3d61aab0ef9aaa73",
+  "source_hash": "721f64910bfaa150",
   "source_checked_at": "2026-11-22",
   "verified": false,
-  "model": "gpt-4o",
-  "generated_at": "2026-11-22T13:16:12+00:00"
+  "model": "gpt-4o-mini",
+  "generated_at": "2026-11-27T13:27:52+00:00"
 }

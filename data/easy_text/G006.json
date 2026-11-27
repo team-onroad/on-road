@@ -66,6 +66,76 @@
       "verified": false,
       "model": "gpt-4o",
       "generated_at": "2026-11-22T13:10:04+00:00"
+    },
+    "L7": {
+      "level": "L7",
+      "level_name": "꼼꼼히",
+      "text": "[받는 것]\n자립정착금으로 1인 10,000,000원(1,000만 원)을 1회 지원합니다.\n\n[받는 사람]\n만 15세 이후 아동복지시설 및 가정위탁 보호가 조기 종료된 사람은 지원받을 수 있습니다. 또한 만 18세 이후 보호종료된 자립준비청년(보호종료아동)도 지원받을 수 있습니다.\n\n[신청 방법]\n방문 신청으로 가능합니다. 신청기한은 상시신청입니다.\n\n[서류]\n신청 시 필요한 서류는 별도로 안내되지 않았습니다.\n\n[더 알아보기]\n\n[받는 사람]\n만 15세 이후 아동복지시설 및 가정위탁 보호가 조기 종료된 사람은 지원을 받을 수 있습니다(단, 아동복지법 시행 2024년 2월 9일 이후 만 18세가 된 자부터 적용됩니다). 만 18세 이후 보호가 종료된 자립준비청년(보호종료아동)도 지원을 받을 수 있습니다.\n\n[문의]\n문의는 아동복지과에 전화(032-453-8348)로 할 수 있습니다.\n\n[확인 필요]\n나이와 지역만으로는 받을 수 있는지 확정할 수 없습니다. 담당 기관에 꼭 확인하시기 바랍니다.",
+      "core_text": "[받는 것]\n자립정착금으로 1인 10,000,000원(1,000만 원)을 1회 지원합니다.\n\n[받는 사람]\n만 15세 이후 아동복지시설 및 가정위탁 보호가 조기 종료된 사람은 지원받을 수 있습니다. 또한 만 18세 이후 보호종료된 자립준비청년(보호종료아동)도 지원받을 수 있습니다.\n\n[신청 방법]\n방문 신청으로 가능합니다. 신청기한은 상시신청입니다.\n\n[서류]\n신청 시 필요한 서류는 별도로 안내되지 않았습니다.",
+      "passed": true,
+      "auto_checks_passed": true,
+      "attempts": 2,
+      "checks": {
+        "missing_facts": [],
+        "missing_details": [],
+        "missing_units": [],
+        "unit_gaps": [],
+        "condition_gaps": [],
+        "unsupported_numbers": [],
+        "tier_violations": [],
+        "style_violations": [],
+        "assertion": false,
+        "avg_eojeol": 6.7,
+        "max_eojeol": 13,
+        "core_sentences": 6,
+        "level_problems": []
+      },
+      "first_attempt_missing": [
+        "1회"
+      ],
+      "metrics": {
+        "hard_terms_source": 8,
+        "hard_terms_converted": 4,
+        "term_reduction": 0.5,
+        "term_density_source": 24.4,
+        "term_density_converted": 22.0,
+        "t4_terms_source": 0,
+        "t4_terms_converted": 0,
+        "avg_eojeol_source": 8.5,
+        "avg_eojeol_converted": 6.7,
+        "length_reduction": 0.216
+      },
+      "judge_issues": [],
+      "terms": [
+        {
+          "term": "아동복지시설",
+          "tier": 3,
+          "gloss": "보육원·그룹홈 같은 시설",
+          "count": 2
+        },
+        {
+          "term": "가정위탁",
+          "tier": 3,
+          "gloss": "다른 가정이 맡아 돌보는 것",
+          "count": 2
+        },
+        {
+          "term": "조기 종료",
+          "tier": 3,
+          "gloss": "정해진 나이보다 일찍 보호가 끝나는 것",
+          "count": 2
+        },
+        {
+          "term": "보호종료",
+          "tier": 3,
+          "gloss": "시설이나 위탁가정의 보호가 끝나는 것",
+          "count": 3
+        }
+      ],
+      "facts_used": true,
+      "verified": false,
+      "model": "gpt-4o-mini",
+      "generated_at": "2026-11-27T13:30:09+00:00"
     }
   },
   "policy_key": "G006",
