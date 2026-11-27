@@ -745,8 +745,6 @@ private fun SmallPolicyCard(policy: Policy, showCategory: Boolean, onOpen: () ->
                 policy.name,
                 style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
                 color = OnRoadColors.TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).sharedTitle(policyTitleKey(policy.id)),
             )
             if (policy.agency.isNotBlank()) {
@@ -754,7 +752,8 @@ private fun SmallPolicyCard(policy: Policy, showCategory: Boolean, onOpen: () ->
                 Text(policy.agency, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
             }
         }
-        val category = policy.category.takeIf { showCategory && it.isNotBlank() }
+        // 아직 보호 중인데 퇴소해야 받는 정책은 분야 자리에 '퇴소 후 신청'
+        val category = if (policy.leave == "after_leave") "퇴소 후 신청" else policy.category.takeIf { showCategory && it.isNotBlank() }
         if (policy.receives.isNotBlank() || category != null) {
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -762,8 +761,6 @@ private fun SmallPolicyCard(policy: Policy, showCategory: Boolean, onOpen: () ->
                     policy.receives,
                     style = OnRoadType.Caption,
                     color = OnRoadColors.TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
                 category?.let {
@@ -800,8 +797,6 @@ private fun SearchNextSteps(steps: List<com.project.on_road.data.NextStep>, onOp
                             st.label,
                             style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
                             color = OnRoadColors.TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                         )
                         Spacer(Modifier.width(8.dp))
@@ -939,12 +934,14 @@ fun PolicyCard(
         }
 
         // 조건 판정 (명세 1.3: "신청 가능" 표시 금지) · 오래된 정보 경고 (명세 1.4)
-        if (policy.eligibility != null || policy.isOutdated) {
+        if (policy.eligibility != null || policy.isOutdated || policy.leave == "after_leave") {
             Spacer(Modifier.height(10.dp))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                when (policy.eligibility) {
-                    "match" -> OnRoadTag("기본 조건 해당", style = TagStyle.PrimarySoft)
-                    "needs_check" -> OnRoadTag("조건 확인 필요", style = TagStyle.Warning)
+                when {
+                    // 아직 보호 중인데 퇴소해야 받는 정책: 나이 · 지역이 맞아도 지금은 아님
+                    policy.leave == "after_leave" -> OnRoadTag("퇴소 후 신청")
+                    policy.eligibility == "match" -> OnRoadTag("기본 조건 해당", style = TagStyle.PrimarySoft)
+                    policy.eligibility == "needs_check" -> OnRoadTag("조건 확인 필요", style = TagStyle.Warning)
                 }
                 if (policy.isOutdated) {
                     OnRoadTag("확인일이 오래된 정보예요 · 최신 내용은 원문에서 확인", style = TagStyle.Danger)
@@ -1197,8 +1194,6 @@ private fun CompactPolicyCard(
                 policy.name,
                 style = OnRoadType.Title3,
                 color = OnRoadColors.TextStrong,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).sharedTitle(policyTitleKey(policy.id)),
             )
             if (policy.agency.isNotBlank()) {
@@ -1206,14 +1201,15 @@ private fun CompactPolicyCard(
                 Text(policy.agency, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
             }
         }
-        when (policy.eligibility) {
-            "match" -> { Spacer(Modifier.height(10.dp)); OnRoadTag("기본 조건 해당", style = TagStyle.PrimarySoft) }
-            "needs_check" -> { Spacer(Modifier.height(10.dp)); OnRoadTag("조건 확인 필요", style = TagStyle.Warning) }
+        when {
+            policy.leave == "after_leave" -> { Spacer(Modifier.height(10.dp)); OnRoadTag("퇴소 후 신청") }
+            policy.eligibility == "match" -> { Spacer(Modifier.height(10.dp)); OnRoadTag("기본 조건 해당", style = TagStyle.PrimarySoft) }
+            policy.eligibility == "needs_check" -> { Spacer(Modifier.height(10.dp)); OnRoadTag("조건 확인 필요", style = TagStyle.Warning) }
         }
         val line = policy.easySummary.ifBlank { policy.summary }
         if (line.isNotBlank()) {
             Spacer(Modifier.height(12.dp))
-            Text(line, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(line, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
         }
         if (policy.receives.isNotBlank()) {
             Spacer(Modifier.height(12.dp))
@@ -1227,7 +1223,7 @@ private fun CompactPolicyCard(
             ) {
                 Text("지원 내용", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
                 Spacer(Modifier.width(12.dp))
-                Text(policy.receives, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(policy.receives, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
             }
         }
         Spacer(Modifier.height(16.dp))

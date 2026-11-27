@@ -34,12 +34,30 @@ class DocumentRepository(private val service: OnRoadService, private val userId:
     suspend fun startTemplate(templateId: String, context: String? = null): WriterDocumentDto =
         Network.call { service.createWriterDocument(DocumentCreateDto(userId(), "template", sourceId = templateId, context = context)) }
 
-    suspend fun startPolicyForm(policyId: Long, checklistItemId: Long? = null, context: String? = null): WriterDocumentDto =
+    suspend fun startPolicyForm(
+        policyId: Long,
+        checklistItemId: Long? = null,
+        context: String? = null,
+        formId: String? = null,
+    ): WriterDocumentDto =
         Network.call {
             service.createWriterDocument(
-                DocumentCreateDto(userId(), "policy_form", policyId = policyId, checklistItemId = checklistItemId, context = context),
+                DocumentCreateDto(
+                    userId(), "policy_form", policyId = policyId, checklistItemId = checklistItemId,
+                    context = context, formId = formId,
+                ),
             )
         }
+
+    /** 공통 양식 (퇴소 신청서 등): 정책 없이 form_id 만. 사용자마다 하나 */
+    suspend fun startCommonForm(formId: String, context: String? = null): WriterDocumentDto =
+        Network.call {
+            service.createWriterDocument(DocumentCreateDto(userId(), "policy_form", formId = formId, context = context))
+        }
+
+    /** 공통 양식 목록. 못 받으면 빈 목록 */
+    suspend fun commonForms(): List<com.project.on_road.data.remote.FormLinkDto> =
+        runCatching { Network.call { service.commonForms() }.forms.orEmpty() }.getOrDefault(emptyList())
 
     /** 받은 양식(사진·PDF) 올리기 → AI 가 칸을 읽은 문서. 같은 파일이면 쓰던 문서 */
     suspend fun upload(file: UploadFile, checklistItemId: Long? = null, policyId: Long? = null): WriterDocumentDto {

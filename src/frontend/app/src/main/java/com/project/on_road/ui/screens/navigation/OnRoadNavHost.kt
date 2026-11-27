@@ -1,5 +1,6 @@
 package com.project.on_road.ui.screens.navigation
 
+import android.annotation.SuppressLint
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import com.project.on_road.ui.components.LocalTabRoot
@@ -88,6 +89,7 @@ import com.project.on_road.ui.screens.GrowthScreen
 import com.project.on_road.ui.screens.HousingScreen
 import com.project.on_road.ui.screens.InterestScreen
 import com.project.on_road.ui.screens.CareerRoadmapScreen
+import com.project.on_road.ui.screens.SameKindScreen
 import com.project.on_road.ui.screens.NextActionScreen
 import com.project.on_road.ui.screens.NotificationScreen
 import com.project.on_road.ui.screens.OnboardingScreen
@@ -117,6 +119,7 @@ object Routes {
     const val CREDENTIALS = "settings/credentials"
     const val POLICY = "policy?policyId={policyId}&q={q}"
     const val POLICY_DETAIL = "policy/detail/{policyId}"
+    const val SAME_KIND = "policy/same-kind/{policyId}"
     const val MY = "my"
     const val DOCS = "docs"                // 서류 모아 보기
     const val SIMULATION = "simulation"
@@ -148,7 +151,7 @@ object Routes {
     const val RISK = "coach/risk"           // 서류 속 숨겨진 위험 찾기
     const val DOCUMENT = "coach/document"
     const val DOC_PICKER = "coach/docs/{policyId}"
-    const val DOC_WRITER = "coach/doc?documentId={documentId}&policyId={policyId}&templateId={templateId}&itemId={itemId}&ctx={ctx}"
+    const val DOC_WRITER = "coach/doc?documentId={documentId}&policyId={policyId}&templateId={templateId}&itemId={itemId}&ctx={ctx}&formId={formId}"
     const val BASICS = "teen/basics"        // 청소년 자립 기초 미션
     const val BASIC = "teen/basics/{id}"
 
@@ -170,6 +173,8 @@ object Routes {
         templateId: String? = null,
         itemId: Long? = null,
         context: String? = null,
+        /** 정책에 연결된 서버 양식 (체크리스트 서류의 '양식 쓰기') */
+        formId: String? = null,
     ): String = buildString {
         append("coach/doc")
         val params = listOfNotNull(
@@ -178,6 +183,7 @@ object Routes {
             templateId?.let { "templateId=${Uri.encode(it)}" },
             itemId?.let { "itemId=$it" },
             context?.takeIf { it.isNotBlank() }?.let { "ctx=${Uri.encode(it.take(500))}" },
+            formId?.let { "formId=${Uri.encode(it)}" },
         )
         if (params.isNotEmpty()) append("?").append(params.joinToString("&"))
     }
@@ -185,6 +191,7 @@ object Routes {
     fun simResult(simulationId: String) = "sim/budget/${Uri.encode(simulationId)}"
 
     fun policyDetail(policyId: String) = "policy/detail/${Uri.encode(policyId)}"
+    fun sameKind(policyId: String) = "policy/same-kind/${Uri.encode(policyId)}"
 
     /** 정책 하나를 보려면(질문 없이 id 만) 정책 상세로, 그 밖에는 정책 찾기로 */
     fun policy(policyId: String? = null, query: String? = null): String =
@@ -256,6 +263,7 @@ fun timelineRoute(link: TimelineLink): String = when (link) {
     TimelineLink.POLICY_COUNSEL -> Routes.policy(query = "자립지원전담기관 상담")
 }
 
+@SuppressLint("RestrictedApi")
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OnRoadNavHost() {
@@ -581,6 +589,17 @@ private fun OnRoadGraph(
         }
 
         screen(
+            Routes.SAME_KIND,
+            arguments = listOf(navArgument("policyId") { type = NavType.StringType }),
+        ) { entry ->
+            SameKindScreen(
+                policyId = entry.arguments?.getString("policyId").orEmpty(),
+                onBack = back,
+                onOpenPolicy = { go(Routes.policyDetail(it)) },
+            )
+        }
+
+        screen(
             Routes.POLICY_DETAIL,
             arguments = listOf(navArgument("policyId") { type = NavType.StringType }),
         ) { entry ->
@@ -591,6 +610,7 @@ private fun OnRoadGraph(
                 onWrite = { id -> go(Routes.docWriter(policyId = id.toLongOrNull())) },
                 onAsk = { q -> go(Routes.chat(question = q)) },
                 onOpenPolicy = { go(Routes.policyDetail(it)) },
+                onSameKind = { go(Routes.sameKind(it)) },
             )
         }
 
@@ -650,6 +670,9 @@ private fun OnRoadGraph(
                 onBack = back,
                 onFormGuide = { go(Routes.formGuide(it)) },
                 onOpenDocs = { go(Routes.docPicker(it)) },
+                onWriteForm = { policyId, formId, itemId ->
+                    go(Routes.docWriter(policyId = policyId, formId = formId, itemId = itemId))
+                },
                 onOpenDocument = { go(Routes.docWriter(documentId = it)) },
                 onNavigate = go,
             )
@@ -744,6 +767,7 @@ private fun OnRoadGraph(
                 onOpenDocument = { go(Routes.docWriter(documentId = it)) },
                 onStartTemplate = { go(Routes.docWriter(templateId = it)) },
                 onRiskCheck = { go(Routes.RISK) },
+                onStartForm = { go(Routes.docWriter(formId = it)) },
             )
         }
         screen(Routes.RISK) { RiskCheckScreen(onBack = back, onPractice = { go(Routes.roleplay(it)) }, onNavigate = go) }
@@ -762,7 +786,7 @@ private fun OnRoadGraph(
         }
         screen(
             Routes.DOC_WRITER,
-            arguments = listOf("documentId", "policyId", "templateId", "itemId", "ctx").map {
+            arguments = listOf("documentId", "policyId", "templateId", "itemId", "ctx", "formId").map {
                 navArgument(it) { type = NavType.StringType; nullable = true; defaultValue = null }
             },
         ) { entry ->
@@ -773,6 +797,7 @@ private fun OnRoadGraph(
                 templateId = args?.getString("templateId"),
                 checklistItemId = args?.getString("itemId")?.toLongOrNull(),
                 context = args?.getString("ctx"),
+                formId = args?.getString("formId"),
                 onBack = back,
                 onNavigate = { go(it) },
             )

@@ -60,6 +60,7 @@ data class NoticeGroup(val title: String, val items: List<NoticeItem>)
 
 /**
  * 알림 화면 (홈 상단 종 버튼). 서버에 따로 알림을 쌓지 않고, 지금 챙길 것을 모아 보여 준다.
+ * - 마감: 30일 안에 신청이 끝나거나(나이 상한 · 퇴소 후 기간) 미리 신청이 열리는 정책, 일정에 담은 시험 (Deadlines)
  * - 일정: 퇴소(목표) D-day 타임라인에서 30일 안에 할 일, 지난 것 중 안 한 일
  * - 진행 중: 끝나지 않은 체크리스트 · 쓰던 서류
  * - 추천: 다음 할 일 상위 2개
@@ -80,6 +81,12 @@ class NotificationViewModel : ViewModel() {
             val actions = runCatching { AppContainer.api.getNextActions(id, dash) }.getOrDefault(emptyList())
             val docs = docsJob.await()
 
+            // 마감은 맞춤 신청 로드맵에서 계산한다 (홈에서 이미 받았으면 그 값)
+            com.project.on_road.data.PlanData.refresh()
+            val today = LocalDate.now()
+            val deadlines = com.project.on_road.data.Deadlines.soon(today).map { d ->
+                NoticeItem(dTag(d.daysFrom(today)), d.title(today), d.note, d.route)
+            }
             val schedule = scheduleItems()
             val doing = buildList {
                 dash?.checklists.orEmpty().filter { !it.completed }.forEach { c ->
@@ -96,6 +103,7 @@ class NotificationViewModel : ViewModel() {
             val recommend = actions.take(2).map { NoticeItem("추천", it.title, it.reason ?: it.description, actionRoute(it)) }
 
             groups = listOf(
+                NoticeGroup("마감", deadlines),
                 NoticeGroup("일정", schedule),
                 NoticeGroup("진행 중", doing),
                 NoticeGroup("추천", recommend),
@@ -176,10 +184,10 @@ private fun NoticeRow(n: NoticeItem, onClick: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 OnRoadTag(n.tag, style = TagStyle.Neutral)
                 Spacer(Modifier.height(8.dp))
-                Text(n.title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(n.title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                 n.body?.let {
                     Spacer(Modifier.height(2.dp))
-                    Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
                 }
             }
             Spacer(Modifier.width(8.dp))

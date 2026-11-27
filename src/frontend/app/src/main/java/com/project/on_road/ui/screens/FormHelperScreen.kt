@@ -50,6 +50,9 @@ class FormHelperViewModel : ViewModel() {
 
     var templates by mutableStateOf<List<FormTemplate>?>(null)
         private set
+    /** 공통 양식 (퇴소 · 보호연장 신청서 등, 정책과 상관없이 직접 내는 서류) */
+    var commonForms by mutableStateOf<List<com.project.on_road.data.remote.FormLinkDto>>(emptyList())
+        private set
     var analyzing by mutableStateOf(false)
         private set
     var draft by mutableStateOf<FormDraft?>(null)
@@ -89,6 +92,7 @@ class FormHelperViewModel : ViewModel() {
     }
 
     init {
+        viewModelScope.launch { commonForms = AppContainer.documents.commonForms() }
         viewModelScope.launch {
             templates = runCatching { AppContainer.coachApi.formTemplates(stage) }
                 .onFailure { error = it.userMessage("양식 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.") }
@@ -207,11 +211,13 @@ fun FormHelperScreen(
     onStartTemplate: ((String) -> Unit)? = null,
     /** 서류 속 숨겨진 위험 찾기 (계약서 · 등기부등본 · 근로계약서) */
     onRiskCheck: (() -> Unit)? = null,
+    /** 공통 양식 쓰기 (form_id) */
+    onStartForm: ((String) -> Unit)? = null,
     vm: FormHelperViewModel = viewModel(),
 ) {
     Column(Modifier.fillMaxSize().background(OnRoadColors.Background)) {
         OnRoadTopBar(vm.draft?.title ?: "서류 작성 도우미", { if (vm.draft != null) vm.close() else onBack() })
-        FormHelperContent(onOpenDocument, onStartTemplate, onRiskCheck, onBack = onBack, vm = vm, modifier = Modifier.weight(1f))
+        FormHelperContent(onOpenDocument, onStartTemplate, onRiskCheck, onStartForm = onStartForm, onBack = onBack, vm = vm, modifier = Modifier.weight(1f))
     }
 }
 
@@ -225,6 +231,8 @@ fun FormHelperContent(
     onStartTemplate: ((String) -> Unit)? = null,
     onRiskCheck: (() -> Unit)? = null,
     onActivityDraft: (() -> Unit)? = null,
+    /** 공통 양식 쓰기 (form_id). null 이면 공통 양식 칸을 숨긴다 */
+    onStartForm: ((String) -> Unit)? = null,
     /** true: 신청 관리 '서류' 칸 모양 (정책 검색 화면과 같은 작은 연회색 줄로만) */
     compact: Boolean = false,
     modifier: Modifier = Modifier,
@@ -277,6 +285,8 @@ fun FormHelperContent(
             onPickFile = uploader.pickFile,
             onRiskCheck = onRiskCheck,
             onActivityDraft = onActivityDraft,
+            commonForms = if (onStartForm != null) vm.commonForms else emptyList(),
+            onStartForm = { onStartForm?.invoke(it) },
         ) else TemplateList(
             vm.templates,
             vm.error,
@@ -289,8 +299,33 @@ fun FormHelperContent(
             onPickFile = uploader.pickFile,
             onRiskCheck = onRiskCheck,
             onActivityDraft = onActivityDraft,
+            commonForms = if (onStartForm != null) vm.commonForms else emptyList(),
+            onStartForm = { onStartForm?.invoke(it) },
         )
     } }
+}
+
+/** 공통 양식 칸: 퇴소 · 보호연장 신청서처럼 특정 정책이 아니어도 직접 내는 서류 (원본 양식 위에 채워 내보낸다) */
+@Composable
+private fun CommonFormSection(
+    forms: List<com.project.on_road.data.remote.FormLinkDto>,
+    compact: Boolean,
+    onStart: (String) -> Unit,
+) {
+    if (forms.isEmpty()) return
+    Spacer(Modifier.height(if (compact) 36.dp else OnRoadDimens.SectionGap))
+    Text("직접 내는 서류 양식", style = if (compact) OnRoadType.Headline else OnRoadType.Title3, color = OnRoadColors.TextPrimary)
+    Spacer(Modifier.height(4.dp))
+    Text("퇴소 · 보호 연장처럼 정책과 상관없이 내는 공식 양식이에요", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+    Spacer(Modifier.height(if (compact) 12.dp else 16.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        forms.forEach { f ->
+            GrayRow(f.title, f.notice ?: if (f.checked) "공식 양식" else "공식 양식 · 원본과 대조 전") {
+                com.project.on_road.data.ScreenCache.put("title:doc-common:${f.formId}", f.title)
+                onStart(f.formId)
+            }
+        }
+    }
 }
 
 @Composable
@@ -307,6 +342,8 @@ private fun TemplateList(
     onPickFile: () -> Unit,
     onRiskCheck: (() -> Unit)? = null,
     onActivityDraft: (() -> Unit)? = null,
+    commonForms: List<com.project.on_road.data.remote.FormLinkDto> = emptyList(),
+    onStartForm: (String) -> Unit = {},
 ) {
     var deleting by remember { mutableStateOf<DocumentSummaryDto?>(null) }
     deleting?.let { d ->
@@ -389,6 +426,7 @@ private fun TemplateList(
                 }
             }
         }
+        CommonFormSection(commonForms, compact = false, onStart = onStartForm)
         Spacer(Modifier.height(32.dp))
     }
 }
@@ -524,6 +562,8 @@ private fun CompactDocList(
     onPickFile: () -> Unit,
     onRiskCheck: (() -> Unit)?,
     onActivityDraft: (() -> Unit)?,
+    commonForms: List<com.project.on_road.data.remote.FormLinkDto> = emptyList(),
+    onStartForm: (String) -> Unit = {},
 ) {
     var deleting by remember { mutableStateOf<DocumentSummaryDto?>(null) }
     deleting?.let { d ->
@@ -614,6 +654,7 @@ private fun CompactDocList(
                 }
             }
         }
+        CommonFormSection(commonForms, compact = true, onStart = onStartForm)
         Spacer(Modifier.height(32.dp))
     }
 }
@@ -723,8 +764,6 @@ private fun DraftCard(d: DocumentSummaryDto, onClick: () -> Unit) {
                 d.title,
                 style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
                 color = OnRoadColors.TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(12.dp))
@@ -765,7 +804,7 @@ private fun DocCard(title: String, right: String?, description: String?, onClick
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
             right?.let {
                 Spacer(Modifier.width(8.dp))
                 Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1)
@@ -773,7 +812,7 @@ private fun DocCard(title: String, right: String?, description: String?, onClick
         }
         description?.takeIf { it.isNotBlank() }?.let {
             Spacer(Modifier.height(4.dp))
-            Text(it, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(it, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
         }
     }
 }
@@ -818,7 +857,7 @@ private fun ListLine(title: String, trailing: String?, onClick: () -> Unit) {
             .padding(start = 16.dp, end = 10.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
         trailing?.let {
             Spacer(Modifier.width(8.dp))
             Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
@@ -845,10 +884,10 @@ private fun SmallDocRow(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                 description?.takeIf { it.isNotBlank() }?.let {
                     Spacer(Modifier.height(4.dp))
-                    Text(it, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(it, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
                 }
             }
             if (trailing != null) {
@@ -865,10 +904,10 @@ private fun GrayRow(title: String, description: String?, onClick: () -> Unit) {
     SubtleCard(Modifier.fillMaxWidth().heightIn(min = 60.dp), onClick = onClick, contentPadding = PaddingValues(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                 description?.let {
                     Spacer(Modifier.height(2.dp))
-                    Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(it, style = OnRoadType.Caption2, color = OnRoadColors.TextSecondary)
                 }
             }
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))

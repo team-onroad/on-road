@@ -136,6 +136,7 @@ class DashboardViewModel : ViewModel() {
                     // 현금이 아닌 지원(주거 · 상담 · 의료)은 금액 자리에 무엇을 받는지 분야로
                     unit = r.amountUnit ?: "지원",
                     amount = r.amountValue ?: NON_CASH_WORD[r.category] ?: r.category,
+                    pick = r.pickReason,
                 )
             }
             ?: runCatching { AppContainer.api.browsePolicies(id, null).policies }.getOrNull()?.let { fromBrowse(it) }
@@ -253,6 +254,8 @@ data class HomePolicy(
     val whenText: String,
     val unit: String,
     val amount: String,
+    /** 같은 종류 중 이걸 고른 까닭 (서버 추천에서만) */
+    val pick: String? = null,
 )
 
 private val MockPolicies = listOf(
@@ -396,8 +399,49 @@ fun DashboardScreen(
                     onNavigate(Routes.chat())
                 }
             }
+        }
+
+        // 도움이 필요할 때: 사람 · 기관으로 바로 (맨 아래)
+        Column(pad.stagger(5)) {
+            Spacer(Modifier.height(HomeSpace.SectionTop))
+            SectionHeader("도움이 필요할 때")
+            Spacer(Modifier.height(HomeSpace.TitleBottom))
+            HelpContacts(onNavigate)
             Spacer(Modifier.height(HomeSpace.Bottom))
             com.project.on_road.ui.components.TabBarSpacer()
+        }
+    }
+}
+
+/**
+ * 도움이 필요할 때: 자립준비청년 상담센터(1855-2455, 정부 안내 번호) · 내 지역 자립지원전담기관 · 자살예방상담전화(109, 24시간).
+ * 전화는 누르면 바로 전화 앱으로, 전담기관은 정책 검색으로 연다.
+ */
+@Composable
+private fun HelpContacts(onNavigate: (String) -> Unit) {
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    val region = com.project.on_road.data.ProfileStore.current?.region
+    fun call(number: String) { runCatching { uri.openUri("tel:$number") } }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        HelpRow("자립준비청년 상담센터", "자립 고민, 지원 문의", "1855-2455") { call("18552455") }
+        HelpRow("내 지역 자립지원전담기관", listOfNotNull(region, "사례관리와 멘토 연결").joinToString(", "), null) {
+            onNavigate(Routes.policy(query = "자립지원 전담기관"))
+        }
+        HelpRow("마음이 힘들 때", "자살예방상담전화, 24시간", "109") { call("109") }
+    }
+}
+
+@Composable
+private fun HelpRow(title: String, sub: String, number: String?, onClick: () -> Unit) {
+    InfoCard(Modifier.fillMaxWidth(), onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.SemiBold), color = OnRoadColors.TextPrimary)
+                Spacer(Modifier.height(3.dp))
+                Text(sub, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+            }
+            Spacer(Modifier.width(10.dp))
+            if (number != null) OutlinePill(number, onClick) else ExpandChevron(false)
         }
     }
 }
@@ -586,6 +630,11 @@ private fun PolicyCard(p: HomePolicy, main: Boolean, onClick: () -> Unit) {
                     Text(p.category, style = OnRoadType.Micro, color = sub, maxLines = 1)
                     Spacer(Modifier.height(HomeSpace.CategoryGap))
                     Text(p.name, style = OnRoadType.Body1.copy(fontWeight = FontWeight.Bold), color = fg, maxLines = 1, overflow = TextOverflow.Clip)
+                    // 같은 종류 중 내게 유리한 것을 골랐으면 그 까닭 한 줄
+                    p.pick?.let {
+                        Spacer(Modifier.height(2.dp))
+                        Text(it, style = OnRoadType.Micro, color = sub, maxLines = 1, overflow = TextOverflow.Clip)
+                    }
                 }
                 Text(p.whenText, style = OnRoadType.Caption2, color = sub, maxLines = 1, overflow = TextOverflow.Clip)
             }

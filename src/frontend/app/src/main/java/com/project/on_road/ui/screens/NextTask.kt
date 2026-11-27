@@ -113,8 +113,6 @@ fun NextTaskBlock(
                     "‘$title’ 할 일을 끝냈어요",
                     style = OnRoadType.Caption,
                     color = OnRoadColors.TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
             if (next != null) Spacer(Modifier.height(14.dp))
@@ -126,8 +124,6 @@ fun NextTaskBlock(
                 next.title,
                 style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
                 color = OnRoadColors.TextPrimary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

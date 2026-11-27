@@ -307,6 +307,22 @@ class InterestViewModel : ViewModel() {
 
     fun showJobs() { step = InterestStep.JOBS }
 
+    /** 지난 결과로 관심 분야만 다시 고른다 (문항을 다시 풀지 않고) */
+    fun retagFromLast() {
+        val last = ActivityStore.interests().firstOrNull() ?: return
+        if (profile == null) profile = InterestProfile(scores = last.scores)
+        loadJobs()
+    }
+
+    /** 직접 추가 칸에 쓴 글이 들어 있는 직업 (이름 먼저, 그다음 설명) */
+    fun matching(text: String): List<JobRecommendation> {
+        val q = text.trim().trimStart('#').trim()
+        if (q.isEmpty()) return emptyList()
+        val byName = jobs.filter { q in it.name }
+        val byDesc = jobs.filter { it !in byName && q in it.description }
+        return (byName + byDesc).take(8)
+    }
+
     /** 직업 상세에서 비슷한 직업으로 넘어간 순서 (뒤로 가면 앞 직업으로) */
     private val trail = mutableListOf<JobRecommendation>()
 
@@ -475,7 +491,13 @@ fun InterestScreen(
         androidx.compose.animation.Crossfade(vm.step, animationSpec = androidx.compose.animation.core.tween(220), label = "interest-step") { step ->
         when (step) {
             InterestStep.LOADING -> LoadingState("질문을 준비하고 있어요")
-            InterestStep.INTRO -> IntroPage(vm.questions.size, onStart = vm::start, onRoadmap = { onNavigate(com.project.on_road.ui.screens.navigation.Routes.CAREER_ROADMAP) })
+            InterestStep.INTRO -> IntroPage(
+                vm.questions.size,
+                tags = vm.tags,
+                onStart = vm::start,
+                onRoadmap = { onCareer?.invoke() ?: onNavigate(com.project.on_road.ui.screens.navigation.Routes.CAREER_ROADMAP) },
+                onRetag = vm::retagFromLast,
+            )
             InterestStep.QUESTIONS -> vm.questions.getOrNull(vm.index)?.let { q ->
                 QuestionPage(q, vm.index, vm.questions.size, child = vm.stage == UserStage.CHILD, onPick = vm::answer, onPrev = { vm.stepBack() })
             }
@@ -567,9 +589,8 @@ private fun BottomBar(content: @Composable ColumnScope.() -> Unit) {
 /* ---------------------------- 시작 ---------------------------- */
 
 @Composable
-private fun IntroPage(questionCount: Int, onStart: () -> Unit, onRoadmap: () -> Unit) {
+private fun IntroPage(questionCount: Int, tags: List<CareerTag>, onStart: () -> Unit, onRoadmap: () -> Unit, onRetag: () -> Unit) {
     val last = remember { ActivityStore.interests().firstOrNull() }
-    val saved = remember(ActivityStore.version) { ActivityStore.roadmap() }
     val kid = remember { ActivityStore.likedCounts().take(2).map { it.first } }
     Column(Modifier.fillMaxSize()) {
         Column(
@@ -581,43 +602,40 @@ private fun IntroPage(questionCount: Int, onStart: () -> Unit, onRoadmap: () -> 
             Spacer(Modifier.height(24.dp))
             PageHead("나는 어떤 일을 할 때", "즐거울까요?", "정답은 없어요. 끌리는 쪽을 골라 주세요.")
 
-            // 이어서 보기: 저장한 로드맵 · 지난 결과
-            if (saved != null || last != null) {
+            // 이어서 보기: 나의 진로(고른 관심 분야) · 지난 결과(누르면 분야만 다시 고른다)
+            if (tags.isNotEmpty() || last != null) {
                 Spacer(Modifier.height(OnRoadDimens.BlockGap))
                 SubHeader("이어서 보기")
                 Spacer(Modifier.height(12.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    saved?.let { rm ->
-                        val next = rm.nextIndex?.let { rm.steps[it] }
+                    if (tags.isNotEmpty()) {
                         DataCard(Modifier.fillMaxWidth(), onClick = onRoadmap) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text("${rm.jobName} 로드맵", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                                    Text("나의 진로", style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                                     Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        next?.let { "다음 할 일: ${it.title}" } ?: "모든 단계를 해냈어요",
-                                        style = OnRoadType.Caption2,
-                                        color = OnRoadColors.TextTertiary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+                                    Text(tags.joinToString(" ") { "#${it.name}" }, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
                                 }
                                 Spacer(Modifier.width(10.dp))
                                 PrimaryPill("이어 보기", onRoadmap)
                             }
-                            Spacer(Modifier.height(12.dp))
-                            ProgressBar(rm.progress, Modifier.fillMaxWidth(), height = 5.dp)
                         }
                     }
                     last?.let {
-                        DataCard(Modifier.fillMaxWidth()) {
-                            Text("지난 결과", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                "${it.top.joinToString(", ") { t -> t.label }}, ${dayText(it.at)}",
-                                style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
-                                color = OnRoadColors.TextPrimary,
-                            )
+                        DataCard(Modifier.fillMaxWidth(), onClick = onRetag) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("지난 결과", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        "${it.top.joinToString(", ") { t -> t.label }}, ${dayText(it.at)}",
+                                        style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
+                                        color = OnRoadColors.TextPrimary,
+                                    )
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                OutlinePill("분야 다시 고르기", onRetag)
+                            }
                         }
                     }
                 }
@@ -1049,6 +1067,13 @@ private fun TagsPage(vm: InterestViewModel, onDone: () -> Unit) {
                 Spacer(Modifier.width(8.dp))
                 OutlinePill("추가") { if (vm.addTag(custom)) custom = "" }
             }
+            val found = vm.matching(custom)
+            if (found.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    found.forEach { j -> ChoiceChip("#${j.name}", vm.tags.any { it.name == j.name }) { vm.toggleTag(j) } }
+                }
+            }
             Spacer(Modifier.height(24.dp))
         }
         BottomBar { OnRoadButton("로드맵 만들기", { vm.saveTags(onDone) }, Modifier.fillMaxWidth(), enabled = vm.tags.isNotEmpty(), loading = vm.saving) }
@@ -1073,7 +1098,7 @@ private fun JobsPage(vm: InterestViewModel) {
                     DataCard(Modifier.fillMaxWidth(), onClick = { vm.openJob(j) }) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text(j.name, style = OnRoadType.Body1.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(j.name, style = OnRoadType.Body1.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                                 Spacer(Modifier.height(3.dp))
                                 Text(j.reason.ifBlank { j.description }, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
                                 Spacer(Modifier.height(8.dp))
@@ -1194,7 +1219,7 @@ private fun JobTabContent(
                 certs.take(6).forEach { c ->
                     // 이미 딴 자격증 (설정 > 교육 · 자격증)
                     if (com.project.on_road.data.CredentialStore.holds(c)) {
-                        OnRoadTag("$c · 취득함", style = TagStyle.PrimarySoft, textStyle = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium))
+                        OnRoadTag("$c 취득함", style = TagStyle.PrimarySoft, textStyle = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium))
                     } else {
                         OnRoadTag(c, textStyle = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium))
                     }
@@ -1418,9 +1443,9 @@ private fun LinkRow(title: String, sub: String, onClick: () -> Unit) {
     DataCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = PaddingValues(start = 16.dp, end = 10.dp, top = 16.dp, bottom = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                 Spacer(Modifier.height(2.dp))
-                Text(sub, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(sub, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
             }
             androidx.compose.material3.Icon(
                 androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,

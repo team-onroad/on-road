@@ -66,7 +66,19 @@ data class ExternalJob(
     val source: String,
 )
 
+/** 큐넷 국가자격 종목. kind: 국가기술 · 국가전문 */
+data class CertificateName(val code: String, val name: String, val kind: String?)
+
 class CareerInfoRepo(private val service: OnRoadService) {
+
+    /** 자격증 이름 검색 (큐넷 국가자격 종목 목록). 못 받으면 빈 목록 */
+    suspend fun certificates(q: String): List<CertificateName> = runCatching {
+        val r = service.careerCertificates(q)
+        if (!r.available) emptyList()
+        else r.items.orEmpty().mapNotNull { c ->
+            CertificateName(c.code ?: return@mapNotNull null, c.name ?: return@mapNotNull null, c.kind)
+        }
+    }.getOrDefault(emptyList())
 
     suspend fun job(name: String): ExternalJob? = runCatching {
         val r = service.careerJobInfo(name)

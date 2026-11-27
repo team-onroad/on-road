@@ -9,7 +9,8 @@ import com.project.on_road.data.*
  */
 class RemoteCoachApi(
     private val service: OnRoadService,
-    private val local: CoachApi = FakeCoachApi(),
+    // 앱 안에서 계산하는 부분이라 기다리는 척하지 않는다 (화면이 바로 뜨게)
+    private val local: CoachApi = FakeCoachApi(simulate = false),
 ) : CoachApi {
 
     // ───────────── 앱에서 처리 ─────────────

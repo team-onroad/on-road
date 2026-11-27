@@ -210,6 +210,8 @@ fun PolicyDetailScreen(
     onAsk: (String) -> Unit = {},
     /** 같이 보면 좋은 정책을 누르면 그 정책 상세로 */
     onOpenPolicy: (String) -> Unit = {},
+    /** 같은 종류 전체 보기 (다른 지역 것까지) */
+    onSameKind: (String) -> Unit = {},
     vm: PolicyDetailViewModel = viewModel(key = "policy-detail-$policyId"),
 ) {
     LaunchedEffect(policyId) { vm.load(policyId) }
@@ -266,6 +268,7 @@ fun PolicyDetailScreen(
                         onWrite = { onWrite(pol.id) },
                         onAsk = { onAsk("${pol.name} 신청하려면 어떻게 해야 해?") },
                         onOpenPolicy = onOpenPolicy,
+                        onSameKind = { onSameKind(pol.id) },
                         receiving = policyId in PolicySaves.receiving,
                         onToggleReceiving = { tick(); vm.toggleReceiving(policyId) },
                     )
@@ -299,6 +302,7 @@ private fun PolicyDetailBody(
     onWrite: () -> Unit,
     onAsk: () -> Unit,
     onOpenPolicy: (String) -> Unit,
+    onSameKind: () -> Unit = {},
     receiving: Boolean = false,
     onToggleReceiving: () -> Unit = {},
 ) {
@@ -350,6 +354,7 @@ private fun PolicyDetailBody(
     Appear(policy.docFacts.size, policy.requiredDocs.size) {
         DocsSection(remember(policy.docFacts, policy.requiredDocs) { DetailCalc.docsFrom(policy.docFacts, policy.requiredDocs) ?: policy.requiredDocs })
     }
+    Appear(policy.sameKind != null) { SameKindSection(policy, onOpenPolicy, onSameKind) }
     Appear(policy.relatedPolicies.size) { RelatedSection(policy, onOpenPolicy) }
     Appear(policy.contact.isBlank()) { ContactSection(policy) }
     SourceSection(policy)
@@ -422,7 +427,7 @@ private fun EducationCard(code: String) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     when {
-                        done?.doneOn != null -> "${done.doneOn} 이수 · 확인서를 신청 서류와 같이 내요"
+                        done?.doneOn != null -> "${done.doneOn}에 이수했어요. 확인서를 신청 서류와 같이 내요"
                         done != null -> "확인서를 신청 서류와 같이 내요"
                         code == "settlement" -> "자립지원전담기관에 교육 일정을 물어보세요"
                         else -> "온라인 자립교육을 듣고 이수증을 받아 두세요"
@@ -504,6 +509,9 @@ private fun SummaryCard(policy: Policy, profile: UserProfile?) {
 }
 
 /* ── 내 조건 ───────────────────────────────────────────────────── */
+
+/** 보호 종료와 같은 뜻의 대상 조건 */
+private val LEAVE_COND = Regex("""보호\s*종료|퇴소|보호조치""")
 
 private enum class CondState(val label: String) { Yes("해당"), No("해당 없음"), Check("확인 필요") }
 
@@ -663,10 +671,21 @@ private fun SheetRow(label: String, value: String) {
  */
 @Composable
 private fun ConditionSection(policy: Policy, profile: UserProfile?, onWrite: () -> Unit, onAsk: () -> Unit) {
-    val rows = remember(policy, profile) { DetailCalc.conditions(policy, profile) }
     // 내가 답한 조건 · 퇴소일이 바뀌면 다시 계산한다
     val answered = com.project.on_road.data.MyConditions.version
-    val extra = remember(policy.conditions, profile, answered) { policy.conditions.map { DetailCalc.myCondition(it, profile) } }
+    val base = remember(policy, profile) { DetailCalc.conditions(policy, profile) }
+    val conds = remember(policy.conditions, profile, answered) { policy.conditions.map { DetailCalc.myCondition(it, profile) } }
+    // 보호 종료 줄과 같은 뜻의 대상 조건(보호종료 · 퇴소 …)이 있으면 한 카드로 합친다
+    val leaveAt = if (policy.leave in setOf("after_leave", "now")) conds.indexOfFirst { LEAVE_COND.containsMatchIn(it.text) } else -1
+    val rows = if (leaveAt >= 0) base.filterNot { it.first.startsWith("보호 종료") } else base
+    val extra = if (leaveAt < 0) conds else conds.mapIndexed { i, c ->
+        when {
+            i != leaveAt -> c
+            policy.leave == "after_leave" -> c.copy(state = CondState.No, sub = "지금은 보호 중이라 퇴소 후 신청")
+            c.state == CondState.Check -> c.copy(state = CondState.Yes)
+            else -> c
+        }
+    }
     var opened by remember { mutableStateOf<String?>(null) }
     fun colorOf(state: CondState) = when (state) {
         CondState.Yes -> OnRoadColors.TextSecondary
@@ -690,7 +709,7 @@ private fun ConditionSection(policy: Policy, profile: UserProfile?, onWrite: () 
         Text("이런 경우엔 받을 수 없어요", style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextSecondary)
         Spacer(Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(DetailSpace.CardGap)) {
-            policy.exclusions.forEach { ConditionRow(it, "제외", OnRoadColors.TextTertiary) }
+            policy.exclusions.forEach { ConditionRow(it, "제외", OnRoadColors.TextTertiary, sub = com.project.on_road.data.ConditionHelp.explainExclusion(it)) }
         }
     }
     Spacer(Modifier.height(16.dp))
@@ -960,6 +979,44 @@ private object DocOption {
     val TagGap = 12.dp
 }
 
+/* ── 같은 종류 지원: 함께 받기 어려운 것 중 내 조건에서 더 유리한 것 (서버 3.32 와 같은 기준) ── */
+
+@Composable
+private fun SameKindSection(policy: Policy, onOpen: (String) -> Unit, onAll: () -> Unit) {
+    val k = policy.sameKind ?: return
+    Spacer(Modifier.height(DetailSpace.Section))
+    SectionTitle("같은 종류 ${k.kindTitle}")
+    Spacer(Modifier.height(6.dp))
+    Text(k.reason, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary, modifier = Modifier.padding(horizontal = 4.dp))
+    Spacer(Modifier.height(DetailSpace.TitleGap))
+    // 더 유리한 정책이 따로 있으면 그것부터, 이 정책이 가장 유리하면 나머지만
+    val list = if (k.isBest) k.others else listOf(k.best) + k.others.filter { it.policyId != k.best.policyId }
+    Column(verticalArrangement = Arrangement.spacedBy(DetailSpace.CardGap)) {
+        list.forEachIndexed { i, a ->
+            DataCard(Modifier.stagger(i), onClick = { onOpen(a.policyId) }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(a.name, style = OnRoadType.Body2.copy(fontWeight = FontWeight.SemiBold), color = OnRoadColors.TextPrimary)
+                        Spacer(Modifier.height(3.dp))
+                        Text(listOfNotNull(a.region, a.amountText).joinToString(", "), style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+                    }
+                    if (!k.isBest && i == 0) {
+                        OnRoadTag("더 유리", style = TagStyle.PrimaryOutline)
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextMuted, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+    }
+    Text(
+        "다른 지역 것까지 보기 ›",
+        style = OnRoadType.Caption.copy(fontWeight = FontWeight.Medium),
+        color = OnRoadColors.TextSecondary,
+        modifier = Modifier.padding(top = 10.dp, start = 4.dp).tap(onClick = onAll).padding(vertical = 6.dp),
+    )
+}
+
 /* ── 같이 보면 좋은 정책 (서버가 같은 분야 · 받을 수 있는 정책으로 고름) ── */
 
 @Composable
@@ -1141,6 +1198,11 @@ private object DetailCalc {
             }
         } else if (p.eligibility != null) {
             add("나이 · 지역" to if (p.eligibility == "match") CondState.Yes else CondState.Check)
+        }
+        // 보호가 끝나야 받는 정책: 아직 보호 중이면 지금은 해당 없음 (서버 판정)
+        when (p.leave) {
+            "after_leave" -> add("보호 종료 후 신청 (지금은 보호 중)" to CondState.No)
+            "now" -> add("보호 종료" to CondState.Yes)
         }
         // 나이 · 지역 말고 따로 확인할 대상 조건은 ConditionSection 이 따로 그린다 (눌러서 확인)
     }

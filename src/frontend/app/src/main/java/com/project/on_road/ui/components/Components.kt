@@ -414,7 +414,7 @@ fun ListRow(
 /*  태그                                                                */
 /* ------------------------------------------------------------------ */
 
-enum class TagStyle { Neutral, Danger, Warning, PrimaryOutline, PrimarySoft, PrimaryFilled, Slate, SlateFilled, SlatePrimary, Gray }
+enum class TagStyle { Neutral, Danger, Warning, PrimaryOutline, PrimarySoft, PrimaryFilled, Slate, SlateFilled, SlatePrimary, Gray, White }
 
 private data class TagColors(val bg: Color, val border: Color?, val fg: Color)
 
@@ -442,6 +442,8 @@ fun OnRoadTag(
         TagStyle.Warning -> TagColors(OnRoadColors.WarningSoft, OnRoadColors.Warning, OnRoadColors.Warning)
         TagStyle.PrimaryOutline, TagStyle.PrimarySoft, TagStyle.SlatePrimary -> primary
         TagStyle.PrimaryFilled -> TagColors(OnRoadColors.Primary, null, Color.White)
+        // 회색 카드가 아닌 흰 카드 위 분류 태그 (교육 · 자격증)
+        TagStyle.White -> TagColors(Color.White, OnRoadColors.BorderChip, OnRoadColors.TextSecondary)
     }
     val shape = OnRoadShapes.Tag
     // 같은 태그의 상태가 바뀌면 (챙김 등) 색이 툭 바뀌지 않고 부드럽게 넘어간다

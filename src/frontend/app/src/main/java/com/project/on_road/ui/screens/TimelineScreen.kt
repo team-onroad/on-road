@@ -227,13 +227,19 @@ fun ColumnScope.TimelineBody(
     }
 
     val today = LocalDate.now()
-    @Suppress("UNUSED_VARIABLE") val careerVersion = com.project.on_road.data.CareerPlan.version
-    @Suppress("UNUSED_VARIABLE") val goalVersion = vm.goalVersion
-    val all = vm.plan(today).filter { pick.keeps(it) }
-    val auto = vm.autoDone()
+    val careerVersion = com.project.on_road.data.CareerPlan.version
+    val goalVersion = vm.goalVersion
+    // 전체 일정 계산은 무거우니 날짜 · 내 일정 · 진로 할 일 · 로드맵이 바뀔 때만 다시 한다 (필터 · 펼치기로는 다시 안 함)
+    val pd = com.project.on_road.data.PlanData
+    val session = com.project.on_road.data.AppContainer.session
+    val planned = remember(today, careerVersion, goalVersion, pd.roadmap, pd.policies, pd.region, pd.weak, session.leaveDate, session.status, session.workStatus) {
+        vm.plan(today)
+    }
+    val all = remember(planned, pick) { planned.filter { pick.keeps(it) } }
+    val auto = remember(planned) { vm.autoDone() }
     // 오래 지난 일은 놓친 일에 쌓지 않고 지난 일로 넘긴다
-    val stale = all.filter { it.date.isBefore(today.minusDays(TimelinePlanner.MISSED_DAYS.toLong())) }
-    val closed = all.filter { it.id in vm.done || it.id in vm.na || it.id in auto || it in stale }
+    val staleBefore = today.minusDays(TimelinePlanner.MISSED_DAYS.toLong())
+    val closed = all.filter { it.id in vm.done || it.id in vm.na || it.id in auto || it.date.isBefore(staleBefore) }
     val open = all - closed.toSet()
     val missed = open.filter { it.date.isBefore(today) }
     val thisWeek = open.filter { !it.date.isBefore(today) && !it.date.isAfter(today.plusDays(7)) }
@@ -755,11 +761,11 @@ private fun CashCard(r: com.project.on_road.data.PolicyRoadmap) {
             )
             val sub = listOfNotNull(
                 if (r.monthlyWon > 0 && r.onceWon > 0) "한 번에 받는 돈 최대 ${wonText(r.onceWon)}" else null,
-                if (others.isNotEmpty()) "그 밖에 ${others.joinToString(" · ")} 지원" else null,
+                if (others.isNotEmpty()) "그 밖에 ${others.joinToString(", ")} 지원" else null,
             )
             if (sub.isNotEmpty()) {
                 Spacer(Modifier.height(4.dp))
-                Text(sub.joinToString(" · "), style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+                Text(sub.joinToString(", "), style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
             }
         }
     }

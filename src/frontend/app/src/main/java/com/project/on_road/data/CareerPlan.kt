@@ -58,6 +58,9 @@ object CareerPlan {
 
     fun hasExam(id: String): Boolean { sync(); return exams.any { it.id == id } }
 
+    /** 일정에 담은 시험 (마감 알림) */
+    fun savedExams(): List<SavedExam> { sync(); return exams }
+
     /** 시험 회차를 일정에 넣거나 뺀다. 날짜는 아직 오지 않은 첫 일정(이미 시작했으면 오늘) */
     fun toggleExam(round: ExamRound, today: LocalDate = LocalDate.now()) {
         sync()
@@ -73,6 +76,7 @@ object CareerPlan {
             exams.forEach { e -> a.put(JSONObject().put("id", e.id).put("title", e.title).put("detail", e.detail).put("date", e.date.toString())) }
         }.toString())?.apply()
         version++
+        com.project.on_road.notification.DeadlineReminder.reschedule()
     }
 
     /** 일정에 넣은 방향. 없으면 null */

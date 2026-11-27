@@ -8,9 +8,10 @@ internal object FakeRecords {
 }
 
 /** 화면 확인용 가짜 AI 코치. 규칙과 템플릿으로 동작하며, 실제 AI 연결 시 RemoteCoachApi로 교체한다. */
-class FakeCoachApi : CoachApi {
+/** simulate: 가짜 모드에서 서버를 기다리는 척하는 시간. 실제 서버 모드에서 앱 안 계산(흥미 탐색 · 직업)으로 쓸 때는 끈다 */
+class FakeCoachApi(private val simulate: Boolean = true) : CoachApi {
 
-    private suspend fun latency(ms: Long = 600) = delay(ms)
+    private suspend fun latency(ms: Long = 600) { if (simulate) delay(ms) }
 
     // ───────────── 흥미 탐색 ─────────────
 

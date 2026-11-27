@@ -194,9 +194,9 @@ private fun RecommendRow(s: RoleplayScenario, reason: String, onStart: () -> Uni
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("추천 · $reason", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("추천 · $reason", style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
                 Spacer(Modifier.height(2.dp))
-                Text(s.title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(s.title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
             }
             Spacer(Modifier.width(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -232,8 +232,6 @@ private fun ScenarioRow(s: RoleplayScenario, tries: List<com.project.on_road.dat
                 s.setting,
                 style = OnRoadType.Caption2,
                 color = OnRoadColors.TextTertiary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             val last = tries.firstOrNull()
@@ -262,9 +260,9 @@ private fun RecommendCard(s: RoleplayScenario, reason: String, onStart: () -> Un
     ) {
         Text("이번에 해 볼 연습 · $reason", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
         Spacer(Modifier.height(4.dp))
-        Text(s.title, style = OnRoadType.Title3, color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(s.title, style = OnRoadType.Title3, color = OnRoadColors.TextPrimary)
         Spacer(Modifier.height(2.dp))
-        Text(s.goal, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(s.goal, style = OnRoadType.Caption, color = OnRoadColors.TextSecondary)
         Spacer(Modifier.height(12.dp))
         PrimaryPill("연습 시작", onStart)
     }
@@ -894,7 +892,7 @@ private fun Briefing(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(scenario.setting, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(scenario.setting, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
                             Spacer(Modifier.height(2.dp))
                             Text(scenario.goal, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
                         }
@@ -985,8 +983,6 @@ private fun SituationBar(setting: String, goal: String, checks: List<RoleplayChe
                 goal,
                 style = OnRoadType.Body2.copy(fontWeight = FontWeight.Bold),
                 color = OnRoadColors.TextPrimary,
-                maxLines = if (open) 3 else 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             if (checks.isNotEmpty()) {
@@ -1384,7 +1380,7 @@ private fun CaptionLine(partner: String, text: String, mine: Boolean, live: Bool
         }
     } else {
         Column(Modifier.fillMaxWidth()) {
-            Text(partner, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(partner, style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextTertiary)
             Spacer(Modifier.height(6.dp))
             Text(text, style = CAPTION_TEXT, color = OnRoadColors.TextPrimary, modifier = Modifier.padding(end = 40.dp))
         }
@@ -1782,7 +1778,7 @@ private fun NextLine(label: String, onClick: () -> Unit) {
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(label, style = OnRoadType.Body2.copy(fontWeight = FontWeight.Medium), color = OnRoadColors.TextPrimary, modifier = Modifier.weight(1f))
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(20.dp))
         }
     }
