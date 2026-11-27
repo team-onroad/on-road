@@ -43,7 +43,13 @@ import com.project.on_road.ui.theme.*
 
 /** 설정 */
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Unit = {}, onOpenConditions: () -> Unit = {}) {
+fun SettingsScreen(
+    onBack: () -> Unit,
+    onReset: () -> Unit,
+    onSwitched: () -> Unit = {},
+    onOpenConditions: () -> Unit = {},
+    onOpenCredentials: () -> Unit = {},
+) {
     var confirmReset by remember { mutableStateOf(false) }
     var confirmWipe by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
@@ -158,6 +164,7 @@ fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit, onSwitched: () -> Un
                 "나의 자립 조건",
                 p?.let { listOfNotNull(it.region, it.district).joinToString(" ") + ", " + it.status.label } ?: "",
             ) { onOpenConditions() }
+            SettingRow("교육 · 자격증", "들은 교육과 딴 자격증 (신청 일정 · 이력서에 반영)") { onOpenCredentials() }
         }
 
         // ── 알림 · 음성 ──

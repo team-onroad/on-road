@@ -80,7 +80,8 @@ object RoadmapTimeline {
         roadmap ?: return emptyList()
         val out = mutableListOf<PlanTask>()
         roadmap.stages.forEach { stage ->
-            val items = stage.items.filter { it.policyId !in skip }
+            // 받고 있는 정책은 새로 신청할 일정이 아니다
+            val items = stage.items.filter { it.policyId !in skip && !it.receiving }
             if (items.isEmpty()) return@forEach
             val fallback = if (stage.stage == "now") today else (leaveDate ?: today)
             fun single(i: RoadmapItem, label: String) = PlanTask(
@@ -88,7 +89,12 @@ object RoadmapTimeline {
                 offsetDays = null,
                 date = i.applyFrom ?: fallback,
                 title = i.name,
-                description = listOfNotNull(if (i.eligibility == "needs_check") "조건 확인 필요" else null, i.benefit, i.agency).joinToString(" · "),
+                description = listOfNotNull(
+                    if (i.eligibility == "needs_check") "조건 확인 필요" else null,
+                    i.education?.takeIf { !it.done }?.let { "${it.name} 먼저" },
+                    i.benefit,
+                    i.agency,
+                ).joinToString(" · "),
                 actions = listOf(PlanAction("정책 보기", PlanGo.Policy(i.policyId))),
                 kind = PlanKind.POLICY,
                 label = label,
@@ -110,6 +116,25 @@ object RoadmapTimeline {
                 )
             }
         }
+        // 들어야 받는 의무교육 (3.37): 아직 안 들었으면 신청보다 먼저 할 일로 한 줄 (같은 교육은 한 번만)
+        roadmap.stages.flatMap { it.items }
+            .filter { it.policyId !in skip && !it.receiving && it.education?.done == false }
+            .groupBy { it.education!!.code }
+            .forEach { (code, items) ->
+                val e = items.first().education!!
+                val first = items.minByOrNull { it.applyFrom ?: today }!!
+                out += PlanTask(
+                    id = "rm-edu-$code",
+                    offsetDays = null,
+                    date = minOf(today, first.applyFrom ?: today),
+                    title = "${e.name} 듣기",
+                    description = e.note,
+                    actions = listOf(PlanAction("정책 보기", PlanGo.Policy(first.policyId))),
+                    kind = PlanKind.POLICY,
+                    label = "먼저 할 일",
+                    fromRoadmap = true,
+                )
+            }
         return out
     }
 }
