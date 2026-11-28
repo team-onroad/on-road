@@ -363,7 +363,7 @@ def test_prefetch_masks_personal_info_like_search(api, db_session, llm, rag):
     prefetched = []
     rag.prefetch = prefetched.append
     llm.intent = "policy"
-    _chat(api, user.id, message="010-1234-5678 로 연락받는 퇴소 청년 지원 있어?")
+    _chat(api, user.id, message="010-1234-5678 로 연락받는 퇴소 청년이 받는 돈 있어?")
     assert prefetched and "010-1234-5678" not in prefetched[0]
     assert rag.calls[0]["question"] == prefetched[0]  # 검색에 쓴 문장과 같아 임베딩을 다시 쓴다
 
