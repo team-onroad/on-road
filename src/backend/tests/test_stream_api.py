@@ -16,6 +16,15 @@ from tests.test_search_api import rag  # noqa: F401  (fixture)
 OPENING = {"role": "assistant", "content": "다음 분 오세요. 무슨 일로 오셨어요?"}
 
 
+def _content(res) -> list[tuple[str, dict]]:
+    """지금 하는 일(status)을 뺀 이벤트"""
+    return [e for e in _events(res) if e[0] != "status"]
+
+
+def _stages(res) -> list[str]:
+    return [d["stage"] for n, d in _events(res) if n == "status"]
+
+
 def _events(res) -> list[tuple[str, dict]]:
     """SSE 본문 → [(이벤트 이름, data JSON)]"""
     out = []
@@ -97,7 +106,7 @@ def test_counsel_streams_sentences_then_done(api, db_session, llm, rag):
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("text/event-stream")
     assert "gzip" not in res.headers.get("content-encoding", "")
-    ev = _events(res)
+    ev = _content(res)
     assert ev[:2] == [("delta", {"text": "첫 문장이에요."}), ("delta", {"text": "둘째 문장이에요."})]
     name, done = ev[2]
     assert name == "done" and len(ev) == 3
@@ -112,7 +121,7 @@ def test_counsel_streams_sentences_then_done(api, db_session, llm, rag):
 def test_counsel_replace_when_unsafe(api, db_session, llm, rag):
     user = make_user(db_session)
     llm.counsel_events = [{"delta": "괜찮아요."}, {"final": "고정 안내", "replace": True}]
-    ev = _events(_chat(api, user.id))
+    ev = _content(_chat(api, user.id))
     assert ev[-1][0] == "done"
     assert ev[-1][1]["message"] == "고정 안내" and ev[-1][1]["replace"] is True
 
@@ -120,7 +129,7 @@ def test_counsel_replace_when_unsafe(api, db_session, llm, rag):
 def test_counsel_falls_back_without_stream(api, db_session, llm, rag):
     user = make_user(db_session)
     llm.counsel_events = None
-    ev = _events(_chat(api, user.id))
+    ev = _content(_chat(api, user.id))
     assert ev == [
         ("delta", {"text": "한 번에 온 답"}),
         ("done", {"type": "counsel", "message": "한 번에 온 답", "search": None, "contacts": [], "handoff": None,
@@ -131,7 +140,7 @@ def test_counsel_falls_back_without_stream(api, db_session, llm, rag):
 def test_counsel_error_mid_stream(api, db_session, llm, rag):
     user = make_user(db_session)
     llm.fail_after = 1
-    ev = _events(_chat(api, user.id))
+    ev = _content(_chat(api, user.id))
     assert ev[0] == ("delta", {"text": "첫 문장이에요."})
     assert ev[-1] == ("error", {"error": {"code": "AI_UNAVAILABLE", "message": ev[-1][1]["error"]["message"]}})
     assert len(ev) == 2
@@ -140,13 +149,13 @@ def test_counsel_error_mid_stream(api, db_session, llm, rag):
 def test_counsel_missing_final_is_error(api, db_session, llm, rag):
     user = make_user(db_session)
     llm.counsel_events = [{"delta": "끝이 없어요."}]
-    ev = _events(_chat(api, user.id))
+    ev = _content(_chat(api, user.id))
     assert ev[-1][0] == "error"
 
 
 def test_crisis_is_single_done(api, db_session, llm, rag):
     user = make_user(db_session)
-    ev = _events(_chat(api, user.id, message="죽고 싶어"))
+    ev = _content(_chat(api, user.id, message="죽고 싶어"))
     assert len(ev) == 1 and ev[0][0] == "done"
     assert ev[0][1]["type"] == "crisis" and ev[0][1]["message"] == CRISIS_MESSAGE
     assert llm.calls == []
@@ -156,7 +165,7 @@ def test_policy_question_is_single_done_without_ai_routing(api, db_session, llm,
     user = make_user(db_session)
     make_policy(db_session, policy_key="P001", name="자립수당")
     rag.answer_with(("P001", "근거"))
-    ev = _events(_chat(api, user.id, message="자립수당 신청 자격이 궁금해요"))
+    ev = _content(_chat(api, user.id, message="자립수당 신청 자격이 궁금해요"))
     assert len(ev) == 1 and ev[0][0] == "done"
     assert ev[0][1]["type"] == "policy" and ev[0][1]["search"] is not None
     assert "classify_intent" not in llm.calls and "counsel_stream" not in llm.calls
@@ -177,9 +186,56 @@ def test_validation_is_http_422(api, db_session, llm, rag):
 def test_mock_llm_streams(api, db_session, rag):
     """LLM_MODE=mock: 목 함수도 문장마다 나눠 보낸다"""
     user = make_user(db_session)
-    ev = _events(_chat(api, user.id))
+    ev = _content(_chat(api, user.id))
     assert [n for n, _ in ev].count("delta") == len(llm_mock._split(llm_mock.COUNSEL_MESSAGE))
     assert ev[-1][1]["message"] == llm_mock.COUNSEL_MESSAGE
+
+
+def test_status_before_answer(api, db_session, llm, rag):
+    """'답변 준비 중' 대신 지금 하는 일을 먼저 보낸다"""
+    user = make_user(db_session)
+    make_policy(db_session, policy_key="P001", name="자립수당")
+    rag.answer_with(("P001", "근거"))
+    res = _chat(api, user.id, message="자립수당 신청 자격이 궁금해요")
+    ev = _events(res)
+    assert ev[0] == ("status", {"stage": "search", "text": "관련 정책을 찾는 중"})
+    assert ev[-1][0] == "done"
+    stages = [d["stage"] for n, d in ev if n == "status"]
+    assert stages[0] == "search" and stages[-1] == "check"
+
+    counsel = _events(_chat(api, user.id))
+    assert counsel[0] == ("status", {"stage": "counsel", "text": "답을 생각하는 중"})
+
+
+def test_status_route_when_ai_decides(api, db_session, llm, rag):
+    user = make_user(db_session)
+    ev = _events(_chat(api, user.id, message="내일 뭐 하지"))
+    assert ev[0] == ("status", {"stage": "route", "text": "질문을 살펴보는 중"})
+
+
+def test_rag_error_is_stream_error(api, db_session, llm, rag):
+    user = make_user(db_session)
+    make_policy(db_session, policy_key="P001", name="자립수당")
+    rag.error = RuntimeError("검색 서버 꺼짐")
+    ev = _events(_chat(api, user.id, message="자립수당 신청 자격이 궁금해요"))
+    assert ev[0][0] == "status"
+    assert ev[-1][0] == "error" and ev[-1][1]["error"]["code"] == "RAG_UNAVAILABLE"
+
+
+def test_chip_questions_skip_ai_routing():
+    """상담 질문 칩은 모두 규칙으로 바로 정책 검색 (AI 분류 기다리지 않게)"""
+    from app.services.chat import _quick_intent
+
+    chips = [
+        "자립수당 받으면 생계급여 줄어드나요?", "서리풀과 자립수당 중복 수혜되나요?", "전입 1년 미만도 서리풀 지원되나요?",
+        "동생 디딤씨앗 매칭액은 얼마인가요?", "서리풀 교육비 등록금은 얼마인가요?", "임대주택은 미혼만 신청할 수 있나요?",
+        "자립지원전담기관은 무엇을 돕나요?", "의료비 지원 범위는 어디까지인가요?", "학원비도 교육비로 지원되나요?",
+        "생활보조수당 소득 기준은 얼마인가요?", "전세임대 주택은 직접 구하나요?", "디딤씨앗통장 추가 적립 한도는?",
+        "자립정착금은 분할 지급인가요?", "보호종료 전 사전 신청 제도는?", "보호연장 시 자립수당도 받나요?",
+        "대학 진학 시 등록금 지원은?", "보호종료확인서 발급처는 어디인가요?", "임대주택은 최장 몇 년 거주하나요?",
+        "재보호 중에도 자립수당이 나오나요?", "자립수당 지급일은 언제인가요?", "서리풀과 자립수당 중복 수혜되나요?",
+    ]
+    assert [q for q in chips if _quick_intent(q, [{"role": "user", "content": "앞 질문"}]) != "policy"] == []
 
 
 # ------------------------------------------------------------------ 실전 연습
