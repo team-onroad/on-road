@@ -306,3 +306,43 @@ def test_quick_intent_follow_up_goes_to_ai():
 ])
 def test_quick_route(msg, expected):
     assert _quick_route(msg) == expected
+
+
+def test_route_thread_uses_own_session(api, db_session, llm, rag, monkeypatch):
+    """정책 검색 스레드는 요청 세션을 쓰지 않는다 (앱이 멈추면 요청 세션이 먼저 닫혀도 부딪히지 않게)"""
+    from app.services import chat as chat_service
+
+    user = make_user(db_session)
+    make_policy(db_session, policy_key="P001", name="자립수당")
+    rag.answer_with(("P001", "근거"))
+    seen = {}
+    real = chat_service._route
+
+    def spy(db, *args, **kwargs):
+        seen["db"] = db
+        return real(db, *args, **kwargs)
+
+    request_sessions = []
+    real_stream = chat_service._stream
+
+    def stream_spy(db, *args, **kwargs):
+        request_sessions.append(db)
+        return real_stream(db, *args, **kwargs)
+
+    monkeypatch.setattr(chat_service, "_route", spy)
+    monkeypatch.setattr(chat_service, "_stream", stream_spy)
+    ev = _content(_chat(api, user.id, message="자립수당 신청 자격이 궁금해요"))
+    assert ev[-1][0] == "done" and ev[-1][1]["type"] == "policy"
+    assert seen["db"] is not request_sessions[0]
+
+
+
+def test_pointing_follow_up_waits_for_ai():
+    """앞 대화를 가리키는 질문은 정책 낱말이 있어도 AI 가 앞 대화를 보고 판단한다"""
+    from app.services.chat import _quick_intent
+
+    history = [{"role": "user", "content": "서리풀 생활보조수당 알려줘"}]
+    for q in ("그거 지원 얼마야?", "그건 소득 기준이 어떻게 돼요?", "거기도 지원되나요?", "이거 정착금이랑 같이 받아요?"):
+        assert _quick_intent(q, history) is None, q
+    # 대화 처음이면 가리킬 앞 말이 없으니 그대로 정책 검색
+    assert _quick_intent("그거 지원 얼마야?", []) == "policy"
