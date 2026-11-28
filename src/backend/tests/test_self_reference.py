@@ -52,7 +52,7 @@ def test_interview_fills_my_name(api, db_session, doc_llm):
     assert _say(api, user, doc_id)["question"]["field_id"] == "name"
     r = _say(api, user, doc_id, "내 이름으로 적어줘")
     assert (r["field"]["value"], r["field"]["is_completed"]) == ("김민지", True)
-    assert r["message"] == "'김민지'(으)로 적었어요."
+    assert r["message"] == "'김민지'로 적었어요."
 
 
 @pytest.mark.parametrize("value, ok", [

@@ -283,7 +283,7 @@ def test_renamed_name_field_and_card(api, db_session, doc_llm):
 
     r = _say(api, user, doc_id, "나 개명했는데 정서현으로 해줘")
     assert (r["field"]["field_id"], r["field"]["value"]) == ("name", "정서현")  # 문장 대신 새 이름만
-    assert r["message"] == "'정서현'(으)로 적었어요."
+    assert r["message"] == "'정서현'으로 적었어요."
     assert [(c["field"], c["current"], c["proposed"]) for c in r["profile_changes"]] == [("name", "김민지", "정서현")]
 
 
@@ -369,6 +369,21 @@ def test_application_date_is_today(api, db_session, doc_llm, forms_dir, clock):
     today = clock.today.strftime("%Y.%m.%d")
     q = _say(api, user, doc_id)["question"]
     assert q["awaiting_confirm"] is True and q["current_value"] == today
-    assert q["text"].startswith(f"'신청 날짜'는 '{today}'(으)로 할까요?")
+    from app.services.interview import _ro
+    assert q["text"].startswith(f"'신청 날짜'는 '{today}'{_ro(today)} 할까요?")
     r = _say(api, user, doc_id, "네")
     assert (r["field"]["value"], r["field"]["is_completed"]) == (today, True)
+
+
+def test_question_wording_and_yes_no():
+    from app.services import interview as iv
+
+    assert iv.display_name({"label": "성 명"}) == "성명"
+    assert iv.display_name({"label": "E-mail"}) == "이메일"
+    assert iv.display_name({"label": "전화 :"}) == "전화"
+    assert iv._josa("이메일", "을", "를") == "을" and iv._josa("E-mail", "을", "를") == "을"
+    assert (iv._ro("정서현"), iv._ro("김민지"), iv._ro("서울")) == ("으로", "로", "로")
+    assert iv.yes_no_option(["네", "아니오"], "네") == "네"
+    assert iv.yes_no_option(["예", "아니오"], "응") == "예"
+    assert iv.yes_no_option(["있음", "없음"], "없어요") == "없음"
+    assert iv.yes_no_option(["서면", "전자우편"], "네") is None

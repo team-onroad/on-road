@@ -46,12 +46,68 @@ def _flat(text: str) -> str:
     return "".join(text.split()).lower().rstrip(".!~")
 
 
-def _josa(word: str, with_final: str, without_final: str) -> str:
-    """받침 있으면 with_final (을·은·이), 없으면 without_final (를·는·가)"""
+# 영어 · 숫자로 끝날 때 읽는 소리의 받침 (mail → 메일: ㄹ 받침, 0 → 영: 받침)
+_LATIN_FINAL = set("bcdgklmnpqt")
+_DIGIT_FINAL = set("013678")
+
+
+def _final(word: str) -> int | None:
+    """끝 글자 받침 번호 (0 = 받침 없음). 알 수 없으면 None"""
     last = word.strip().rstrip(" *:)")[-1:] if word.strip() else ""
     if "가" <= last <= "힣":
-        return with_final if (ord(last) - 0xAC00) % 28 else without_final
-    return f"{with_final}({without_final})"
+        return (ord(last) - 0xAC00) % 28
+    if last.isdigit():
+        return 1 if last in _DIGIT_FINAL else 0
+    if last.isalpha() and last.isascii():
+        low = last.lower()
+        return 8 if low == "l" else (1 if low in _LATIN_FINAL else 0)
+    return None
+
+
+def _josa(word: str, with_final: str, without_final: str) -> str:
+    """받침 있으면 with_final (을·은·이), 없으면 without_final (를·는·가)"""
+    f = _final(word)
+    if f is None:
+        return f"{with_final}({without_final})"
+    return with_final if f else without_final
+
+
+def _ro(word: str) -> str:
+    """'으로' · '로': 받침이 없거나 ㄹ 받침이면 '로'"""
+    f = _final(word)
+    if f is None:
+        return "(으)로"
+    return "로" if f in (0, 8) else "으로"
+
+
+# 양식 칸 이름을 말로 읽기 좋게 ("성 명" → 성명, "전화 :" → 전화, "E-mail" → 이메일)
+_SPACED_RE = re.compile(r"^(?:[가-힣] ){1,3}[가-힣]$")
+
+
+def display_name(spec: dict) -> str:
+    name = (spec.get("easy_label") or spec["label"]).strip().rstrip(":*").strip()
+    if _SPACED_RE.match(name):
+        name = name.replace(" ", "")
+    return re.sub(r"(?i)e-?mail", "이메일", name)
+
+
+YES_WORDS = ("네", "예", "응", "ㅇㅇ", "맞아", "맞아요", "맞습니다", "그래", "그래요", "있어", "있어요", "있음", "해당", "동의", "동의해요", "동의합니다")
+NO_WORDS = ("아니", "아니요", "아니오", "아뇨", "아니에요", "아니야", "ㄴㄴ", "없어", "없어요", "없음", "해당없음", "동의안해", "동의안함", "동의하지않음")
+_YES_OPTIONS = ("네", "예", "있음", "유", "해당", "동의함", "동의")
+_NO_OPTIONS = ("아니오", "아니요", "없음", "무", "해당없음", "동의하지않음", "동의안함")
+
+
+def yes_no_option(options: list[str] | None, flat: str) -> str | None:
+    """네 · 아니오처럼 두 갈래 선택지에 '네' · '응' · '없어요' 로 답하면 맞는 선택지"""
+    if not options:
+        return None
+    flat = flat.rstrip(".!~?")
+    for words, picks in ((YES_WORDS, _YES_OPTIONS), (NO_WORDS, _NO_OPTIONS)):
+        if flat in words:
+            hit = next((o for o in options if _flat(o) in picks), None)
+            if hit:
+                return hit
+    return None
 
 
 def _state(doc: Document) -> dict:
@@ -151,7 +207,7 @@ def _todo(rows: list[DocumentField], specs: dict, skipped: list[str]) -> list[st
 
 
 def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str | None = None) -> Question:
-    name = "신청 날짜" if _is_apply_date(row.field_id, spec) else (spec.get("easy_label") or spec["label"])
+    name = "신청 날짜" if _is_apply_date(row.field_id, spec) else display_name(spec)
     value = w._value(row.segments).strip()
     can_skip = spec.get("required") is not True
     options = spec.get("options")
@@ -168,7 +224,7 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
         text = f"이렇게 써 봤어요.\n{value}\n괜찮으면 '좋아', 고칠 점이 있으면 말해 주세요."
         confirm = True
     elif value and spec.get("profile_key") != "region":
-        text = f"'{name}'{_josa(name, '은', '는')} '{value}'(으)로 할까요? 맞으면 '네', 아니면 바르게 알려 주세요."
+        text = f"'{name}'{_josa(name, '은', '는')} '{value}'{_ro(value)} 할까요? 맞으면 '네', 아니면 바르게 알려 주세요."
         confirm = True
     else:
         confirm = False
@@ -177,6 +233,11 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
             # 항목 전문은 items 로 (앱이 항목마다 체크박스로 보여 준다)
             text = (f"유의사항 {len(box.get('items') or [])}가지를 끝까지 읽고 하나씩 체크해 주세요. "
                     "다 체크하면 '모두 확인했어요'를 눌러 주세요.")
+        elif options and _flat(name) in (_flat("/".join(options)), _flat(", ".join(options))):
+            # 칸 이름이 선택지를 이어 붙인 것 ("자립수당 지급/의료비 지원"): 이름을 다시 말하지 않는다
+            text = f"다음 중에서 골라 주세요: {', '.join(options)}"
+        elif options and name.endswith("여부") and yes_no_option(options, "네"):
+            text = f"{name[:-2].strip()}인가요? '{yes_no_option(options, '네')}' 또는 '{yes_no_option(options, '아니')}'로 답해 주세요."
         elif options:
             text = f"'{name}'에서 골라 주세요: {', '.join(options)}"
         elif spec.get("essay"):
@@ -187,9 +248,20 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
             text = f"'{name}'{_josa(name, '을', '를')} 알려 주세요."
             example = "(예: 2026.10.27)"
         else:
-            text = f"'{name}'{_josa(name, '을', '를')} 알려 주세요."
-            if spec.get("guide"):
-                text += f" {spec['guide']}"
+            guide = (spec.get("guide") or "").strip()
+            at = guide.find(name) if len(name) >= 2 else -1
+            if at >= 0:
+                # 안내 문장에 칸 이름이 들어 있으면 한 문장으로 ("본인 '주소'를 적어 주세요.", "본인 '전화번호'를 …")
+                end = at + len(name)
+                while end < len(guide) and not guide[end].isspace() and guide[end] not in ".,(":
+                    end += 1
+                word = guide[at:end]
+                stem = re.sub(r"(을|를|은|는|이|가|의|로|으로|에)$", "", word) if len(word) > len(name) else word
+                text = f"{guide[:at]}'{stem}'{guide[at + len(stem):]}"
+            else:
+                text = f"'{name}'{_josa(name, '을', '를')} 알려 주세요."
+                if guide:
+                    text += f" {guide}"
         if value:  # 시/도만 미리 채운 주소
             text += f" (지금은 '{value}'만 있어요.)"
     if can_skip and not confirm:
@@ -621,6 +693,16 @@ def _interview(
         _save(db, doc, state)
         return _response(db, user, doc, state, message="적었어요.", field_row=row)
 
+    # 네 · 아니오 칸에 "네" · "응" · "없어요": 확인 대답이 아니라 그 선택지를 고른 것
+    picked = yes_no_option(spec.get("options"), flat)
+    if picked is not None and not (spec.get("box") or {}).get("how") == "confirm":
+        if current in state["skipped"]:
+            state["skipped"].remove(current)
+        _complete(row, [{"text": picked, "source": "user"}])
+        state["pending"] = None
+        _save(db, doc, state)
+        return _response(db, user, doc, state, message=f"'{picked}'{_ro(picked)} 적었어요.", field_row=row)
+
     # 확인하려는데 [빈칸]이 남은 초안: 완료하지 않고 빈칸 내용을 묻는다 (빈칸째 제출되지 않게)
     blanks = _BLANK_RE.findall(value)
     if value and flat in CONFIRM_WORDS and blanks:
@@ -637,14 +719,14 @@ def _interview(
 
     # 물어본 칸에 값이 없는데 "네"만 온 경우 → 값으로 넣지 않고 다시 묻는다
     if (not value or spec.get("profile_key") == "region") and not pending and flat in CONFIRM_WORDS and not (spec.get("box") or {}).get("how") == "confirm":
-        name = spec.get("easy_label") or spec["label"]
+        name = display_name(spec)
         return _response(db, user, doc, state, message=f"'{name}'에 쓸 내용을 알려 주세요.")
 
     # 답이 아닌 말 ("아니", "음", "ㅋㅋ", "막 아니"): 칸에 적지 않고 다시 묻는다
     # (선택지 칸은 선택지를 다시 보여 주는 안내가 따로 있다)
     if (not spec.get("options") and flat not in NOT_APPLICABLE_WORDS
             and not any(flat.startswith(x) for x in LATER_WORDS) and answer_extract.is_noise(msg)):
-        name = spec.get("easy_label") or spec["label"]
+        name = display_name(spec)
         if answer_extract.is_no(msg) and pending:
             text = "어떻게 고칠지 말해 주세요. (예: 더 짧게, 등록금 이야기 넣어 줘)"
         elif answer_extract.is_no(msg) and value:
@@ -656,7 +738,7 @@ def _interview(
 
     # 칸과 상관없는 잡담 ("나 배고파", "졸려"): 적지 않고, LLM 도 부르지 않고 같은 칸을 다시 묻는다
     if not spec.get("options") and answer_extract.is_small_talk(msg):
-        name = spec.get("easy_label") or spec["label"]
+        name = display_name(spec)
         _save(db, doc, state)
         return _response(db, user, doc, state,
                          message=f"쓰던 내용은 저장돼 있어요. 이어서 '{name}'에 쓸 내용을 알려 주세요.")
@@ -692,7 +774,7 @@ def _interview(
             _complete(row, [{"text": mine, "source": "profile"}])
             state["pending"] = None
             _save(db, doc, state)
-            return _response(db, user, doc, state, message=f"'{mine}'(으)로 적었어요.", field_row=row)
+            return _response(db, user, doc, state, message=f"'{mine}'{_ro(mine)} 적었어요.", field_row=row)
 
     # 서술형인데 쓸 내용 없이 "모르겠어요" · "알아서 써 줘": 지어내지 않게 초안 대신 첫 질문으로 이끈다
     if spec.get("essay") and _no_content(msg):
@@ -723,13 +805,13 @@ def _interview(
         _complete(row, [{"text": normalized, "source": "user"}])
         state["pending"] = None
         _save(db, doc, state)
-        return _response(db, user, doc, state, message=f"'{normalized}'(으)로 적었어요.", field_row=row)
+        return _response(db, user, doc, state, message=f"'{normalized}'{_ro(normalized)} 적었어요.", field_row=row)
     if free_text and kind == "text" and _talk_like(normalized):  # 말끝·부탁("~로 해 줘")을 떼고도 문장이면
         # 일반 칸(기관명·관계 등)에 대화 문장: AI 가 답만 뽑고 "이렇게 적을까요?"로 확인. 못 뽑으면 다시 묻는다
         field = {"label": spec["label"], "guide": spec.get("guide") or ""}
         out = call_llm("extract_answer", doc_llm.extract_answer, _check_extract, msg, field)
         if not out["answer"]:
-            name = spec.get("easy_label") or spec["label"]
+            name = display_name(spec)
             _save(db, doc, state)
             return _response(db, user, doc, state, message=f"'{name}'에 쓸 내용만 짧게 알려 주세요.")
         state["confirm_text"] = {"field": current, "text": answer_extract.strip_tail(out["answer"])}
