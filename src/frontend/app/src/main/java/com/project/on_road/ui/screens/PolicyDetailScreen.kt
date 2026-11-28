@@ -770,9 +770,9 @@ private enum class DocTab(val label: String) { Direct("직접"), Online("온라�
 @Composable
 private fun DocsSection(docs: List<RequiredDoc>) {
     if (docs.isEmpty()) return
-    // "구비서류 없음" · 주소만 적힌 줄처럼 서류가 아닌 것은 뺀다
+    // 서류가 아닌 줄(문의처 · 홈페이지 확인 · 방문 안내 · "서류 없음")은 빼고, 제목 줄은 '언제'로, 같은 서류는 한 번만 (DocClean)
     val views = remember(docs) {
-        docs.filterNot { d -> d.name.contains("http") || Regex("""^(구비\s*서류\s*)?없음""").containsMatchIn(d.name.trim()) }
+        com.project.on_road.data.DocClean.clean(docs.filterNot { d -> d.name.contains("http") })
             .map(DetailCalc::doc)
     }
     if (views.isEmpty()) return

@@ -4,7 +4,6 @@ import com.project.on_road.ui.theme.OnRoadMotion
 
 import com.project.on_road.ui.components.copyOnLongPress
 
-import com.project.on_road.ui.components.RevealText
 
 import androidx.compose.ui.semantics.semantics
 
@@ -51,6 +50,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -74,6 +74,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -853,7 +854,7 @@ private fun BotMessage(
                     )
                 } else {
                 // 새 답변은 글자가 흘러나오듯 · 길게 누르면 복사
-                RevealText(msg.text, animate = reveal, onDone = onRevealDone) { shown ->
+                FadeText(msg.text, animate = reveal, onDone = onRevealDone) { shown ->
                     BubbleText(
                         shown,
                         color = OnRoadColors.TextPrimary,
@@ -1080,10 +1081,12 @@ private fun PolicyAnswer(
         parts.body.joinToString("\n\n") { p ->
             // 문단 첫머리의 정책 이름은 굵게 (BubbleText 는 '…' 로 감싼 말을 굵게 쓴다)
             val name = parts.names.firstOrNull { p.startsWith(it) }
-            if (name != null) "'$name'" + p.removePrefix(name) else p
+            // 금액 · 나이 · 기간 · 소득 기준처럼 꼭 봐야 할 말만 굵게 (문단마다 몇 개만)
+            val rest = com.project.on_road.data.remote.AnswerFormat.emphasize(if (name != null) p.removePrefix(name) else p)
+            if (name != null) "'$name'$rest" else rest
         }
     }
-    RevealText(body, animate = reveal, onDone = onRevealDone) { shown ->
+    FadeText(body, animate = reveal, onDone = onRevealDone) { shown ->
         Column(Modifier.copyOnLongPress(fullText), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             shown.split("\n\n").filter { it.isNotBlank() }.forEach { p ->
                 BubbleText(
@@ -1219,6 +1222,26 @@ private fun ContactRow(line: HelpLine) {
     }
 }
 
+/**
+ * 새 답변을 글자 단위가 아니라 한 번에 부드럽게 (투명 → 선명, 살짝 위로) 보여 준다.
+ * 고민 상담처럼 문장이 이어서 오는 동안은 이미 보이는 글에 덧붙기만 하고, 글이 바뀔 때마다 onDone 을 알린다
+ * (흘러나오는 중에는 화면 쪽이 무시하고, 마지막 글이 오면 그때 끝난다)
+ */
+@Composable
+private fun FadeText(text: String, animate: Boolean, onDone: () -> Unit = {}, content: @Composable (String) -> Unit) {
+    val alpha = remember { androidx.compose.animation.core.Animatable(if (animate) 0f else 1f) }
+    LaunchedEffect(text, animate) {
+        if (animate && alpha.value < 1f) alpha.animateTo(1f, androidx.compose.animation.core.tween<Float>(400, easing = OnRoadMotion.Soft))
+        if (animate) onDone()
+    }
+    Box(
+        Modifier.graphicsLayer {
+            this.alpha = alpha.value
+            translationY = (1f - alpha.value) * 6.dp.toPx()
+        },
+    ) { content(text) }
+}
+
 @Composable
 private fun TypingBubble(status: String?) {
     // 지금 하는 일 (점 없이 글만): 글이 천천히 숨 쉬듯 옅어졌다 진해지고,
@@ -1228,7 +1251,7 @@ private fun TypingBubble(status: String?) {
         initialValue = 1f,
         targetValue = 0.45f,
         animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            androidx.compose.animation.core.tween(900),
+            androidx.compose.animation.core.tween<Float>(900),
             androidx.compose.animation.core.RepeatMode.Reverse,
         ),
         label = "chat-status-alpha",

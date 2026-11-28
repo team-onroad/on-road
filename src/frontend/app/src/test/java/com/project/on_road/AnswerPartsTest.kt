@@ -76,6 +76,21 @@ class AnswerPartsTest {
     }
 
     @Test
+    fun emphasizeKeyFactsOnly() {
+        assertEquals(
+            "서초구에서 '1년 이상' 거주 중인 청년에게 '월 30만 원'을 지원합니다.",
+            AnswerFormat.emphasize("서초구에서 1년 이상 거주 중인 청년에게 월 30만 원을 지원합니다."),
+        )
+        assertEquals("'만 18세 이상', '기준중위소득 50% 이하'", AnswerFormat.emphasize("만 18세 이상, 기준중위소득 50% 이하"))
+        assertEquals("'최대 1,000만 원'", AnswerFormat.emphasize("최대 1,000만 원"))
+        assertEquals("자립수당은 '매월 20일'에 지급됩니다.", AnswerFormat.emphasize("자립수당은 매월 20일에 지급됩니다."))
+        assertEquals("1. 원주시 거주자", AnswerFormat.emphasize("1. 원주시 거주자")) // 목록 번호는 금액이 아니다
+        // 숫자 없는 문장은 그대로, 많아도 3개까지
+        assertEquals("생활보조수당을 지원합니다.", AnswerFormat.emphasize("생활보조수당을 지원합니다."))
+        assertEquals(3, AnswerFormat.emphasize("1년 이상, 2년 이내, 3개월 이상, 5년 미만").count { it == '\'' } / 2)
+    }
+
+    @Test
     fun shortNames() {
         assertEquals("서리풀 생활보조수당 지원", AnswerFormat.shortName(life))
         assertEquals("자립수당", AnswerFormat.shortName("자립수당"))

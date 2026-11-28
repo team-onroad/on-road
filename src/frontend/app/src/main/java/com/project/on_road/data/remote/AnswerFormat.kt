@@ -199,4 +199,35 @@ object AnswerFormat {
         val loose = policyNames.withIndex().filter { (_, n) -> flat(n).contains(want) || want.contains(flat(shortName(n))) }
         return if (loose.size == 1) loose[0].index else -1
     }
+
+    /* ---------------- 답변 속 꼭 봐야 할 말 굵게 ---------------- */
+
+    /** 금액 · 지급일 · 나이 · 기간 · 소득 기준 (숫자가 있는 조건만, 문단마다 몇 개만) */
+    private val KEY_FACTS = listOf(
+        Regex("""기준\s*중위\s*소득\s*\d+\s*%(\s*(이하|미만))?"""),
+        Regex("""(매월|매달)\s*\d+\s*일"""), // 지급일
+        Regex("""((월|연|매월|최대|최소|1인당)\s*)?\d[\d,]*(\.\d+)?\s*(억|천만|백만|만|천)?\s*원"""),
+        Regex("""만\s*\d+\s*세(\s*(이상|이하|미만|초과|까지))?|\d+\s*세\s*(이상|이하|미만|초과|까지)"""),
+        Regex("""\d+\s*(년|개월)\s*(이상|이내|미만|이하|까지)"""),
+    )
+
+    /**
+     * 문단에서 꼭 봐야 할 말을 '…' 로 감싼다 (화면의 BubbleText 가 '…' 를 굵게 쓴다).
+     * 앞에서부터 겹치지 않게 max 개까지. 이미 따옴표가 있는 문단은 건드리지 않는다
+     */
+    fun emphasize(paragraph: String, max: Int = 3): String {
+        if ('\'' in paragraph) return paragraph
+        val ranges = KEY_FACTS.flatMap { r -> r.findAll(paragraph).map { it.range } }
+            .sortedBy { it.first }
+            .fold(mutableListOf<IntRange>()) { acc, r -> if (acc.none { it.last >= r.first && r.last >= it.first }) acc += r; acc }
+            .take(max)
+        if (ranges.isEmpty()) return paragraph
+        val sb = StringBuilder()
+        var last = 0
+        for (r in ranges) {
+            sb.append(paragraph, last, r.first).append('\'').append(paragraph.substring(r).trim()).append('\'')
+            last = r.last + 1
+        }
+        return sb.append(paragraph.substring(last)).toString()
+    }
 }
