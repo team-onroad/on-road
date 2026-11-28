@@ -18,7 +18,6 @@ import androidx.compose.animation.animateColorAsState
 import com.project.on_road.ui.components.tap
 import com.project.on_road.ui.components.dialogEnter
 import com.project.on_road.ui.components.reveal
-import com.project.on_road.ui.components.TypingDots
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,7 +47,10 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -139,6 +141,13 @@ private fun suggestContext(stage: UserStage): com.project.on_road.data.ChatSugge
 private fun startersFor(stage: UserStage): List<String> =
     com.project.on_road.data.ChatSuggestions.starters(suggestContext(stage))
 
+/** 서버가 지금 하는 일을 안 보낼 때 (예전 서버 · 가짜 모드) 시간에 따라 바꿔 보여 줄 말. (앞 말 다음 기다릴 ms, 말) */
+private val LOCAL_STEPS = listOf(
+    0L to "질문을 살펴보는 중",
+    1200L to "관련 정보를 찾는 중",
+    2500L to "답을 정리하는 중",
+)
+
 /** 질문 길이 (3.15 message 1~500자) */
 private const val MESSAGE_LIMIT = 500
 
@@ -228,6 +237,10 @@ class ChatViewModel : ViewModel() {
     fun revealDone(id: Long) {
         if (revealId == id && streamingId != id) revealId = null
     }
+    /** 지금 하는 일 ("관련 정책을 찾는 중"). 답 글이 보이기 시작하면 null */
+    var status by mutableStateOf<String?>(null)
+        private set
+
     /** 불러오지 못한 답변 id → 다시 보낼 질문 */
     val retryOf = mutableStateMapOf<Long, String>()
     private var job: kotlinx.coroutines.Job? = null
@@ -247,12 +260,26 @@ class ChatViewModel : ViewModel() {
     private fun ask(t: String) {
         job = viewModelScope.launch {
             sending = true
+            status = LOCAL_STEPS.first().second
+            // 서버가 지금 하는 일(status)을 보내면 그걸 쓰고, 안 보내는 예전 서버면 시간에 따라 바꾼다
+            var serverStatus = false
+            val steps = launch {
+                for ((wait, text) in LOCAL_STEPS.drop(1)) {
+                    kotlinx.coroutines.delay(wait)
+                    if (serverStatus || status == null) break
+                    status = text
+                }
+            }
             var failed = false
             // 고민 상담 답은 문장이 오는 대로 말풍선을 먼저 만들고 이어 붙인다 (첫 문장이 1초 안에 보인다)
             var liveId: Long? = null
             val history = messages.toList()
             val reply = runCatching {
-                AppContainer.chatApi.reply(AppContainer.session.userId.orEmpty(), history, t) { partial ->
+                AppContainer.chatApi.reply(
+                    AppContainer.session.userId.orEmpty(), history, t,
+                    onStatus = { text -> serverStatus = true; if (liveId == null) status = text },
+                    onPartial = { partial ->
+                    status = null
                     val id = liveId
                     if (id == null) {
                         val first = ChatMessage(nextId++, ChatRole.ASSISTANT, partial, kind = ChatKind.COUNSEL)
@@ -265,7 +292,8 @@ class ChatViewModel : ViewModel() {
                         val i = messages.indexOfFirst { it.id == id }
                         if (i >= 0) messages[i] = messages[i].copy(text = partial)
                     }
-                }
+                    },
+                )
             }.getOrElse {
                 if (it is kotlinx.coroutines.CancellationException) throw it
                 failed = true
@@ -284,6 +312,8 @@ class ChatViewModel : ViewModel() {
                 times[msg.id] = nowLabel()
                 if (!failed) revealId = msg.id
             }
+            steps.cancel()
+            status = null
             streamingId = null
             if (failed) retryOf[msg.id] = t
             sending = false
@@ -296,6 +326,7 @@ class ChatViewModel : ViewModel() {
         if (!sending) return
         job?.cancel()
         sending = false
+        status = null
         streamingId = null
         val msg = ChatMessage(nextId++, ChatRole.ASSISTANT, "답변을 멈췄어요. 궁금한 걸 다시 보내 주세요.", kind = ChatKind.LOCAL)
         messages.add(msg)
@@ -337,6 +368,8 @@ fun ChatScreen(
     val inputFocus = remember { FocusRequester() }
     var showHelp by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
+    // 개인정보 안내: 들어올 때마다 맨 위에 작은 상자로, X 로 닫는다
+    var privacyOpen by remember { mutableStateOf(true) }
 
     // 스크롤 규칙: 답의 '끝'이 아니라 '처음'에 맞춘다.
     // - 내가 보내면: 내 말과 입력 중 표시가 보이게 맨 아래로 한 번
@@ -392,6 +425,12 @@ fun ChatScreen(
             },
         )
         HelpStrip { showHelp = true }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = privacyOpen,
+            exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
+        ) {
+            PrivacyNotice(onClose = { privacyOpen = false })
+        }
         vm.resumedFrom?.let { day ->
             Row(
                 Modifier
@@ -455,7 +494,7 @@ fun ChatScreen(
                 }
                 }
             }
-            if (vm.sending && vm.streamingId == null) item(key = "typing") { Box(Modifier.animateItem().reveal()) { TypingBubble() } }
+            if (vm.sending && vm.streamingId == null) item(key = "typing") { Box(Modifier.animateItem().reveal()) { TypingBubble(vm.status) } }
             // 마지막 답 아래: 이야기한 분야로 이어서 해 볼 것 (위기 상담 중에는 띄우지 않는다)
             val lastBot = vm.messages.lastOrNull()?.takeIf { it.role != ChatRole.USER && it.kind != ChatKind.CRISIS }
             val lastQuestion = vm.messages.lastOrNull { it.role == ChatRole.USER }?.text
@@ -796,6 +835,16 @@ private fun BotMessage(
         Column(Modifier.fillMaxWidth()) {
             Spacer(Modifier.height(6.dp))
             Bubble {
+                // 정책 답변: 정책마다 한 문단 (이름은 짧게 · 굵게) + 출처 한 줄 + '내 조건으로 보면' 카드
+                val parts = remember(msg.text, msg.policies) {
+                    if (msg.kind == ChatKind.POLICY && !msg.needsCheck) {
+                        com.project.on_road.data.remote.AnswerFormat.parts(msg.text, msg.policies.map { it.name })
+                            .takeIf { it.body.isNotEmpty() }
+                    } else null
+                }
+                if (parts != null) {
+                    PolicyAnswer(parts, fullText = msg.text, reveal = reveal, onRevealDone = onRevealDone, policies = msg.policies, onOpenPolicy = onOpenPolicy)
+                } else {
                 // 새 답변은 글자가 흘러나오듯 · 길게 누르면 복사
                 RevealText(msg.text, animate = reveal, onDone = onRevealDone) { shown ->
                     BubbleText(
@@ -804,6 +853,7 @@ private fun BotMessage(
                         modifier = Modifier.copyOnLongPress(msg.text),
                         style = OnRoadType.Caption.copy(lineHeight = ChatSpace.AnswerLineHeight),
                     )
+                }
                 }
                 if (onRetry != null) {
                     Spacer(Modifier.height(12.dp))
@@ -849,9 +899,26 @@ private fun BotMessage(
                 }
 
                 if (msg.evidence.isNotEmpty()) {
-                    Spacer(Modifier.height(16.dp))
-                    Text("답변 근거", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextTertiary)
-                    Spacer(Modifier.height(8.dp))
+                    // 근거 원문은 접어 두고, 눌러야 펼친다 (글이 너무 길어지지 않게)
+                    var openEvidence by remember(msg.id) { mutableStateOf(false) }
+                    Spacer(Modifier.height(14.dp))
+                    Row(
+                        Modifier.clip(OnRoadShapes.Chip).tap(onClickLabel = "답변 근거 보기") { openEvidence = !openEvidence }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "답변 근거 ${msg.evidence.size}개",
+                            style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold),
+                            color = OnRoadColors.TextTertiary,
+                        )
+                        Icon(
+                            if (openEvidence) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null,
+                            tint = OnRoadColors.TextTertiary, modifier = Modifier.size(18.dp),
+                        )
+                    }
+                    androidx.compose.animation.AnimatedVisibility(openEvidence) {
+                    Column(Modifier.padding(top = 8.dp)) {
                     Column(
                         Modifier
                             .fillMaxWidth()
@@ -868,14 +935,19 @@ private fun BotMessage(
                             }
                         }
                     }
+                    }
+                    }
                 }
 
                 // 답변 근거 정책 → 바로가기 버튼. 비슷한 정책(근거 아님)은 아래에 제목을 따로 달아 묶는다
-                val (answered, similar) = msg.policies.partition { !it.related }
+                val (answeredAll, similar) = msg.policies.partition { !it.related }
+                // '내 조건으로 보면' 행이 있는 정책은 행을 누르면 상세로 가므로 버튼을 또 두지 않는다
+                val inRows = if (parts != null) parts.myCheck.map { it.name }.toSet() else emptySet()
+                val answered = answeredAll.filter { com.project.on_road.data.remote.AnswerFormat.shortName(it.name) !in inRows }
                 answered.forEachIndexed { i, p ->
-                    Spacer(Modifier.height(if (i == 0) 12.dp else 8.dp))
+                    Spacer(Modifier.height(if (i == 0) 14.dp else 8.dp))
                     OnRoadButton(
-                        text = "${p.name} 자세히 보기",
+                        text = "${com.project.on_road.data.remote.AnswerFormat.shortName(p.name)} 자세히 보기",
                         onClick = { onOpenPolicy(p.id) },
                         modifier = Modifier.fillMaxWidth(),
                         variant = if (i == 0) ButtonVariant.Primary else ButtonVariant.Outline,
@@ -889,7 +961,7 @@ private fun BotMessage(
                     similar.forEach { p ->
                         Spacer(Modifier.height(8.dp))
                         OnRoadButton(
-                            text = "${p.name} 자세히 보기",
+                            text = "${com.project.on_road.data.remote.AnswerFormat.shortName(p.name)} 자세히 보기",
                             onClick = { onOpenPolicy(p.id) },
                             modifier = Modifier.fillMaxWidth(),
                             variant = ButtonVariant.Outline,
@@ -920,7 +992,7 @@ private fun BotMessage(
                     contentPadding = PaddingValues(16.dp),
                 ) {
                     Text(
-                        "‘${first.name}’ 신청에 필요한 단계와 서류를 체크리스트로 정리해 드릴까요?",
+                        "‘${com.project.on_road.data.remote.AnswerFormat.shortName(first.name)}’ 신청 단계와 서류를 체크리스트로 정리해 드릴까요?",
                         style = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight),
                         color = OnRoadColors.TextPrimary,
                     )
@@ -969,16 +1041,147 @@ private fun BotMessage(
                         )
                     }
                 }
-                // 대화 내용은 서버를 거쳐 외부 AI 로 간다. 서버가 번호·주소를 가리지만 다 잡지는 못해서 처음에 한 번 알린다
-                if (startersFirst) {
-                    Spacer(Modifier.height(14.dp))
-                    Text(
-                        "전화번호·주소·계좌번호 같은 개인정보는 적지 말아 주세요. 질문 내용은 답변을 만들기 위해 AI 서비스로 전달돼요.",
-                        style = OnRoadType.Caption2,
-                        color = OnRoadColors.TextTertiary,
-                    )
+            }
+        }
+    }
+}
+
+/**
+ * 정책 답변 본문.
+ *   문단: 정책마다 한 덩어리 ('서리풀 생활보조수당 지원'은 굵게), 문단 사이 띄움
+ *   출처: "출처: 정부24" 연한 한 줄
+ *   내 조건으로 보면: 회색 카드, 정책마다 굵은 이름 + 짧은 안내 줄 (꼬리표 없이)
+ * 글이 흘러나오는 동안은 문단만, 다 나오면 아래 조각이 나타난다
+ */
+@Composable
+private fun PolicyAnswer(
+    parts: com.project.on_road.data.remote.AnswerFormat.Parts,
+    fullText: String,
+    reveal: Boolean,
+    onRevealDone: () -> Unit,
+    policies: List<com.project.on_road.data.Policy>,
+    onOpenPolicy: (String) -> Unit,
+) {
+    val body = remember(parts) {
+        parts.body.joinToString("\n\n") { p ->
+            // 문단 첫머리의 정책 이름은 굵게 (BubbleText 는 '…' 로 감싼 말을 굵게 쓴다)
+            val name = parts.names.firstOrNull { p.startsWith(it) }
+            if (name != null) "'$name'" + p.removePrefix(name) else p
+        }
+    }
+    RevealText(body, animate = reveal, onDone = onRevealDone) { shown ->
+        Column(Modifier.copyOnLongPress(fullText), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            shown.split("\n\n").filter { it.isNotBlank() }.forEach { p ->
+                BubbleText(
+                    p,
+                    color = OnRoadColors.TextPrimary,
+                    style = OnRoadType.Caption.copy(lineHeight = ChatSpace.AnswerLineHeight),
+                    boldQuotes = true,
+                )
+            }
+        }
+    }
+    androidx.compose.animation.AnimatedVisibility(
+        visible = !reveal,
+        enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+    ) {
+        Column {
+            Spacer(Modifier.height(10.dp))
+            if (parts.sources.isNotEmpty()) {
+                Text("출처: " + parts.sources.joinToString(", "), style = OnRoadType.Tiny, color = OnRoadColors.TextQuaternary)
+            }
+            parts.notice?.let {
+                Spacer(Modifier.height(2.dp))
+                Text(it, style = OnRoadType.Tiny, color = OnRoadColors.TextQuaternary)
+            }
+            if (parts.myCheck.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                MyCheckList(parts.myCheck, policies, onOpenPolicy)
+            }
+        }
+    }
+}
+
+/**
+ * '내 조건으로 보면': 작은 회색 제목 + 정책마다 회색 행 (굵은 이름, 한 줄 요약, 오른쪽 ›).
+ * 행을 누르면 그 정책 상세로 간다 ('자세히 보기' 버튼 대신)
+ */
+@Composable
+private fun MyCheckList(
+    rows: List<com.project.on_road.data.remote.AnswerFormat.MyCheckRow>,
+    policies: List<com.project.on_road.data.Policy>,
+    onOpenPolicy: (String) -> Unit,
+) {
+    Text("내 조건으로 보면", style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextTertiary)
+    Spacer(Modifier.height(8.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        rows.forEach { r ->
+            val policy = policies.firstOrNull { com.project.on_road.data.remote.AnswerFormat.shortName(it.name) == r.name }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(OnRoadShapes.Item)
+                    .background(OnRoadColors.SurfaceSubtle)
+                    .border(1.dp, OnRoadColors.Border.copy(alpha = 0.7f), OnRoadShapes.Item)
+                    .tap(enabled = policy != null, onClickLabel = "${r.name} 자세히 보기") { policy?.let { onOpenPolicy(it.id) } }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(r.name, style = OnRoadType.Caption.copy(fontWeight = FontWeight.Bold), color = OnRoadColors.TextPrimary)
+                    // 해당: … / 확인 필요: … (값이 여럿이면 머리말 뒤 같은 자리에 한 줄씩 맞춰서)
+                    com.project.on_road.data.remote.AnswerFormat.summary(r).forEachIndexed { i, line ->
+                        if (i == 0) Spacer(Modifier.height(4.dp)) // 해당 · 확인 필요 줄 사이는 띄우지 않는다
+                        val color = if (line.label == "확인 필요") OnRoadColors.TextTertiary else OnRoadColors.TextSecondary
+                        Row {
+                            line.label?.let {
+                                Text("$it:", style = OnRoadType.Caption2, color = color)
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Column {
+                                line.values.forEach { v -> Text(v, style = OnRoadType.Caption2, color = color) }
+                            }
+                        }
+                    }
+                }
+                if (policy != null) {
+                    Spacer(Modifier.width(10.dp))
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OnRoadColors.TextQuaternary, modifier = Modifier.size(18.dp))
                 }
             }
+        }
+    }
+}
+
+/**
+ * 개인정보 안내 상자 (대화 내용은 서버를 거쳐 외부 AI 로 간다. 서버가 번호 · 주소를 가리지만 다 잡지는 못한다).
+ * 한 줄 요약 + 작은 설명, 오른쪽 X 로 닫기
+ */
+@Composable
+private fun PrivacyNotice(onClose: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = OnRoadDimens.ScreenPadding, end = OnRoadDimens.ScreenPadding, top = 12.dp)
+            .clip(OnRoadShapes.Item)
+            .background(OnRoadColors.SurfaceSubtle)
+            .border(1.dp, OnRoadColors.Border.copy(alpha = 0.7f), OnRoadShapes.Item)
+            .padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "전화번호 · 주소 · 계좌번호는 적지 말아 주세요",
+                style = OnRoadType.Caption2.copy(fontWeight = FontWeight.Bold),
+                color = OnRoadColors.TextSecondary,
+            )
+            Text("질문은 답을 만들기 위해 AI 서비스로 전달돼요", style = OnRoadType.Tiny, color = OnRoadColors.TextTertiary)
+        }
+        Box(
+            Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).tap(onClickLabel = "안내 닫기", onClick = onClose),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Close, "안내 닫기", tint = OnRoadColors.TextTertiary, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -1002,11 +1205,31 @@ private fun ContactRow(line: HelpLine) {
 }
 
 @Composable
-private fun TypingBubble() {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        TypingDots()
-        Spacer(Modifier.width(10.dp))
-        Text("답변을 준비하고 있어요", style = OnRoadType.Caption, color = OnRoadColors.TextTertiary)
+private fun TypingBubble(status: String?) {
+    // 지금 하는 일 (점 없이 글만): 글이 천천히 숨 쉬듯 옅어졌다 진해지고,
+    // 단계가 바뀌면 위로 살짝 밀려 올라가며 바뀐다 ("관련 정책을 찾는 중" → "정책 원문을 읽는 중" …)
+    val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "chat-status-pulse")
+    val alpha by pulse.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.45f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(900),
+            androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "chat-status-alpha",
+    )
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.animation.AnimatedContent(
+            targetState = status ?: "답을 정리하는 중",
+            transitionSpec = {
+                val enter = androidx.compose.animation.slideInVertically { it / 2 } + androidx.compose.animation.fadeIn()
+                val exit = androidx.compose.animation.slideOutVertically { -it / 2 } + androidx.compose.animation.fadeOut()
+                enter togetherWith exit
+            },
+            label = "chat-status",
+        ) { text ->
+            Text(text, style = OnRoadType.Caption, color = OnRoadColors.TextTertiary.copy(alpha = alpha))
+        }
     }
 }
 
