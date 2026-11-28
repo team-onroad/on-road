@@ -13,7 +13,7 @@
       "profile_key": null,
       "required": true,
       "guide": "계획서를 쓰는 날짜를 적어요.",
-      "example": "2026-11-27",
+      "example": "2026.11.27",
       "evidence": "작성일",
       "sensitive": false,
       "box": {
@@ -138,7 +138,7 @@
       "profile_key": "birth_date",
       "required": true,
       "guide": "생년월일을 적어요.",
-      "example": "2005-01-01",
+      "example": "2005.01.01",
       "evidence": "생년월일",
       "sensitive": false,
       "box": {
@@ -1048,7 +1048,7 @@
       "profile_key": null,
       "required": false,
       "guide": "자격증 받은 날을 적어요.",
-      "example": "2022-05-01",
+      "example": "2022.05.01",
       "evidence": "발급날짜",
       "sensitive": false,
       "box": {

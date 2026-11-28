@@ -135,7 +135,7 @@
    }
   },
   {
-   "id": "guardian_name",
+   "id": "guardian_name", "example": "홍길동",
    "label": "성명",
    "section": "후견인(법정대리인)",
    "input_type": "text",

@@ -166,7 +166,7 @@
    }
   },
   {
-   "id": "desired_move_in_date",
+   "id": "desired_move_in_date", "example": "2023.11.01",
    "label": "입주희망일",
    "section": "희망주택 내역",
    "input_type": "date",

@@ -163,7 +163,7 @@
       "profile_key": null,
       "required": false,
       "guide": "대리인이 신청할 때만 대리인 이름을 적어요.",
-      "example": "김○○",
+      "example": "김민지",
       "evidence": "성명",
       "sensitive": false,
       "box": {
@@ -313,7 +313,7 @@
       "profile_key": null,
       "required": true,
       "guide": "보호가 끝났거나 퇴소한 날을 적어요.",
-      "example": "2025-02-28",
+      "example": "2025.02.28",
       "evidence": "보호조치의 종료 또는 퇴소 연월일",
       "sensitive": false,
       "box": {

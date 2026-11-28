@@ -8,11 +8,11 @@
     {"id": "child_id_number", "label": "주민등록번호", "section": "대상아동", "input_type": "id_number", "value_source": "handwrite", "sensitive": true, "guide": "주민등록번호는 제출할 때 직접 적어요.", "at": {"right_of": "주민등록번호"}},
     {"id": "facility_name", "label": "보호시설명", "section": "대상아동", "guide": "지금 생활하는 시설 이름을 적어요.", "example": "○○아동복지센터", "at": {"right_of": "보호시설명"}},
     {"id": "facility_address", "label": "소재지", "section": "대상아동", "input_type": "address", "guide": "시설 주소를 적어요.", "at": {"right_of": "소재지"}},
-    {"id": "admission_date", "label": "입소연월일", "section": "대상아동", "input_type": "date", "guide": "시설에 들어간 날을 적어요.", "example": "2015-04-01", "at": {"right_of": "입소연월일", "to": "연장기간"}},
-    {"id": "extension_start", "label": "연장기간 (시작)", "section": "대상아동", "input_type": "date", "guide": "보호를 연장하는 기간의 시작일을 적어요.", "example": "2027-01-01", "at": {"right_of": "연장기간", "to": "~"}},
-    {"id": "extension_end", "label": "연장기간 (끝)", "section": "대상아동", "input_type": "date", "guide": "보호를 연장하는 기간의 끝나는 날을 적어요.", "example": "2028-12-31", "at": {"right_of": "~"}},
+    {"id": "admission_date", "label": "입소연월일", "section": "대상아동", "input_type": "date", "guide": "시설에 들어간 날을 적어요.", "example": "2015.04.01", "at": {"right_of": "입소연월일", "to": "연장기간"}},
+    {"id": "extension_start", "label": "연장기간 (시작)", "section": "대상아동", "input_type": "date", "guide": "보호를 연장하는 기간의 시작일을 적어요.", "example": "2027.01.01", "at": {"right_of": "연장기간", "to": "~"}},
+    {"id": "extension_end", "label": "연장기간 (끝)", "section": "대상아동", "input_type": "date", "guide": "보호를 연장하는 기간의 끝나는 날을 적어요.", "example": "2028.12.31", "at": {"right_of": "~"}},
     {"id": "extension_reason", "label": "연장사유", "section": "대상아동", "guide": "보호기간을 늘려야 하는 까닭을 적어요 (증명 서류를 함께 내요).", "example": "대학 재학 중이라 졸업 때까지 연장이 필요해요.", "at": {"right_of": "연장사유"}},
-    {"id": "date", "label": "신청일", "input_type": "date", "guide": "신청하는 날짜를 적어요.", "at": {"date": "년월일#1"}},
+    {"id": "date", "example": "2023.10.01", "label": "신청일", "input_type": "date", "guide": "신청하는 날짜를 적어요.", "at": {"date": "년월일#1"}},
     {"id": "director_signature", "label": "아동복지시설의 장 (서명 또는 날인)", "input_type": "signature", "value_source": "handwrite", "guide": "시설장이 직접 서명하거나 도장을 찍어요.", "at": {"right_of": "아동복지시설의장", "to": "(서명또는날인)"}}
   ]
 }

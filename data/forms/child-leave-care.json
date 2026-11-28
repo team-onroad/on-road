@@ -88,7 +88,7 @@
       "profile_key": "birth_date",
       "required": true,
       "guide": "신청하는 사람의 생년월일을 적어요.",
-      "example": "2007-03-15",
+      "example": "2007.03.15",
       "evidence": "생년월일",
       "sensitive": false,
       "box": {
@@ -188,7 +188,7 @@
       "profile_key": null,
       "required": true,
       "guide": "가정위탁을 시작했거나 시설에 들어간 날을 적어요.",
-      "example": "2015-04-01",
+      "example": "2015.04.01",
       "evidence": "가정위탁 또는 입소 연월일",
       "sensitive": false,
       "box": {
@@ -213,7 +213,7 @@
       "profile_key": null,
       "required": true,
       "guide": "보호가 끝나거나 퇴소할 예정인 날을 적어요.",
-      "example": "2026-12-31",
+      "example": "2026.12.31",
       "evidence": "보호조치의 종료 또는 퇴소 예정 연월일",
       "sensitive": false,
       "box": {
@@ -377,7 +377,7 @@
       "profile_key": null,
       "required": true,
       "guide": "신청하는 날짜를 적어요.",
-      "example": "2023-10-01",
+      "example": "2023.10.01",
       "evidence": "신청일",
       "sensitive": false,
       "box": {

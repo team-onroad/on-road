@@ -38,7 +38,7 @@
    }
   },
   {
-   "id": "member1_head_relation",
+   "id": "member1_head_relation", "cover": true,
    "label": "(예정) 세대주와의 관계",
    "section": "본인",
    "required": true,
@@ -104,7 +104,7 @@
    }
   },
   {
-   "id": "member2_head_relation",
+   "id": "member2_head_relation", "cover": true,
    "label": "(예정) 세대주와의 관계",
    "section": "동거인",
    "required": true,

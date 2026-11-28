@@ -96,7 +96,7 @@
    "label": "성명",
    "section": "대리인(수임자)",
    "guide": "대신 신청해 줄 사람의 이름을 적어요.",
-   "example": "이○○",
+   "example": "이수진",
    "at": {
     "right_of": "성명#3",
     "gap": 30
@@ -161,7 +161,7 @@
    }
   },
   {
-   "id": "date",
+   "id": "date", "example": "2023.10.01",
    "label": "위임일",
    "input_type": "date",
    "guide": "위임하는 날짜를 적어요.",

@@ -70,6 +70,8 @@ HANDOFF_MESSAGE = "서류 작성은 문서 도우미에서 칸마다 함께 써 
 _PLACEHOLDER_RE = re.compile(r"\[[^\[\]\n]{1,30}\]")
 _DATE_RE = re.compile(r"^\d{4}[.\-/ ]\s?\d{1,2}[.\-/ ]\s?\d{1,2}\.?$|^\d{4}년\s?\d{1,2}월\s?\d{1,2}일$|^\d{8}$")
 _PHONE_RE = re.compile(r"^0\d{1,2}-?\d{3,4}-?\d{4}$")
+_ACCOUNT_RE = re.compile(r"^\d[\d-]*\d$")
+_NUMBER_RE = re.compile(r"^\d[\d,]*(\.\d+)?\s*(원|만원|명|세|살|㎡|평|개월|년)?$")
 
 
 def document_not_found() -> AppError:
@@ -147,13 +149,22 @@ def _field_warnings(spec: dict, value: str) -> list[str]:
     warnings = [f"{p} 빈칸을 채워 주세요." for p in dict.fromkeys(_PLACEHOLDER_RE.findall(value))]
     text = value.strip()
     if text and spec["input_type"] == "date" and not _DATE_RE.match(text):
-        warnings.append("날짜 형식을 확인해 주세요 (예: 2007.03.15).")
+        warnings.append("날짜 형식을 확인해 주세요. 연.월.일 순서로 적어요 (예: 2007.03.15).")
     if text and spec["input_type"] == "phone" and not _PHONE_RE.match(text):
-        warnings.append("전화번호 형식을 확인해 주세요 (예: 010-1234-5678).")
+        warnings.append("전화번호 형식을 확인해 주세요. 0으로 시작하는 숫자 9~11자리예요 (예: 010-1234-5678).")
+    if text and spec["input_type"] == "account":
+        digits = re.sub(r"\D", "", text)
+        if not _ACCOUNT_RE.match(text):
+            warnings.append("계좌번호는 숫자와 - 만 적어 주세요 (예: 110-123-456789).")
+        elif not 10 <= len(digits) <= 16:
+            warnings.append(f"계좌번호 자리 수를 확인해 주세요. 지금 {len(digits)}자리예요 (보통 10~16자리).")
+    if text and spec["input_type"] == "number" and not _NUMBER_RE.match(text):
+        example = spec.get("example") or "500000"
+        warnings.append(f"숫자로 적어 주세요. 쉼표는 써도 되고 글자는 빼요 (예: {example}).")
     options = spec.get("options")
     if text and options and any(p.strip() not in options for p in text.split(",")):
         warnings.append(f"선택지 중에서 골라 주세요: {', '.join(options)}")
-    elif text and not options and spec["input_type"] not in ("date", "phone", "account", "checkbox"):
+    elif text and not options and spec["input_type"] not in ("date", "phone", "account", "checkbox", "number"):
         # 이름 · 주소 · 이메일 형식, 아무렇게나 친 글자, 너무 짧은 글 칸 (answer_extract.problem)
         from app import answer_extract
 
@@ -644,6 +655,15 @@ def _other_fields(db: Session, doc: Document, field_id: str) -> list[dict]:
     return out[:OTHER_FIELDS_FOR_AI]
 
 
+_REQ_WORDS = re.compile(r"(?:적어|써|넣어|채워|입력해|해)\s*(?:줘|주세요|줄래|주라)")
+
+
+def _echoes_request(text: str, prompt: str) -> bool:
+    """AI 가 칸 값 대신 부탁 문장을 그대로 돌려줬는지 ("내 이름으로 적어줘" → "내 이름으로 적어줘")"""
+    flat_t, flat_p = "".join(text.split()), "".join(prompt.split())
+    return bool(flat_t) and (flat_t == flat_p or (flat_p in flat_t and bool(_REQ_WORDS.search(text))))
+
+
 def _check_route(v: object) -> bool:
     return isinstance(v, dict) and v.get("route") in ("field", "policy", "counsel")
 
@@ -687,6 +707,31 @@ def _assist(
             route="field", action="tip", field=resp.field, progress=resp.progress, message=None, search=None, contacts=[],
         )
 
+    # "내 이름으로 적어줘" 같은 부탁: 그 말을 칸에 적지 않고 앱에 있는 내 정보를 넣는다 (LLM 을 부르지 않음)
+    from app import answer_extract
+
+    ref = answer_extract.self_reference(body.prompt)
+    if ref is None and spec.get("input_type") == "date" and answer_extract.today_request(body.prompt):
+        ref = "today"
+    if ref is not None:
+        mine, why = ((today.strftime("%Y.%m.%d"), None) if ref == "today"
+                     else answer_extract.self_value(ref, spec, user.name, user.birth_date, user.phone))
+        if mine or why:
+            if mine:
+                row.previous_segments = row.segments
+                row.segments = [{"text": mine, "source": "profile"}]
+                row.reused_from = None
+            else:
+                row.tip = why
+            row.updated_at = func.now()
+            _touch(doc)
+            db.commit()
+            resp = _field_response(db, doc, row, spec)
+            return AssistResponse(
+                route="field", action="draft" if mine else "tip", field=resp.field, progress=resp.progress,
+                message=None, search=None, contacts=[],
+            )
+
     context = {"screen": "document", "document_title": doc.title, "field_label": spec["label"]}
     routed = call_llm("route_message", doc_llm.route_message, _check_route, body.prompt, [], context)
     if routed["route"] == "policy":
@@ -715,6 +760,11 @@ def _assist(
     }
     out = call_llm("assist_field", doc_llm.assist_field, _check_assist, req)
     action, text = out["action"], out["text"].strip()[:ASSIST_MAX_CHARS]
+    if action in ("draft", "revise") and _echoes_request(text, body.prompt):
+        # 부탁 문장("내 주소로 써 줘")을 그대로 칸에 적지 않는다: 무엇을 알려 주면 되는지 안내로 바꾼다
+        action = "tip"
+        example = f" (예: {spec['example']})" if spec.get("example") else ""
+        text = f"'{spec.get('easy_label') or spec['label']}'에 넣을 내용을 직접 알려 주세요.{example}"
     if action == "revise" and not current.strip():
         action = "draft"
 
@@ -753,18 +803,36 @@ def check(db: Session, user: User, doc: Document) -> CheckResponse:
             continue
         value = _value(r.segments)
         label = spec.get("easy_label") or spec["label"]  # 같은 이름 칸이 여럿이면 "대리인 성명"처럼
+        where = {"section": spec.get("section") or None, "how": spec.get("guide") or None,
+                 "example": _example_of(spec)}
+        if not r.is_completed and not value.strip():
+            problems.append(Problem(field_id=r.field_id, label=label, reason="required_empty" if spec["required"] else "not_completed",
+                                    message=f"'{label}' 칸이 비어 있어요. 내용을 적고 완료를 눌러 주세요.", **where))
+            continue
         if not r.is_completed:
             problems.append(Problem(field_id=r.field_id, label=label, reason="not_completed",
-                                    message=f"'{label}' 칸을 완료하지 않았어요."))
+                                    message=f"'{label}' 칸에 적은 내용을 확인하고 완료를 눌러 주세요.", **where))
             continue
         if spec["required"] and not value.strip():
             problems.append(Problem(field_id=r.field_id, label=label, reason="required_empty",
-                                    message=f"'{label}' 칸이 비어 있어요."))
+                                    message=f"'{label}' 칸은 꼭 적어야 해요. 비워 둔 채 완료했어요.", **where))
             continue
         for w in _field_warnings(spec, value):
             reason = "placeholder_left" if w.endswith("빈칸을 채워 주세요.") else "invalid_format"  # 형식·선택지
-            problems.append(Problem(field_id=r.field_id, label=label, reason=reason, message=f"'{label}': {w}"))
+            problems.append(Problem(field_id=r.field_id, label=label, reason=reason, message=f"'{label}': {w}", **where))
     return CheckResponse(ready=not problems, problems=problems, warnings=_consistency(db, user, doc))
+
+
+_TYPE_EXAMPLES = {"date": "2007.03.15", "phone": "010-1234-5678", "account": "110-123-456789"}
+
+
+def _example_of(spec: dict) -> str | None:
+    """칸의 바른 예시: 양식에 적힌 예시 → 선택지 → 날짜 · 전화 · 계좌 기본 예시"""
+    if spec.get("example"):
+        return spec["example"]
+    if spec.get("options"):
+        return spec["options"][0]
+    return _TYPE_EXAMPLES.get(spec.get("input_type") or "")
 
 
 def _consistency(db: Session, user: User, doc: Document) -> list[str]:

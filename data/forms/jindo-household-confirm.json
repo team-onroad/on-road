@@ -76,6 +76,7 @@
         ],
         "how": "table_right",
         "template_text": "(예시)본인",
+        "cover": true,
         "found_by": "layout_spec"
       }
     },
@@ -176,6 +177,7 @@
         ],
         "how": "table_right",
         "template_text": "(예시)형제",
+        "cover": true,
         "found_by": "layout_spec"
       }
     },

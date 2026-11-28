@@ -164,7 +164,8 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
             options=None, current_value=confirm_text, awaiting_confirm=True, can_skip=can_skip,
         )
     if pending and value:
-        text = f"이렇게 써 봤어요.\n\n{value}\n\n괜찮으면 '좋아', 고칠 점이 있으면 말해 주세요."
+        # 초안만 따로 한 줄로 (빈 줄 없이)
+        text = f"이렇게 써 봤어요.\n{value}\n괜찮으면 '좋아', 고칠 점이 있으면 말해 주세요."
         confirm = True
     elif value and spec.get("profile_key") != "region":
         text = f"'{name}'{_josa(name, '은', '는')} '{value}'(으)로 할까요? 맞으면 '네', 아니면 바르게 알려 주세요."
@@ -174,7 +175,7 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
         box = spec.get("box") or {}
         if box.get("how") == "confirm":
             # 항목 전문은 items 로 (앱이 항목마다 체크박스로 보여 준다)
-            text = (f"유의사항 {len(box.get('items') or [])}가지를 끝까지 읽고 하나씩 체크해 주세요.\n"
+            text = (f"유의사항 {len(box.get('items') or [])}가지를 끝까지 읽고 하나씩 체크해 주세요. "
                     "다 체크하면 '모두 확인했어요'를 눌러 주세요.")
         elif options:
             text = f"'{name}'에서 골라 주세요: {', '.join(options)}"
@@ -356,7 +357,8 @@ def _normalize(spec: dict, answer: str, today: date, current: str | None = None)
     value, kind = answer_extract.extract(spec, answer)
     if value is None:
         return None, answer_extract.RETRY.get(kind, "칸에 쓸 내용만 알려 주세요.")
-    if answer_extract.looks_mash(value):  # "asdf", "가가가가" 같은 글자는 적지 않는다
+    # "asdf", "가가가가" 같은 글자는 적지 않는다 (금액 · 수 칸의 5000000 은 된다)
+    if spec.get("input_type") != "number" and answer_extract.looks_mash(value):
         return None, "칸에 맞는 내용을 알려 주세요."
     return value, None
 
@@ -676,6 +678,21 @@ def _interview(
         state["current"], state["pending"] = None, None
         _save(db, doc, state)
         return _response(db, user, doc, state, message="나중에 다시 물어볼게요.")
+
+    # "내 이름으로 적어줘" · "제 번호로 해 주세요": 그 말을 적지 않고 앱에 있는 내 정보를 넣는다
+    ref = answer_extract.self_reference(msg)
+    if ref is not None and not spec.get("options"):
+        mine, why = answer_extract.self_value(ref, spec, user.name, user.birth_date, user.phone)
+        if why:
+            _save(db, doc, state)
+            return _response(db, user, doc, state, message=why)
+        if mine:
+            if current in state["skipped"]:
+                state["skipped"].remove(current)
+            _complete(row, [{"text": mine, "source": "profile"}])
+            state["pending"] = None
+            _save(db, doc, state)
+            return _response(db, user, doc, state, message=f"'{mine}'(으)로 적었어요.", field_row=row)
 
     # 서술형인데 쓸 내용 없이 "모르겠어요" · "알아서 써 줘": 지어내지 않게 초안 대신 첫 질문으로 이끈다
     if spec.get("essay") and _no_content(msg):

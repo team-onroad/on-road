@@ -251,7 +251,8 @@ def problem(spec: dict, value: str) -> str | None:
         return None
     kind = kind_of(spec)
     if kind != "name" and (is_noise(text) or looks_mash(text)):
-        return "칸에 맞는 내용을 적어 주세요."
+        name = spec.get("easy_label") or spec["label"]
+        return f"아무렇게나 친 글자나 같은 글자를 이어 쓴 것 같아요. '{name}'에 들어갈 내용을 적어 주세요."
     if kind == "name":
         flat = "".join(text.split())
         if _LATIN_NAME_RE.match(text) and not looks_mash(text):
@@ -263,9 +264,64 @@ def problem(spec: dict, value: str) -> str | None:
     if kind == "address":
         return None if _address(text) == text.strip(" .,~!") or _address(text) else RETRY["address"]
     if kind == "email":
-        return None if _EMAIL_RE.fullmatch(text) else RETRY["email"]
+        return None if _EMAIL_RE.fullmatch(text) else "이메일 주소 모양이 아니에요. @ 앞뒤를 확인해 주세요. (예: name@example.com)"
     if kind == "bizno":
         return None if _bizno(text) else RETRY["bizno"]
     if spec.get("essay") and len("".join(text.split())) < ESSAY_MIN:
         return f"조금 더 자세히 적어 주세요. ({ESSAY_MIN}자 이상)"
     return None
+
+
+# ---------------- "내 이름으로 적어줘" 같은 내 정보 부탁 ----------------
+
+_SELF = r"(?:내|제|나의|저의|본인|자기)\s*"
+SELF_REFS = (
+    ("name", re.compile(_SELF + r"(?:이름|성함|성명|실명)")),
+    ("birth_date", re.compile(_SELF + r"(?:생년월일|생일|태어난\s*날(?:짜)?)")),
+    ("phone", re.compile(_SELF + r"(?:휴대\s*폰\s*번호|핸드폰\s*번호|전화\s*번호|폰\s*번호|휴대폰|핸드폰|연락처|번호)")),
+)
+# 부탁 말 ("으로 적어 줘", "그대로 넣어 주세요", "이 칸에 써") 을 다 떼고 남는 게 없어야 내 정보 부탁이다
+_SELF_LEFT_RE = re.compile(
+    r"(?:해|써|적어|넣어|채워|입력해|기입해|바꿔|고쳐|해야|하면|할게|할께)\s*(?:줘|주세요|줄래|주라|줘요|봐|돼|될까|요)?"
+    r"|그대로|대로|그걸로|이걸로|여기에?|이\s*칸에?|칸에|으로|로|을|를|은|는|이|가|에|좀|요|[\s.,!~?]"
+)
+SELF_KINDS = {"name": ("name", "text"), "birth_date": ("date", "text"), "phone": ("phone", "text")}
+
+
+def self_reference(message: str) -> str | None:
+    """칸 값 대신 '내 이름 · 생년월일 · 연락처로 적어 줘' 라고 했으면 그 프로필 키, 아니면 None.
+    "내 이름은 정서현이야" 처럼 값을 직접 말한 것은 None (값을 그대로 쓴다)"""
+    text = message.strip()
+    if len(text) > 40:
+        return None
+    for key, regex in SELF_REFS:
+        m = regex.search(text)
+        if m and not _SELF_LEFT_RE.sub("", text[: m.start()] + text[m.end():]):
+            return key
+    return None
+
+
+def self_value(key: str, spec: dict, name: str, birth_date, phone: str | None) -> tuple[str | None, str | None]:
+    """(칸에 넣을 값, 못 넣을 때 안내). 칸 종류가 맞지 않으면 둘 다 None (다른 방법으로 처리)"""
+    kind = "name" if kind_of(spec) == "name" else spec.get("input_type") or "text"
+    if kind not in SELF_KINDS[key]:
+        return None, None
+    if key == "name":
+        return name, None
+    if key == "birth_date":
+        return birth_date.strftime("%Y.%m.%d"), None
+    if not phone:
+        return None, "앱에 등록된 연락처가 없어요. 번호를 직접 알려 주세요. (예: 010-1234-5678)"
+    from app.doc_spec import format_phone
+
+    return format_phone(phone), None
+
+
+_TODAY_RE = re.compile(r"오늘\s*(?:날짜|날|일자)?")
+
+
+def today_request(message: str) -> bool:
+    """날짜 칸에 '오늘 날짜로 적어줘' · '오늘로'"""
+    text = message.strip()
+    m = _TODAY_RE.search(text)
+    return bool(m) and len(text) <= 30 and not _SELF_LEFT_RE.sub("", text[: m.start()] + text[m.end():])

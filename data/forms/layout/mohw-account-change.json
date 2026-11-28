@@ -15,7 +15,7 @@
    }
   },
   {
-   "id": "applicant_birth_date",
+   "id": "applicant_birth_date", "example": "1990.01.01",
    "label": "생년월일",
    "section": "신청인(복지대상자)",
    "input_type": "date",
@@ -123,7 +123,7 @@
    }
   },
   {
-   "id": "date",
+   "id": "date", "example": "2023.10.01",
    "label": "신청일",
    "input_type": "date",
    "guide": "신청하는 날짜를 적어요.",

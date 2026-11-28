@@ -224,6 +224,8 @@
 - 바뀐 칸은 `can_undo: true` (되돌리기 버튼)
 - AI 는 사용자가 말하지 않은 사실(학교·날짜·경력·숫자)을 지어내지 않고 `[학교 이름]` 같은 빈칸으로 남긴다. 빈칸이 남으면 내보낼 수 없다
 - LLM 에 보내는 것: 칸 이름·안내·권장 순서, 지금 칸 내용, 요청, 성장 단계·상태, `context`, 같은 서류의 다른 서술형 칸 최대 3개. **이름·생년월일·연락처·주소·민감 칸 값은 보내지 않는다**
+- "내 이름으로 적어줘" · "제 번호로 해 주세요" · "내 생일로" (그 말 말고 다른 내용이 없을 때): LLM 을 부르지 않고 프로필 값을 넣는다 (`action: draft`, 조각 `source: profile`). 칸 종류가 맞을 때만 (이름 칸에 이름, 날짜 칸에 생년월일, 전화 칸에 연락처). 연락처가 없으면 `action: tip` 으로 직접 알려 달라는 안내. 날짜 칸의 "오늘 날짜로 적어줘" 는 오늘 날짜. 대화로 채우기(3.32)도 같다
+- AI 가 칸 값 대신 부탁 문장을 그대로 돌려주면(예: "내 주소로 써 줘") 칸에 적지 않고 `action: tip` 으로 넣을 내용을 직접 알려 달라고 안내한다
 - 에러: 409 FIELD_COMPLETED, 422 FIELD_NOT_WRITABLE / VALUE_TOO_LONG(이어 쓰기 결과가 3000자 초과 → 덮어쓰기로 다시), 503 AI_UNAVAILABLE / RAG_UNAVAILABLE
 
 ### 3.30 `GET /documents/{id}/check?user_id`
@@ -231,11 +233,15 @@
 ```json
 {"ready": false,
  "problems": [{"field_id": "reason", "label": "신청 사유", "reason": "placeholder_left",
-               "message": "'신청 사유': [학교 이름] 빈칸을 채워 주세요."}],
+               "message": "'신청 사유': [학교 이름] 빈칸을 채워 주세요.",
+               "section": "신청인", "how": "장학금이 필요한 까닭을 적어요.", "example": "등록금 마련이 어려워 신청합니다."}],
  "warnings": ["다른 서류 「입사지원서 (기본형)」의 '주소'와 내용이 달라요. 맞는지 확인해 주세요."]}
 ```
 
-- `problems.reason`: `not_completed` / `required_empty` / `placeholder_left` / `invalid_format`(날짜·전화번호). 하나라도 있으면 내보낼 수 없다
+- `problems.reason`: `not_completed` / `required_empty` / `placeholder_left` / `invalid_format`(날짜 · 전화번호 · 계좌번호 · 이름 · 주소 · 이메일 · 선택지). 하나라도 있으면 내보낼 수 없다
+- `problems.message` 는 무엇이 틀렸는지와 바른 모양을 같이 말한다 (예: "전화번호 형식을 확인해 주세요. 0으로 시작하는 숫자 9~11자리예요 (예: 010-1234-5678).", "계좌번호 자리 수를 확인해 주세요. 지금 8자리예요 (보통 10~16자리).")
+- `section`(칸이 있는 묶음, 없으면 null) · `how`(칸 안내 문장) · `example`(양식 예시 → 첫 선택지 → 날짜 2007.03.15 · 전화 010-1234-5678 · 계좌 110-123-456789 기본 예시, 없으면 null): 어디를 어떻게 고치면 되는지 보여 줄 때
+- 계좌번호 칸(`input_type: account`)은 숫자와 - 만, 숫자 10~16자리여야 한다
 - `warnings`: 다른 서류에서 완료한 같은 칸과 값이 다름. 내보내기는 가능
 
 ### 3.31 `POST /documents/{id}/export`

@@ -75,3 +75,16 @@ def test_checkbox_options_have_no_commas():
         for f in json.loads(path.read_text(encoding="utf-8"))["fields"]:
             for o in (f.get("box") or {}).get("options") or []:
                 assert "," not in o, (path.stem, f["id"], o)
+
+
+@pytest.mark.parametrize("form_id", ["jindo-household-confirm", "youth-apply", "mohw-foster-consent", "mohw-aftercare-consent"])
+def test_sample_values_stay_in_place(form_id):
+    """칸마다 견본 값을 채워 그렸을 때 칸 밖으로 넘치거나 찍힌 글자(예시 · 칸 이름)와 겹치지 않는다 (scripts/overlay_check.py)"""
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[1] / "scripts" / "overlay_check.py"
+    mod = importlib.util.spec_from_file_location("overlay_check", path)
+    check = importlib.util.module_from_spec(mod)
+    mod.loader.exec_module(check)
+    issues = [i for i in check.check(form_id) if i[1] in ("outside", "collide", "missing")]
+    assert issues == []

@@ -95,7 +95,7 @@
    }
   },
   {
-   "id": "employment_date",
+   "id": "employment_date", "example": "2023.01.01",
    "label": "취업일",
    "section": "신청 내용",
    "input_type": "date",
@@ -176,7 +176,7 @@
    }
   },
   {
-   "id": "signature_date",
+   "id": "signature_date", "example": "2023.01.01",
    "label": "신청일",
    "input_type": "date",
    "guide": "신청하는 날짜를 적어요.",
@@ -197,10 +197,10 @@
    }
   },
   {
-   "id": "local_government",
+   "id": "local_government", "example": "강남구",
    "label": "○○지자체(운영기관장) 귀하",
    "required": false,
-   "guide": "지자체(또는 운영기관) 이름을 적어요.",
+   "guide": "시 · 군 · 구 이름만 짧게 적어요.",
    "cover": true,
    "at": {
     "around": "○○",

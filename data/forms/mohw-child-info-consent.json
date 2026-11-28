@@ -613,7 +613,7 @@
       "profile_key": null,
       "required": true,
       "guide": "동의서를 쓰는 날짜를 적어요.",
-      "example": "2023-10-01",
+      "example": "2023.10.01",
       "evidence": "작성일",
       "sensitive": false,
       "box": {

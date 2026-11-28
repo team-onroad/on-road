@@ -38,7 +38,7 @@
       "profile_key": "birth_date",
       "required": true,
       "guide": "본인의 생년월일을 적어요.",
-      "example": "1990-01-01",
+      "example": "1990.01.01",
       "evidence": "생년월일",
       "sensitive": false,
       "box": {
@@ -263,7 +263,7 @@
       "profile_key": null,
       "required": true,
       "guide": "신청하는 날짜를 적어요.",
-      "example": "2023-10-01",
+      "example": "2023.10.01",
       "evidence": "신청일",
       "sensitive": false,
       "box": {

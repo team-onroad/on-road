@@ -163,7 +163,7 @@
       "profile_key": null,
       "required": true,
       "guide": "시설에 들어간 날을 적어요.",
-      "example": "2015-04-01",
+      "example": "2015.04.01",
       "evidence": "입소연월일",
       "sensitive": false,
       "box": {
@@ -188,7 +188,7 @@
       "profile_key": null,
       "required": true,
       "guide": "보호를 연장하는 기간의 시작일을 적어요.",
-      "example": "2027-01-01",
+      "example": "2027.01.01",
       "evidence": "연장기간 (시작)",
       "sensitive": false,
       "box": {
@@ -213,7 +213,7 @@
       "profile_key": null,
       "required": true,
       "guide": "보호를 연장하는 기간의 끝나는 날을 적어요.",
-      "example": "2028-12-31",
+      "example": "2028.12.31",
       "evidence": "연장기간 (끝)",
       "sensitive": false,
       "box": {
@@ -263,7 +263,7 @@
       "profile_key": null,
       "required": true,
       "guide": "신청하는 날짜를 적어요.",
-      "example": "2023-10-01",
+      "example": "2023.10.01",
       "evidence": "신청일",
       "sensitive": false,
       "box": {

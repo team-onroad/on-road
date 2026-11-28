@@ -292,13 +292,13 @@
       "profile_key": null,
       "required": false,
       "guide": "신청하는 시 · 군 · 구 이름을 적어요.",
-      "example": "서울특별시 ○○구",
+      "example": "서울특별시 강남구",
       "evidence": "○○지방자치단체장 귀하",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          225.4,
+          150,
           737.9,
           253.5,
           758.9
@@ -306,6 +306,7 @@
         "how": "table_right",
         "template_text": "○○",
         "cover": true,
+        "align": "right",
         "found_by": "layout_spec"
       }
     }

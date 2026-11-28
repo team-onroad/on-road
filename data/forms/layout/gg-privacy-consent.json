@@ -21,7 +21,7 @@
    }
   },
   {
-   "id": "date",
+   "id": "date", "example": "2023.10.01",
    "label": "동의일",
    "input_type": "date",
    "guide": "동의서를 쓰는 날짜를 적어요.",

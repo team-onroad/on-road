@@ -388,7 +388,7 @@
       "profile_key": null,
       "required": true,
       "guide": "들어가 살고 싶은 날을 적어요.",
-      "example": "2023-11-01",
+      "example": "2023.11.01",
       "evidence": "입주희망일",
       "sensitive": false,
       "box": {

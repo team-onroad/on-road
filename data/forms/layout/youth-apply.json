@@ -137,16 +137,13 @@
    }
   },
   {
-   "id": "local_government",
+   "id": "local_government", "align": "right",
    "label": "○○지방자치단체장 귀하",
    "required": false,
    "guide": "신청하는 시 · 군 · 구 이름을 적어요.",
-   "example": "서울특별시 ○○구",
+   "example": "서울특별시 강남구",
    "cover": true,
-   "at": {
-    "around": "○○",
-    "pad": 1
-   }
+   "at": {"rect": [150, 737.9, 253.5, 758.9]}
   }
  ]
 }

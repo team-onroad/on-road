@@ -90,7 +90,7 @@
       "profile_key": null,
       "required": true,
       "guide": "보호가 끝난(또는 끝날) 날을 적어요.",
-      "example": "2026-12-31",
+      "example": "2026.12.31",
       "evidence": "보호종료(예정)일",
       "sensitive": false,
       "box": {
@@ -192,7 +192,7 @@
       "profile_key": null,
       "required": true,
       "guide": "동의하는 날짜를 적어요.",
-      "example": "2023. 10. 01",
+      "example": "2023.10.01",
       "evidence": "동의일",
       "sensitive": false,
       "box": {
@@ -490,7 +490,7 @@
       "box": {
         "page": 1,
         "rect": [
-          226,
+          175,
           653,
           243,
           668
@@ -498,6 +498,7 @@
         "how": "table_right",
         "template_text": "00",
         "cover": true,
+        "align": "right",
         "found_by": "layout_spec"
       }
     }

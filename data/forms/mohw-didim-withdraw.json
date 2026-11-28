@@ -267,7 +267,7 @@
       "profile_key": null,
       "required": false,
       "guide": "후견인(법정대리인) 이름을 적어요.",
-      "example": "부모, 서울특별시 강남구",
+      "example": "홍길동",
       "evidence": "성명",
       "sensitive": false,
       "box": {

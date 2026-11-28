@@ -63,7 +63,7 @@
       "profile_key": null,
       "required": true,
       "guide": "위탁부(아버지 역할을 할 분)의 이름을 적어요.",
-      "example": "김○○",
+      "example": "김민수",
       "evidence": "성명",
       "sensitive": false,
       "box": {
@@ -88,7 +88,7 @@
       "profile_key": null,
       "required": true,
       "guide": "위탁부의 생년월일을 적어요.",
-      "example": "1975-05-01",
+      "example": "1975.05.01",
       "evidence": "생년월일",
       "sensitive": false,
       "box": {
@@ -213,7 +213,7 @@
       "profile_key": null,
       "required": true,
       "guide": "위탁모(어머니 역할을 할 분)의 이름을 적어요.",
-      "example": "이○○",
+      "example": "이수진",
       "evidence": "성명",
       "sensitive": false,
       "box": {

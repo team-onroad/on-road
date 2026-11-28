@@ -188,7 +188,7 @@
       "profile_key": null,
       "required": true,
       "guide": "일을 시작한 날을 적어요.",
-      "example": "2023-01-01",
+      "example": "2023.01.01",
       "evidence": "취업일",
       "sensitive": false,
       "box": {
@@ -347,7 +347,7 @@
       "profile_key": null,
       "required": true,
       "guide": "신청하는 날짜를 적어요.",
-      "example": "2023-01-01",
+      "example": "2023.01.01",
       "evidence": "신청일",
       "sensitive": false,
       "box": {
@@ -396,8 +396,8 @@
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "지자체(또는 운영기관) 이름을 적어요.",
-      "example": null,
+      "guide": "시 · 군 · 구 이름만 짧게 적어요.",
+      "example": "강남구",
       "evidence": "○○지자체(운영기관장) 귀하",
       "sensitive": false,
       "box": {

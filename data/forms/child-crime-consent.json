@@ -238,7 +238,7 @@
       "profile_key": null,
       "required": true,
       "guide": "동의하는 날짜를 적어요.",
-      "example": "2023-10-01",
+      "example": "2023.10.01",
       "evidence": "동의일",
       "sensitive": false,
       "box": {

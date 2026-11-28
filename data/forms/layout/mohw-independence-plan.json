@@ -18,7 +18,7 @@
      155
     ]
    },
-   "example": "2026-11-27"
+   "example": "2026.11.27"
   },
   {
    "id": "plan_year",
@@ -92,7 +92,7 @@
    "example": "여"
   },
   {
-   "id": "birth_date",
+   "id": "birth_date", "example": "2005.01.01",
    "label": "생년월일",
    "input_type": "date",
    "value_source": "profile",
@@ -388,7 +388,7 @@
    }
   },
   {
-   "id": "certificate_issue_date",
+   "id": "certificate_issue_date", "example": "2022.05.01",
    "label": "발급날짜",
    "section": "현재 상황 > 자격증",
    "input_type": "date",

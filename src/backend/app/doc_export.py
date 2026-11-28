@@ -36,6 +36,8 @@ LINE = (0.75, 0.75, 0.75)
 INK = (0.05, 0.1, 0.35)  # 원본 양식 위에 쓰는 글자 (볼펜 느낌의 진한 남색)
 FONT_NAME = "onroadkr"  # 양식 PDF 에 원래 있는 글꼴 이름과 겹치지 않게 (겹치면 그 글꼴의 일부 글자만 쓰게 됨)
 OVERLAY_SIZES = (10, 9, 8, 7, 6)  # 6: 좁은 표 칸(전화번호 · 주소)에서만 마지막으로
+NARROW_BOX = 40  # 이보다 좁은 칸은
+NARROW_INSET = 0.8  # 안쪽 여백을 이만큼만
 BOX_INSET = 2.5
 SIGN_SIZE = 9
 _DATE_RE = re.compile(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})")
@@ -488,7 +490,9 @@ def render_overlay(pdf: Path | bytes, title: str, rows: list[tuple[dict, str]]) 
         if page.number not in fonted:
             _use_font(page)
             fonted.add(page.number)
-        rect = pymupdf.Rect(box["rect"]) + (BOX_INSET, BOX_INSET, -BOX_INSET, -BOX_INSET)
+        # 좁은 칸(괄호 안 · 짧은 표 칸)은 안쪽 여백을 줄여 값이 별지로 넘어가지 않게
+        inset = BOX_INSET if pymupdf.Rect(box["rect"]).width >= NARROW_BOX else NARROW_INSET
+        rect = pymupdf.Rect(box["rect"]) + (inset, inset, -inset, -inset)
         template = box.get("template_text") or ""
         if box.get("how") == "confirm":  # 유의사항 확인 열: 항목마다 모두 체크
             for x, y in box.get("spots") or []:

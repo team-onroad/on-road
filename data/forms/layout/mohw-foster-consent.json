@@ -7,7 +7,7 @@
    "label": "이름",
    "section": "아동",
    "guide": "위탁보호를 받을 아동의 이름을 적어요.",
-   "example": "김○○",
+   "example": "김민지",
    "at": {
     "right_of": "이름#1"
    }
@@ -29,7 +29,7 @@
    "label": "이름",
    "section": "보호자",
    "guide": "동의하는 보호자(부모 등)의 이름을 적어요.",
-   "example": "김○○",
+   "example": "김민수",
    "at": {
     "right_of": "이름#2"
    }
@@ -89,13 +89,11 @@
    "id": "child_name_in_text",
    "label": "아동( )을 가정위탁보호하는 것에 동의",
    "guide": "위탁보호할 아동 이름을 다시 적어요.",
-   "at": {
-    "right_of": "아동(",
-    "to": ")을"
-   }
+   "example": "김민지",
+   "at": {"rect": [263.0, 389.2, 284.0, 406.2]}
   },
   {
-   "id": "date",
+   "id": "date", "example": "2023.10.01",
    "label": "동의일",
    "input_type": "date",
    "guide": "동의하는 날짜를 적어요.",

@@ -198,7 +198,7 @@ def test_notice_confirm_and_handwrite_note(api, db_session, doc_llm, forms_dir, 
     assert filled["field"]["value"] == "123-456-789012"
     q = _say(api, user, doc_id, "네")["question"]
     assert q["field_id"] == "notice_confirm"
-    assert q["text"] == "유의사항 2가지를 끝까지 읽고 하나씩 체크해 주세요.\n다 체크하면 '모두 확인했어요'를 눌러 주세요."
+    assert q["text"] == "유의사항 2가지를 끝까지 읽고 하나씩 체크해 주세요. 다 체크하면 '모두 확인했어요'를 눌러 주세요."
     assert q["items"] == items  # 줄이지 않은 전문 (앱이 항목마다 체크박스)
     assert _say(api, user, doc_id, "음")["message"].startswith("유의사항을 읽고 '확인'")
     done = _say(api, user, doc_id, "모두 확인했어요")

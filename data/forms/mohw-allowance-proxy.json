@@ -188,7 +188,7 @@
       "profile_key": null,
       "required": true,
       "guide": "대신 신청해 줄 사람의 이름을 적어요.",
-      "example": "이○○",
+      "example": "이수진",
       "evidence": "성명",
       "sensitive": false,
       "box": {
@@ -338,7 +338,7 @@
       "profile_key": null,
       "required": true,
       "guide": "위임하는 날짜를 적어요.",
-      "example": "2023-10-01",
+      "example": "2023.10.01",
       "evidence": "위임일",
       "sensitive": false,
       "box": {

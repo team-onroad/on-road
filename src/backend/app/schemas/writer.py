@@ -250,6 +250,9 @@ class Problem(BaseModel):
     label: str
     reason: Literal["not_completed", "required_empty", "placeholder_left", "invalid_format"]
     message: str
+    section: str | None = None  # 칸이 있는 묶음 (신청인 · 대리인 …). 같은 이름 칸이 여럿일 때 어디인지
+    how: str | None = None  # 바르게 쓰는 방법 (칸 안내 문장)
+    example: str | None = None  # 바른 예시
 
 
 class CheckResponse(BaseModel):
