@@ -204,8 +204,8 @@ fun PolicyDetailScreen(
     policyId: String,
     onBack: () -> Unit,
     onPrepare: (String) -> Unit,
-    /** 이 정책 신청서를 서류 작성에서 연다 */
-    onWrite: (String) -> Unit = {},
+    /** 이 정책 신청서를 서류 작성에서 연다 (정책 id, 고른 양식 form_id) */
+    onWrite: (String, String?) -> Unit = { _, _ -> },
     /** 이 정책을 AI 상담에 묻는다 (질문 문장) */
     onAsk: (String) -> Unit = {},
     /** 같이 보면 좋은 정책을 누르면 그 정책 상세로 */
@@ -265,7 +265,7 @@ fun PolicyDetailScreen(
                         profile = vm.profile,
                         easy = vm.easy,
                         onToggleEasy = { vm.easy = !vm.easy },
-                        onWrite = { onWrite(pol.id) },
+                        onWrite = { formId -> onWrite(pol.id, formId) },
                         onAsk = { onAsk("${pol.name} 신청하려면 어떻게 해야 해?") },
                         onOpenPolicy = onOpenPolicy,
                         onSameKind = { onSameKind(pol.id) },
@@ -299,7 +299,7 @@ private fun PolicyDetailBody(
     profile: UserProfile?,
     easy: Boolean,
     onToggleEasy: () -> Unit,
-    onWrite: () -> Unit,
+    onWrite: (String) -> Unit,
     onAsk: () -> Unit,
     onOpenPolicy: (String) -> Unit,
     onSameKind: () -> Unit = {},
@@ -670,7 +670,7 @@ private fun SheetRow(label: String, value: String) {
  * '받을 수 없는 경우'는 따로 묶는다. 안내 문구는 두지 않는다
  */
 @Composable
-private fun ConditionSection(policy: Policy, profile: UserProfile?, onWrite: () -> Unit, onAsk: () -> Unit) {
+private fun ConditionSection(policy: Policy, profile: UserProfile?, onWrite: (String) -> Unit, onAsk: () -> Unit) {
     // 내가 답한 조건 · 퇴소일이 바뀌면 다시 계산한다
     val answered = com.project.on_road.data.MyConditions.version
     val base = remember(policy, profile) { DetailCalc.conditions(policy, profile) }
@@ -713,10 +713,12 @@ private fun ConditionSection(policy: Policy, profile: UserProfile?, onWrite: () 
         }
     }
     Spacer(Modifier.height(16.dp))
+    // 신청서 쓰기: 이 정책에 쓸 양식이 있을 때만. 하나면 바로, 여럿이면 고르게
+    var pickForm by remember { mutableStateOf(false) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OnRoadButton(
+        if (policy.forms.isNotEmpty()) OnRoadButton(
             text = "신청서 쓰기",
-            onClick = onWrite,
+            onClick = { if (policy.forms.size == 1) onWrite(policy.forms.first().formId) else pickForm = true },
             modifier = Modifier.weight(1f),
             variant = ButtonVariant.Outline,
             height = 44.dp,
@@ -731,6 +733,54 @@ private fun ConditionSection(policy: Policy, profile: UserProfile?, onWrite: () 
             textStyle = OnRoadType.Body3.copy(fontWeight = FontWeight.Medium),
         )
     }
+    if (pickForm) FormPickDialog(policy.forms, onPick = { pickForm = false; onWrite(it) }, onDismiss = { pickForm = false })
+}
+
+/** 양식이 여럿일 때 고르기: 양식 이름 + 어떤 서류인지 (+ 대신 쓰는 양식 안내) */
+@Composable
+private fun FormPickDialog(
+    forms: List<com.project.on_road.data.PolicyFormLink>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = OnRoadColors.Surface,
+        shape = OnRoadShapes.Card,
+        title = { Text("어떤 서류를 쓸까요?", style = OnRoadType.Title3, color = OnRoadColors.TextPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                forms.forEach { f ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(OnRoadShapes.Item)
+                            .background(OnRoadColors.SurfaceSubtle)
+                            .border(1.dp, OnRoadColors.Border, OnRoadShapes.Item)
+                            .tap(onClickLabel = "${f.title} 쓰기") { onPick(f.formId) }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                    ) {
+                        Text(f.title, style = OnRoadType.Body2.copy(fontWeight = FontWeight.SemiBold), color = OnRoadColors.TextPrimary)
+                        val sub = f.docName?.let { "필요 서류: $it" }
+                        if (sub != null) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(sub, style = OnRoadType.Caption2, color = OnRoadColors.TextTertiary)
+                        }
+                        f.notice?.let {
+                            Spacer(Modifier.height(2.dp))
+                            Text(it, style = OnRoadType.Caption2, color = OnRoadColors.Warning)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text("닫기", style = OnRoadType.Body3, color = OnRoadColors.TextSecondary)
+            }
+        },
+    )
 }
 
 /* ── 신청 방법 ─────────────────────────────────────────────────── */

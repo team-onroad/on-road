@@ -607,7 +607,7 @@ private fun OnRoadGraph(
                 policyId = entry.arguments?.getString("policyId").orEmpty(),
                 onBack = back,
                 onPrepare = { go(Routes.checklist(it)) },
-                onWrite = { id -> go(Routes.docWriter(policyId = id.toLongOrNull())) },
+                onWrite = { id, formId -> go(Routes.docWriter(policyId = id.toLongOrNull(), formId = formId)) },
                 onAsk = { q -> go(Routes.chat(question = q)) },
                 onOpenPolicy = { go(Routes.policyDetail(it)) },
                 onSameKind = { go(Routes.sameKind(it)) },

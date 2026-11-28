@@ -507,6 +507,8 @@ data class PolicyDetailDto(
     @SerializedName("apply_deadline") val applyDeadline: String? = null,
     @SerializedName("apply_steps") val applySteps: List<String>? = null,
     @SerializedName("doc_facts") val docFacts: List<String>? = null,
+    /** 이 정책 신청에 쓰는 서버 양식 (정책 상세 '신청서 쓰기'). 없으면 버튼을 숨긴다 */
+    val forms: List<FormLinkDto>? = null,
     /** 같이 보면 좋은 정책 (같은 분야 · 받을 수 있는 정책, 최대 3개) */
     val related: List<DetailRelatedDto>? = null,
     @SerializedName("same_kind") val sameKind: SameKindDto? = null,
@@ -779,6 +781,8 @@ data class FormLinkDto(
     val title: String,
     val checked: Boolean = false,
     val notice: String? = null,
+    /** 이 양식으로 쓰는 필요 서류 이름 (정책 상세에서만, 없으면 null) */
+    @SerializedName("doc_name") val docName: String? = null,
 )
 
 data class ChecklistStepDto(

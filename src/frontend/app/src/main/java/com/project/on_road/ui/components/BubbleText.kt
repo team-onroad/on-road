@@ -43,8 +43,8 @@ private val SENTENCE_END = Regex("""(?<=[^\d\s][.?!]|[.?!]['")])\s+""")
 /** 짧은 안내(문장 3개 이하)만 문장마다 나눈다. AI 초안 같은 긴 문단은 문단 그대로 */
 private const val MAX_SPLIT_SENTENCES = 3
 
-/** 따옴표로 감싼 칸 이름 · 값 ('성명', '홍길동'). 한 줄 안, 40자까지 */
-private val QUOTED = Regex("""'([^'\n]{1,40})'""")
+/** 따옴표로 감싼 칸 이름 · 값 ('성명', '홍길동'). 한 줄 안, 40자까지 (keepWords 가 글자 사이에 넣는 연결 문자까지 세어 80) */
+private val QUOTED = Regex("""'([^'\n]{1,80})'""")
 
 /** 따옴표 부분을 따옴표 없이 굵게: "'성명'은 '홍길동'(으)로 할까요?" → **성명**은 **홍길동**(으)로 할까요? */
 fun String.boldQuoted(weight: FontWeight = QuotedWeight): AnnotatedString = buildAnnotatedString {
@@ -59,6 +59,13 @@ fun String.boldQuoted(weight: FontWeight = QuotedWeight): AnnotatedString = buil
 
 /** 굵게 보이는 칸 이름 · 값의 굵기 */
 val QuotedWeight = FontWeight.Bold
+
+/** 줄을 꽉 채우고 넘칠 때만 다음 줄로 (읽는 글 · 상담 답변). 낱말 중간에서는 keepWords 로 끊지 않는다 */
+private val ReadingLineBreak = LineBreak(
+    strategy = LineBreak.Strategy.Simple,
+    strictness = LineBreak.Strictness.Normal,
+    wordBreak = LineBreak.WordBreak.Default,
+)
 
 /** 말풍선 글: 줄 길이를 고르게 (마지막 줄에 한두 글자만 남지 않게) */
 private val BubbleLineBreak = LineBreak(
@@ -81,19 +88,28 @@ fun BubbleText(
     style: TextStyle = OnRoadType.Caption.copy(lineHeight = OnRoadType.Body3.lineHeight),
     /** true: 따옴표로 감싼 칸 이름 · 값을 따옴표 없이 굵게 (서류 작성 대화) */
     boldQuotes: Boolean = false,
+    /**
+     * false: 읽는 글 (상담 답변). 문장마다 억지로 줄을 바꾸지 않고, 줄을 꽉 채운 뒤에만 넘긴다.
+     * true(기본): 짧은 안내 말풍선. 넘치면 문장 사이에서 바꾸고 줄 길이를 고르게
+     */
+    shortBubble: Boolean = true,
 ) {
     val measurer = rememberTextMeasurer()
-    val lineStyle = remember(style) { style.copy(lineBreak = BubbleLineBreak) }
+    val lineStyle = remember(style, shortBubble) { style.copy(lineBreak = if (shortBubble) BubbleLineBreak else ReadingLineBreak) }
     BoxWithConstraints(modifier) {
         val maxWidth = constraints.maxWidth
-        val shown = remember(text, maxWidth, lineStyle) {
-            text.split("\n").joinToString("\n") { paragraph ->
-                val sentences = paragraph.split(SENTENCE_END).filter { it.isNotBlank() }
-                val fits = maxWidth == Constraints.Infinity || measurer.measure(
-                    paragraph.keepWords(), lineStyle, softWrap = false, maxLines = 1,
-                ).size.width <= maxWidth
-                if (fits || sentences.size < 2 || sentences.size > MAX_SPLIT_SENTENCES) paragraph.keepWords()
-                else sentences.joinToString("\n") { it.trim().keepWords() }
+        val shown = remember(text, maxWidth, lineStyle, shortBubble) {
+            if (!shortBubble) {
+                text.split("\n").joinToString("\n") { it.keepWords() }
+            } else {
+                text.split("\n").joinToString("\n") { paragraph ->
+                    val sentences = paragraph.split(SENTENCE_END).filter { it.isNotBlank() }
+                    val fits = maxWidth == Constraints.Infinity || measurer.measure(
+                        paragraph.keepWords(), lineStyle, softWrap = false, maxLines = 1,
+                    ).size.width <= maxWidth
+                    if (fits || sentences.size < 2 || sentences.size > MAX_SPLIT_SENTENCES) paragraph.keepWords()
+                    else sentences.joinToString("\n") { it.trim().keepWords() }
+                }
             }
         }
         if (boldQuotes) Text(shown.boldQuoted(), style = lineStyle, color = color)

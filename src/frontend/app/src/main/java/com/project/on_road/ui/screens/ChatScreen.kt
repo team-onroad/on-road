@@ -860,6 +860,7 @@ private fun BotMessage(
                         color = OnRoadColors.TextPrimary,
                         modifier = Modifier.copyOnLongPress(msg.text),
                         style = OnRoadType.Caption.copy(lineHeight = ChatSpace.AnswerLineHeight),
+                        shortBubble = false,
                     )
                 }
                 }
@@ -1094,6 +1095,7 @@ private fun PolicyAnswer(
                     color = OnRoadColors.TextPrimary,
                     style = OnRoadType.Caption.copy(lineHeight = ChatSpace.AnswerLineHeight),
                     boldQuotes = true,
+                    shortBubble = false,
                 )
             }
         }

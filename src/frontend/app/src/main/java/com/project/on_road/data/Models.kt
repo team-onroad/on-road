@@ -177,7 +177,12 @@ data class Policy(
     val docFacts: List<String> = emptyList(),
     /** 들어야 받을 수 있는 교육 (settlement: 자립정착금 의무교육 · finance: 자립수당 자립교육). 상세에서만 */
     val requiredEducation: String? = null,
+    /** 앱에서 바로 쓸 수 있는 신청 양식 (상세에서만). 비어 있으면 '신청서 쓰기'를 숨긴다 */
+    val forms: List<PolicyFormLink> = emptyList(),
 )
+
+/** 정책 신청 양식: 누르면 서류 작성을 이 양식으로 연다. docName: 이 양식으로 쓰는 필요 서류 (없으면 null) */
+data class PolicyFormLink(val formId: String, val title: String, val notice: String? = null, val docName: String? = null)
 
 /**
  * 받는 것 한 줄 (목록 · 카드용). 돈이 아닌 정책(주거 · 의료 · 상담)이 많아서 금액만 보여 주지 않는다.

@@ -715,6 +715,7 @@ private fun PolicyDetailDto.toPolicy() = Policy(
     applySteps = applySteps.orEmpty(),
     docFacts = docFacts.orEmpty(),
     requiredEducation = requiredEducation,
+    forms = forms.orEmpty().map { com.project.on_road.data.PolicyFormLink(it.formId, it.title, it.notice, it.docName) },
 )
 
 private fun String?.toDate(): LocalDate? = this?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
