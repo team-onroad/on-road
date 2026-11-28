@@ -43,7 +43,7 @@ class AnswerPartsTest {
         assertEquals(
             listOf(
                 AnswerFormat.SummaryLine("해당", listOf("나이, 사는 곳")),
-                AnswerFormat.SummaryLine("확인할 것", listOf("서초구 1년 이상 거주", "기준중위소득 50% 이하")),
+                AnswerFormat.SummaryLine("확인 필요", listOf("서초구 1년 이상 거주", "기준중위소득 50% 이하")),
             ),
             AnswerFormat.summary(first),
         )
@@ -57,6 +57,22 @@ class AnswerPartsTest {
         )
         assertEquals(AnswerFormat.CheckKind.CHECK, p.myCheck[0].items[0].kind)
         assertEquals(AnswerFormat.CheckKind.INFO, p.myCheck[0].items[1].kind)
+    }
+
+    @Test
+    fun plainTextForSpeakAndCopy() {
+        val text = AnswerFormat.plain(AnswerFormat.parts(AnswerFormat.answer(raw), listOf(life, settle)))
+        assertFalse("[내 조건으로 보면]" in text || "(출처" in text || "- 서리풀" in text)
+        assertTrue("출처: 정부24" in text)
+        assertTrue("확인 필요: 서초구 1년 이상 거주, 기준중위소득 50% 이하" in text)
+    }
+
+    @Test
+    fun rowsFindTheirPolicy() {
+        val names = listOf(life, settle)
+        assertEquals(0, AnswerFormat.matchPolicy("서리풀 생활보조수당 지원", names))
+        assertEquals(1, AnswerFormat.matchPolicy("서리풀 자립정착금지원", names)) // 띄어쓰기가 달라도
+        assertEquals(-1, AnswerFormat.matchPolicy("자립수당", names))
     }
 
     @Test

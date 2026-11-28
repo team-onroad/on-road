@@ -118,14 +118,14 @@ object AnswerFormat {
         return Parts(body, policyNames.map(::shortName).distinct(), sources, notice, rows)
     }
 
-    /** 행 아래 한 묶음: 머리말("해당" · "확인할 것", 없으면 null)과 값들. 값이 여럿이면 머리말 뒤 같은 자리에 한 줄씩 */
+    /** 행 아래 한 묶음: 머리말("해당" · "확인 필요", 없으면 null)과 값들. 값이 여럿이면 머리말 뒤 같은 자리에 한 줄씩 */
     data class SummaryLine(val label: String?, val values: List<String>)
 
     /**
      * 목록 행 아래 쉬운 말:
      *   해당: 나이, 사는 곳
-     *   확인할 것: 서초구 1년 이상 거주
-     *             기준중위소득 50% 이하
+     *   확인 필요: 서초구 1년 이상 거주
+     *              기준중위소득 50% 이하
      * 받는 중이면 "지금 받고 있는 지원이에요", 참고(더 유리한 정책)는 머리말 없이 마지막
      */
     fun summary(row: MyCheckRow): List<SummaryLine> {
@@ -138,7 +138,7 @@ object AnswerFormat {
                 "나이 · 지역 조건" in ok -> add(SummaryLine("해당", listOf("나이, 사는 곳")))
             }
             val todo = check.map { if (it == "나이 · 지역 조건") "나이, 사는 곳" else it }
-            if (todo.isNotEmpty()) add(SummaryLine("확인할 것", todo))
+            if (todo.isNotEmpty()) add(SummaryLine("확인 필요", todo))
             info.forEach { add(SummaryLine(null, listOf(it))) }
         }
     }
@@ -165,5 +165,38 @@ object AnswerFormat {
             }
         }
         return MyCheckRow(name, items.sortedBy { it.kind.ordinal })
+    }
+
+    /**
+     * 듣기 · 복사용 글 (화면에 보이는 그대로, 기호 없이).
+     *   문단들 / 출처: 정부24 / 내 조건으로 보면. 서리풀 생활보조수당 지원. 해당: 나이, 사는 곳. 확인 필요: …
+     */
+    fun plain(parts: Parts): String = buildString {
+        append(parts.body.joinToString("\n\n"))
+        if (parts.sources.isNotEmpty()) append("\n\n출처: ").append(parts.sources.joinToString(", "))
+        parts.notice?.let { append("\n").append(it) }
+        if (parts.myCheck.isNotEmpty()) {
+            append("\n\n내 조건으로 보면")
+            parts.myCheck.forEach { r ->
+                append("\n").append(r.name)
+                summary(r).forEach { line ->
+                    append("\n").append(line.label?.let { "$it: " }.orEmpty()).append(line.values.joinToString(", "))
+                }
+            }
+        }
+    }
+
+    private fun flat(s: String) = s.replace(" ", "").replace("·", "")
+
+    /**
+     * '내 조건으로 보면' 행 이름 → 답에 나온 정책 중 몇 번째인지 (없으면 -1).
+     * 짧은 이름이 같으면 그것, 아니면 띄어쓰기 · 가운뎃점을 빼고 비교, 그래도 없으면 한쪽이 다른 쪽을 품는 것 (하나일 때만)
+     */
+    fun matchPolicy(rowName: String, policyNames: List<String>): Int {
+        policyNames.indexOfFirst { shortName(it) == rowName }.takeIf { it >= 0 }?.let { return it }
+        val want = flat(rowName)
+        policyNames.indexOfFirst { flat(shortName(it)) == want }.takeIf { it >= 0 }?.let { return it }
+        val loose = policyNames.withIndex().filter { (_, n) -> flat(n).contains(want) || want.contains(flat(shortName(n))) }
+        return if (loose.size == 1) loose[0].index else -1
     }
 }
