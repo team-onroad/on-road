@@ -5,18 +5,30 @@
   "source": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787",
   "fields": [
     {
-      "id": "target",
-      "label": "대상자",
+      "id": "institution_addressee",
+      "label": "○○○○ 자립지원전담기관장 귀하",
       "section": null,
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "대상자의 정보를 적어요.",
-      "example": "홍길동",
-      "evidence": "대상자",
+      "guide": "관할 자립지원전담기관 이름을 적어요 (예: 서울).",
+      "example": "서울",
+      "evidence": "○○○○ 자립지원전담기관장 귀하",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          340,
+          154,
+          382,
+          167
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "cover": true,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "name",
@@ -26,77 +38,100 @@
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "본인의 이름을 적어요.",
-      "example": "홍길동",
+      "guide": "본인 이름을 적어요.",
+      "example": "김민지",
       "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          214.0,
-          174.8,
-          300.1,
-          204.5
+          215,
+          176,
+          299,
+          204
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "birth_date",
       "label": "생년월일",
       "section": "대상자",
-      "input_type": "text",
-      "value_source": "handwrite",
-      "profile_key": null,
+      "input_type": "date",
+      "value_source": "profile",
+      "profile_key": "birth_date",
       "required": true,
-      "guide": "태어난 날짜를 적어요.",
-      "example": "2000. 01. 01",
+      "guide": "본인 생년월일을 적어요.",
+      "example": null,
       "evidence": "생년월일",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          370,
+          176,
+          481,
+          204
+        ],
+        "how": "table_right",
+        "template_text": "000000-0000000",
+        "cover": true,
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "id_number",
-      "label": "000000-0000000",
-      "section": "대상자",
-      "input_type": "id_number",
-      "value_source": "handwrite",
-      "profile_key": null,
-      "required": true,
-      "guide": "주민등록번호를 적어요.",
-      "example": null,
-      "evidence": "000000-0000000",
-      "sensitive": true,
-      "box": null
-    },
-    {
-      "id": "end_date",
+      "id": "care_end_date",
       "label": "보호종료(예정)일",
       "section": "대상자",
       "input_type": "date",
-      "value_source": "handwrite",
+      "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "보호가 끝나는 날짜를 적어요.",
-      "example": "2026. 12. 31",
+      "guide": "보호가 끝난(또는 끝날) 날을 적어요.",
+      "example": "2026-12-31",
       "evidence": "보호종료(예정)일",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          215,
+          206,
+          299,
+          233
+        ],
+        "how": "table_right",
+        "template_text": "0000.00.00.",
+        "cover": true,
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "contact",
+      "id": "phone",
       "label": "연락처",
       "section": "대상자",
       "input_type": "phone",
       "value_source": "profile",
       "profile_key": "phone",
       "required": true,
-      "guide": "연락할 수 있는 전화번호를 적어요.",
-      "example": "010-1234-5678",
+      "guide": "연락처를 적어요.",
+      "example": null,
       "evidence": "연락처",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          370,
+          206,
+          481,
+          233
+        ],
+        "how": "table_right",
+        "template_text": "010-0000-0000",
+        "cover": true,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "institution_name",
@@ -106,100 +141,370 @@
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "보호기관의 이름을 적어요.",
-      "example": "서울자립지원센터",
+      "guide": "보호받던 시설(기관) 이름을 적어요.",
+      "example": "○○아동복지센터",
       "evidence": "기관명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          214.0,
-          234.3,
-          481.6,
-          261.3
+          215,
+          235,
+          481,
+          260
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "institution_address",
       "label": "기관주소",
       "section": "원가정외 보호기관",
-      "input_type": "text",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "보호기관의 주소를 적어요.",
-      "example": "서울특별시 강남구 테헤란로 123",
+      "guide": "보호받던 기관의 주소를 적어요.",
+      "example": null,
       "evidence": "기관주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          214.0,
-          261.3,
-          481.6,
-          290.1
+          215,
+          262,
+          481,
+          289
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "agreement_date",
-      "label": "년 월 일",
+      "label": "동의일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "동의한 날짜를 적어요.",
+      "guide": "동의하는 날짜를 적어요.",
       "example": "2023. 10. 01",
-      "evidence": "20 년 월 일",
+      "evidence": "동의일",
       "sensitive": false,
       "box": {
-        "page": 1,
+        "page": 0,
         "rect": [
-          197.0,
-          623.3,
-          320.1,
-          640.3
+          372.5,
+          605.4,
+          478.5,
+          622.5
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "20년월일",
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "signature",
-      "label": "동의권자 : (서명 또는 인)",
+      "label": "동의권자 (서명 또는 인)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "서명하거나 도장을 찍어요.",
+      "guide": "본인이 직접 서명하거나 도장을 찍어요.",
       "example": null,
-      "evidence": "동의권자 : (서명 또는 인)",
-      "sensitive": true,
+      "evidence": "동의권자 (서명 또는 인)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          480.5,
-          623.5,
-          520,
-          637.5
+          352.2,
+          621.5,
+          419.3,
+          638.5
         ],
         "how": "text_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "confirmer_signature",
+      "label": "동의확인자(자립지원전담요원) (서명 또는 인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "자립지원전담요원이 서명해요.",
+      "example": null,
+      "evidence": "동의확인자(자립지원전담요원) (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          352.2,
+          637.4,
+          419.3,
+          654.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "obtainer_signature",
+      "label": "동의획득자(자립지원전담인력) (서명 또는 인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "자립지원전담인력이 서명해요.",
+      "example": null,
+      "evidence": "동의획득자(자립지원전담인력) (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          352.2,
+          653.4,
+          419.3,
+          670.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consent_personal",
+      "label": "개인정보 수집·이용 동의",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "자립지원 서비스를 받으려면 동의해요.",
+      "example": null,
+      "evidence": "개인정보 수집·이용 동의",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          295.2,
+          267.9,
+          403.9,
+          282.9
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의함",
+          "동의하지않음"
+        ],
+        "marks": {
+          "동의함": [
+            301.5,
+            275.4
+          ],
+          "동의하지않음": [
+            348.4,
+            275.4
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consent_sensitive",
+      "label": "민감정보 수집·이용 동의",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "건강 · 주거 상태 등 민감정보 수집에 동의하는지 골라요.",
+      "example": null,
+      "evidence": "민감정보 수집·이용 동의",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          295.2,
+          381.6,
+          403.9,
+          396.6
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의함",
+          "동의하지않음"
+        ],
+        "marks": {
+          "동의함": [
+            301.5,
+            389.1
+          ],
+          "동의하지않음": [
+            348.4,
+            389.1
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consent_third_party",
+      "label": "개인정보 제3자 제공 동의",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "시 · 군 · 구 등에 정보를 제공하는 것에 동의하는지 골라요.",
+      "example": null,
+      "evidence": "개인정보 제3자 제공 동의",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          293.7,
+          521.1,
+          402.3,
+          536.1
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의함",
+          "동의하지않음"
+        ],
+        "marks": {
+          "동의함": [
+            300.0,
+            528.6
+          ],
+          "동의하지않음": [
+            346.7,
+            528.6
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "date_page2",
+      "label": "동의일 (2면)",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "동의하는 날짜를 적어요.",
+      "example": null,
+      "evidence": "동의일 (2면)",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          232.6,
+          623.4,
+          320.1,
+          639.3
+        ],
+        "how": "date_line",
+        "template_text": "20년월일",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "name_page2",
+      "label": "본인 성명",
+      "section": null,
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "본인 이름을 적어요.",
+      "example": null,
+      "evidence": "본인 성명",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          231.5,
+          637.8,
+          303.3,
+          653.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "signature_page2",
+      "label": "본인 (서명 또는 인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "본인 (서명 또는 인)",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          302.3,
+          636.8,
+          361.5,
+          654.7
+        ],
+        "how": "table_right",
+        "template_text": "(서명또는인)",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "institution_addressee_page2",
+      "label": "00 자립지원전담기관장 귀중",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "관할 자립지원전담기관 이름을 적어요.",
+      "example": "서울",
+      "evidence": "00 자립지원전담기관장 귀중",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          226,
+          653,
+          243,
+          668
+        ],
+        "how": "table_right",
+        "template_text": "00",
+        "cover": true,
+        "found_by": "layout_spec"
       }
     }
   ],
   "notes": [
     "대상자는 보호종료 후 사후관리에 대한 동의를 거부할 권리가 있다."
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 대상자, 연락처"
-  ],
+  "warnings": [],
   "checked": false
 }

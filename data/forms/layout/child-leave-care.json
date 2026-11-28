@@ -1,0 +1,22 @@
+{
+  "form_id": "child-leave-care",
+  "checked_on": "2026-11-27",
+  "fields": [
+    {"id": "application_number", "label": "접수번호", "input_type": "text", "value_source": "office", "guide": "기관이 적는 칸이에요.", "at": {"right_of": "접수번호"}},
+    {"id": "application_date", "label": "접수일", "input_type": "date", "value_source": "office", "guide": "기관이 적는 칸이에요.", "at": {"right_of": "접수일", "to": 280}},
+    {"id": "applicant_name", "label": "성명", "section": "신청인", "input_type": "text", "value_source": "profile", "profile_key": "name", "guide": "신청하는 사람(본인)의 이름을 적어요.", "example": "김민지", "at": {"right_of": "성명#1"}},
+    {"id": "applicant_birth_date", "label": "생년월일", "section": "신청인", "input_type": "date", "value_source": "profile", "profile_key": "birth_date", "guide": "신청하는 사람의 생년월일을 적어요.", "example": "2007-03-15", "at": {"right_of": "생년월일"}},
+    {"id": "applicant_address", "label": "주소", "section": "신청인", "input_type": "address", "guide": "신청하는 사람이 사는 곳 주소를 적어요.", "example": "서울특별시 ○○구 ○○로 12", "at": {"right_of": "주소#1"}},
+    {"id": "child_name", "label": "성명", "section": "대상 아동", "input_type": "text", "guide": "보호를 끝내려는 아동의 이름을 적어요. 본인이 신청하면 본인 이름이에요.", "example": "김민지", "at": {"right_of": "성명#2"}},
+    {"id": "child_id_number", "label": "주민등록번호", "section": "대상 아동", "input_type": "id_number", "value_source": "handwrite", "sensitive": true, "guide": "대상 아동의 주민등록번호는 제출할 때 직접 적어요.", "at": {"right_of": "주민등록번호"}},
+    {"id": "foster_or_admission_date", "label": "가정위탁 또는 입소 연월일", "section": "대상 아동", "input_type": "date", "guide": "가정위탁을 시작했거나 시설에 들어간 날을 적어요.", "example": "2015-04-01", "at": {"right_of": "가정위탁또는입소연월일"}},
+    {"id": "end_or_leave_date", "label": "보호조치의 종료 또는 퇴소 예정 연월일", "section": "대상 아동", "input_type": "date", "guide": "보호가 끝나거나 퇴소할 예정인 날을 적어요.", "example": "2026-12-31", "at": {"right_of": "보호조치의종료또는퇴소예정연월일"}},
+    {"id": "facility_name", "label": "시설명", "section": "대상 시설", "input_type": "text", "guide": "지금 생활하는 시설(또는 위탁가정) 이름을 적어요.", "example": "○○아동복지센터", "at": {"right_of": "시설명"}},
+    {"id": "facility_phone", "label": "전화번호", "section": "대상 시설", "input_type": "phone", "guide": "시설 전화번호를 적어요.", "example": "02-123-4567", "at": {"right_of": "전화번호"}},
+    {"id": "facility_address", "label": "주소(소재지)", "section": "대상 시설", "input_type": "address", "guide": "시설 주소를 적어요.", "example": "서울특별시 ○○구 ○○로 34", "at": {"right_of": "주소(소재지)"}},
+    {"id": "leave_reason", "label": "퇴소 사유", "input_type": "text", "guide": "보호를 끝내거나 퇴소하려는 까닭을 적어요.", "example": "만 18세가 되어 자립을 준비하려고 해요.", "at": {"cell_right": "퇴소사유"}},
+    {"id": "request_type", "label": "보호조치의 종료 또는 퇴소", "input_type": "checkbox", "guide": "보호조치 종료인지 퇴소인지 골라요.", "at": {"marks": {"보호조치의 종료": "종료[", "퇴소": "퇴소["}}},
+    {"id": "date", "label": "신청일", "input_type": "date", "guide": "신청하는 날짜를 적어요.", "at": {"date": "년월일#2"}},
+    {"id": "applicant_signature", "label": "신청인 (서명 또는 인)", "input_type": "signature", "value_source": "handwrite", "guide": "제출할 때 직접 서명하거나 도장을 찍어요.", "at": {"right_of": "신청인#2", "to": "(서명또는인)"}}
+  ]
+}

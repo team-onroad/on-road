@@ -1,0 +1,55 @@
+{
+ "form_id": "gg-privacy-consent",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "consent_for_collection",
+   "label": "개인정보 수집·이용 동의",
+   "input_type": "checkbox",
+   "guide": "동의해야 중개보수 지원을 받을 수 있어요.",
+   "at": {
+    "choices": "□동의함"
+   }
+  },
+  {
+   "id": "consent_for_third_party",
+   "label": "개인정보 제3자 제공 동의",
+   "input_type": "checkbox",
+   "guide": "동의해야 중복 지원 확인을 할 수 있어요.",
+   "at": {
+    "choices": "□동의함#2"
+   }
+  },
+  {
+   "id": "date",
+   "label": "동의일",
+   "input_type": "date",
+   "guide": "동의서를 쓰는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "name",
+   "label": "성명",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "본인 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "right_of": "성명:",
+    "to": "(서명)"
+   }
+  },
+  {
+   "id": "signature",
+   "label": "(서명)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "이름 옆에 직접 서명해요.",
+   "at": {
+    "around": "(서명)"
+   }
+  }
+ ]
+}

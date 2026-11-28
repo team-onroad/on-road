@@ -5,111 +5,659 @@
   "source": "https://www.jndc.co.kr/web/main/bbs/etc/7780",
   "fields": [
     {
-      "id": "relationship_with_applicant",
-      "label": "신청인과의 관계",
-      "section": null,
+      "id": "member1_name",
+      "label": "성명",
+      "section": "본인",
       "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "name",
       "required": true,
-      "guide": "신청인과의 관계를 적어요. 예를 들어 '형제'라고 쓸 수 있어요.",
-      "example": "형제",
-      "evidence": "신청인과의 관계",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "name",
-      "label": "성 명",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "동거인의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "성 명",
+      "guide": "본인 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          150.5,
-          259.3,
-          230.2,
-          301.7
+          152,
+          260,
+          229,
+          301
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "id_number",
+      "id": "member1_id_number",
       "label": "주민등록번호",
-      "section": null,
+      "section": "본인",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
-      "required": false,
-      "guide": "동거인의 주민등록번호를 적어요.",
+      "required": true,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "주민등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          230.2,
-          259.3,
-          383.1,
-          301.7
+          231,
+          260,
+          382,
+          301
         ],
-        "how": "table_below",
-        "template_text": "-"
+        "how": "table_right",
+        "template_text": "-",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "relationship_with_head",
+      "id": "member1_head_relation",
       "label": "(예정) 세대주와의 관계",
-      "section": null,
+      "section": "본인",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": false,
-      "guide": "세대주와의 관계를 적어요. 예를 들어 '본인'이라고 쓸 수 있어요.",
+      "required": true,
+      "guide": "입주 뒤 세대주와의 관계를 적어요 (예: 본인, 형제).",
       "example": "본인",
       "evidence": "(예정) 세대주와의 관계",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          384,
+          260,
+          473,
+          301
+        ],
+        "how": "table_right",
+        "template_text": "(예시)본인",
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "notes",
+      "id": "member1_note",
       "label": "비고",
-      "section": null,
+      "section": "본인",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "추가적인 내용을 적어요. 필요 없으면 비워도 돼요.",
-      "example": "특이사항 없음",
+      "guide": "덧붙일 말이 있으면 적어요.",
+      "example": null,
       "evidence": "비고",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          473.6,
-          259.3,
-          546.2,
-          301.7
+          475,
+          260,
+          545,
+          301
         ],
-        "how": "table_below",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member2_name",
+      "label": "성명",
+      "section": "동거인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "함께 살 사람의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          152,
+          303,
+          229,
+          343
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member2_id_number",
+      "label": "주민등록번호",
+      "section": "동거인",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          231,
+          303,
+          382,
+          343
+        ],
+        "how": "table_right",
+        "template_text": "-",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member2_head_relation",
+      "label": "(예정) 세대주와의 관계",
+      "section": "동거인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "입주 뒤 세대주와의 관계를 적어요 (예: 본인, 형제).",
+      "example": "형제",
+      "evidence": "(예정) 세대주와의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          384,
+          303,
+          473,
+          343
+        ],
+        "how": "table_right",
+        "template_text": "(예시)형제",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member2_note",
+      "label": "비고",
+      "section": "동거인",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "덧붙일 말이 있으면 적어요.",
+      "example": null,
+      "evidence": "비고",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          475,
+          303,
+          545,
+          343
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member3_relation",
+      "label": "신청인과의 관계",
+      "section": "가구원 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청인과의 관계를 적어요 (예: 배우자).",
+      "example": null,
+      "evidence": "신청인과의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          49,
+          345,
+          150,
+          386
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member3_name",
+      "label": "성명",
+      "section": "가구원 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "함께 살 사람의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          152,
+          345,
+          229,
+          386
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member3_id_number",
+      "label": "주민등록번호",
+      "section": "가구원 2",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          231,
+          345,
+          382,
+          386
+        ],
+        "how": "table_right",
+        "template_text": "-",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member3_head_relation",
+      "label": "(예정) 세대주와의 관계",
+      "section": "가구원 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "입주 뒤 세대주와의 관계를 적어요 (예: 본인, 형제).",
+      "example": "형제",
+      "evidence": "(예정) 세대주와의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          384,
+          345,
+          473,
+          386
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member3_note",
+      "label": "비고",
+      "section": "가구원 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "덧붙일 말이 있으면 적어요.",
+      "example": null,
+      "evidence": "비고",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          475,
+          345,
+          545,
+          386
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member4_relation",
+      "label": "신청인과의 관계",
+      "section": "가구원 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청인과의 관계를 적어요 (예: 배우자).",
+      "example": null,
+      "evidence": "신청인과의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          49,
+          388,
+          150,
+          428
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member4_name",
+      "label": "성명",
+      "section": "가구원 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "함께 살 사람의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          152,
+          388,
+          229,
+          428
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member4_id_number",
+      "label": "주민등록번호",
+      "section": "가구원 3",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          231,
+          388,
+          382,
+          428
+        ],
+        "how": "table_right",
+        "template_text": "-",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member4_head_relation",
+      "label": "(예정) 세대주와의 관계",
+      "section": "가구원 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "입주 뒤 세대주와의 관계를 적어요 (예: 본인, 형제).",
+      "example": "형제",
+      "evidence": "(예정) 세대주와의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          384,
+          388,
+          473,
+          428
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member4_note",
+      "label": "비고",
+      "section": "가구원 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "덧붙일 말이 있으면 적어요.",
+      "example": null,
+      "evidence": "비고",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          475,
+          388,
+          545,
+          428
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member5_relation",
+      "label": "신청인과의 관계",
+      "section": "가구원 4",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청인과의 관계를 적어요 (예: 배우자).",
+      "example": null,
+      "evidence": "신청인과의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          49,
+          430,
+          150,
+          470
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member5_name",
+      "label": "성명",
+      "section": "가구원 4",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "함께 살 사람의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          152,
+          430,
+          229,
+          470
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member5_id_number",
+      "label": "주민등록번호",
+      "section": "가구원 4",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          231,
+          430,
+          382,
+          470
+        ],
+        "how": "table_right",
+        "template_text": "-",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member5_head_relation",
+      "label": "(예정) 세대주와의 관계",
+      "section": "가구원 4",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "입주 뒤 세대주와의 관계를 적어요 (예: 본인, 형제).",
+      "example": "형제",
+      "evidence": "(예정) 세대주와의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          384,
+          430,
+          473,
+          470
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member5_note",
+      "label": "비고",
+      "section": "가구원 4",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "덧붙일 말이 있으면 적어요.",
+      "example": null,
+      "evidence": "비고",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          475,
+          430,
+          545,
+          470
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "date",
+      "label": "작성일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "확인서를 쓰는 날짜를 적어요.",
+      "example": null,
+      "evidence": "작성일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          316.3,
+          507.1,
+          452.7,
+          526.1
+        ],
+        "how": "date_line",
+        "template_text": "2026년월일",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "applicant_signature",
+      "label": "(1) 대표신청인 (인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "대표신청인이 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "(1) 대표신청인 (인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          385.9,
+          550.9,
+          465.1,
+          569.8
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "member_signature",
+      "label": "(2) 예비가구원 등 (인)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "함께 살 사람이 직접 서명하거나 도장을 찍어요.",
+      "example": null,
+      "evidence": "(2) 예비가구원 등 (인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          385.9,
+          597.6,
+          465.1,
+          616.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     }
   ],
   "notes": [
     "전입으로 구성된 가구 또는 세대를 확인하기 위한 증빙서류를 기한 내 제출해야 함."
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 신청인과의 관계, (예정) 세대주와의 관계"
-  ],
+  "warnings": [],
   "checked": false
 }

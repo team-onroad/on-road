@@ -6,198 +6,326 @@
   "fields": [
     {
       "id": "representative_name",
-      "label": "대표신청인 성명 :",
-      "section": null,
+      "label": "성명",
+      "section": "(1) 대표신청인",
       "input_type": "text",
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "대표신청인의 이름을 적어요.",
+      "guide": "대표신청인 이름을 적어요.",
       "example": "홍길동",
-      "evidence": "대표신청인 성명 :",
+      "evidence": "성명",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          97.1,
+          158.6,
+          339,
+          177.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "representative_address",
-      "label": "대표신청인 주민등록상주소 :",
-      "section": null,
+      "label": "주민등록상주소",
+      "section": "(1) 대표신청인",
       "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
       "guide": "대표신청인의 주민등록상 주소를 적어요.",
       "example": "전라남도 진도군",
-      "evidence": "대표신청인 주민등록상주소 :",
+      "evidence": "주민등록상주소",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          164.1,
+          178.0,
+          545,
+          200.1
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "representative_id_number",
-      "label": "대표신청인 주민등록번호 :",
-      "section": null,
+      "label": "주민등록번호",
+      "section": "(1) 대표신청인",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "대표신청인의 주민등록번호를 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
-      "evidence": "대표신청인 주민등록번호 :",
+      "evidence": "주민등록번호",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          147.5,
+          201.6,
+          545,
+          222.8
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "representative_phone",
-      "label": "대표신청인 연락처 :",
-      "section": null,
+      "label": "연락처",
+      "section": "(1) 대표신청인",
       "input_type": "phone",
       "value_source": "profile",
       "profile_key": "phone",
       "required": true,
-      "guide": "대표신청인의 연락처를 적어요.",
+      "guide": "대표신청인 연락처를 적어요.",
       "example": "010-1234-5678",
-      "evidence": "대표신청인 연락처 :",
+      "evidence": "연락처",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          112.1,
+          221.7,
+          339,
+          240.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "cohabitant_name",
-      "label": "대표신청인의 예비 세대원 성명 :",
-      "section": null,
+      "label": "성명",
+      "section": "(2) 예비세대원",
       "input_type": "text",
-      "value_source": "profile",
-      "profile_key": "name",
-      "required": false,
-      "guide": "예비 세대원의 이름을 적어요.",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "함께 입주할 예비 세대원의 이름을 적어요.",
       "example": "김철수",
-      "evidence": "대표신청인의 예비 세대원 성명 :",
+      "evidence": "성명",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          97.1,
+          280.3,
+          339,
+          299.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "cohabitant_id_number",
-      "label": "대표신청인의 예비 세대원 주민등록번호 :",
-      "section": null,
+      "label": "주민등록번호",
+      "section": "(2) 예비세대원",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
-      "required": false,
-      "guide": "예비 세대원의 주민등록번호를 적어요.",
+      "required": true,
+      "guide": "예비 세대원의 주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
-      "evidence": "대표신청인의 예비 세대원 주민등록번호 :",
+      "evidence": "주민등록번호",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          147.5,
+          303.7,
+          545,
+          324.9
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "cohabitant_phone",
-      "label": "대표신청인의 예비 세대원 연락처 :",
-      "section": null,
+      "label": "연락처",
+      "section": "(2) 예비세대원",
       "input_type": "phone",
-      "value_source": "profile",
-      "profile_key": "phone",
-      "required": false,
-      "guide": "예비 세대원의 연락처를 적어요.",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "예비 세대원 연락처를 적어요.",
       "example": "010-9876-5432",
-      "evidence": "대표신청인의 예비 세대원 연락처 :",
+      "evidence": "연락처",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          112.1,
+          324.0,
+          339,
+          344.3
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "personal_info_consent",
-      "label": "개인 정보 ․ 금융 정보 □",
+      "label": "개인정보·금융정보 동의",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "개인정보 수집 및 이용에 동의해요.",
+      "guide": "개인정보 수집·이용 동의서 제출에 동의하면 골라요.",
       "example": null,
-      "evidence": "상기 (1), (2)는 진도 청년드림주택 입주자격을 확인하기 위해 「개인정보 수집·이용 및 제3자 제공 동의서」를 제출하는 것에 동의함",
+      "evidence": "개인정보·금융정보 동의",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          92.8,
+          397.7,
+          108.8,
+          413.7
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의"
+        ],
+        "marks": {
+          "동의": [
+            100.8,
+            405.7
+          ]
+        },
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "residence_fact_consent",
-      "label": "거주 사실 □",
+      "label": "거주 사실 동의",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "거주 사실에 대한 확인에 동의해요.",
+      "guide": "전입을 증명하지 못하면 계약이 무효가 될 수 있음에 동의하면 골라요.",
       "example": null,
-      "evidence": "상기 (1), (2)는 진도 청년드림주택 입주 시까지 전입 사실을 증명하지 못할 시, 별도의 통지 없이 당첨 및 임대차 계약이 무효 처리되어 입주할 수 없음을 확인함",
+      "evidence": "거주 사실 동의",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          92.8,
+          461.8,
+          108.8,
+          477.8
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의"
+        ],
+        "marks": {
+          "동의": [
+            100.8,
+            469.8
+          ]
+        },
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "date",
-      "label": "년 월 일",
+      "label": "작성일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
+      "guide": "확인서를 쓰는 날짜를 적어요.",
       "example": null,
-      "evidence": "2026년 월 일",
+      "evidence": "작성일",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          292.7,
+          523.9,
+          429.1,
+          542.8
+        ],
+        "how": "date_line",
+        "template_text": "2026년월일",
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "representative_signature",
-      "label": "대표신청인 : (인)",
+      "label": "(1) 대표신청인 (인)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "대표신청인이 서명해요.",
+      "guide": "대표신청인이 직접 서명하거나 도장을 찍어요.",
       "example": null,
-      "evidence": "대표신청인 : (인)",
-      "sensitive": true,
+      "evidence": "(1) 대표신청인 (인)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          473.8,
-          563.9,
-          559,
-          580.8
+          366.6,
+          562.9,
+          445.9,
+          581.8
         ],
         "how": "text_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "cohabitant_signature",
-      "label": "예비세대원 : (인)",
+      "label": "(2) 예비세대원 (인)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
-      "required": false,
-      "guide": "예비 세대원이 서명해요.",
+      "required": true,
+      "guide": "예비 세대원이 직접 서명하거나 도장을 찍어요.",
       "example": null,
-      "evidence": "예비세대원 : (인)",
-      "sensitive": true,
+      "evidence": "(2) 예비세대원 (인)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          473.8,
-          610.7,
-          559,
-          627.6
+          366.6,
+          609.7,
+          445.9,
+          628.6
         ],
         "how": "text_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     }
   ],
   "notes": [
     "제출처: 전남개발공사 사장 귀하"
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 대표신청인 성명 :, 대표신청인 주민등록상주소 :, 대표신청인 연락처 :, 대표신청인의 예비 세대원 성명 :, 대표신청인의 예비 세대원 연락처 :, 개인 정보 ․ 금융 정보 □, 거주 사실 □, 년 월 일"
-  ],
+  "warnings": [],
   "checked": false
 }

@@ -1,0 +1,94 @@
+{
+  "_설명": "fill_missing 이 찾은 자리 중 사람이 원본 PDF 위에 겹쳐 보고 맞다고 확인한 칸만 (2026-11-27). 여기 없는 칸은 찾아도 쓰지 않는다 (별지)",
+  "jindo-proxy": [
+    "delegate_address",
+    "delegate_id_number",
+    "delegate_name",
+    "delegate_phone",
+    "agent_address",
+    "agent_id_number",
+    "agent_name",
+    "agent_phone"
+  ],
+  "jindo-duplicate-confirm": [
+    "applicant_name",
+    "applicant_address",
+    "applicant_id_number",
+    "applicant_contact",
+    "applicant_signature"
+  ],
+  "jindo-priority-confirm": [
+    "representative_name",
+    "representative_address",
+    "representative_id_number",
+    "representative_phone",
+    "cohabitant_name",
+    "cohabitant_id_number",
+    "cohabitant_phone",
+    "date"
+  ],
+  "jindo-startup-consent": [
+    "applicant_name",
+    "applicant_address",
+    "applicant_id_number",
+    "applicant_contact",
+    "expected_workplace",
+    "signature"
+  ],
+  "gg-brokerage-claim": [
+    "contract_type"
+  ],
+  "gg-privacy-consent": [
+    "consent_for_collection",
+    "consent_for_third_party"
+  ],
+  "child-leave-care": [
+    "applicant_signature"
+  ],
+  "lease-leaver-apply": [
+    "signature"
+  ],
+  "lease-orphan-apply": [
+    "applicant_signature"
+  ],
+  "youth-counsel-survey": [
+    "university_preparation",
+    "job_field_interest",
+    "training_program_intent",
+    "job_offer_acceptance",
+    "non_regular_job_acceptance",
+    "job_anxiety",
+    "job_break",
+    "job_opportunity_give_up",
+    "employment_support_program",
+    "household_or_childcare",
+    "job_center_visit",
+    "aptitude_test"
+  ],
+  "youth-apply": [
+    "participation_type"
+  ],
+  "welfare-apply": [
+    "address"
+  ],
+  "mohw-independence-plan": [
+    "school_type",
+    "school_category",
+    "university_type",
+    "tuition_funding",
+    "desired_job",
+    "housing_support",
+    "certificate_field",
+    "academy_funding_source",
+    "training_funding_source",
+    "internship_field",
+    "mentor_type",
+    "mentor_major"
+  ],
+  "mohw-settle-plan": [
+    "case_manager_phone"
+  ],
+  "mohw-didim-withdraw": [
+    "guardian_identity_number"
+  ]
+}

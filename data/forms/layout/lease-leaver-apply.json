@@ -1,0 +1,212 @@
+{
+ "form_id": "lease-leaver-apply",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "application_number",
+   "label": "접수번호",
+   "value_source": "office",
+   "guide": "기관이 적는 칸이에요.",
+   "at": {
+    "right_of": "접수번호",
+    "to": "접수일"
+   }
+  },
+  {
+   "id": "application_date",
+   "label": "접수일",
+   "value_source": "office",
+   "guide": "기관이 적는 칸이에요.",
+   "at": {
+    "right_of": "접수일"
+   }
+  },
+  {
+   "id": "receiver_name",
+   "label": "접수자(성명)",
+   "value_source": "office",
+   "guide": "기관이 적는 칸이에요.",
+   "at": {
+    "right_of": "접수자(성명)",
+    "to": "(소속)"
+   }
+  },
+  {
+   "id": "receiver_affiliation",
+   "label": "접수자 소속",
+   "value_source": "office",
+   "guide": "기관이 적는 칸이에요.",
+   "at": {
+    "right_of": "(소속)",
+    "to": "(직명)"
+   }
+  },
+  {
+   "id": "receiver_position",
+   "label": "접수자 직명",
+   "value_source": "office",
+   "guide": "기관이 적는 칸이에요.",
+   "at": {
+    "right_of": "(직명)"
+   }
+  },
+  {
+   "id": "applicant_name",
+   "label": "성명",
+   "section": "신청인",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "신청인 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "right_of": "성명#2",
+    "to": "주민등록번호#1"
+   }
+  },
+  {
+   "id": "applicant_id_number",
+   "label": "주민등록번호",
+   "section": "신청인",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "주민등록번호#1"
+   }
+  },
+  {
+   "id": "applicant_address",
+   "label": "주소",
+   "section": "신청인",
+   "input_type": "address",
+   "guide": "지금 사는 곳 주소를 적어요.",
+   "at": {
+    "right_of": "주소#1"
+   }
+  },
+  {
+   "id": "applicant_mobile",
+   "label": "휴대전화",
+   "section": "신청인 전화번호",
+   "input_type": "phone",
+   "value_source": "profile",
+   "profile_key": "phone",
+   "guide": "휴대전화 번호를 적어요.",
+   "example": "010-1234-5678",
+   "at": {
+    "right_of": "휴대전화",
+    "gap": 8
+   }
+  },
+  {
+   "id": "applicant_home_phone",
+   "label": "집 전화",
+   "section": "신청인 전화번호",
+   "input_type": "phone",
+   "required": false,
+   "guide": "집 전화가 있으면 적어요.",
+   "at": {
+    "right_of": "집전화",
+    "gap": 8
+   }
+  },
+  {
+   "id": "facility_name",
+   "label": "명칭",
+   "section": "현 복지시설",
+   "guide": "지금(또는 마지막으로) 지낸 복지시설 이름을 적어요.",
+   "at": {
+    "right_of": "명칭",
+    "to": "전화번호#2"
+   }
+  },
+  {
+   "id": "facility_phone",
+   "label": "전화번호",
+   "section": "현 복지시설",
+   "input_type": "phone",
+   "guide": "시설 전화번호를 적어요.",
+   "at": {
+    "right_of": "전화번호#2"
+   }
+  },
+  {
+   "id": "facility_address",
+   "label": "주소",
+   "section": "현 복지시설",
+   "input_type": "address",
+   "guide": "시설 주소를 적어요.",
+   "at": {
+    "right_of": "주소#2"
+   }
+  },
+  {
+   "id": "care_end_or_stay",
+   "label": "보호조치 종료일 또는 청소년복지시설 입소기간 및 퇴소일",
+   "input_type": "text",
+   "guide": "보호가 끝난 날, 또는 청소년복지시설에 있던 기간과 퇴소한 날을 적어요.",
+   "example": "2025-02-28 보호조치 종료",
+   "at": {
+    "cell_right": "보호조치종료일또는",
+    "rows": [
+     262,
+     292
+    ]
+   }
+  },
+  {
+   "id": "desired_house",
+   "label": "입주희망주택",
+   "section": "희망주택 내역",
+   "guide": "살고 싶은 주택(지역 · 주소 · 형태)을 적어요.",
+   "example": "○○시 ○○동 원룸",
+   "at": {
+    "right_of": "입주희망주택"
+   }
+  },
+  {
+   "id": "desired_move_in_date",
+   "label": "입주희망일",
+   "section": "희망주택 내역",
+   "input_type": "date",
+   "guide": "들어가 살고 싶은 날을 적어요.",
+   "at": {
+    "right_of": "입주희망일",
+    "to": "지원희망기간"
+   }
+  },
+  {
+   "id": "desired_support_period",
+   "label": "지원희망기간",
+   "section": "희망주택 내역",
+   "guide": "지원받고 싶은 기간을 몇 년 몇 개월로 적어요.",
+   "example": "2년 0월",
+   "at": {
+    "right_of": "지원희망기간",
+    "x0": 448,
+    "to": 553
+   }
+  },
+  {
+   "id": "date",
+   "label": "신청일",
+   "input_type": "date",
+   "guide": "신청하는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#-1"
+   }
+  },
+  {
+   "id": "signature",
+   "label": "신청인 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "신청인#-1",
+    "to": "(서명또는인)"
+   }
+  }
+ ]
+}

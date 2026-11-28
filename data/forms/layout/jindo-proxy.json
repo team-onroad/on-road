@@ -1,0 +1,145 @@
+{
+ "form_id": "jindo-proxy",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "delegate_address",
+   "label": "주소",
+   "section": "위임자(신청자)",
+   "input_type": "address",
+   "value_source": "user",
+   "guide": "위임하는 사람(신청자)의 주소를 적어요.",
+   "at": {
+    "right_of": "주소:#1",
+    "to": 546,
+    "gap": 8
+   }
+  },
+  {
+   "id": "delegate_id_number",
+   "label": "주민등록번호",
+   "section": "위임자(신청자)",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "주민등록번호:#1",
+    "to": 546,
+    "gap": 8
+   },
+   "sensitive": true
+  },
+  {
+   "id": "delegate_name",
+   "label": "성명",
+   "section": "위임자(신청자)",
+   "input_type": "text",
+   "value_source": "profile",
+   "guide": "위임하는 사람(신청자) 이름을 적어요.",
+   "at": {
+    "right_of": "성명:#1",
+    "to": "(인)#1",
+    "gap": 8
+   },
+   "profile_key": "name"
+  },
+  {
+   "id": "signature_delegate",
+   "label": "위임자(신청자) (인)",
+   "section": "위임자(신청자)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "위임자가 직접 도장을 찍어요 (인감).",
+   "at": {
+    "around": "(인)#1"
+   }
+  },
+  {
+   "id": "delegate_phone",
+   "label": "연락처",
+   "section": "위임자(신청자)",
+   "input_type": "phone",
+   "value_source": "profile",
+   "guide": "위임자 연락처를 적어요.",
+   "at": {
+    "right_of": "연락처)#1",
+    "to": 546,
+    "gap": 8
+   },
+   "profile_key": "phone"
+  },
+  {
+   "id": "agent_address",
+   "label": "주소",
+   "section": "수임자(대리인)",
+   "input_type": "address",
+   "value_source": "user",
+   "guide": "대리인의 주소를 적어요.",
+   "at": {
+    "right_of": "주소:#2",
+    "to": 546,
+    "gap": 8
+   }
+  },
+  {
+   "id": "agent_id_number",
+   "label": "주민등록번호",
+   "section": "수임자(대리인)",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "guide": "대리인의 주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "주민등록번호:#2",
+    "to": 546,
+    "gap": 8
+   },
+   "sensitive": true
+  },
+  {
+   "id": "agent_name",
+   "label": "성명",
+   "section": "수임자(대리인)",
+   "input_type": "text",
+   "value_source": "user",
+   "guide": "대리인 이름을 적어요.",
+   "at": {
+    "right_of": "성명:#2",
+    "to": "(인)#2",
+    "gap": 8
+   }
+  },
+  {
+   "id": "signature_agent",
+   "label": "수임자(대리인) (인)",
+   "section": "수임자(대리인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "대리인이 직접 도장을 찍어요.",
+   "at": {
+    "around": "(인)#2"
+   }
+  },
+  {
+   "id": "agent_phone",
+   "label": "연락처",
+   "section": "수임자(대리인)",
+   "input_type": "phone",
+   "value_source": "user",
+   "guide": "대리인 연락처를 적어요.",
+   "at": {
+    "right_of": "연락처)#2",
+    "to": 546,
+    "gap": 8
+   }
+  },
+  {
+   "id": "date",
+   "label": "작성일",
+   "input_type": "date",
+   "guide": "위임장을 쓰는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  }
+ ]
+}

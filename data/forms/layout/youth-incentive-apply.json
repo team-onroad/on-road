@@ -1,0 +1,211 @@
+{
+ "form_id": "youth-incentive-apply",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "application_number",
+   "label": "접수번호",
+   "value_source": "office",
+   "guide": "기관이 적는 칸이에요.",
+   "at": {
+    "rect": [
+     140,
+     184,
+     201,
+     198
+    ]
+   }
+  },
+  {
+   "id": "application_date",
+   "label": "접수일자",
+   "value_source": "office",
+   "input_type": "date",
+   "guide": "기관이 적는 칸이에요.",
+   "at": {
+    "rect": [
+     245,
+     184,
+     388,
+     198
+    ]
+   }
+  },
+  {
+   "id": "applicant_name",
+   "label": "성명",
+   "section": "신청인(수급자)",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "본인 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "right_of": "성명",
+    "to": 374
+   }
+  },
+  {
+   "id": "applicant_id_number",
+   "label": "주민등록번호",
+   "section": "신청인(수급자)",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "under": "주민등록번호"
+   }
+  },
+  {
+   "id": "applicant_address",
+   "label": "주소",
+   "section": "신청인(수급자)",
+   "input_type": "address",
+   "guide": "사는 곳 주소를 적어요.",
+   "at": {
+    "right_of": "주소",
+    "to": 374
+   }
+  },
+  {
+   "id": "applicant_phone",
+   "label": "전화번호(휴대전화)",
+   "section": "신청인(수급자)",
+   "input_type": "phone",
+   "value_source": "profile",
+   "profile_key": "phone",
+   "guide": "휴대전화 번호를 적어요.",
+   "at": {
+    "under": "전화번호(휴대전화)"
+   }
+  },
+  {
+   "id": "business_name",
+   "label": "사업장명",
+   "section": "신청 내용",
+   "guide": "취업(창업)한 회사 이름을 적어요.",
+   "example": "○○카페",
+   "at": {
+    "rect": [
+     203,
+     288,
+     519,
+     310
+    ]
+   }
+  },
+  {
+   "id": "employment_date",
+   "label": "취업일",
+   "section": "신청 내용",
+   "input_type": "date",
+   "guide": "일을 시작한 날을 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "business_location",
+   "label": "소재지",
+   "section": "신청 내용",
+   "input_type": "address",
+   "guide": "회사 주소를 적어요.",
+   "at": {
+    "rect": [
+     203,
+     336,
+     519,
+     358
+    ]
+   }
+  },
+  {
+   "id": "own_account",
+   "label": "수당수급 계좌 - 본인계좌",
+   "section": "수당수급 계좌번호",
+   "input_type": "checkbox",
+   "guide": "본인 이름의 통장이면 골라요.",
+   "at": {
+    "choices": "[]본인계좌"
+   }
+  },
+  {
+   "id": "account_holder",
+   "label": "예금주",
+   "section": "수당수급 계좌번호",
+   "guide": "통장 주인 이름을 적어요.",
+   "at": {
+    "rect": [
+     203,
+     407,
+     264,
+     434
+    ]
+   }
+  },
+  {
+   "id": "financial_institution",
+   "label": "금융기관",
+   "section": "수당수급 계좌번호",
+   "guide": "은행 이름을 적어요.",
+   "example": "농협은행",
+   "at": {
+    "rect": [
+     335,
+     407,
+     394,
+     434
+    ]
+   }
+  },
+  {
+   "id": "allowance_account_number",
+   "label": "계좌번호",
+   "section": "수당수급 계좌번호",
+   "input_type": "account",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "계좌번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     464,
+     407,
+     519,
+     434
+    ]
+   }
+  },
+  {
+   "id": "signature_date",
+   "label": "신청일",
+   "input_type": "date",
+   "guide": "신청하는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#2"
+   }
+  },
+  {
+   "id": "signature",
+   "label": "신청인 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "신청인#4",
+    "to": "(서명또는인)",
+    "gap": 5
+   }
+  },
+  {
+   "id": "local_government",
+   "label": "○○지자체(운영기관장) 귀하",
+   "required": false,
+   "guide": "지자체(또는 운영기관) 이름을 적어요.",
+   "cover": true,
+   "at": {
+    "around": "○○",
+    "pad": 1
+   }
+  }
+ ]
+}

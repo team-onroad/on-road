@@ -11,21 +11,22 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": false,
-      "guide": "접수번호를 적어요.",
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수번호",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          137.9,
-          124.9,
-          218.1,
-          149.4
+          98.8,
+          125.9,
+          217.8,
+          148.0
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -35,275 +36,866 @@
       "input_type": "date",
       "value_source": "office",
       "profile_key": null,
-      "required": false,
-      "guide": "신청서를 제출한 날짜를 적어요.",
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          297.7,
-          124.9,
+          249.8,
+          125.9,
           377.6,
-          149.4
+          148.0
         ],
-        "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "processing_period",
-      "label": "처리기간",
-      "section": null,
-      "input_type": "text",
-      "value_source": "office",
-      "profile_key": null,
-      "required": false,
-      "guide": "처리기간을 적어요.",
-      "example": "null",
-      "evidence": "처리기간",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          420.6,
-          125.7,
-          455.6,
-          138.7
-        ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "father_name",
       "label": "성명",
-      "section": "부",
+      "section": "신청인(가정위탁보호자) 부",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "아버지의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "부 > 성명",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          191.1,
-          152.9,
-          375.6,
-          165.9
-        ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "father_address",
-      "label": "주소",
-      "section": "부",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "아버지의 주소를 적어요.",
-      "example": "서울특별시 강남구",
-      "evidence": "부 > 주소",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          191.1,
-          181.5,
-          375.6,
-          194.5
-        ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "father_occupation",
-      "label": "직업",
-      "section": "부",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "아버지의 직업을 적어요.",
-      "example": "회사원",
-      "evidence": "부 > 직업",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          191.1,
-          218.7,
-          375.6,
-          231.7
-        ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "mother_name",
-      "label": "모 성명",
-      "section": "모",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "어머니의 이름을 적어요.",
-      "example": "홍길순",
-      "evidence": "모 > 성명",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          191.1,
-          248.9,
-          375.6,
-          261.9
-        ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "mother_address",
-      "label": "모 주소",
-      "section": "모",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "어머니의 주소를 적어요.",
-      "example": "서울특별시 강남구",
-      "evidence": "모 > 주소",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          191.1,
-          276.1,
-          375.6,
-          289.1
-        ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "mother_occupation",
-      "label": "모 직업",
-      "section": "모",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "어머니의 직업을 적어요.",
-      "example": "주부",
-      "evidence": "모 > 직업",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          191.1,
-          317.5,
-          375.6,
-          330.5
-        ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "assets",
-      "label": "동산 원",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "동산의 원가를 적어요.",
-      "example": "1000000",
-      "evidence": "동산 원",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "relation",
-      "label": "관계",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "가족과의 관계를 적어요.",
-      "example": "형",
-      "evidence": "관계",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          156.3,
-          404.4,
-          229.5,
-          418.4
-        ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "relation_name",
-      "label": "성명",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "관계자의 이름을 적어요.",
-      "example": "홍길동",
+      "guide": "위탁부(아버지 역할을 할 분)의 이름을 적어요.",
+      "example": "김○○",
       "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          191.1,
-          152.9,
-          375.6,
-          165.9
+          189.1,
+          153.0,
+          376.6,
+          179.6
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "relation_birth_date",
+      "id": "father_birth_date",
       "label": "생년월일",
-      "section": null,
+      "section": "신청인(가정위탁보호자) 부",
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "관계자의 생년월일을 적어요.",
-      "example": "1990-01-01",
+      "guide": "위탁부의 생년월일을 적어요.",
+      "example": "1975-05-01",
       "evidence": "생년월일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          380.4,
-          404.4,
-          433.5,
-          418.4
+          418.6,
+          153.0,
+          538.5,
+          179.6
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "father_address",
+      "label": "주소",
+      "section": "신청인(가정위탁보호자) 부",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁부의 주소를 적어요.",
+      "example": null,
+      "evidence": "주소",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          189.1,
+          181.6,
+          376.6,
+          216.8
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "father_phone",
+      "label": "전화번호(휴대전화번호)",
+      "section": "신청인(가정위탁보호자) 부",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁부의 휴대전화 번호를 적어요.",
+      "example": null,
+      "evidence": "전화번호(휴대전화번호)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          378.6,
+          193.0,
+          538.5,
+          216.8
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "father_occupation",
+      "label": "직업",
+      "section": "신청인(가정위탁보호자) 부",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁부의 직업을 적어요.",
+      "example": "회사원",
+      "evidence": "직업",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          189.1,
+          218.8,
+          376.6,
+          245.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "father_income",
+      "label": "월수입",
+      "section": "신청인(가정위탁보호자) 부",
+      "input_type": "number",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁부의 한 달 수입을 원 단위로 적어요.",
+      "example": "3000000",
+      "evidence": "월수입",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          378.6,
+          230.2,
+          538.5,
+          245.5
+        ],
+        "how": "table_right",
+        "template_text": "원",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "mother_name",
+      "label": "성명",
+      "section": "신청인(가정위탁보호자) 모",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁모(어머니 역할을 할 분)의 이름을 적어요.",
+      "example": "이○○",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          189.1,
+          247.5,
+          376.6,
+          274.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "mother_birth_date",
+      "label": "생년월일",
+      "section": "신청인(가정위탁보호자) 모",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁모의 생년월일을 적어요.",
+      "example": null,
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          418.6,
+          247.5,
+          538.5,
+          274.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "mother_address",
+      "label": "주소",
+      "section": "신청인(가정위탁보호자) 모",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁모의 주소를 적어요.",
+      "example": null,
+      "evidence": "주소",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          189.1,
+          276.0,
+          376.6,
+          314.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "mother_phone",
+      "label": "전화번호(휴대전화번호)",
+      "section": "신청인(가정위탁보호자) 모",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁모의 휴대전화 번호를 적어요.",
+      "example": null,
+      "evidence": "전화번호(휴대전화번호)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          378.6,
+          287.6,
+          538.5,
+          314.0
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "mother_occupation",
+      "label": "직업",
+      "section": "신청인(가정위탁보호자) 모",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁모의 직업을 적어요.",
+      "example": "주부",
+      "evidence": "직업",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          189.1,
+          316.0,
+          376.6,
+          342.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "mother_income",
+      "label": "월수입",
+      "section": "신청인(가정위탁보호자) 모",
+      "input_type": "number",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "위탁모의 한 달 수입을 원 단위로 적어요.",
+      "example": null,
+      "evidence": "월수입",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          378.6,
+          329.0,
+          538.5,
+          342.7
+        ],
+        "how": "table_right",
+        "template_text": "원",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "land_area",
+      "label": "부동산 대지(㎡)",
+      "section": "가구·재산",
+      "input_type": "number",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가진 땅(대지) 넓이를 ㎡로 적어요. 없으면 비워 둬요.",
+      "example": null,
+      "evidence": "부동산 대지(㎡)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          201.7,
+          344.7,
+          246.0,
+          372.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "building_area",
+      "label": "부동산 건물(㎡)",
+      "section": "가구·재산",
+      "input_type": "number",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가진 건물 넓이를 ㎡로 적어요.",
+      "example": null,
+      "evidence": "부동산 건물(㎡)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          305.0,
+          344.7,
+          344.8,
+          372.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "other_property",
+      "label": "부동산 기타",
+      "section": "가구·재산",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "그 밖의 부동산이 있으면 적어요.",
+      "example": null,
+      "evidence": "부동산 기타",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          403.8,
+          344.7,
+          517,
+          372.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "movable_assets",
+      "label": "동산",
+      "section": "가구·재산",
+      "input_type": "number",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "예금 · 자동차 등 동산을 원 단위로 적어요.",
+      "example": "5000000",
+      "evidence": "동산",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          154.3,
+          374.4,
+          332.4,
+          402.1
+        ],
+        "how": "text_right",
+        "template_text": "원",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "residence_type",
+      "label": "거주",
+      "section": "가구·재산",
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "사는 집이 자가인지 전세인지 월세인지 골라요.",
+      "example": null,
+      "evidence": "거주",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          365.8,
+          389.2,
+          531.5,
+          402.1
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "자가",
+          "전세",
+          "월세"
+        ],
+        "marks": {
+          "자가": [
+            401.5,
+            395.7
+          ],
+          "전세": [
+            459.9,
+            395.7
+          ],
+          "월세": [
+            518.3,
+            395.7
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family1_relation",
+      "label": "관계",
+      "section": "가족관계 1",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "함께 사는 가족과 신청인의 관계를 적어요.",
+      "example": "자녀",
+      "evidence": "관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          154.3,
+          404.1,
+          230.5,
+          427.1
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family1_name",
+      "label": "성명",
+      "section": "가족관계 1",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          256.4,
+          404.1,
+          332.4,
+          427.1
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family1_birth_date",
+      "label": "생년월일",
+      "section": "가족관계 1",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 생년월일을 적어요.",
+      "example": null,
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          378.4,
+          404.1,
+          434.5,
+          427.1
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family1_occupation",
+      "label": "직업",
+      "section": "가족관계 1",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 직업을 적어요.",
+      "example": null,
+      "evidence": "직업",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          460.5,
+          404.1,
+          538.5,
+          427.1
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family2_relation",
+      "label": "관계",
+      "section": "가족관계 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "함께 사는 가족과 신청인의 관계를 적어요.",
+      "example": null,
+      "evidence": "관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          154.3,
+          429.1,
+          230.5,
+          451.9
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family2_name",
+      "label": "성명",
+      "section": "가족관계 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          256.4,
+          429.1,
+          332.4,
+          451.9
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family2_birth_date",
+      "label": "생년월일",
+      "section": "가족관계 2",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 생년월일을 적어요.",
+      "example": null,
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          378.4,
+          429.1,
+          434.5,
+          451.9
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family2_occupation",
+      "label": "직업",
+      "section": "가족관계 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 직업을 적어요.",
+      "example": null,
+      "evidence": "직업",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          460.5,
+          429.1,
+          538.5,
+          451.9
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family3_relation",
+      "label": "관계",
+      "section": "가족관계 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "함께 사는 가족과 신청인의 관계를 적어요.",
+      "example": null,
+      "evidence": "관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          154.3,
+          453.9,
+          230.5,
+          476.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family3_name",
+      "label": "성명",
+      "section": "가족관계 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          256.4,
+          453.9,
+          332.4,
+          476.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family3_birth_date",
+      "label": "생년월일",
+      "section": "가족관계 3",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 생년월일을 적어요.",
+      "example": null,
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          378.4,
+          453.9,
+          434.5,
+          476.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family3_occupation",
+      "label": "직업",
+      "section": "가족관계 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 직업을 적어요.",
+      "example": null,
+      "evidence": "직업",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          460.5,
+          453.9,
+          538.5,
+          476.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family4_relation",
+      "label": "관계",
+      "section": "가족관계 4",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "함께 사는 가족과 신청인의 관계를 적어요.",
+      "example": null,
+      "evidence": "관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          154.3,
+          478.7,
+          230.5,
+          501.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family4_name",
+      "label": "성명",
+      "section": "가족관계 4",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          256.4,
+          478.7,
+          332.4,
+          501.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family4_birth_date",
+      "label": "생년월일",
+      "section": "가족관계 4",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 생년월일을 적어요.",
+      "example": null,
+      "evidence": "생년월일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          378.4,
+          478.7,
+          434.5,
+          501.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family4_occupation",
+      "label": "직업",
+      "section": "가족관계 4",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 직업을 적어요.",
+      "example": null,
+      "evidence": "직업",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          460.5,
+          478.7,
+          538.5,
+          501.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -314,20 +906,20 @@
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "위탁 아동과의 관계를 선택해요.",
-      "example": "null",
+      "guide": "맡으려는 아동과의 관계를 골라요. 친인척이면 어떤 친척인지 골라요.",
+      "example": null,
       "evidence": "위탁 아동과의 관계",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          129.8,
-          504.3,
-          539.2,
-          570.0
+          130.4,
+          511.6,
+          473.4,
+          547.4
         ],
         "how": "checkbox",
-        "template_text": "[ ] 친인척 ([ ] 친조부 [ ] 친조모 [ ] 외조부 [ ] 외조모 [ ] 조부모 외(관계: )) [ ] 친인척 외 * 친인척: 민법상 8촌 이내의 혈족, 4촌 이내의 인척",
+        "template_text": null,
         "options": [
           "친인척",
           "친조부",
@@ -366,31 +958,97 @@
             144.8,
             540.4
           ]
-        }
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "foster_child_relation_other",
+      "label": "조부모 외 관계",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "'조부모 외' 친인척이면 관계를 적어요 (예: 이모).",
+      "example": "이모",
+      "evidence": "조부모 외 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          473.4,
+          506.5,
+          512.4,
+          522.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "foster_type",
+      "label": "위탁유형",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "일반 가정위탁인지 전문 가정위탁인지 골라요.",
+      "example": null,
+      "evidence": "위탁유형",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          130.4,
+          578.4,
+          343.4,
+          592.4
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "일반가정위탁",
+          "전문가정위탁"
+        ],
+        "marks": {
+          "일반가정위탁": [
+            144.8,
+            585.4
+          ],
+          "전문가정위탁": [
+            263.9,
+            585.4
+          ]
+        },
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "date",
-      "label": "년 월 일",
+      "label": "신청일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
-      "example": "null",
-      "evidence": "년 월 일",
+      "guide": "신청하는 날짜를 적어요.",
+      "example": null,
+      "evidence": "신청일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          376.0,
-          635.8,
+          404.0,
+          636.8,
           536.7,
-          652.8
+          651.8
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "년월일",
+        "found_by": "layout_spec"
       }
     },
     {
@@ -401,20 +1059,21 @@
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "아버지가 서명해요.",
+      "guide": "위탁부가 직접 서명하거나 도장을 찍어요.",
       "example": null,
       "evidence": "부 (서명 또는 인)",
-      "sensitive": true,
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          538.9,
-          652.4,
-          559,
-          666.4
+          356,
+          651,
+          474,
+          665
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -425,20 +1084,21 @@
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "어머니가 서명해요.",
+      "guide": "위탁모가 직접 서명하거나 도장을 찍어요.",
       "example": null,
       "evidence": "모 (서명 또는 인)",
-      "sensitive": true,
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          538.9,
-          666.5,
-          559,
-          680.4
+          356,
+          665,
+          474,
+          679
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     }
   ],
@@ -447,8 +1107,7 @@
     "처리기간은 7일입니다."
   ],
   "warnings": [
-    "'위탁 아동과의 관계 > 체크박스 [[ ] 친인척 외]': 양식 원문에 없는 칸 이름이라 버림",
-    "값 자리를 못 찾음 (별지에 적음): 동산 원"
+    "'위탁 아동과의 관계 > 체크박스 [[ ] 친인척 외]': 양식 원문에 없는 칸 이름이라 버림"
   ],
   "checked": false
 }

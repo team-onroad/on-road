@@ -1,0 +1,152 @@
+{
+ "form_id": "youth-apply",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "name",
+   "label": "① 성명",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "본인 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "rect": [
+     177,
+     152,
+     284,
+     190
+    ]
+   }
+  },
+  {
+   "id": "id_number",
+   "label": "② 주민등록번호",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     392,
+     152,
+     516,
+     170
+    ]
+   }
+  },
+  {
+   "id": "age",
+   "label": "만 나이",
+   "input_type": "number",
+   "guide": "만 나이를 적어요.",
+   "example": "20",
+   "at": {
+    "right_of": "(만",
+    "to_in_row": "세"
+   }
+  },
+  {
+   "id": "address",
+   "label": "③ 주소",
+   "input_type": "address",
+   "guide": "사는 곳 주소를 적어요.",
+   "at": {
+    "rect": [
+     177,
+     192,
+     516,
+     213
+    ]
+   }
+  },
+  {
+   "id": "mobile_phone",
+   "label": "④ 연락처 - 휴대전화",
+   "input_type": "phone",
+   "value_source": "profile",
+   "profile_key": "phone",
+   "guide": "휴대전화 번호를 적어요.",
+   "at": {
+    "rect": [
+     251,
+     215,
+     326,
+     235
+    ]
+   }
+  },
+  {
+   "id": "email",
+   "label": "④ 연락처 - e-mail",
+   "required": false,
+   "guide": "이메일 주소가 있으면 적어요.",
+   "at": {
+    "rect": [
+     401,
+     215,
+     516,
+     235
+    ]
+   }
+  },
+  {
+   "id": "participation_type",
+   "label": "⑤ 참여유형",
+   "input_type": "checkbox",
+   "guide": "해당하는 참여 유형을 골라요. 보호가 끝난 자립준비청년이면 '자립준비(보호종료)청년'이에요.",
+   "at": {
+    "choices": "□구직단념청년",
+    "rows_below": 82
+   }
+  },
+  {
+   "id": "account_number",
+   "label": "⑥ 계좌번호",
+   "input_type": "account",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "계좌번호(은행 이름 포함)는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     177,
+     341,
+     516,
+     361
+    ]
+   }
+  },
+  {
+   "id": "date",
+   "label": "신청일",
+   "input_type": "date",
+   "guide": "신청하는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "signature",
+   "label": "신청인 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "신청인:",
+    "to": "(서명또는인)",
+    "gap": 5
+   }
+  },
+  {
+   "id": "local_government",
+   "label": "○○지방자치단체장 귀하",
+   "required": false,
+   "guide": "신청하는 시 · 군 · 구 이름을 적어요.",
+   "example": "서울특별시 ○○구",
+   "cover": true,
+   "at": {
+    "around": "○○",
+    "pad": 1
+   }
+  }
+ ]
+}

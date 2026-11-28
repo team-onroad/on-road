@@ -6,167 +6,278 @@
   "fields": [
     {
       "id": "delegate_address",
-      "label": "위 임 자(신청자) 주 소 :",
-      "section": null,
+      "label": "주소",
+      "section": "위임자(신청자)",
       "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "위임자의 주소를 적어요.",
+      "guide": "위임하는 사람(신청자)의 주소를 적어요.",
       "example": "서울특별시 강남구 테헤란로 123",
-      "evidence": "위임자 주소",
+      "evidence": "주소",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          144.7,
+          475.2,
+          545,
+          494.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "delegate_id_number",
-      "label": "위 임 자(신청자) 주민등록번호 :",
-      "section": null,
+      "label": "주민등록번호",
+      "section": "위임자(신청자)",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "위임자의 주민등록번호를 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
-      "evidence": "위임자 주민등록번호",
+      "evidence": "주민등록번호",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          144.9,
+          496.0,
+          545,
+          514.9
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "delegate_name",
-      "label": "위 임 자(신청자) 성 명 :",
-      "section": null,
+      "label": "성명",
+      "section": "위임자(신청자)",
       "input_type": "text",
-      "value_source": "user",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "위임하는 사람(신청자) 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          144.7,
+          516.7,
+          253.7,
+          535.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "signature_delegate",
+      "label": "위임자(신청자) (인)",
+      "section": "위임자(신청자)",
+      "input_type": "signature",
+      "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "위임자의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "위임자 성명",
+      "guide": "위임자가 직접 도장을 찍어요 (인감).",
+      "example": null,
+      "evidence": "위임자(신청자) (인)",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          250.7,
+          519.6,
+          275.5,
+          535.7
+        ],
+        "how": "table_right",
+        "template_text": "(인)",
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "delegate_phone",
-      "label": "위 임 자(신청자) 연락처) :",
-      "section": null,
+      "label": "연락처",
+      "section": "위임자(신청자)",
       "input_type": "phone",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "phone",
       "required": true,
-      "guide": "위임자의 연락처를 적어요.",
+      "guide": "위임자 연락처를 적어요.",
       "example": "010-1234-5678",
-      "evidence": "위임자 연락처",
+      "evidence": "연락처",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          349.4,
+          516.7,
+          545,
+          535.6
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "agent_address",
-      "label": "수 임 자(대리인) 주 소 :",
-      "section": null,
+      "label": "주소",
+      "section": "수임자(대리인)",
       "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
       "guide": "대리인의 주소를 적어요.",
       "example": "부산광역시 해운대구 해운대해변로 456",
-      "evidence": "대리인 주소",
+      "evidence": "주소",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          144.7,
+          577.5,
+          545,
+          596.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "agent_id_number",
-      "label": "수 임 자(대리인) 주민등록번호 :",
-      "section": null,
+      "label": "주민등록번호",
+      "section": "수임자(대리인)",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "대리인의 주민등록번호를 적어요.",
+      "guide": "대리인의 주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
-      "evidence": "대리인 주민등록번호",
+      "evidence": "주민등록번호",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          144.9,
+          598.2,
+          545,
+          617.2
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "agent_name",
-      "label": "수 임 자(대리인) 성 명 :",
-      "section": null,
+      "label": "성명",
+      "section": "수임자(대리인)",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "대리인의 이름을 적어요.",
+      "guide": "대리인 이름을 적어요.",
       "example": "김철수",
-      "evidence": "대리인 성명",
+      "evidence": "성명",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          144.7,
+          619.1,
+          253.7,
+          638.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "signature_agent",
+      "label": "수임자(대리인) (인)",
+      "section": "수임자(대리인)",
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "대리인이 직접 도장을 찍어요.",
+      "example": null,
+      "evidence": "수임자(대리인) (인)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          250.7,
+          622.0,
+          275.5,
+          638.0
+        ],
+        "how": "table_right",
+        "template_text": "(인)",
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "agent_phone",
-      "label": "수 임 자(대리인) 연락처) :",
-      "section": null,
+      "label": "연락처",
+      "section": "수임자(대리인)",
       "input_type": "phone",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "대리인의 연락처를 적어요.",
+      "guide": "대리인 연락처를 적어요.",
       "example": "010-9876-5432",
-      "evidence": "대리인 연락처",
+      "evidence": "연락처",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          349.4,
+          619.1,
+          545,
+          638.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "date",
-      "label": "2026년 월 일",
+      "label": "작성일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "작성 날짜를 적어요.",
+      "guide": "위임장을 쓰는 날짜를 적어요.",
       "example": null,
-      "evidence": null,
+      "evidence": "작성일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          371.4,
-          390.6,
-          559,
-          408.6
+          225.4,
+          389.6,
+          369.4,
+          409.6
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "date_line",
+        "template_text": "2026년월일",
+        "found_by": "layout_spec"
       }
-    },
-    {
-      "id": "signature_delegate",
-      "label": "위 임 자(신청자) (인)",
-      "section": null,
-      "input_type": "signature",
-      "value_source": "handwrite",
-      "profile_key": null,
-      "required": true,
-      "guide": "위임자의 서명을 해요.",
-      "example": null,
-      "evidence": null,
-      "sensitive": true,
-      "box": null
-    },
-    {
-      "id": "signature_agent",
-      "label": "수 임 자(대리인) (인)",
-      "section": null,
-      "input_type": "signature",
-      "value_source": "handwrite",
-      "profile_key": null,
-      "required": true,
-      "guide": "대리인의 서명을 해요.",
-      "example": null,
-      "evidence": null,
-      "sensitive": true,
-      "box": null
     }
   ],
   "notes": [
@@ -175,8 +286,7 @@
   "warnings": [
     "'2026년 월 일': 근거 문장이 원문과 달라 근거를 지움 (근거: '작성 날짜')",
     "'위 임 자(신청자) (인)': 근거 문장이 원문과 달라 근거를 지움 (근거: '위임자 서명')",
-    "'수 임 자(대리인) (인)': 근거 문장이 원문과 달라 근거를 지움 (근거: '대리인 서명')",
-    "값 자리를 못 찾음 (별지에 적음): 위 임 자(신청자) 주 소 :, 위 임 자(신청자) 성 명 :, 위 임 자(신청자) 연락처) :, 수 임 자(대리인) 주 소 :, 수 임 자(대리인) 성 명 :, 수 임 자(대리인) 연락처) :"
+    "'수 임 자(대리인) (인)': 근거 문장이 원문과 달라 근거를 지움 (근거: '대리인 서명')"
   ],
   "checked": false
 }

@@ -1,0 +1,152 @@
+{
+ "form_id": "jindo-priority-confirm",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "representative_name",
+   "label": "성명",
+   "section": "(1) 대표신청인",
+   "input_type": "text",
+   "value_source": "profile",
+   "guide": "대표신청인 이름을 적어요.",
+   "at": {
+    "right_of": "성명:#1",
+    "to": 340,
+    "gap": 8
+   },
+   "profile_key": "name"
+  },
+  {
+   "id": "representative_address",
+   "label": "주민등록상주소",
+   "section": "(1) 대표신청인",
+   "input_type": "address",
+   "value_source": "user",
+   "guide": "대표신청인의 주민등록상 주소를 적어요.",
+   "at": {
+    "right_of": "주민등록상주소:",
+    "to": 546,
+    "gap": 8
+   }
+  },
+  {
+   "id": "representative_id_number",
+   "label": "주민등록번호",
+   "section": "(1) 대표신청인",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "주민등록번호:#1",
+    "to": 546,
+    "gap": 8
+   },
+   "sensitive": true
+  },
+  {
+   "id": "representative_phone",
+   "label": "연락처",
+   "section": "(1) 대표신청인",
+   "input_type": "phone",
+   "value_source": "profile",
+   "guide": "대표신청인 연락처를 적어요.",
+   "at": {
+    "right_of": "연락처:#1",
+    "to": 340,
+    "gap": 8
+   },
+   "profile_key": "phone"
+  },
+  {
+   "id": "cohabitant_name",
+   "label": "성명",
+   "section": "(2) 예비세대원",
+   "input_type": "text",
+   "value_source": "user",
+   "guide": "함께 입주할 예비 세대원의 이름을 적어요.",
+   "at": {
+    "right_of": "성명:#2",
+    "to": 340,
+    "gap": 8
+   }
+  },
+  {
+   "id": "cohabitant_id_number",
+   "label": "주민등록번호",
+   "section": "(2) 예비세대원",
+   "input_type": "id_number",
+   "value_source": "handwrite",
+   "guide": "예비 세대원의 주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "right_of": "주민등록번호:#2",
+    "to": 546,
+    "gap": 8
+   },
+   "sensitive": true
+  },
+  {
+   "id": "cohabitant_phone",
+   "label": "연락처",
+   "section": "(2) 예비세대원",
+   "input_type": "phone",
+   "value_source": "user",
+   "guide": "예비 세대원 연락처를 적어요.",
+   "at": {
+    "right_of": "연락처:#2",
+    "to": 340,
+    "gap": 8
+   }
+  },
+  {
+   "id": "personal_info_consent",
+   "label": "개인정보·금융정보 동의",
+   "input_type": "checkbox",
+   "guide": "개인정보 수집·이용 동의서 제출에 동의하면 골라요.",
+   "at": {
+    "mark": "□#3",
+    "option": "동의"
+   }
+  },
+  {
+   "id": "residence_fact_consent",
+   "label": "거주 사실 동의",
+   "input_type": "checkbox",
+   "guide": "전입을 증명하지 못하면 계약이 무효가 될 수 있음에 동의하면 골라요.",
+   "at": {
+    "mark": "□#4",
+    "option": "동의"
+   }
+  },
+  {
+   "id": "date",
+   "label": "작성일",
+   "input_type": "date",
+   "guide": "확인서를 쓰는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "representative_signature",
+   "label": "(1) 대표신청인 (인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "대표신청인이 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "대표신청인:",
+    "to": "(인)#1"
+   }
+  },
+  {
+   "id": "cohabitant_signature",
+   "label": "(2) 예비세대원 (인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "예비 세대원이 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "예비세대원:",
+    "to": "(인)#2"
+   }
+  }
+ ]
+}

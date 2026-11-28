@@ -1,0 +1,428 @@
+{
+ "form_id": "mohw-child-info-consent",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "row1_name",
+   "label": "성명",
+   "section": "1번",
+   "input_type": "text",
+   "required": true,
+   "guide": "동의하는 사람의 이름을 적어요.",
+   "at": {
+    "rect": [
+     166,
+     287,
+     218,
+     318
+    ]
+   },
+   "value_source": "profile",
+   "profile_key": "name"
+  },
+  {
+   "id": "row1_id_number",
+   "label": "주민등록번호(외국인은 국적과 여권번호 또는 외국인등록번호)",
+   "section": "1번",
+   "input_type": "id_number",
+   "required": true,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     220,
+     287,
+     308,
+     318
+    ]
+   },
+   "value_source": "handwrite",
+   "sensitive": true
+  },
+  {
+   "id": "row1_address",
+   "label": "주소",
+   "section": "1번",
+   "input_type": "address",
+   "required": true,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     310,
+     287,
+     416,
+     318
+    ]
+   }
+  },
+  {
+   "id": "row1_signature",
+   "label": "서명 또는 날인",
+   "section": "1번",
+   "input_type": "signature",
+   "required": true,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     418,
+     287,
+     473,
+     318
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "row2_relation",
+   "label": "신청인과의 관계",
+   "section": "2번",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 위탁부, 위탁모의 자녀).",
+   "at": {
+    "rect": [
+     109,
+     320,
+     164,
+     350
+    ]
+   }
+  },
+  {
+   "id": "row2_name",
+   "label": "성명",
+   "section": "2번",
+   "input_type": "text",
+   "required": false,
+   "guide": "동의하는 사람의 이름을 적어요.",
+   "at": {
+    "rect": [
+     166,
+     320,
+     218,
+     350
+    ]
+   }
+  },
+  {
+   "id": "row2_id_number",
+   "label": "주민등록번호(외국인은 국적과 여권번호 또는 외국인등록번호)",
+   "section": "2번",
+   "input_type": "id_number",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     220,
+     320,
+     308,
+     350
+    ]
+   },
+   "value_source": "handwrite",
+   "sensitive": true
+  },
+  {
+   "id": "row2_address",
+   "label": "주소",
+   "section": "2번",
+   "input_type": "address",
+   "required": false,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     310,
+     320,
+     416,
+     350
+    ]
+   }
+  },
+  {
+   "id": "row2_signature",
+   "label": "서명 또는 날인",
+   "section": "2번",
+   "input_type": "signature",
+   "required": false,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     418,
+     320,
+     473,
+     350
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "row3_relation",
+   "label": "신청인과의 관계",
+   "section": "3번",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 위탁부, 위탁모의 자녀).",
+   "at": {
+    "rect": [
+     109,
+     352,
+     164,
+     383
+    ]
+   }
+  },
+  {
+   "id": "row3_name",
+   "label": "성명",
+   "section": "3번",
+   "input_type": "text",
+   "required": false,
+   "guide": "동의하는 사람의 이름을 적어요.",
+   "at": {
+    "rect": [
+     166,
+     352,
+     218,
+     383
+    ]
+   }
+  },
+  {
+   "id": "row3_id_number",
+   "label": "주민등록번호(외국인은 국적과 여권번호 또는 외국인등록번호)",
+   "section": "3번",
+   "input_type": "id_number",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     220,
+     352,
+     308,
+     383
+    ]
+   },
+   "value_source": "handwrite",
+   "sensitive": true
+  },
+  {
+   "id": "row3_address",
+   "label": "주소",
+   "section": "3번",
+   "input_type": "address",
+   "required": false,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     310,
+     352,
+     416,
+     383
+    ]
+   }
+  },
+  {
+   "id": "row3_signature",
+   "label": "서명 또는 날인",
+   "section": "3번",
+   "input_type": "signature",
+   "required": false,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     418,
+     352,
+     473,
+     383
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "row4_relation",
+   "label": "신청인과의 관계",
+   "section": "4번",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 위탁부, 위탁모의 자녀).",
+   "at": {
+    "rect": [
+     109,
+     385,
+     164,
+     416
+    ]
+   }
+  },
+  {
+   "id": "row4_name",
+   "label": "성명",
+   "section": "4번",
+   "input_type": "text",
+   "required": false,
+   "guide": "동의하는 사람의 이름을 적어요.",
+   "at": {
+    "rect": [
+     166,
+     385,
+     218,
+     416
+    ]
+   }
+  },
+  {
+   "id": "row4_id_number",
+   "label": "주민등록번호(외국인은 국적과 여권번호 또는 외국인등록번호)",
+   "section": "4번",
+   "input_type": "id_number",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     220,
+     385,
+     308,
+     416
+    ]
+   },
+   "value_source": "handwrite",
+   "sensitive": true
+  },
+  {
+   "id": "row4_address",
+   "label": "주소",
+   "section": "4번",
+   "input_type": "address",
+   "required": false,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     310,
+     385,
+     416,
+     416
+    ]
+   }
+  },
+  {
+   "id": "row4_signature",
+   "label": "서명 또는 날인",
+   "section": "4번",
+   "input_type": "signature",
+   "required": false,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     418,
+     385,
+     473,
+     416
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "row5_relation",
+   "label": "신청인과의 관계",
+   "section": "5번",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 위탁부, 위탁모의 자녀).",
+   "at": {
+    "rect": [
+     109,
+     418,
+     164,
+     448
+    ]
+   }
+  },
+  {
+   "id": "row5_name",
+   "label": "성명",
+   "section": "5번",
+   "input_type": "text",
+   "required": false,
+   "guide": "동의하는 사람의 이름을 적어요.",
+   "at": {
+    "rect": [
+     166,
+     418,
+     218,
+     448
+    ]
+   }
+  },
+  {
+   "id": "row5_id_number",
+   "label": "주민등록번호(외국인은 국적과 여권번호 또는 외국인등록번호)",
+   "section": "5번",
+   "input_type": "id_number",
+   "required": false,
+   "guide": "주민등록번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     220,
+     418,
+     308,
+     448
+    ]
+   },
+   "value_source": "handwrite",
+   "sensitive": true
+  },
+  {
+   "id": "row5_address",
+   "label": "주소",
+   "section": "5번",
+   "input_type": "address",
+   "required": false,
+   "guide": "주소를 적어요.",
+   "at": {
+    "rect": [
+     310,
+     418,
+     416,
+     448
+    ]
+   }
+  },
+  {
+   "id": "row5_signature",
+   "label": "서명 또는 날인",
+   "section": "5번",
+   "input_type": "signature",
+   "required": false,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     418,
+     418,
+     473,
+     448
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "date",
+   "label": "작성일",
+   "input_type": "date",
+   "guide": "동의서를 쓰는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "applicant_signature",
+   "label": "신청인 (서명)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "신청인이 이름을 쓰고 서명해요.",
+   "at": {
+    "right_of": "신청인:",
+    "to": 474,
+    "gap": 6
+   }
+  }
+ ]
+}

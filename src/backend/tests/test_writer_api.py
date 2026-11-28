@@ -759,3 +759,40 @@ def test_linked_form_exports_on_original_layout(api, db_session, doc_llm, forms_
     assert exported["pdf_layout"] == "original"
     res = api.get(f"/api/documents/{data['document_id']}/file?user_id={user.id}&format=pdf")
     assert "김민지" in pymupdf.open(stream=res.content)[0].get_text()
+
+
+# ------------------------------------------------------------------ 공통 양식 (정책 없이: 퇴소 신청서 등)
+
+
+def _write_common(path):
+    _write_linked(path)
+    spec = {"form_id": "leave-care", "policy_key": "form:leave-care", "title": "퇴소 신청서", "source": "https://example.org",
+            "checked": False, "notes": [], "warnings": [],
+            "fields": [{"id": "name", "label": "성명", "value_source": "profile", "profile_key": "name", "guide": "이름"},
+                       {"id": "reason", "label": "퇴소 사유", "guide": "사유를 써요"}]}
+    (path / "leave-care.json").write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+    index = json.loads((path / "index.json").read_text(encoding="utf-8"))
+    index["forms"]["leave-care"] = {"title": "퇴소 신청서", "scope": "common", "checked": False}
+    index["forms"]["no-file"] = {"title": "파일 없는 공통 양식", "scope": "common", "checked": False}
+    (path / "index.json").write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
+
+
+def test_common_forms_are_listed(api, forms_dir):
+    _write_common(forms_dir)
+    data = api.get("/api/forms/common").json()
+    assert data == {"forms": [{"form_id": "leave-care", "title": "퇴소 신청서", "checked": False, "notice": None}]}
+
+
+def test_start_common_form_without_policy(api, db_session, doc_llm, forms_dir):
+    user = make_user(db_session, name="김민지")
+    _write_common(forms_dir)
+    body = {"user_id": str(user.id), "source_type": "policy_form", "form_id": "leave-care"}
+    data = api.post("/api/documents", json=body).json()
+    assert (data["title"], data["source_id"], data["policy_id"]) == ("퇴소 신청서", "leave-care@u", None)
+    assert _field(data, "name")["value"] == "김민지"
+    assert api.post("/api/documents", json=body).json()["document_id"] == data["document_id"]  # 사용자마다 하나
+    # 정책 양식 · 없는 양식은 정책 없이 열 수 없다
+    for fid in ("settle-plan", "no-file", "nope", "../index"):
+        _err(api.post("/api/documents", json={**body, "form_id": fid}), 404, "FORM_NOT_FOUND")
+    # policy_id 도 form_id 도 없으면 422
+    assert api.post("/api/documents", json={"user_id": str(user.id), "source_type": "policy_form"}).status_code == 422

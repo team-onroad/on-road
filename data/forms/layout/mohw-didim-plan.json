@@ -1,0 +1,182 @@
+{
+ "form_id": "mohw-didim-plan",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "child_saving_now",
+   "label": "아동 저축 상황 - 현재",
+   "section": "1. 신청 전 저축 경험",
+   "input_type": "checkbox",
+   "guide": "지금 저축을 하고 있는지 골라요.",
+   "at": {
+    "words": {
+     "저축": "(저축,#1",
+     "저축 안함": "저축안함)#1"
+    }
+   }
+  },
+  {
+   "id": "child_monthly_savings",
+   "label": "아동 월 저축액(원)",
+   "section": "1. 신청 전 저축 경험",
+   "input_type": "number",
+   "required": false,
+   "guide": "지금 한 달에 저축하는 금액을 원 단위로 적어요.",
+   "example": "50000",
+   "at": {
+    "right_of": "월저축액:#1",
+    "to_in_row": "원"
+   }
+  },
+  {
+   "id": "child_saving_past",
+   "label": "아동 과거 저축 경험",
+   "section": "1. 신청 전 저축 경험",
+   "input_type": "checkbox",
+   "guide": "전에 저축한 적이 있는지 골라요.",
+   "at": {
+    "words": {
+     "있음": "(있음,#1",
+     "없음": "없음)#1"
+    }
+   }
+  },
+  {
+   "id": "guardian_saving_now",
+   "label": "보호자 저축 상황 - 현재",
+   "section": "1. 신청 전 저축 경험",
+   "input_type": "checkbox",
+   "guide": "보호자가 지금 저축을 하고 있는지 골라요.",
+   "at": {
+    "words": {
+     "저축": "(저축,#2",
+     "저축 안함": "저축안함)#2"
+    }
+   }
+  },
+  {
+   "id": "guardian_monthly_savings",
+   "label": "보호자 월 저축액(원)",
+   "section": "1. 신청 전 저축 경험",
+   "input_type": "number",
+   "required": false,
+   "guide": "보호자가 한 달에 저축하는 금액을 적어요.",
+   "at": {
+    "right_of": "월저축액:#2",
+    "to_in_row": "원"
+   }
+  },
+  {
+   "id": "guardian_saving_past",
+   "label": "보호자 과거 저축 경험",
+   "section": "1. 신청 전 저축 경험",
+   "required": false,
+   "guide": "보호자의 과거 저축 경험을 적어요 (있음 / 없음).",
+   "example": "있음",
+   "at": {
+    "right_of": "-과거저축경험#2",
+    "to": 480,
+    "gap": 6
+   }
+  },
+  {
+   "id": "monthly_savings_plan",
+   "label": "가능한 본인 월 저축액(원)",
+   "section": "2. 저축액 마련 계획",
+   "input_type": "number",
+   "guide": "한 달에 넣을 수 있는 금액을 적어요 (월 5만원 안에서, 추가 저축은 45만원까지).",
+   "example": "50000",
+   "at": {
+    "right_of": "본인월저축액:",
+    "to_in_row": "원"
+   }
+  },
+  {
+   "id": "has_sponsor",
+   "label": "아동의 후원인",
+   "section": "2. 저축액 마련 계획",
+   "input_type": "checkbox",
+   "guide": "후원해 주는 사람이 있는지 골라요.",
+   "at": {
+    "words": {
+     "있음": "(있음,#2",
+     "없음": "없음),"
+    }
+   }
+  },
+  {
+   "id": "monthly_sponsorship",
+   "label": "월 후원액(원)",
+   "section": "2. 저축액 마련 계획",
+   "input_type": "number",
+   "required": false,
+   "guide": "후원인이 매달 넣어 주는 금액을 적어요.",
+   "at": {
+    "right_of": "월후원액",
+    "to_in_row": "원"
+   }
+  },
+  {
+   "id": "usage_priority_1",
+   "label": "1순위 사용처",
+   "section": "3. 적립액 사용 계획",
+   "input_type": "text",
+   "guide": "모은 돈을 쓸 곳을 ①학자금 ②기술자격 및 취업훈련 비용 ③창업지원금 ④주거마련비용 ⑤의료비 ⑥결혼비용 중에서 골라 번호로 적어요.",
+   "at": {
+    "right_of": "1순위사용처:",
+    "to_in_row": "(①"
+   },
+   "example": "①"
+  },
+  {
+   "id": "usage_priority_2",
+   "label": "2순위 사용처",
+   "section": "3. 적립액 사용 계획",
+   "input_type": "text",
+   "guide": "모은 돈을 쓸 곳을 ①학자금 ②기술자격 및 취업훈련 비용 ③창업지원금 ④주거마련비용 ⑤의료비 ⑥결혼비용 중에서 골라 번호로 적어요.",
+   "at": {
+    "right_of": "2순위사용처:",
+    "to_in_row": "(①"
+   },
+   "example": "①"
+  },
+  {
+   "id": "usage_priority_3",
+   "label": "3순위 사용처",
+   "section": "3. 적립액 사용 계획",
+   "input_type": "text",
+   "guide": "모은 돈을 쓸 곳을 ①학자금 ②기술자격 및 취업훈련 비용 ③창업지원금 ④주거마련비용 ⑤의료비 ⑥결혼비용 중에서 골라 번호로 적어요.",
+   "at": {
+    "right_of": "3순위사용처:",
+    "to_in_row": "(①"
+   },
+   "example": "①"
+  },
+  {
+   "id": "career_plan",
+   "label": "향후 아동의 진로계획",
+   "section": "4. 진로계획",
+   "input_type": "checkbox",
+   "guide": "앞으로의 진로를 골라요.",
+   "at": {
+    "words": {
+     "대학 또는 전문대 진학": "대학또는전문대진학",
+     "취업": "취업#2",
+     "창업": "창업#2",
+     "기타": "기타#1"
+    }
+   }
+  },
+  {
+   "id": "career_plan_other",
+   "label": "진로계획 기타",
+   "section": "4. 진로계획",
+   "required": false,
+   "guide": "'기타'를 골랐으면 내용을 적어요.",
+   "at": {
+    "right_of": "기타(",
+    "to_in_row": ")"
+   }
+  }
+ ]
+}

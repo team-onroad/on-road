@@ -5,205 +5,162 @@
   "source": "https://gris.gg.go.kr/reb/selectRebRateSupView.do",
   "fields": [
     {
-      "id": "purpose_of_collection",
-      "label": "개인정보의 수집·이용 목적",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "개인정보 수집의 목적을 적어요.",
-      "example": "부동산 중개보수 지원대상자 확인 및 중복 지원여부 확인",
-      "evidence": "부동산 중개보수 지원대상자 확인 및 중복 지원여부 확인",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "items_of_collection",
-      "label": "수집하려는 개인정보의 항목",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "수집할 개인정보 항목을 적어요.",
-      "example": "국민기초생활수급자 증명서, 주민등록표 등본, 매매(임대차)계약서, 중개보수 영수증, 성명, 주소, 연락처, 계좌번호",
-      "evidence": "국민기초생활수급자 증명서, 주민등록표 등본, 매매(임대차)계약서, 중개보수 영수증, 성명, 주소, 연락처, 계좌번호",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "retention_period",
-      "label": "개인정보의 보유 및 이용기간",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "개인정보 보유 기간을 적어요.",
-      "example": "5년(회계지출서류와 동일기간 보유)",
-      "evidence": "5년(회계지출서류와 동일기간 보유)",
-      "sensitive": false,
-      "box": null
-    },
-    {
       "id": "consent_for_collection",
-      "label": "개인정보 수집·이용에 동의하십니까?",
+      "label": "개인정보 수집·이용 동의",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "동의 여부를 체크해요. 선택지는 '동의함' 또는 '동의하지 않음'이에요.",
+      "guide": "동의해야 중개보수 지원을 받을 수 있어요.",
       "example": "동의함|동의하지 않음",
-      "evidence": "□ 동의함 □ 동의하지 않음",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "third_party_provider",
-      "label": "개인정보를 제공받는 자",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "개인정보를 제공받는 기관 이름을 적어요.",
-      "example": "한국공인중개사협회",
-      "evidence": "한국공인중개사협회",
+      "evidence": "개인정보 수집·이용 동의",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          184.2,
-          454.6,
-          211.4,
-          469.6
+          298.8,
+          379.2,
+          518.2,
+          396.1
         ],
-        "how": "cell_inline",
-        "template_text": null
-      }
-    },
-    {
-      "id": "items_provided",
-      "label": "제공되는 개인정보 항목",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "제공될 개인정보 항목을 적어요.",
-      "example": "성명, 주소",
-      "evidence": "(성명) 주소",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          184.2,
-          478.8,
-          211.4,
-          493.9
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의함",
+          "동의하지 않음"
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "marks": {
+          "동의함": [
+            307.3,
+            387.6
+          ],
+          "동의하지 않음": [
+            418.8,
+            387.6
+          ]
+        },
+        "found_by": "layout_spec"
       }
-    },
-    {
-      "id": "purpose_of_third_party_use",
-      "label": "개인정보를 제공받는 자의 개인정보 이용 목적",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "제공받는 자의 개인정보 이용 목적을 적어요.",
-      "example": "부동산 중개보수 중복 지원여부 확인",
-      "evidence": "부동산 중개보수 중복 지원여부 확인",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "retention_period_third_party",
-      "label": "개인정보의 보유 및 이용기간",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "제공받는 자의 개인정보 보유 기간을 적어요.",
-      "example": "중복 지원여부 확인 후, 즉시 파기",
-      "evidence": "중복 지원여부 확인 후, 즉시 파기",
-      "sensitive": false,
-      "box": null
     },
     {
       "id": "consent_for_third_party",
-      "label": "개인정보 제3자 제공에 동의하십니까?",
+      "label": "개인정보 제3자 제공 동의",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "동의 여부를 체크해요. 선택지는 '동의함' 또는 '동의하지 않음'이에요.",
+      "guide": "동의해야 중복 지원 확인을 할 수 있어요.",
       "example": "동의함|동의하지 않음",
-      "evidence": "□ 동의함 □ 동의하지 않음",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "signature",
-      "label": "성명 :",
-      "section": null,
-      "input_type": "text",
-      "value_source": "profile",
-      "profile_key": "name",
-      "required": true,
-      "guide": "신청인 이름을 적어요. 출력한 뒤 옆에 직접 서명하거나 도장을 찍어요.",
-      "example": null,
-      "evidence": "성명 : (서명)",
+      "evidence": "개인정보 제3자 제공 동의",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          410.2,
-          739.9,
-          496.2,
-          756.8
+          298.8,
+          600.9,
+          518.2,
+          617.9
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의함",
+          "동의하지 않음"
+        ],
+        "marks": {
+          "동의함": [
+            307.3,
+            609.4
+          ],
+          "동의하지 않음": [
+            418.8,
+            609.4
+          ]
+        },
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "date",
-      "label": "년 월 일",
+      "label": "동의일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "날짜를 적어요.",
+      "guide": "동의서를 쓰는 날짜를 적어요.",
       "example": "2023-10-01",
-      "evidence": "20 년 월 일",
+      "evidence": "동의일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          202.3,
-          710.4,
+          221.6,
+          711.4,
           373.3,
-          734.3
+          733.3
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "20년월일",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "name",
+      "label": "성명",
+      "section": null,
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "본인 이름을 적어요.",
+      "example": "김민지",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          408.2,
+          738.9,
+          497.2,
+          757.8
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "signature",
+      "label": "(서명)",
+      "section": null,
+      "input_type": "signature",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": true,
+      "guide": "이름 옆에 직접 서명해요.",
+      "example": null,
+      "evidence": "(서명)",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          494.2,
+          737.9,
+          544.1,
+          758.8
+        ],
+        "how": "table_right",
+        "template_text": "(서명)",
+        "found_by": "layout_spec"
       }
     }
   ],
   "notes": [
     "개인정보 수집 및 동의를 거부하실 수 있으며, 동의 거부 시 중개보수 지원이 불가할 수 있습니다."
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 개인정보의 수집·이용 목적, 수집하려는 개인정보의 항목, 개인정보의 보유 및 이용기간, 개인정보 수집·이용에 동의하십니까?, 개인정보를 제공받는 자의 개인정보 이용 목적, 개인정보의 보유 및 이용기간, 개인정보 제3자 제공에 동의하십니까?"
-  ],
+  "warnings": [],
   "checked": false
 }

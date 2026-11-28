@@ -1,0 +1,247 @@
+{
+ "form_id": "mohw-aftercare-consent",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "institution_addressee",
+   "label": "○○○○ 자립지원전담기관장 귀하",
+   "guide": "관할 자립지원전담기관 이름을 적어요 (예: 서울).",
+   "example": "서울",
+   "cover": true,
+   "at": {
+    "rect": [
+     340,
+     154,
+     382,
+     167
+    ]
+   }
+  },
+  {
+   "id": "name",
+   "label": "성명",
+   "section": "대상자",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "본인 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "rect": [
+     215,
+     176,
+     299,
+     204
+    ]
+   }
+  },
+  {
+   "id": "birth_date",
+   "label": "생년월일",
+   "section": "대상자",
+   "input_type": "date",
+   "value_source": "profile",
+   "profile_key": "birth_date",
+   "guide": "본인 생년월일을 적어요.",
+   "cover": true,
+   "at": {
+    "rect": [
+     370,
+     176,
+     481,
+     204
+    ]
+   }
+  },
+  {
+   "id": "care_end_date",
+   "label": "보호종료(예정)일",
+   "section": "대상자",
+   "input_type": "date",
+   "guide": "보호가 끝난(또는 끝날) 날을 적어요.",
+   "example": "2026-12-31",
+   "cover": true,
+   "at": {
+    "rect": [
+     215,
+     206,
+     299,
+     233
+    ]
+   }
+  },
+  {
+   "id": "phone",
+   "label": "연락처",
+   "section": "대상자",
+   "input_type": "phone",
+   "value_source": "profile",
+   "profile_key": "phone",
+   "guide": "연락처를 적어요.",
+   "cover": true,
+   "at": {
+    "rect": [
+     370,
+     206,
+     481,
+     233
+    ]
+   }
+  },
+  {
+   "id": "institution_name",
+   "label": "기관명",
+   "section": "원가정외 보호기관",
+   "guide": "보호받던 시설(기관) 이름을 적어요.",
+   "example": "○○아동복지센터",
+   "at": {
+    "rect": [
+     215,
+     235,
+     481,
+     260
+    ]
+   }
+  },
+  {
+   "id": "institution_address",
+   "label": "기관주소",
+   "section": "원가정외 보호기관",
+   "input_type": "address",
+   "guide": "보호받던 기관의 주소를 적어요.",
+   "at": {
+    "rect": [
+     215,
+     262,
+     481,
+     289
+    ]
+   }
+  },
+  {
+   "id": "agreement_date",
+   "label": "동의일",
+   "input_type": "date",
+   "guide": "동의하는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#2"
+   }
+  },
+  {
+   "id": "signature",
+   "label": "동의권자 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "본인이 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "동의권자:",
+    "to": "(서명또는인)#1",
+    "gap": 6
+   }
+  },
+  {
+   "id": "confirmer_signature",
+   "label": "동의확인자(자립지원전담요원) (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "office",
+   "guide": "자립지원전담요원이 서명해요.",
+   "at": {
+    "right_of": "동의확인자(자립지원전담요원):",
+    "to": "(서명또는인)#2",
+    "gap": 6
+   }
+  },
+  {
+   "id": "obtainer_signature",
+   "label": "동의획득자(자립지원전담인력) (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "office",
+   "guide": "자립지원전담인력이 서명해요.",
+   "at": {
+    "right_of": "동의획득자(자립지원전담인력):",
+    "to": "(서명또는인)#3",
+    "gap": 6
+   }
+  },
+  {
+   "id": "consent_personal",
+   "label": "개인정보 수집·이용 동의",
+   "input_type": "checkbox",
+   "guide": "자립지원 서비스를 받으려면 동의해요.",
+   "at": {
+    "page": 1,
+    "choices": "□동의함#1"
+   }
+  },
+  {
+   "id": "consent_sensitive",
+   "label": "민감정보 수집·이용 동의",
+   "input_type": "checkbox",
+   "guide": "건강 · 주거 상태 등 민감정보 수집에 동의하는지 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "□동의함#2"
+   }
+  },
+  {
+   "id": "consent_third_party",
+   "label": "개인정보 제3자 제공 동의",
+   "input_type": "checkbox",
+   "guide": "시 · 군 · 구 등에 정보를 제공하는 것에 동의하는지 골라요.",
+   "at": {
+    "page": 1,
+    "choices": "□동의함#3"
+   }
+  },
+  {
+   "id": "date_page2",
+   "label": "동의일 (2면)",
+   "input_type": "date",
+   "guide": "동의하는 날짜를 적어요.",
+   "at": {
+    "page": 1,
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "name_page2",
+   "label": "본인 성명",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "본인 이름을 적어요.",
+   "at": {
+    "page": 1,
+    "right_of": "본인성명",
+    "to": "(서명또는인)",
+    "gap": 6
+   }
+  },
+  {
+   "id": "signature_page2",
+   "label": "본인 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "page": 1,
+    "around": "(서명또는인)",
+    "pad": 4
+   }
+  },
+  {
+   "id": "institution_addressee_page2",
+   "label": "00 자립지원전담기관장 귀중",
+   "guide": "관할 자립지원전담기관 이름을 적어요.",
+   "example": "서울",
+   "cover": true,
+   "at": {
+    "page": 1,
+    "rect": [
+     226,
+     653,
+     243,
+     668
+    ]
+   }
+  }
+ ]
+}

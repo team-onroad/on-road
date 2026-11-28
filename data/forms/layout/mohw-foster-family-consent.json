@@ -1,0 +1,403 @@
+{
+ "form_id": "mohw-foster-family-consent",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "row1_name",
+   "label": "성명",
+   "section": "1번",
+   "input_type": "text",
+   "required": true,
+   "guide": "위탁가정 가족의 이름을 적어요.",
+   "at": {
+    "rect": [
+     221,
+     314,
+     292,
+     345
+    ]
+   },
+   "value_source": "profile",
+   "profile_key": "name"
+  },
+  {
+   "id": "row1_birth_date",
+   "label": "생년월일",
+   "section": "1번",
+   "input_type": "date",
+   "required": true,
+   "guide": "생년월일을 적어요.",
+   "at": {
+    "rect": [
+     294,
+     314,
+     386,
+     345
+    ]
+   }
+  },
+  {
+   "id": "row1_signature",
+   "label": "서명 또는 날인",
+   "section": "1번",
+   "input_type": "signature",
+   "required": true,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     388,
+     314,
+     459,
+     345
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "row2_relation",
+   "label": "신청인과의 관계",
+   "section": "2번",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 배우자, 자녀).",
+   "at": {
+    "rect": [
+     130,
+     347,
+     219,
+     378
+    ]
+   }
+  },
+  {
+   "id": "row2_name",
+   "label": "성명",
+   "section": "2번",
+   "input_type": "text",
+   "required": false,
+   "guide": "위탁가정 가족의 이름을 적어요.",
+   "at": {
+    "rect": [
+     221,
+     347,
+     292,
+     378
+    ]
+   }
+  },
+  {
+   "id": "row2_birth_date",
+   "label": "생년월일",
+   "section": "2번",
+   "input_type": "date",
+   "required": false,
+   "guide": "생년월일을 적어요.",
+   "at": {
+    "rect": [
+     294,
+     347,
+     386,
+     378
+    ]
+   }
+  },
+  {
+   "id": "row2_signature",
+   "label": "서명 또는 날인",
+   "section": "2번",
+   "input_type": "signature",
+   "required": false,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     388,
+     347,
+     459,
+     378
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "row3_relation",
+   "label": "신청인과의 관계",
+   "section": "3번",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 배우자, 자녀).",
+   "at": {
+    "rect": [
+     130,
+     380,
+     219,
+     411
+    ]
+   }
+  },
+  {
+   "id": "row3_name",
+   "label": "성명",
+   "section": "3번",
+   "input_type": "text",
+   "required": false,
+   "guide": "위탁가정 가족의 이름을 적어요.",
+   "at": {
+    "rect": [
+     221,
+     380,
+     292,
+     411
+    ]
+   }
+  },
+  {
+   "id": "row3_birth_date",
+   "label": "생년월일",
+   "section": "3번",
+   "input_type": "date",
+   "required": false,
+   "guide": "생년월일을 적어요.",
+   "at": {
+    "rect": [
+     294,
+     380,
+     386,
+     411
+    ]
+   }
+  },
+  {
+   "id": "row3_signature",
+   "label": "서명 또는 날인",
+   "section": "3번",
+   "input_type": "signature",
+   "required": false,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     388,
+     380,
+     459,
+     411
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "row4_relation",
+   "label": "신청인과의 관계",
+   "section": "4번",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 배우자, 자녀).",
+   "at": {
+    "rect": [
+     130,
+     413,
+     219,
+     443
+    ]
+   }
+  },
+  {
+   "id": "row4_name",
+   "label": "성명",
+   "section": "4번",
+   "input_type": "text",
+   "required": false,
+   "guide": "위탁가정 가족의 이름을 적어요.",
+   "at": {
+    "rect": [
+     221,
+     413,
+     292,
+     443
+    ]
+   }
+  },
+  {
+   "id": "row4_birth_date",
+   "label": "생년월일",
+   "section": "4번",
+   "input_type": "date",
+   "required": false,
+   "guide": "생년월일을 적어요.",
+   "at": {
+    "rect": [
+     294,
+     413,
+     386,
+     443
+    ]
+   }
+  },
+  {
+   "id": "row4_signature",
+   "label": "서명 또는 날인",
+   "section": "4번",
+   "input_type": "signature",
+   "required": false,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     388,
+     413,
+     459,
+     443
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "row5_relation",
+   "label": "신청인과의 관계",
+   "section": "5번",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 배우자, 자녀).",
+   "at": {
+    "rect": [
+     130,
+     445,
+     219,
+     476
+    ]
+   }
+  },
+  {
+   "id": "row5_name",
+   "label": "성명",
+   "section": "5번",
+   "input_type": "text",
+   "required": false,
+   "guide": "위탁가정 가족의 이름을 적어요.",
+   "at": {
+    "rect": [
+     221,
+     445,
+     292,
+     476
+    ]
+   }
+  },
+  {
+   "id": "row5_birth_date",
+   "label": "생년월일",
+   "section": "5번",
+   "input_type": "date",
+   "required": false,
+   "guide": "생년월일을 적어요.",
+   "at": {
+    "rect": [
+     294,
+     445,
+     386,
+     476
+    ]
+   }
+  },
+  {
+   "id": "row5_signature",
+   "label": "서명 또는 날인",
+   "section": "5번",
+   "input_type": "signature",
+   "required": false,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     388,
+     445,
+     459,
+     476
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "row6_relation",
+   "label": "신청인과의 관계",
+   "section": "6번",
+   "input_type": "text",
+   "required": false,
+   "guide": "신청인과의 관계를 적어요 (예: 배우자, 자녀).",
+   "at": {
+    "rect": [
+     130,
+     478,
+     219,
+     509
+    ]
+   }
+  },
+  {
+   "id": "row6_name",
+   "label": "성명",
+   "section": "6번",
+   "input_type": "text",
+   "required": false,
+   "guide": "위탁가정 가족의 이름을 적어요.",
+   "at": {
+    "rect": [
+     221,
+     478,
+     292,
+     509
+    ]
+   }
+  },
+  {
+   "id": "row6_birth_date",
+   "label": "생년월일",
+   "section": "6번",
+   "input_type": "date",
+   "required": false,
+   "guide": "생년월일을 적어요.",
+   "at": {
+    "rect": [
+     294,
+     478,
+     386,
+     509
+    ]
+   }
+  },
+  {
+   "id": "row6_signature",
+   "label": "서명 또는 날인",
+   "section": "6번",
+   "input_type": "signature",
+   "required": false,
+   "guide": "각자 직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "rect": [
+     388,
+     478,
+     459,
+     509
+    ]
+   },
+   "value_source": "handwrite"
+  },
+  {
+   "id": "date",
+   "label": "작성일",
+   "input_type": "date",
+   "guide": "동의서를 쓰는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#-1"
+   }
+  },
+  {
+   "id": "applicant_signature",
+   "label": "신청인 (서명)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "신청인이 이름을 쓰고 서명해요.",
+   "at": {
+    "right_of": "신청인:",
+    "to": 474,
+    "gap": 6
+   }
+  }
+ ]
+}

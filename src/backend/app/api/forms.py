@@ -6,7 +6,8 @@ from pydantic import ValidationError
 
 from app.api.deps import DB, JsonBody, openapi_body
 from app.forms import Stage
-from app.schemas.forms import DocumentRequest, DocumentResponse, TemplateDetail, TemplateList
+from app import ai_content
+from app.schemas.forms import CommonFormList, DocumentRequest, DocumentResponse, TemplateDetail, TemplateList
 from app.services import documents as service
 from app.services.users import get_user
 from db.models import User
@@ -37,6 +38,11 @@ def _document_body(_user: PathUser, payload: JsonBody) -> DocumentRequest:
 )
 def list_templates(stage: Stage | None = None) -> TemplateList:
     return service.template_list(stage)
+
+
+@router.get("/forms/common", response_model=CommonFormList, summary="공통 양식 목록 (퇴소 · 보호연장 신청서 등)")
+def list_common_forms() -> CommonFormList:
+    return CommonFormList.model_validate({"forms": ai_content.common_forms()})
 
 
 @router.get(

@@ -1,7 +1,7 @@
 # 정책 신청 서류 양식 (서버 양식 · 연결표)
 
 정책 신청 때 내는 서류 중 **공식 양식이 있는 것**을 서버(`data/forms/`)에 두고, 앱에서 바로 작성할 수 있게 하려는 데이터입니다.
-백엔드 연결까지 되어 있습니다 (아래 '백엔드 연결'). 앱 화면은 아직입니다.
+백엔드 · 앱 연결까지 되어 있습니다 (아래 '백엔드 연결', 앱: 신청 준비 서류마다 양식 쓰기, 서류 작성 화면의 공통 양식).
 
 **쓰는 곳: 정책 추천 → 정책을 골라 "지원하기"(신청) 화면의 필요 서류 작성에만** (팀 결정 11/26).
 진로 로드맵 · 맞춤 신청 로드맵 · 상담 화면에는 넣지 않는다 (그쪽의 `has_form` · "신청서 쓰기"는 지금처럼 `find_form` 그대로).
@@ -91,6 +91,63 @@
    내보내기는 `@` 앞의 `form_id` 로 `data/forms/{form_id}.pdf` 위에 채운다
 4. **안내**: `substitute` 양식으로 만든 문서는 `notices` 맨 앞에 연결표의 `notice`, `checked: false` 는 지금처럼 "원본과 대조하지 않은" 안내
 5. 테스트: `tests/test_writer_api.py` (서류별 `forms` · `extra_forms`, `form_id` 로 시작, 다른 정책 양식 404, P001 기존 흐름)
+
+## 공통 양식 (정책 없이)
+
+연결표에서 `scope: common` 인 양식(퇴소 신청서 · 재보호조치 신청서 · 보호기간 연장 승인신청서 · 금융정보 등 제공 동의서 · 사후관리 동의서 · 계좌 변경 신청서 · 디딤씨앗 적립금 사용 신청서)은
+특정 정책 서류가 아니라 신청 준비 화면에 안 나올 수 있다. 그래서 앱의 서류 작성 화면에 따로 보여 준다.
+
+- `GET /forms/common`: `{forms: [{form_id, title, checked, notice}]}` (양식 파일이 있는 것만)
+- 시작: `POST /documents` 에 `source_type: policy_form`, `form_id` 만 (`policy_id` 없이). 공통 양식이 아니면 404 `FORM_NOT_FOUND`.
+  문서 `source_id` 는 `{form_id}@u` (사용자마다 하나), `policy_id` 는 null. 내보내기는 다른 양식처럼 `data/forms/{form_id}.pdf` 위에 채운다
+
+## 값 자리 보완 (`formguide.fill_missing`)
+
+`layout.py` 는 표 칸 기준이라 줄글 양식("성 명 : ____") · □ 체크 줄 · 문답표에서 값 자리를 많이 놓친다 (11/27 기준 227칸).
+`python -m formguide.fill_missing` 이 칸 이름 글자 위치로 다시 찾는다 (글자 칸은 이름 오른쪽 빈 자리, □ · ① 선택은 선택지마다 표시 자리 `marks`,
+서명은 "(인)" 앞). 자동으로 찾은 자리는 틀릴 수 있어서 **원본 PDF 위에 겹쳐 보고 맞다고 확인한 칸만**
+`data/forms/fill_missing_review.json` 에 적어 두고 그것만 저장한다 (틀린 자리에 쓰는 것보다 별지가 낫다). 찾은 칸 box 에는 `found_by: fill_missing`.
+
+- 11/27 확인해 넣은 것: 진도 위임장 · 확인서 · 동의서 이름/주소/주민번호/연락처, 청년도전 문답표 12문항 · 참여유형, 자립지원계획서 체크 13줄,
+  경기 중개보수 계약유형 · 동의 2개, 퇴소 · 전세주택 신청서 서명 등 (61칸)
+- 아직 별지로 가는 칸: 칸 이름과 자리가 멀거나 한 칸에 여러 칸이 섞인 표 (디딤씨앗 신청서 · 사용계획서, 진도 개인정보 · 금융정보 동의서, 사후관리 동의서 등).
+  `--all --dry-run` 으로 찾은 자리를 보고 맞으면 review 에 더한다
+
+## 검수한 칸 배치 (`formguide.layout_spec`) — 11/28
+
+자동 추출(`layout.py` · `fill_missing`)은 제목 · 안내문 · 장식선을 칸으로 잡거나, 한 칸에 두 값이 섞이거나, 같은 줄 옆 칸을 침범하는 일이 많았다.
+그래서 **양식마다 사람이 원본 PDF 와 대조해 적은 배치 파일** `data/forms/layout/{form_id}.json` 을 두고, 이것으로 양식 JSON 의 칸 목록 · 자리를 통째로 만든다
+(P001-apply 는 이미 사람이 확인한 칸이라 배치 파일 없음 → 그대로). 35개 양식, 칸 약 550 → 920.
+
+```
+cd src
+python -m formguide.layout_spec                 # 배치 파일 있는 양식 모두 다시 만들기
+python -m formguide.layout_spec welfare-apply   # 하나만
+python -m formguide.audit welfare-apply         # 입력 자리 후보(빈 칸 · □ · 밑줄 · 20 . . .)와 칸 비교: 빠진 자리 · 엉뚱한 자리 찾기
+```
+
+배치 파일 형식 (칸 하나):
+
+```json
+{"id": "stay_start", "label": "체류기간(시작)", "input_type": "date", "at": {"date": "체류기간", "pad": 2}}
+```
+
+- 배치 파일이 기준: `input_type`(기본 text) · `value_source`(기본 user) · `required`(기본 true)는 여기서 정한다. 예전 JSON 의 설명 · 예시는 타입이 같을 때만 물려받는다
+- `at` 으로 자리 찾기. 글자는 `"신청인#2"`(두 번째) · `"#-1"`(마지막)로 고른다 (같은 y 의 글자 조각은 한 줄로 합쳐서 찾음)
+  - `rect` 좌표 직접 · `right_of` 이름 오른쪽 빈 자리(다음 칸 이름이나 세로선 앞까지, `to` · `x0` · `pad` · `rows`) · `cell_right` 오른쪽 칸 · `under` / `below` 아래 칸
+  - `date` "년 월 일" · "20 . . ." 날짜 자리, `choices` ①②③ · 1·2·3 선택지 줄, `marks` □ 앞 표시 자리, `marks_xy` 좌표로, `words` "(있음, 없음)" 처럼 글자에 ○
+  - `around` · `mark` 한 글자 둘레
+- 기간 "~" 은 시작 · 끝 두 칸으로 나눈다 (`*_start` / `*_end`). 선택지 이름의 쉼표는 "·" 로 (여러 개 고른 값 "가, 나" 와 헷갈림)
+- 칸 플래그: `cover`(칸 안 예시 글자 000000-0000000 · ○○ 를 지우고 씀) · `sign_mark` · `align`
+- 만든 칸 box 에 `found_by: layout_spec`
+
+내보내기(`doc_export.render_overlay`)가 함께 바뀐 것:
+"20 . . ." · ". . ." 날짜는 점 앞에 숫자, "2026년" 이 찍혀 있으면 월 · 일만, "20  년" 은 뒤 두 자리,
+"( )    -" 전화칸은 괄호 · 줄표 사이에 나눠 씀, `circles` 가 있는 선택은 ○, 글자 크기 10→6pt 까지 줄여서도 안 들어가면 별지.
+
+확인: `formguide/tests/test_layout_spec.py`(배치 파일과 저장된 JSON 이 같은지 · 칸 겹침 · 선택지) ·
+`backend/tests/test_doc_export_forms.py`(점 날짜 · 찍힌 연도 · 괄호 전화 · ○ · 예시 덮기).
+배치를 고치면 `layout_spec` 으로 다시 만들고, 견본 값으로 내보낸 PDF 를 원본 위에서 눈으로 본다.
 
 ## 다시 만들기 · 양식 추가
 

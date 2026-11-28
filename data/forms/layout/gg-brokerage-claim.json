@@ -1,0 +1,183 @@
+{
+ "form_id": "gg-brokerage-claim",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "claimant_name",
+   "label": "성명",
+   "section": "중개보수 청구인",
+   "value_source": "profile",
+   "profile_key": "name",
+   "guide": "중개보수를 돌려받을 사람(본인) 이름을 적어요.",
+   "example": "김민지",
+   "at": {
+    "rect": [
+     230,
+     153,
+     535,
+     191
+    ]
+   }
+  },
+  {
+   "id": "claimant_bank_name",
+   "label": "은행명",
+   "section": "중개보수 청구인",
+   "guide": "지원금을 받을 통장의 은행 이름을 적어요.",
+   "example": "농협은행",
+   "at": {
+    "rect": [
+     230,
+     193,
+     339,
+     231
+    ]
+   }
+  },
+  {
+   "id": "claimant_account_number",
+   "label": "계좌번호",
+   "section": "중개보수 청구인",
+   "input_type": "account",
+   "value_source": "handwrite",
+   "sensitive": true,
+   "guide": "계좌번호는 제출할 때 직접 적어요.",
+   "at": {
+    "rect": [
+     423,
+     193,
+     535,
+     231
+    ]
+   }
+  },
+  {
+   "id": "contract_address",
+   "label": "계약대상 주소",
+   "section": "중개보수 청구인",
+   "input_type": "address",
+   "guide": "계약한 집의 주소를 적어요.",
+   "example": "경기도 ○○시 ○○로 12, 101호",
+   "at": {
+    "rect": [
+     230,
+     233,
+     535,
+     275
+    ]
+   }
+  },
+  {
+   "id": "claimant_phone",
+   "label": "연락처(핸드폰번호)",
+   "section": "중개보수 청구인",
+   "input_type": "phone",
+   "value_source": "profile",
+   "profile_key": "phone",
+   "guide": "휴대전화 번호를 적어요.",
+   "at": {
+    "rect": [
+     230,
+     277,
+     535,
+     317
+    ]
+   }
+  },
+  {
+   "id": "contract_type",
+   "label": "계약유형",
+   "section": "중개보수 청구인",
+   "input_type": "checkbox",
+   "guide": "매매 · 전세 · 월세 · 기타 중 계약 종류를 골라요.",
+   "at": {
+    "choices": "□매매□전세",
+    "rows_below": 22,
+    "x": [
+     230,
+     340
+    ]
+   }
+  },
+  {
+   "id": "transaction_amount",
+   "label": "거래금액(원)",
+   "section": "중개보수 청구인",
+   "input_type": "number",
+   "guide": "계약서에 적힌 거래금액(보증금)을 원 단위로 적어요.",
+   "example": "50000000",
+   "at": {
+    "rect": [
+     423,
+     319,
+     535,
+     366
+    ]
+   }
+  },
+  {
+   "id": "broker_fee_amount",
+   "label": "중개보수 금액(원)",
+   "input_type": "number",
+   "guide": "공인중개사에게 낸 중개보수를 원 단위로 적어요 (영수증 금액).",
+   "example": "300000",
+   "at": {
+    "rect": [
+     230,
+     368,
+     535,
+     409
+    ]
+   }
+  },
+  {
+   "id": "broker_name",
+   "label": "성명",
+   "section": "개업공인중개사",
+   "guide": "계약을 중개한 공인중개사 이름을 적어요.",
+   "at": {
+    "rect": [
+     230,
+     411,
+     339,
+     453
+    ]
+   }
+  },
+  {
+   "id": "broker_office_name",
+   "label": "중개사무소명",
+   "section": "개업공인중개사",
+   "guide": "중개사무소 이름을 적어요.",
+   "example": "○○공인중개사사무소",
+   "at": {
+    "rect": [
+     423,
+     411,
+     535,
+     453
+    ]
+   }
+  },
+  {
+   "id": "submission_date",
+   "label": "청구일",
+   "input_type": "date",
+   "guide": "청구하는 날짜를 적어요.",
+   "at": {
+    "date": "년월일#1"
+   }
+  },
+  {
+   "id": "claimant_signature",
+   "label": "청구인 (서명 또는 인)",
+   "input_type": "signature",
+   "value_source": "handwrite",
+   "guide": "직접 서명하거나 도장을 찍어요.",
+   "at": {
+    "right_of": "청구인:",
+    "to": "(서명또는인)"
+   }
+  }
+ ]
+}

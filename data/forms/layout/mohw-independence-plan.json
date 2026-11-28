@@ -1,0 +1,695 @@
+{
+ "form_id": "mohw-independence-plan",
+ "checked_on": "2026-11-27",
+ "fields": [
+  {
+   "id": "written_date",
+   "label": "작성일",
+   "section": "",
+   "input_type": "date",
+   "value_source": "user",
+   "required": true,
+   "guide": "계획서를 쓰는 날짜를 적어요.",
+   "at": {
+    "rect": [
+     295,
+     142,
+     360,
+     155
+    ]
+   },
+   "example": "2026-11-27"
+  },
+  {
+   "id": "plan_year",
+   "label": "계획연도",
+   "section": "",
+   "input_type": "number",
+   "value_source": "user",
+   "required": true,
+   "guide": "몇 년도 계획인지 적어요.",
+   "at": {
+    "rect": [
+     362,
+     142,
+     421,
+     155
+    ]
+   },
+   "example": "2027"
+  },
+  {
+   "id": "author",
+   "label": "작성자",
+   "section": "",
+   "input_type": "text",
+   "value_source": "user",
+   "required": true,
+   "guide": "계획서를 쓴 사람(담당 선생님 등) 이름을 적어요.",
+   "at": {
+    "rect": [
+     423,
+     142,
+     481,
+     155
+    ]
+   }
+  },
+  {
+   "id": "name",
+   "label": "성명",
+   "section": "",
+   "input_type": "text",
+   "value_source": "profile",
+   "required": true,
+   "guide": "본인 이름을 적어요.",
+   "at": {
+    "rect": [
+     134,
+     157,
+     186,
+     169
+    ]
+   },
+   "profile_key": "name"
+  },
+  {
+   "id": "gender",
+   "label": "성별",
+   "section": "",
+   "input_type": "text",
+   "value_source": "user",
+   "required": true,
+   "guide": "성별을 적어요.",
+   "at": {
+    "rect": [
+     241,
+     157,
+     293,
+     169
+    ]
+   },
+   "example": "여"
+  },
+  {
+   "id": "birth_date",
+   "label": "생년월일",
+   "input_type": "date",
+   "value_source": "profile",
+   "profile_key": "birth_date",
+   "required": true,
+   "guide": "생년월일을 적어요.",
+   "at": {
+    "date": "년월일#2"
+   }
+  },
+  {
+   "id": "school",
+   "label": "학교",
+   "section": "재학정보",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "다니는 학교를 골라요.",
+   "at": {
+    "choices": "□중학교",
+    "rows_below": 12,
+    "x": [
+     133,
+     294
+    ]
+   }
+  },
+  {
+   "id": "school_other",
+   "label": "학교 기타",
+   "section": "재학정보",
+   "required": false,
+   "guide": "'기타'를 골랐으면 내용을 적어요.",
+   "at": {
+    "right_of": "□기타(#1",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "school_year",
+   "label": "학년",
+   "section": "재학정보",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "학년(또는 휴학)을 골라요.",
+   "at": {
+    "choices": "□1학년",
+    "rows_below": 12,
+    "x": [
+     361,
+     482
+    ]
+   }
+  },
+  {
+   "id": "school_category",
+   "label": "학교 유형",
+   "section": "재학정보",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "학교 유형을 골라요.",
+   "at": {
+    "choices": "□인문계",
+    "rows_below": 12
+   }
+  },
+  {
+   "id": "school_category_other",
+   "label": "학교 유형 기타",
+   "section": "재학정보",
+   "required": false,
+   "guide": "'기타'를 골랐으면 내용을 적어요.",
+   "at": {
+    "right_of": "□기타(#2",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "career_choice",
+   "label": "희망진로 (택1)",
+   "section": "희망진로 · 자립계획",
+   "input_type": "checkbox",
+   "required": true,
+   "guide": "진학 · 취업 · 미정 중 하나를 고르고 그 칸만 써요.",
+   "at": {
+    "choices": "□진",
+    "rows_below": 110,
+    "x": [
+     128,
+     156
+    ],
+    "word_gap": 25,
+    "names": {
+     "진": "진학",
+     "미 정": "미정"
+    }
+   }
+  },
+  {
+   "id": "university_type",
+   "label": "대학 구분",
+   "section": "희망진로 > 진학",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "가고 싶은 대학 종류를 골라요.",
+   "at": {
+    "choices": "□1년제/비학위과정",
+    "rows_below": 12,
+    "x": [
+     187,
+     312
+    ]
+   }
+  },
+  {
+   "id": "desired_university",
+   "label": "희망 대학",
+   "section": "희망진로 > 진학",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "가고 싶은 대학을 적어요.",
+   "at": {
+    "rect": [
+     387,
+     248,
+     481,
+     258
+    ]
+   }
+  },
+  {
+   "id": "desired_major",
+   "label": "희망 학과",
+   "section": "희망진로 > 진학",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "가고 싶은 학과를 적어요.",
+   "at": {
+    "rect": [
+     387,
+     260,
+     481,
+     271
+    ]
+   }
+  },
+  {
+   "id": "tuition_funding",
+   "label": "등록금 조달 방안",
+   "section": "희망진로 > 진학",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "등록금을 어떻게 마련할지 골라요 (여러 개 가능).",
+   "at": {
+    "choices": "□후원금",
+    "rows_below": 18
+   }
+  },
+  {
+   "id": "tuition_funding_other",
+   "label": "등록금 조달 기타",
+   "section": "희망진로 > 진학",
+   "required": false,
+   "guide": "'기타'를 골랐으면 내용을 적어요.",
+   "at": {
+    "right_of": "□기타(#3",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "desired_job",
+   "label": "희망 직종",
+   "section": "희망진로 > 취업",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "일하고 싶은 직종을 골라요.",
+   "at": {
+    "choices": "□관리직#1",
+    "rows_below": 13
+   }
+  },
+  {
+   "id": "desired_job_other",
+   "label": "희망 직종 기타",
+   "section": "희망진로 > 취업",
+   "required": false,
+   "guide": "'기타'를 골랐으면 내용을 적어요.",
+   "at": {
+    "right_of": "□기타(#4",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "desired_job_title",
+   "label": "희망 직업",
+   "section": "희망진로 > 취업",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "일하고 싶은 직업을 적어요.",
+   "at": {
+    "rect": [
+     188,
+     356,
+     481,
+     381
+    ]
+   },
+   "example": "바리스타"
+  },
+  {
+   "id": "housing_government",
+   "label": "희망주거 - 정부지원",
+   "section": "희망주거 (필수)",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "정부 지원 주거 중 원하는 것을 골라요.",
+   "at": {
+    "choices": "□공공임대",
+    "x": [
+     187,
+     482
+    ]
+   }
+  },
+  {
+   "id": "housing_other_than_government",
+   "label": "희망주거 - 정부지원 외",
+   "section": "희망주거 (필수)",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "정부 지원이 아닌 주거 중 원하는 것을 골라요.",
+   "at": {
+    "choices": "□전세",
+    "rows_below": 13
+   }
+  },
+  {
+   "id": "housing_other",
+   "label": "희망주거 기타",
+   "section": "희망주거 (필수)",
+   "required": false,
+   "guide": "'기타'를 골랐으면 내용을 적어요.",
+   "at": {
+    "right_of": "□기타(#5",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "certificate_field",
+   "label": "자격 분야",
+   "section": "현재 상황 > 자격증",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "가진 자격증 분야를 골라요.",
+   "at": {
+    "choices": "□전문직관련"
+   }
+  },
+  {
+   "id": "certificate_name",
+   "label": "자격증명",
+   "section": "현재 상황 > 자격증",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "가진 자격증 이름을 적어요.",
+   "at": {
+    "rect": [
+     188,
+     461,
+     250,
+     473
+    ]
+   }
+  },
+  {
+   "id": "certificate_issuer",
+   "label": "발급처",
+   "section": "현재 상황 > 자격증",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "자격증을 준 기관을 적어요.",
+   "at": {
+    "rect": [
+     285,
+     461,
+     358,
+     473
+    ]
+   }
+  },
+  {
+   "id": "certificate_issue_date",
+   "label": "발급날짜",
+   "section": "현재 상황 > 자격증",
+   "input_type": "date",
+   "value_source": "user",
+   "required": false,
+   "guide": "자격증 받은 날을 적어요.",
+   "at": {
+    "rect": [
+     404,
+     461,
+     481,
+     473
+    ]
+   }
+  },
+  {
+   "id": "academy_name",
+   "label": "학원명",
+   "section": "현재 상황 > 학원 지원",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "다니는 학원 이름을 적어요.",
+   "at": {
+    "rect": [
+     188,
+     475,
+     250,
+     486
+    ]
+   }
+  },
+  {
+   "id": "academy_course",
+   "label": "과정명",
+   "section": "현재 상황 > 학원 지원",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "학원 과정 이름을 적어요.",
+   "at": {
+    "rect": [
+     285,
+     475,
+     358,
+     486
+    ]
+   }
+  },
+  {
+   "id": "academy_duration",
+   "label": "교육기간",
+   "section": "현재 상황 > 학원 지원",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "교육 기간을 적어요.",
+   "at": {
+    "rect": [
+     404,
+     475,
+     481,
+     486
+    ]
+   },
+   "example": "2026.03~2026.08"
+  },
+  {
+   "id": "academy_funding_source",
+   "label": "학원비 부담주체",
+   "section": "현재 상황 > 학원 지원",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "학원비를 누가 내는지 골라요.",
+   "at": {
+    "choices": "□중앙정부#1",
+    "rows_below": 13
+   }
+  },
+  {
+   "id": "academy_funding_other",
+   "label": "학원비 부담주체 기타",
+   "section": "현재 상황 > 학원 지원",
+   "required": false,
+   "guide": "'기타'를 골랐으면 내용을 적어요.",
+   "at": {
+    "right_of": "□기타(#6",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "training_institution",
+   "label": "기관",
+   "section": "현재 상황 > 직업훈련",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "직업훈련 기관을 적어요.",
+   "at": {
+    "rect": [
+     188,
+     516,
+     250,
+     528
+    ]
+   }
+  },
+  {
+   "id": "training_course",
+   "label": "과정명",
+   "section": "현재 상황 > 직업훈련",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "훈련 과정 이름을 적어요.",
+   "at": {
+    "rect": [
+     285,
+     516,
+     358,
+     528
+    ]
+   }
+  },
+  {
+   "id": "training_duration",
+   "label": "기간",
+   "section": "현재 상황 > 직업훈련",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "훈련 기간을 적어요.",
+   "at": {
+    "rect": [
+     404,
+     516,
+     481,
+     528
+    ]
+   }
+  },
+  {
+   "id": "training_field",
+   "label": "직업훈련 분야",
+   "section": "현재 상황 > 직업훈련",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "훈련 분야를 골라요.",
+   "at": {
+    "choices": "□관리직#2",
+    "rows_below": 13
+   }
+  },
+  {
+   "id": "training_field_other",
+   "label": "직업훈련 분야 기타",
+   "section": "현재 상황 > 직업훈련",
+   "required": false,
+   "guide": "'기타'를 골랐으면 내용을 적어요.",
+   "at": {
+    "right_of": "□기타(#7",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "training_funding_source",
+   "label": "훈련비 부담주체",
+   "section": "현재 상황 > 직업훈련",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "훈련비를 누가 내는지 골라요.",
+   "at": {
+    "choices": "□중앙정부#2",
+    "rows_below": 13
+   }
+  },
+  {
+   "id": "training_funding_other",
+   "label": "훈련비 부담주체 기타",
+   "section": "현재 상황 > 직업훈련",
+   "required": false,
+   "guide": "'기타'를 골랐으면 내용을 적어요.",
+   "at": {
+    "right_of": "□기타(#8",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "internship_company",
+   "label": "회사명",
+   "section": "현재 상황 > 인턴쉽",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "인턴 회사 이름을 적어요.",
+   "at": {
+    "rect": [
+     188,
+     580,
+     305,
+     591
+    ]
+   }
+  },
+  {
+   "id": "internship_duration",
+   "label": "기간",
+   "section": "현재 상황 > 인턴쉽",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "인턴 기간을 적어요.",
+   "at": {
+    "rect": [
+     360,
+     580,
+     481,
+     591
+    ]
+   }
+  },
+  {
+   "id": "internship_field",
+   "label": "인턴쉽 분야",
+   "section": "현재 상황 > 인턴쉽",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "인턴 분야를 골라요.",
+   "at": {
+    "choices": "□관리직#3",
+    "rows_below": 13
+   }
+  },
+  {
+   "id": "mentor_type",
+   "label": "멘토 구분",
+   "section": "현재 상황 > 멘토",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "멘토가 어떤 분인지 골라요.",
+   "at": {
+    "choices": "□보호종료선배",
+    "rows_below": 13
+   }
+  },
+  {
+   "id": "mentor_type_other",
+   "label": "멘토 구분 기타",
+   "section": "현재 상황 > 멘토",
+   "required": false,
+   "guide": "'기타'를 골랐으면 내용을 적어요.",
+   "at": {
+    "right_of": "□기타(#9",
+    "to_in_row": ")"
+   }
+  },
+  {
+   "id": "mentor_name",
+   "label": "멘토 성명",
+   "section": "현재 상황 > 멘토",
+   "input_type": "text",
+   "value_source": "user",
+   "required": false,
+   "guide": "멘토 이름을 적어요.",
+   "at": {
+    "rect": [
+     188,
+     638,
+     250,
+     659
+    ]
+   }
+  },
+  {
+   "id": "mentor_age",
+   "label": "멘토 연령",
+   "section": "현재 상황 > 멘토",
+   "input_type": "number",
+   "value_source": "user",
+   "required": false,
+   "guide": "멘토 나이를 적어요.",
+   "at": {
+    "rect": [
+     285,
+     638,
+     319,
+     659
+    ]
+   }
+  },
+  {
+   "id": "mentor_major",
+   "label": "멘토 전공",
+   "section": "현재 상황 > 멘토",
+   "input_type": "checkbox",
+   "required": false,
+   "guide": "멘토와 함께하는 분야를 골라요.",
+   "at": {
+    "choices": "□학습",
+    "rows_below": 13
+   }
+  }
+ ]
+}

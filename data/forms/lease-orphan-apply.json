@@ -11,316 +11,848 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": false,
-      "guide": "신청서 접수 시 부여받은 번호를 적어요.",
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수번호",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          85.4,
-          87.2,
-          295.4,
-          100.2
+          83.4,
+          86.5,
+          296.0,
+          101.1
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "application_date",
       "label": "접수일",
       "section": null,
-      "input_type": "date",
+      "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": false,
-      "guide": "신청서가 접수된 날짜를 적어요.",
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          330.0,
-          87.2,
-          551.9,
-          100.2
+          328.0,
+          86.5,
+          552.9,
+          101.1
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_name",
-      "label": "성 명",
+      "id": "receiver_name",
+      "label": "접수자(성명)",
       "section": null,
       "input_type": "text",
-      "value_source": "profile",
-      "profile_key": "name",
+      "value_source": "office",
+      "profile_key": null,
       "required": true,
-      "guide": "본인의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "성 명",
+      "guide": "기관이 적는 칸이에요.",
+      "example": null,
+      "evidence": "접수자(성명)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          193.9,
-          169.9,
-          332.1,
-          193.5
+          105.9,
+          103.1,
+          210.5,
+          117.9
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "receiver_affiliation",
+      "label": "접수자 소속",
+      "section": null,
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
+      "example": null,
+      "evidence": "접수자 소속",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          242.5,
+          103.1,
+          381.5,
+          117.9
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "receiver_position",
+      "label": "접수자 직명",
+      "section": null,
+      "input_type": "text",
+      "value_source": "office",
+      "profile_key": null,
+      "required": true,
+      "guide": "기관이 적는 칸이에요.",
+      "example": null,
+      "evidence": "접수자 직명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          413.5,
+          103.1,
+          552.9,
+          117.9
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "household_type",
+      "label": "유형",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "해당하는 가정 유형을 골라요.",
+      "example": null,
+      "evidence": "유형",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          120.8,
+          126.6,
+          313.8,
+          170.6
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "소년소녀가정",
+          "위탁가정",
+          "교통사고유자녀가정ㆍ재난유자녀가정"
+        ],
+        "marks": {
+          "소년소녀가정": [
+            132.5,
+            133.6
+          ],
+          "위탁가정": [
+            132.5,
+            148.6
+          ],
+          "교통사고유자녀가정ㆍ재난유자녀가정": [
+            132.5,
+            163.6
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "applicant_name",
+      "label": "성명",
+      "section": "신청인",
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "신청인 이름을 적어요.",
+      "example": "홍길동",
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          172.2,
+          170.9,
+          340.3,
+          192.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_id_number",
       "label": "주민등록번호",
-      "section": null,
+      "section": "신청인",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "주민등록번호를 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "주민등록번호",
       "sensitive": true,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          415.1,
+          170.9,
+          553.1,
+          192.5
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "applicant_address",
-      "label": "주 소",
-      "section": null,
-      "input_type": "text",
-      "value_source": "profile",
-      "profile_key": "region",
+      "label": "주소",
+      "section": "신청인",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
       "required": true,
-      "guide": "현재 거주하는 주소를 적어요.",
-      "example": "서울특별시 강남구",
-      "evidence": "주 소",
+      "guide": "지금 사는 곳 주소를 적어요.",
+      "example": null,
+      "evidence": "주소",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          194.9,
+          194.5,
+          553.1,
+          216.1
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "applicant_phone",
-      "label": "전화번호",
-      "section": null,
+      "id": "applicant_mobile",
+      "label": "휴대전화",
+      "section": "신청인 전화번호",
       "input_type": "phone",
       "value_source": "profile",
       "profile_key": "phone",
       "required": true,
-      "guide": "본인의 전화번호를 적어요.",
+      "guide": "휴대전화 번호를 적어요.",
       "example": "010-1234-5678",
-      "evidence": "전화번호",
+      "evidence": "휴대전화",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          237.8,
+          218.1,
+          553.1,
+          232.0
+        ],
+        "how": "text_right",
+        "template_text": "()-",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "applicant_home_phone",
+      "label": "집 전화",
+      "section": "신청인 전화번호",
+      "input_type": "phone",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "집 전화가 있으면 적어요.",
+      "example": null,
+      "evidence": "집 전화",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          233.4,
+          230.5,
+          554.0,
+          244.1
+        ],
+        "how": "text_right",
+        "template_text": "()-",
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "housing_type",
-      "label": "1) 주거형태",
-      "section": null,
+      "label": "주거형태",
+      "section": "현 주거실태",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "현재 주거형태를 적어요.",
-      "example": "아파트",
+      "guide": "지금 집의 계약 형태를 적어요 (전세, 월세, 영구임대 등).",
+      "example": "월세",
       "evidence": "주거형태",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          193.9,
-          245.1,
-          332.1,
-          266.0
+          195,
+          246,
+          331,
+          265
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "deposit_amount",
-      "label": "보증금",
-      "section": null,
+      "label": "보증금(만원)",
+      "section": "현 주거실태",
       "input_type": "number",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "주거형태의 보증금을 적어요.",
-      "example": "5000",
-      "evidence": "보증금",
+      "guide": "보증금을 만원 단위로 적어요.",
+      "example": "500",
+      "evidence": "보증금(만원)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          332.1,
-          266.0,
-          409.1,
-          286.8
+          410,
+          246,
+          553,
+          265
         ],
-        "how": "table_below",
-        "template_text": "월세"
+        "how": "table_right",
+        "template_text": "만원",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "housing_type_rent",
-      "label": "2) 주택유형",
-      "section": null,
+      "id": "house_kind",
+      "label": "주택유형",
+      "section": "현 주거실태",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "주택유형을 적어요.",
-      "example": "월세",
+      "guide": "집 종류를 적어요 (단독, 다세대, 연립, 아파트 등).",
+      "example": "다세대",
       "evidence": "주택유형",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          193.9,
-          266.0,
-          332.1,
-          286.8
+          195,
+          267,
+          331,
+          286
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "monthly_rent",
-      "label": "월세",
-      "section": null,
+      "label": "월세(만원/월)",
+      "section": "현 주거실태",
       "input_type": "number",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "월세 금액을 적어요.",
-      "example": "500",
-      "evidence": "월세",
+      "required": false,
+      "guide": "월세가 있으면 한 달 금액을 만원 단위로 적어요.",
+      "example": "35",
+      "evidence": "월세(만원/월)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          384.8,
-          269.6,
-          451.5,
-          283.6
+          410,
+          267,
+          453,
+          286
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "desired_housing_name",
-      "label": "입주희망주택",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "희망하는 주택의 이름을 적어요.",
-      "example": "서울 아파트",
-      "evidence": "입주희망주택",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "desired_move_in_date",
-      "label": "입주희망일",
+      "id": "selection_date",
+      "label": "소년소녀가정(위탁가정 포함)의 선정일 또는 교통사고·재난유자녀가정의 선정일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "희망하는 입주 날짜를 적어요.",
-      "example": "null",
+      "guide": "소년소녀가정 · 위탁가정 등으로 선정된 날을 적어요.",
+      "example": null,
+      "evidence": "소년소녀가정(위탁가정 포함)의 선정일 또는 교통사고·재난유자녀가정의 선정일",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          333,
+          288,
+          553,
+          317
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family1_name",
+      "label": "성명",
+      "section": "가족사항 1",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "함께 사는 가족 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          117,
+          340,
+          193,
+          359
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family1_gender",
+      "label": "성별",
+      "section": "가족사항 1",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 성별을 적어요.",
+      "example": null,
+      "evidence": "성별",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          195,
+          340,
+          271,
+          359
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family1_id_number",
+      "label": "주민등록번호",
+      "section": "가족사항 1",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          273,
+          340,
+          447,
+          359
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family1_relation",
+      "label": "세대주와의 관계",
+      "section": "가족사항 1",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "세대주와의 관계를 적어요.",
+      "example": null,
+      "evidence": "세대주와의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          449,
+          340,
+          553,
+          359
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family2_name",
+      "label": "성명",
+      "section": "가족사항 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "함께 사는 가족 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          117,
+          361,
+          193,
+          380
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family2_gender",
+      "label": "성별",
+      "section": "가족사항 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 성별을 적어요.",
+      "example": null,
+      "evidence": "성별",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          195,
+          361,
+          271,
+          380
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family2_id_number",
+      "label": "주민등록번호",
+      "section": "가족사항 2",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          273,
+          361,
+          447,
+          380
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family2_relation",
+      "label": "세대주와의 관계",
+      "section": "가족사항 2",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "세대주와의 관계를 적어요.",
+      "example": null,
+      "evidence": "세대주와의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          449,
+          361,
+          553,
+          380
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family3_name",
+      "label": "성명",
+      "section": "가족사항 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "함께 사는 가족 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          117,
+          382,
+          193,
+          401
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family3_gender",
+      "label": "성별",
+      "section": "가족사항 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 성별을 적어요.",
+      "example": null,
+      "evidence": "성별",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          195,
+          382,
+          271,
+          401
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family3_id_number",
+      "label": "주민등록번호",
+      "section": "가족사항 3",
+      "input_type": "id_number",
+      "value_source": "handwrite",
+      "profile_key": null,
+      "required": false,
+      "guide": "가족의 주민등록번호는 제출할 때 직접 적어요.",
+      "example": null,
+      "evidence": "주민등록번호",
+      "sensitive": true,
+      "box": {
+        "page": 0,
+        "rect": [
+          273,
+          382,
+          447,
+          401
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "family3_relation",
+      "label": "세대주와의 관계",
+      "section": "가족사항 3",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "세대주와의 관계를 적어요.",
+      "example": null,
+      "evidence": "세대주와의 관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          449,
+          382,
+          553,
+          401
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "desired_house",
+      "label": "입주희망주택",
+      "section": "희망주택 내역",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "살고 싶은 주택(지역 · 주소 · 형태)을 적어요.",
+      "example": "○○시 ○○동 원룸",
+      "evidence": "입주희망주택",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          194.9,
+          402.6,
+          553.1,
+          421.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "desired_move_in_date",
+      "label": "입주희망일",
+      "section": "희망주택 내역",
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "들어가 살고 싶은 날을 적어요.",
+      "example": null,
       "evidence": "입주희망일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          193.9,
-          422.4,
-          272.3,
-          440.5
+          182.2,
+          423.4,
+          327.2,
+          439.5
         ],
-        "how": "table_right",
-        "template_text": null
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "desired_support_period",
       "label": "지원희망기간",
-      "section": null,
+      "section": "희망주택 내역",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "희망하는 지원 기간을 적어요.",
-      "example": "2년",
+      "guide": "지원받고 싶은 기간을 몇 년 몇 개월로 적어요.",
+      "example": "2년 0월",
       "evidence": "지원희망기간",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          394.1,
-          424.9,
-          445.7,
-          438.9
+          448,
+          423.4,
+          552,
+          439.5
         ],
-        "how": "cell_inline",
-        "template_text": null
+        "how": "text_right",
+        "template_text": "년월",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "application_date_signature",
-      "label": "년 월 일",
+      "id": "date",
+      "label": "신청일",
       "section": null,
       "input_type": "date",
-      "value_source": "handwrite",
+      "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
-      "example": "null",
-      "evidence": "년 월 일",
+      "guide": "신청하는 날짜를 적어요.",
+      "example": null,
+      "evidence": "신청일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          406.7,
-          467.1,
+          434.7,
+          468.1,
           540.4,
-          484.1
+          483.1
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "년월일",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_signature",
+      "id": "signature",
       "label": "신청인 (서명 또는 인)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "본인의 서명을 해요.",
+      "guide": "직접 서명하거나 도장을 찍어요.",
       "example": null,
       "evidence": "신청인 (서명 또는 인)",
-      "sensitive": true,
-      "box": null
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          409.9,
+          492.1,
+          479.4,
+          508.0
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     }
   ],
   "notes": [
     "지원되는 전세임대주택은 주거용으로만 사용하여야 합니다.",
     "전세주택 무이자 지원은 해당 아동ㆍ청소년의 나이가 20세가 될 때까지 지원됩니다."
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 주 소, 전화번호, 입주희망주택"
-  ],
+  "warnings": [],
   "checked": false
 }

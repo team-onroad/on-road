@@ -1,0 +1,25 @@
+{
+  "form_id": "child-re-care",
+  "checked_on": "2026-11-27",
+  "fields": [
+    {"id": "receipt_number", "label": "접수번호", "value_source": "office", "guide": "기관이 적는 칸이에요.", "at": {"right_of": "접수번호", "to": "접수일시"}},
+    {"id": "receipt_date", "label": "접수일시", "value_source": "office", "guide": "기관이 적는 칸이에요.", "at": {"right_of": "접수일시", "to": "처리기간"}},
+    {"id": "applicant_name", "label": "성명", "section": "신청인", "value_source": "profile", "profile_key": "name", "guide": "다시 보호받으려는 본인의 이름을 적어요.", "example": "김민지", "at": {"right_of": "성명#1"}},
+    {"id": "applicant_id_number", "label": "주민등록번호", "section": "신청인", "input_type": "id_number", "value_source": "handwrite", "sensitive": true, "guide": "주민등록번호는 제출할 때 직접 적어요.", "at": {"right_of": "주민등록번호#1"}},
+    {"id": "applicant_address", "label": "주소", "section": "신청인", "input_type": "address", "guide": "지금 사는 곳 주소를 적어요.", "example": "서울특별시 ○○구 ○○로 12", "at": {"right_of": "주소#1"}},
+    {"id": "applicant_phone", "label": "연락처", "section": "신청인", "input_type": "phone", "value_source": "profile", "profile_key": "phone", "guide": "연락받을 휴대전화 번호를 적어요.", "example": "010-1234-5678", "at": {"right_of": "연락처#1"}},
+    {"id": "proxy_name", "label": "성명", "section": "대리인", "guide": "대리인이 신청할 때만 대리인 이름을 적어요.", "example": "김○○", "required": false, "at": {"right_of": "성명#2", "to": "관계"}},
+    {"id": "proxy_relationship", "label": "관계", "section": "대리인", "guide": "신청인과 대리인의 관계를 적어요 (예: 언니, 시설 선생님).", "example": "언니", "required": false, "at": {"right_of": "관계", "to": "주민등록번호#2"}},
+    {"id": "proxy_id_number", "label": "주민등록번호", "section": "대리인", "input_type": "id_number", "value_source": "handwrite", "sensitive": true, "required": false, "guide": "대리인의 주민등록번호는 제출할 때 직접 적어요.", "at": {"right_of": "주민등록번호#2"}},
+    {"id": "proxy_address", "label": "주소", "section": "대리인", "input_type": "address", "required": false, "guide": "대리인의 주소를 적어요.", "at": {"right_of": "주소#2"}},
+    {"id": "proxy_phone", "label": "연락처", "section": "대리인", "input_type": "phone", "required": false, "guide": "대리인의 연락처를 적어요.", "at": {"right_of": "연락처#2"}},
+    {"id": "facility_or_foster_parent", "label": "시설명 또는 위탁부모 성명", "section": "보호이력", "guide": "전에 보호받던 시설 이름이나 위탁부모 이름을 적어요.", "example": "○○아동복지센터", "at": {"right_of": "시설명또는위탁부모성명"}},
+    {"id": "care_end_date", "label": "보호조치의 종료 또는 퇴소 연월일", "section": "보호이력", "input_type": "date", "guide": "보호가 끝났거나 퇴소한 날을 적어요.", "example": "2025-02-28", "at": {"under": "보호조치의종료또는퇴소연월일"}},
+    {"id": "facility_address", "label": "주소(시설 또는 위탁가정 소재지)", "section": "보호이력", "input_type": "address", "guide": "보호받던 시설이나 위탁가정의 주소를 적어요.", "at": {"right_of": "주소(시설또는위탁가정소재지)"}},
+    {"id": "care_type", "label": "보호구분", "section": "보호이력", "input_type": "checkbox", "guide": "보호받던 곳의 종류를 골라요.", "at": {"choices": "[]아동양육시설", "rows_below": 20}},
+    {"id": "re_care_reason", "label": "재보호 사유", "input_type": "checkbox", "guide": "다시 보호받으려는 까닭을 골라요. 여러 개 골라도 돼요.", "at": {"choices": "[]대학이하", "rows_below": 20}},
+    {"id": "date", "label": "신청일", "input_type": "date", "guide": "신청하는 날짜를 적어요.", "at": {"date": "년월일#1"}},
+    {"id": "applicant_signature", "label": "신청인(대리인) (서명 또는 인)", "input_type": "signature", "value_source": "handwrite", "guide": "제출할 때 직접 서명하거나 도장을 찍어요.", "at": {"right_of": "신청인(대리인)", "to": "(서명또는인)#1"}},
+    {"id": "proxy_consent_signature", "label": "대리인(친족) (서명 또는 인)", "input_type": "signature", "value_source": "handwrite", "required": false, "guide": "친족이 대리 신청하며 행정정보 확인에 동의하면 대리인이 서명해요.", "at": {"right_of": "대리인(친족)", "to": "(서명또는인)#2"}}
+  ]
+}

@@ -5,735 +5,782 @@
   "source": "https://www.mohw.go.kr/board.es?mid=a10409020000&bid=0026&act=view&list_no=1489787",
   "fields": [
     {
-      "id": "applicant_name",
+      "id": "child_name",
       "label": "성명",
       "section": "지원신청 아동",
       "input_type": "text",
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "신청인 이름을 적어요. 출력한 뒤 옆에 직접 서명하거나 도장을 찍어요.",
+      "guide": "지원을 신청하는 아동(본인)의 이름을 적어요.",
       "example": null,
-      "evidence": "성명 (인)",
+      "evidence": "성명",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          191,
+          157,
+          270,
+          169
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
     },
     {
-      "id": "applicant_id_number",
+      "id": "child_id_number",
       "label": "주민등록번호",
       "section": "지원신청 아동",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "신청 아동의 주민등록번호를 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "주민등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          366.1,
-          156.5,
-          481.9,
-          170.4
+          367,
+          157,
+          481,
+          169
         ],
         "how": "table_right",
-        "template_text": "-"
+        "template_text": "-",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_phone",
+      "id": "child_phone",
       "label": "전화",
       "section": "지원신청 아동",
       "input_type": "phone",
-      "value_source": "profile",
-      "profile_key": "phone",
-      "required": true,
-      "guide": "신청 아동의 전화번호를 적어요.",
-      "example": "010-1234-5678",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "집 전화가 있으면 적어요.",
+      "example": null,
       "evidence": "전화",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          190.0,
-          170.4,
-          262.0,
-          184.4
+          191,
+          171,
+          261,
+          183
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_mobile",
+      "id": "child_mobile",
       "label": "휴대전화",
       "section": "지원신청 아동",
       "input_type": "phone",
       "value_source": "profile",
       "profile_key": "phone",
       "required": true,
-      "guide": "신청 아동의 휴대전화번호를 적어요.",
-      "example": "010-9876-5432",
+      "guide": "휴대전화 번호를 적어요.",
+      "example": null,
       "evidence": "휴대전화",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          309.9,
-          170.4,
-          366.1,
-          184.4
+          311,
+          171,
+          365,
+          183
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_email",
+      "id": "child_email",
       "label": "E-mail",
       "section": "지원신청 아동",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "신청 아동의 이메일 주소를 적어요.",
-      "example": "example@example.com",
+      "guide": "이메일 주소가 있으면 적어요.",
+      "example": null,
       "evidence": "E-mail",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          415.7,
-          170.4,
-          481.9,
-          184.4
+          417,
+          171,
+          481,
+          183
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "applicant_address",
-      "label": "주소 ( )",
+      "id": "child_address",
+      "label": "주소",
       "section": "지원신청 아동",
       "input_type": "address",
-      "value_source": "profile",
-      "profile_key": "region",
+      "value_source": "user",
+      "profile_key": null,
       "required": true,
-      "guide": "신청 아동의 주소를 적어요.",
-      "example": "서울특별시 강남구",
-      "evidence": "주소 ( )",
+      "guide": "사는 곳 주소를 적어요 (괄호 안에는 우편번호).",
+      "example": null,
+      "evidence": "주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          232.9,
-          190.3,
-          520,
-          204.3
+          230.9,
+          185,
+          365,
+          207
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "savings_amount",
-      "label": "적립 희망액",
+      "label": "적립희망액",
       "section": "지원신청 아동",
       "input_type": "number",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "신청 아동이 희망하는 적립액을 적어요.",
-      "example": "100000",
-      "evidence": "적립 희망액",
+      "required": false,
+      "guide": "후원금 등으로 매달 적립하고 싶은 금액을 적어요 (원).",
+      "example": "50000",
+      "evidence": "적립희망액",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          415.7,
-          184.4,
-          481.9,
-          208.3
+          417,
+          185,
+          481,
+          207
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "protection_type",
-      "label": "보호구분 (해당란에 한개만 표시)",
+      "label": "보호구분 (해당란에 한 개만 표시)",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "해당하는 보호구분을 선택해요.",
+      "guide": "아동이 보호받는 형태를 하나만 골라요.",
       "example": null,
-      "evidence": "보호구분 ❏ 아동양육시설 ❏ 아동보호치료시설 ❏ 아동직업훈련시설 ❏ 가정위탁 ❏ 소년소녀가정 ❏ 공동생활가정 ❏ 장애인생활시설 ❏ 기타",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "basic_living_support_child",
-      "label": "❏ 기초생활수급가구 아동",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "기초생활수급가구 아동인 경우 선택해요.",
-      "example": null,
-      "evidence": "❏ 기초생활수급가구 아동",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "low_income_child",
-      "label": "❏ 차상위계층 아동",
-      "section": null,
-      "input_type": "checkbox",
-      "value_source": "user",
-      "profile_key": null,
-      "required": false,
-      "guide": "차상위계층 아동인 경우 선택해요.",
-      "example": null,
-      "evidence": "❏ 차상위계층 아동",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "guardian_name",
-      "label": "후견인 (법정대리인) 성명",
-      "section": "후견인 보호자 등",
-      "input_type": "text",
-      "value_source": "profile",
-      "profile_key": "name",
-      "required": true,
-      "guide": "후견인의 이름을 적어요.",
-      "example": "김철수",
-      "evidence": "후견인 (법정대리인) 성명",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "guardian_relationship",
-      "label": "관계",
-      "section": "후견인 보호자 등",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "후견인과의 관계를 적어요.",
-      "example": "부모",
-      "evidence": "관계",
+      "evidence": "보호구분 (해당란에 한 개만 표시)",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          220.0,
-          277.1,
-          274.1,
-          291.2
+          128.9,
+          208.2,
+          431.5,
+          262.1
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "아동양육시설",
+          "아동보호치료시설",
+          "아동직업훈련시설",
+          "가정위탁",
+          "소년소녀가정",
+          "공동생활가정",
+          "장애인생활시설",
+          "기타",
+          "기초생활수급가구 아동",
+          "차상위계층 아동"
+        ],
+        "marks": {
+          "아동양육시설": [
+            135.4,
+            215.2
+          ],
+          "아동보호치료시설": [
+            218.5,
+            215.2
+          ],
+          "아동직업훈련시설": [
+            303.8,
+            215.2
+          ],
+          "가정위탁": [
+            389.0,
+            215.2
+          ],
+          "소년소녀가정": [
+            135.4,
+            227.2
+          ],
+          "공동생활가정": [
+            218.5,
+            227.2
+          ],
+          "장애인생활시설": [
+            306.2,
+            227.2
+          ],
+          "기타": [
+            392.6,
+            227.2
+          ],
+          "기초생활수급가구 아동": [
+            135.4,
+            241.2
+          ],
+          "차상위계층 아동": [
+            135.4,
+            255.1
+          ]
+        },
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "guardian_address",
-      "label": "주소 ( )",
-      "section": "후견인 보호자 등",
-      "input_type": "address",
+      "id": "guardian_name",
+      "label": "성명",
+      "section": "후견인(법정대리인)",
+      "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "후견인의 주소를 적어요.",
-      "example": "서울특별시 강남구",
-      "evidence": "주소 ( )",
+      "required": false,
+      "guide": "후견인(법정대리인) 이름을 적어요.",
+      "example": "김철수",
+      "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          232.9,
-          190.3,
-          520,
-          204.3
+          227,
+          263,
+          272,
+          275
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "guardian_id_number",
       "label": "주민등록번호",
-      "section": "후견인 보호자 등",
+      "section": "후견인(법정대리인)",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
-      "required": true,
-      "guide": "후견인의 주민등록번호를 적어요.",
+      "required": false,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "주민등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          366.1,
-          359.9,
-          481.9,
-          373.9
+          367,
+          263,
+          481,
+          275
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": "-",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "guardian_relation",
+      "label": "관계",
+      "section": "후견인(법정대리인)",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "아동과의 관계를 적어요.",
+      "example": null,
+      "evidence": "관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          227,
+          277,
+          261,
+          289
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "guardian_phone",
       "label": "전화",
-      "section": "후견인 보호자 등",
+      "section": "후견인(법정대리인)",
       "input_type": "phone",
-      "value_source": "profile",
-      "profile_key": "phone",
-      "required": true,
-      "guide": "후견인의 전화번호를 적어요.",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "전화번호를 적어요.",
       "example": "02-123-4567",
       "evidence": "전화",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          190.0,
-          373.9,
-          262.0,
-          387.8
+          311,
+          277,
+          365,
+          289
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "guardian_mobile",
       "label": "휴대전화",
-      "section": "후견인 보호자 등",
+      "section": "후견인(법정대리인)",
       "input_type": "phone",
-      "value_source": "profile",
-      "profile_key": "phone",
-      "required": true,
-      "guide": "후견인의 휴대전화번호를 적어요.",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "휴대전화 번호를 적어요.",
       "example": "010-1234-5678",
       "evidence": "휴대전화",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          309.9,
-          373.9,
-          366.1,
-          387.8
+          417,
+          277,
+          481,
+          289
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "guardian_email",
-      "label": "E-mail",
-      "section": "후견인 보호자 등",
+      "id": "guardian_address",
+      "label": "주소",
+      "section": "후견인(법정대리인)",
+      "input_type": "address",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "주소를 적어요.",
+      "example": "서울특별시 강남구",
+      "evidence": "주소",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          267.3,
+          291,
+          481,
+          303
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "carer_name",
+      "label": "성명",
+      "section": "보호자",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "후견인의 이메일 주소를 적어요.",
-      "example": "guardian@example.com",
-      "evidence": "E-mail",
+      "guide": "보호자 이름을 적어요.",
+      "example": null,
+      "evidence": "성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          415.7,
-          373.9,
-          481.9,
-          387.8
+          227,
+          305,
+          272,
+          317
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "guardian_status",
-      "label": "보호자",
-      "section": "후견인 보호자 등",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "보호자의 이름을 적어요.",
-      "example": "이영희",
-      "evidence": "보호자",
-      "sensitive": false,
-      "box": null
-    },
-    {
-      "id": "guardian_relationship_2",
-      "label": "관계",
-      "section": "후견인 보호자 등",
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "보호자와의 관계를 적어요.",
-      "example": "친구",
-      "evidence": "관계",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          220.0,
-          277.1,
-          274.1,
-          291.2
-        ],
-        "how": "text_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "guardian_address_2",
-      "label": "주소 ( )",
-      "section": "후견인 보호자 등",
-      "input_type": "address",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "보호자의 주소를 적어요.",
-      "example": "서울특별시 강북구",
-      "evidence": "주소 ( )",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          232.9,
-          190.3,
-          520,
-          204.3
-        ],
-        "how": "text_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "guardian_id_number_2",
+      "id": "carer_id_number",
       "label": "주민등록번호",
-      "section": "후견인 보호자 등",
+      "section": "보호자",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
-      "required": true,
-      "guide": "보호자의 주민등록번호를 적어요.",
+      "required": false,
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
       "evidence": "주민등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          365.5,
-          157.4,
-          417.4,
-          171.4
+          367,
+          305,
+          481,
+          317
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": "-",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "guardian_phone_2",
+      "id": "carer_relation",
+      "label": "관계",
+      "section": "보호자",
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "아동과의 관계를 적어요.",
+      "example": null,
+      "evidence": "관계",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          227,
+          319,
+          261,
+          331
+        ],
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "carer_phone",
       "label": "전화",
-      "section": "후견인 보호자 등",
+      "section": "보호자",
       "input_type": "phone",
-      "value_source": "profile",
-      "profile_key": "phone",
-      "required": true,
-      "guide": "보호자의 전화번호를 적어요.",
-      "example": "02-987-6543",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "전화번호를 적어요.",
+      "example": null,
       "evidence": "전화",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          170.6,
-          171.4,
-          266.3,
-          185.4
+          311,
+          319,
+          365,
+          331
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "guardian_mobile_2",
+      "id": "carer_mobile",
       "label": "휴대전화",
-      "section": "후견인 보호자 등",
+      "section": "보호자",
       "input_type": "phone",
-      "value_source": "profile",
-      "profile_key": "phone",
-      "required": true,
-      "guide": "보호자의 휴대전화번호를 적어요.",
-      "example": "010-8765-4321",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "휴대전화 번호를 적어요.",
+      "example": null,
       "evidence": "휴대전화",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          305.7,
-          171.4,
-          376.0,
-          185.4
+          417,
+          319,
+          481,
+          331
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "guardian_email_2",
-      "label": "E-mail",
-      "section": "후견인 보호자 등",
-      "input_type": "text",
+      "id": "carer_address",
+      "label": "주소",
+      "section": "보호자",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "보호자의 이메일 주소를 적어요.",
-      "example": "guardian2@example.com",
-      "evidence": "E-mail",
+      "guide": "주소를 적어요.",
+      "example": null,
+      "evidence": "주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          405.7,
-          172.2,
-          520,
-          184.2
+          267.3,
+          333,
+          481,
+          345
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "institution_name",
       "label": "보호기관명",
-      "section": "보호기관 (시설) 현황 *보호대상 아동의 경우 작성",
+      "section": "보호기관(시설) 현황 (보호대상아동만)",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "보호기관의 이름을 적어요.",
+      "required": false,
+      "guide": "시설 이름을 적어요.",
       "example": "아동복지센터",
       "evidence": "보호기관명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          190.0,
-          345.9,
-          309.9,
-          359.9
+          191,
+          347,
+          309,
+          359
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "institution_registration_number",
       "label": "사업자등록번호",
-      "section": "보호기관 (시설) 현황 *보호대상 아동의 경우 작성",
+      "section": "보호기관(시설) 현황 (보호대상아동만)",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "보호기관의 사업자등록번호를 적어요.",
+      "required": false,
+      "guide": "시설 사업자등록번호를 적어요.",
       "example": "123-45-67890",
       "evidence": "사업자등록번호",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          366.1,
-          345.9,
-          481.9,
-          359.9
+          367,
+          347,
+          481,
+          359
         ],
         "how": "table_right",
-        "template_text": "-"
+        "template_text": "-",
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "institution_representative_name",
+      "id": "institution_representative",
       "label": "대표자명",
-      "section": "보호기관 (시설) 현황 *보호대상 아동의 경우 작성",
+      "section": "보호기관(시설) 현황 (보호대상아동만)",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "보호기관 대표자의 이름을 적어요.",
-      "example": "박상민",
+      "required": false,
+      "guide": "시설장 이름을 적어요.",
+      "example": null,
       "evidence": "대표자명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          190.0,
-          359.9,
-          309.9,
-          373.9
+          191,
+          361,
+          309,
+          373
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "institution_representative_id_number",
-      "label": "주민등록번호",
-      "section": "보호기관 (시설) 현황 *보호대상 아동의 경우 작성",
+      "id": "institution_rep_id_number",
+      "label": "대표자 주민등록번호",
+      "section": "보호기관(시설) 현황 (보호대상아동만)",
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
-      "required": true,
-      "guide": "보호기관 대표자의 주민등록번호를 적어요.",
+      "required": false,
+      "guide": "대표자 주민등록번호는 시설에서 직접 적어요.",
       "example": null,
-      "evidence": "주민등록번호",
+      "evidence": "대표자 주민등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          365.5,
-          157.4,
-          417.4,
-          171.4
+          367,
+          361,
+          481,
+          373
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "institution_phone",
       "label": "전화",
-      "section": "보호기관 (시설) 현황 *보호대상 아동의 경우 작성",
+      "section": "보호기관(시설) 현황 (보호대상아동만)",
       "input_type": "phone",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "보호기관의 전화번호를 적어요.",
+      "required": false,
+      "guide": "시설 전화번호를 적어요.",
       "example": "02-123-4567",
       "evidence": "전화",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          170.6,
-          171.4,
-          266.3,
-          185.4
+          191,
+          375,
+          261,
+          387
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "institution_mobile",
       "label": "휴대전화",
-      "section": "보호기관 (시설) 현황 *보호대상 아동의 경우 작성",
+      "section": "보호기관(시설) 현황 (보호대상아동만)",
       "input_type": "phone",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "보호기관의 휴대전화번호를 적어요.",
+      "required": false,
+      "guide": "담당자 휴대전화를 적어요.",
       "example": "010-1234-5678",
       "evidence": "휴대전화",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          305.7,
-          171.4,
-          376.0,
-          185.4
+          311,
+          375,
+          365,
+          387
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "institution_email",
       "label": "E-mail",
-      "section": "보호기관 (시설) 현황 *보호대상 아동의 경우 작성",
+      "section": "보호기관(시설) 현황 (보호대상아동만)",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "보호기관의 이메일 주소를 적어요.",
+      "guide": "시설 이메일을 적어요.",
       "example": "institution@example.com",
       "evidence": "E-mail",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          405.7,
-          172.2,
-          520,
-          184.2
+          417,
+          375,
+          481,
+          387
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "institution_address",
-      "label": "주소 ( )",
-      "section": "보호기관 (시설) 현황 *보호대상 아동의 경우 작성",
+      "label": "주소",
+      "section": "보호기관(시설) 현황 (보호대상아동만)",
       "input_type": "address",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "보호기관의 주소를 적어요.",
+      "required": false,
+      "guide": "시설 주소를 적어요.",
       "example": "서울특별시 송파구",
-      "evidence": "주소 ( )",
+      "evidence": "주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          232.9,
-          190.3,
-          520,
-          204.3
+          230.9,
+          389,
+          481,
+          401
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "protection_reason",
       "label": "보호사유 및 내용",
-      "section": "보호기관 (시설) 현황 *보호대상 아동의 경우 작성",
+      "section": "보호기관(시설) 현황 (보호대상아동만)",
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
-      "required": true,
-      "guide": "보호사유와 내용을 적어요.",
+      "required": false,
+      "guide": "보호받게 된 까닭과 내용을 적어요.",
       "example": "가정환경이 좋지 않음",
       "evidence": "보호사유 및 내용",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          190.0,
-          401.8,
-          481.9,
-          424.6
+          191,
+          403,
+          481,
+          424
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
@@ -744,100 +791,333 @@
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "특이사항이 있으면 적어요.",
+      "guide": "덧붙일 내용이 있으면 적어요.",
       "example": "특별한 요구사항 없음",
       "evidence": "기타 특이사항",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          127.6,
-          424.6,
-          481.9,
-          448.6
+          129,
+          426,
+          481,
+          448
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
-      "id": "agreement_date",
-      "label": "년 월 일",
+      "id": "application_date",
+      "label": "신청일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
+      "guide": "신청하는 날짜를 적어요.",
       "example": null,
-      "evidence": "20 년 월 일",
+      "evidence": "신청일",
       "sensitive": false,
       "box": {
-        "page": 1,
+        "page": 0,
         "rect": [
-          200.8,
-          590.9,
-          319.1,
-          607.9
+          360.6,
+          526.1,
+          470.6,
+          539.2
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "20년월일",
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "applicant_signature",
-      "label": "지원신청아동 : (서명또는 인)",
+      "label": "지원신청아동 (서명 또는 인)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "신청 아동의 서명을 해요.",
+      "guide": "아동이 직접 서명해요.",
       "example": null,
-      "evidence": "지원신청아동 : (서명또는 인)",
-      "sensitive": true,
+      "evidence": "지원신청아동 (서명 또는 인)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          475.6,
-          537.2,
-          520,
-          551.2
+          352.0,
+          538.0,
+          419.3,
+          549.4
         ],
         "how": "text_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "guardian_signature",
-      "label": "후견인,보호자 : (서명또는 인)",
+      "label": "후견인, 보호자 (서명 또는 인)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
-      "required": true,
-      "guide": "후견인 또는 보호자의 서명을 해요.",
+      "required": false,
+      "guide": "아동이 서명하기 어려우면 후견인이나 보호자가 서명해요.",
       "example": null,
-      "evidence": "후견인,보호자 : (서명또는 인)",
-      "sensitive": true,
+      "evidence": "후견인, 보호자 (서명 또는 인)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          475.6,
-          548.2,
-          520,
-          562.2
+          352.0,
+          549.0,
+          419.3,
+          560.4
         ],
         "how": "text_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consent_collection",
+      "label": "개인정보 수집 및 이용 동의",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "동의해야 통장을 만들 수 있어요.",
+      "example": null,
+      "evidence": "개인정보 수집 및 이용 동의",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          366.2,
+          350.1,
+          473.7,
+          364.0
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의함",
+          "동의하지 않음"
+        ],
+        "marks": {
+          "동의함": [
+            372.1,
+            357.0
+          ],
+          "동의하지 않음": [
+            414.8,
+            357.0
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consent_unique_id",
+      "label": "고유식별정보 수집 및 이용 동의",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민등록번호 처리에 동의하는지 골라요.",
+      "example": null,
+      "evidence": "고유식별정보 수집 및 이용 동의",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          366.2,
+          361.9,
+          473.7,
+          375.8
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의함",
+          "동의하지 않음"
+        ],
+        "marks": {
+          "동의함": [
+            372.1,
+            368.9
+          ],
+          "동의하지 않음": [
+            414.8,
+            368.9
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consent_third_party",
+      "label": "개인정보 3자 제공 동의",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "보건복지부 · 은행 등에 정보 제공에 동의하는지 골라요.",
+      "example": null,
+      "evidence": "개인정보 3자 제공 동의",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          366.2,
+          519.9,
+          473.7,
+          533.8
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의함",
+          "동의하지 않음"
+        ],
+        "marks": {
+          "동의함": [
+            372.1,
+            526.8
+          ],
+          "동의하지 않음": [
+            414.8,
+            526.8
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "consent_unique_id_third_party",
+      "label": "고유식별정보 3자 제공 동의",
+      "section": null,
+      "input_type": "checkbox",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "주민등록번호 제공에 동의하는지 골라요.",
+      "example": null,
+      "evidence": "고유식별정보 3자 제공 동의",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          366.2,
+          531.7,
+          473.7,
+          545.6
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "동의함",
+          "동의하지 않음"
+        ],
+        "marks": {
+          "동의함": [
+            372.1,
+            538.7
+          ],
+          "동의하지 않음": [
+            414.8,
+            538.7
+          ]
+        },
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "agreement_date",
+      "label": "동의일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "동의하는 날짜를 적어요.",
+      "example": null,
+      "evidence": "동의일",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          236.5,
+          593.0,
+          319.1,
+          604.9
+        ],
+        "how": "date_line",
+        "template_text": "20년월일",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "agreement_name",
+      "label": "지원신청아동 성명",
+      "section": null,
+      "input_type": "text",
+      "value_source": "profile",
+      "profile_key": "name",
+      "required": true,
+      "guide": "아동 이름을 적어요.",
+      "example": null,
+      "evidence": "지원신청아동 성명",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          342.6,
+          609.4,
+          435.8,
+          619.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "agreement_guardian_name",
+      "label": "후견인(보호자) 성명",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "후견인이나 보호자 이름을 적어요.",
+      "example": null,
+      "evidence": "후견인(보호자) 성명",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          341.4,
+          621.1,
+          435.8,
+          631.4
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     }
   ],
   "notes": [
     "기초생활수급가구, 차상위계층 아동은 첨부의 ‘디딤씨앗통장 적립 및 사용계획서’를 함께 작성･제출."
   ],
-  "warnings": [
-    "값 자리를 못 찾음 (별지에 적음): 성명, 보호구분 (해당란에 한개만 표시), ❏ 기초생활수급가구 아동, ❏ 차상위계층 아동, 후견인 (법정대리인) 성명, 보호자"
-  ],
+  "warnings": [],
   "checked": false
 }

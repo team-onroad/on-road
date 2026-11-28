@@ -6,232 +6,307 @@
   "fields": [
     {
       "id": "name",
-      "label": "성 명",
+      "label": "① 성명",
       "section": null,
       "input_type": "text",
       "value_source": "profile",
       "profile_key": "name",
       "required": true,
-      "guide": "본인의 이름을 적어요.",
-      "example": "홍길동",
-      "evidence": "성 명",
+      "guide": "본인 이름을 적어요.",
+      "example": "김민지",
+      "evidence": "① 성명",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          159.9,
-          163.7,
-          290.0,
-          180.6
+          177,
+          152,
+          284,
+          190
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "id_number",
-      "label": "주민등록번호",
+      "label": "② 주민등록번호",
       "section": null,
       "input_type": "id_number",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "주민등록번호를 적어요.",
+      "guide": "주민등록번호는 제출할 때 직접 적어요.",
       "example": null,
-      "evidence": "주민등록번호",
+      "evidence": "② 주민등록번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          390.7,
-          151.3,
-          517.2,
-          191.3
+          392,
+          152,
+          516,
+          170
         ],
         "how": "table_right",
-        "template_text": "-\n(만 세)"
+        "template_text": "-",
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "age",
+      "label": "만 나이",
+      "section": null,
+      "input_type": "number",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "만 나이를 적어요.",
+      "example": "20",
+      "evidence": "만 나이",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          446.4,
+          172.7,
+          461.9,
+          188.7
+        ],
+        "how": "text_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "address",
-      "label": "주 소",
+      "label": "③ 주소",
       "section": null,
-      "input_type": "text",
+      "input_type": "address",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "현재 거주하는 주소를 적어요.",
-      "example": "서울특별시 강남구 역삼동 123-45",
-      "evidence": "주 소",
+      "guide": "사는 곳 주소를 적어요.",
+      "example": null,
+      "evidence": "③ 주소",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          159.9,
-          195.0,
-          576,
-          212.0
+          177,
+          192,
+          516,
+          213
         ],
-        "how": "text_right",
-        "template_text": null
+        "how": "table_right",
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "mobile_phone",
-      "label": "휴대전화",
+      "label": "④ 연락처 - 휴대전화",
       "section": null,
       "input_type": "phone",
-      "value_source": "user",
-      "profile_key": null,
+      "value_source": "profile",
+      "profile_key": "phone",
       "required": true,
       "guide": "휴대전화 번호를 적어요.",
       "example": "010-9876-5432",
-      "evidence": "휴대전화",
+      "evidence": "④ 연락처 - 휴대전화",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          250.2,
-          213.8,
-          326.8,
-          236.2
+          251,
+          215,
+          326,
+          235
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "email",
-      "label": "e-mail",
+      "label": "④ 연락처 - e-mail",
       "section": null,
       "input_type": "text",
       "value_source": "user",
       "profile_key": null,
       "required": false,
-      "guide": "이메일 주소를 적어요.",
+      "guide": "이메일 주소가 있으면 적어요.",
       "example": "honggildong@example.com",
-      "evidence": "e-mail",
+      "evidence": "④ 연락처 - e-mail",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          399.6,
-          213.8,
-          517.2,
-          236.2
+          401,
+          215,
+          516,
+          235
         ],
         "how": "table_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "participation_type",
-      "label": "참여유형",
+      "label": "⑤ 참여유형",
       "section": null,
       "input_type": "checkbox",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "해당하는 참여유형을 모두 선택해요. 구직단념청년 / 자립준비(보호종료)청년 / 청소년복지시설 입·퇴소 청년 / 북한이탈 청년 / 지역특화 청년",
+      "guide": "해당하는 참여 유형을 골라요. 보호가 끝난 자립준비청년이면 '자립준비(보호종료)청년'이에요.",
       "example": null,
-      "evidence": "참여유형",
+      "evidence": "⑤ 참여유형",
       "sensitive": false,
-      "box": null
+      "box": {
+        "page": 0,
+        "rect": [
+          188.3,
+          241.6,
+          383.6,
+          336.5
+        ],
+        "how": "checkbox",
+        "template_text": null,
+        "options": [
+          "구직단념청년",
+          "자립준비(보호종료)청년",
+          "청소년복지시설 입·퇴소 청년",
+          "북한이탈 청년",
+          "지역특화 청년"
+        ],
+        "marks": {
+          "구직단념청년": [
+            196.8,
+            250.0
+          ],
+          "자립준비(보호종료)청년": [
+            196.8,
+            269.5
+          ],
+          "청소년복지시설 입·퇴소 청년": [
+            196.8,
+            289.0
+          ],
+          "북한이탈 청년": [
+            196.8,
+            308.6
+          ],
+          "지역특화 청년": [
+            196.8,
+            328.0
+          ]
+        },
+        "found_by": "layout_spec"
+      }
     },
     {
       "id": "account_number",
-      "label": "계좌번호",
+      "label": "⑥ 계좌번호",
       "section": null,
       "input_type": "account",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "본인의 계좌번호를 적어요.",
+      "guide": "계좌번호(은행 이름 포함)는 제출할 때 직접 적어요.",
       "example": null,
-      "evidence": "계좌번호",
+      "evidence": "⑥ 계좌번호",
       "sensitive": true,
       "box": {
         "page": 0,
         "rect": [
-          176.0,
-          340.0,
-          517.2,
-          362.4
+          177,
+          341,
+          516,
+          361
         ],
         "how": "table_right",
-        "template_text": null
-      }
-    },
-    {
-      "id": "submission_documents",
-      "label": "첨 부 서 류",
-      "section": null,
-      "input_type": "text",
-      "value_source": "user",
-      "profile_key": null,
-      "required": true,
-      "guide": "제출할 서류를 적어요.",
-      "example": "개인정보수집·이용·제공에 대한 동의서, 통장사본",
-      "evidence": "첨 부 서 류",
-      "sensitive": false,
-      "box": {
-        "page": 0,
-        "rect": [
-          345.9,
-          366.2,
-          515.2,
-          383.2
-        ],
-        "how": "cell_inline",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "date",
-      "label": "년 월 일",
+      "label": "신청일",
       "section": null,
       "input_type": "date",
       "value_source": "user",
       "profile_key": null,
       "required": true,
-      "guide": "신청 날짜를 적어요.",
+      "guide": "신청하는 날짜를 적어요.",
       "example": null,
-      "evidence": "20 년 월 일",
+      "evidence": "신청일",
       "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          214.4,
-          657.2,
+          232.2,
+          658.2,
           380.2,
-          678.1
+          677.1
         ],
         "how": "date_line",
-        "template_text": "년 월 일"
+        "template_text": "20년월일",
+        "found_by": "layout_spec"
       }
     },
     {
       "id": "signature",
-      "label": "신청인: (서명 또는 인)",
+      "label": "신청인 (서명 또는 인)",
       "section": null,
       "input_type": "signature",
       "value_source": "handwrite",
       "profile_key": null,
       "required": true,
-      "guide": "서명 또는 도장을 해요.",
+      "guide": "직접 서명하거나 도장을 찍어요.",
       "example": null,
-      "evidence": "신청인: (서명 또는 인)",
-      "sensitive": true,
+      "evidence": "신청인 (서명 또는 인)",
+      "sensitive": false,
       "box": {
         "page": 0,
         "rect": [
-          508.6,
-          708.0,
-          576,
-          725.0
+          291.1,
+          707.0,
+          415.7,
+          726.0
         ],
         "how": "text_right",
-        "template_text": null
+        "template_text": null,
+        "found_by": "layout_spec"
+      }
+    },
+    {
+      "id": "local_government",
+      "label": "○○지방자치단체장 귀하",
+      "section": null,
+      "input_type": "text",
+      "value_source": "user",
+      "profile_key": null,
+      "required": false,
+      "guide": "신청하는 시 · 군 · 구 이름을 적어요.",
+      "example": "서울특별시 ○○구",
+      "evidence": "○○지방자치단체장 귀하",
+      "sensitive": false,
+      "box": {
+        "page": 0,
+        "rect": [
+          225.4,
+          737.9,
+          253.5,
+          758.9
+        ],
+        "how": "table_right",
+        "template_text": "○○",
+        "cover": true,
+        "found_by": "layout_spec"
       }
     }
   ],
@@ -240,8 +315,7 @@
     "행정정보 공동이용 동의서 필요"
   ],
   "warnings": [
-    "작은 칸을 묶는 이름이라 버림: '연락처'",
-    "값 자리를 못 찾음 (별지에 적음): 참여유형"
+    "작은 칸을 묶는 이름이라 버림: '연락처'"
   ],
   "checked": false
 }
