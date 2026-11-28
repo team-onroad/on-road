@@ -17,7 +17,15 @@ internal object Sse {
 
     private data class Delta(val text: String?)
 
-    suspend fun <T> read(body: ResponseBody, doneType: Class<T>, onDelta: ((String) -> Unit)?): Pair<T, String> =
+    /** status: 지금 하는 일 {stage, text} (상담 · 답보다 먼저 온다) */
+    private data class Status(val stage: String?, val text: String?)
+
+    suspend fun <T> read(
+        body: ResponseBody,
+        doneType: Class<T>,
+        onDelta: ((String) -> Unit)?,
+        onStatus: ((String) -> Unit)? = null,
+    ): Pair<T, String> =
         withContext(Dispatchers.IO) {
             val shown = StringBuilder()
             var done: T? = null
@@ -38,6 +46,10 @@ internal object Sse {
                                 val now = shown.toString()
                                 onDelta?.let { cb -> withContext(Dispatchers.Main) { cb(now) } }
                             }
+                        }
+                        "status" -> {
+                            val t = runCatching { gson.fromJson(json, Status::class.java)?.text }.getOrNull().orEmpty().trim()
+                            if (t.isNotEmpty()) onStatus?.let { cb -> withContext(Dispatchers.Main) { cb(t) } }
                         }
                         "done" -> done = gson.fromJson(json, doneType)
                         "error" -> {

@@ -36,8 +36,17 @@ data class ChatMessage(
 
 /** AI 상담 API 계약 (3.15). history: 지금까지 대화 (방금 보낸 message 포함 가능, 구현체가 정리해서 보냄) */
 interface ChatApi {
-    /** onPartial: 답이 만들어지는 대로 지금까지의 글 (고민 상담만. 화면 스레드에서 불림) */
-    suspend fun reply(userId: String, history: List<ChatMessage>, message: String, onPartial: ((String) -> Unit)? = null): ChatMessage
+    /**
+     * onPartial: 답이 만들어지는 대로 지금까지의 글 (고민 상담만. 화면 스레드에서 불림)
+     * onStatus: 서버가 지금 하는 일 ("관련 정책을 찾는 중" …, 화면 스레드에서 불림)
+     */
+    suspend fun reply(
+        userId: String,
+        history: List<ChatMessage>,
+        message: String,
+        onPartial: ((String) -> Unit)? = null,
+        onStatus: ((String) -> Unit)? = null,
+    ): ChatMessage
 }
 
 /** 위기 신호일 때 보여 줄 연락처 (서버 고정값과 같음, 가짜 모드용) */
@@ -53,8 +62,17 @@ class FakeChatApi : ChatApi {
     private val feelingWords = listOf("힘들", "외로", "무서", "불안", "우울", "막막", "걱정", "지쳐")
     private val crisisWords = listOf("죽고싶", "자살", "자해", "사라지고싶")
 
-    override suspend fun reply(userId: String, history: List<ChatMessage>, message: String, onPartial: ((String) -> Unit)?): ChatMessage {
-        delay(1200)
+    override suspend fun reply(
+        userId: String,
+        history: List<ChatMessage>,
+        message: String,
+        onPartial: ((String) -> Unit)?,
+        onStatus: ((String) -> Unit)?,
+    ): ChatMessage {
+        onStatus?.invoke("관련 정책을 찾는 중")
+        delay(600)
+        onStatus?.invoke("답을 정리하는 중")
+        delay(600)
         val q = message.replace(" ", "")
         val matched = SamplePolicies.all
             .filter { p -> p.keywords.any { q.contains(it.replace(" ", "")) } }

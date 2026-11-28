@@ -472,7 +472,13 @@ class RemoteOnRoadApi(
  * type: policy(정책 답변) / counsel(고민·진로 상담) / crisis(위기 안내 + 연락처)
  */
 class RemoteChatApi(private val service: OnRoadService) : ChatApi {
-    override suspend fun reply(userId: String, history: List<ChatMessage>, message: String, onPartial: ((String) -> Unit)?): ChatMessage {
+    override suspend fun reply(
+        userId: String,
+        history: List<ChatMessage>,
+        message: String,
+        onPartial: ((String) -> Unit)?,
+        onStatus: ((String) -> Unit)?,
+    ): ChatMessage {
         val text = message.trim().take(MESSAGE_MAX)
         // 방금 보낸 내 말은 message 로 따로 보내므로 이전 대화에서 뺀다
         val last = history.lastOrNull()
@@ -485,7 +491,7 @@ class RemoteChatApi(private val service: OnRoadService) : ChatApi {
         val res = try {
             // 스트리밍: 고민 상담 답은 문장이 나오는 대로 onPartial 로. 서버에 아직 스트리밍 주소가 없으면 보통 요청
             try {
-                Sse.read(Network.call { service.chatStream(req) }, ChatResponseDto::class.java, onPartial).first
+                Sse.read(Network.call { service.chatStream(req) }, ChatResponseDto::class.java, onPartial, onStatus).first
             } catch (e: ApiException) {
                 if (!e.noStreamRoute()) throw e
                 Network.call { service.chat(req) }
