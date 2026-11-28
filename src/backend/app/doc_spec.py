@@ -74,9 +74,53 @@ def is_other_person(spec: dict) -> bool:
     return any(w in section for w in OTHER_PERSON_WORDS) or _NORM_RE.sub("", spec.get("label") or "").startswith("대리인")
 
 
+# 내 칸이 아닌 묶음 (가구원 · 부양의무자 · 바꿀 계좌 …)
+NOT_MINE_WORDS = ("가구원", "부양의무", "세대주", "동거", "변경", "새 ", "신규")
+# 다른 사람 · 기관 칸에 넣지 않을 내 개인정보 열쇠
+PERSONAL_KEYS = {"성명", "연락처", "주소", "이메일", "계좌번호", "은행", "학교", "생년월일"}
+
+# 내 정보가 아니라 기관 · 시설 · 회사 정보인 칸 (보호기관 주소, 회사 전화번호): 뜻으로 묶지 않고 칸 이름이 같을 때만
+ORG_WORDS = ("기관", "시설", "회사", "직장", "사업장", "사업자", "중개", "센터", "운영", "단체", "법인", "가정")
+
+
+MY_ADDRESS_LABELS = {
+    "주소", "현주소", "주소지", "사는곳", "사는곳주소", "거주지", "거주지주소", "실거주지", "실거주지주소", "현거주지",
+    "주민등록상주소", "주민등록주소", "주민등록지", "주소지주소", "자택주소", "집주소",
+}
+
+
+def _meaning_key(spec: dict, flat: str) -> str | None:
+    """칸 이름이 달라도 같은 내 정보인 칸 ("사는 곳 주소" · "주소(소재지)" → 주소)"""
+    low = flat.lower()
+    if flat in MY_ADDRESS_LABELS:  # "새 주소" · "전 주소" · "희망 주소" 처럼 다른 곳은 묶지 않는다
+        return "주소"
+    if "이메일" in flat or "email" in low or low.endswith("mail"):
+        return "이메일"
+    if spec.get("input_type") == "account" or "계좌번호" in flat:
+        return "계좌번호"
+    if re.search(r"(휴대전화|휴대폰|핸드폰|연락처)", flat):
+        return "연락처"
+    if re.fullmatch(r"(은행|은행명|금융기관|금융기관명|거래은행)", flat):
+        return "은행"
+    if re.fullmatch(r"(학교|학교명|재학학교|재학중인학교|소속학교)", flat):
+        return "학교"
+    return None
+
+
 def reuse_key(spec: dict) -> str | None:
-    """다른 서류와 값을 나누는 열쇠. 다른 사람 칸은 None (내 이름이 대리인 성명에 들어가지 않게)"""
-    return None if is_other_person(spec) else label_key(spec["label"])
+    """다른 서류와 값을 나누는 열쇠. 다른 사람 칸은 None (내 이름이 대리인 성명에 들어가지 않게).
+    내 주소 · 연락처 · 이메일 · 은행 · 계좌번호 · 학교는 칸 이름이 달라도 같은 열쇠로 묶는다"""
+    if is_other_person(spec):
+        return None
+    base = label_key(spec["label"])
+    section = spec.get("section") or ""
+    where = section + spec["label"]
+    not_mine = (any(w in where for w in NOT_MINE_WORDS) or any(w in spec["label"] for w in OTHER_PERSON_WORDS)
+                or bool(re.search(r"\s?[2-9]$|^[2-9]번", section)))  # "동의자 2" · "급여계좌 2" · "부양의무자 3"
+    if not_mine or any(w in where for w in ORG_WORDS):
+        # 다른 사람 · 기관 · 시설 칸: 내 주소 · 연락처 · 이름 같은 개인정보는 넣지 않고, 그 밖의 칸만 이름이 같을 때
+        return None if base in PERSONAL_KEYS or _meaning_key(spec, _NORM_RE.sub("", spec["label"])) else base
+    return _meaning_key(spec, _NORM_RE.sub("", spec["label"]).replace("*", "").replace(":", "")) or base
 
 
 def _guess_profile_key(label: str, taken: set[str]) -> str | None:

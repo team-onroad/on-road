@@ -127,6 +127,7 @@ def upload_document(
 def get_document(target: QueryTarget, db: DB, today: Today) -> DocumentResponse:
     user, doc = target
     service.clear_stale(db, user)
+    service.fill_from_others(db, user, doc)  # 다른 서류에서 쓴 내 주소 · 연락처 · 계좌 등으로 빈 칸 채우기
     # 칸별로 쓰기에서도 신청 날짜 칸은 오늘 날짜로 미리 채운다 (확인은 사용자가)
     interview_service.fill_today(db, service._rows(db, doc), service._specs(doc), today)
     return service.to_response(db, doc)

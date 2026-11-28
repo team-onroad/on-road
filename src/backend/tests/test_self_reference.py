@@ -101,3 +101,34 @@ def test_amount_is_not_mash():
     spec = {"value_source": "user", "input_type": "number", "label": "금액", "options": None}
     assert writer._field_warnings(spec, "5000000") == []
     assert answer_extract.looks_mash("가가가가") is True
+
+
+@pytest.mark.parametrize("spec, key", [
+    ({"label": "사는 곳 주소", "section": "신청인"}, "주소"),
+    ({"label": "주민등록상주소", "section": "신청인"}, "주소"),
+    ({"label": "새 주소", "section": None}, "새주소"),  # 이름이 같을 때만 (예전처럼)
+    ({"label": "주소", "section": "부양의무자 2"}, None),
+    ({"label": "주소", "section": "현 복지시설"}, None),
+    ({"label": "휴대전화", "section": "신청인"}, "연락처"),
+    ({"label": "보호자(담당자) 연락처", "section": None}, None),
+    ({"label": "E-mail", "section": "신청인"}, "이메일"),
+    ({"label": "은행명", "section": "입금정보"}, "은행"),
+    ({"label": "계좌번호", "section": "복지급여 계좌 > 변경", "input_type": "account"}, None),
+    ({"label": "보호기관명", "section": None}, "보호기관명"),
+])
+def test_reuse_key_by_meaning(spec, key):
+    from app import doc_spec
+
+    assert doc_spec.reuse_key({"input_type": "text", **spec}) == key
+
+
+def test_opening_document_fills_from_other_documents(api, db_session, doc_llm):
+    """장학금 신청서에 쓴 주소가 이미 만든 이력서 양식의 빈 주소 칸에도 들어간다 (이미 쓴 칸은 그대로)"""
+    user = make_user(db_session)
+    resume = _create(api, user, source_id="resume-form").json()["document_id"]
+    scholar = _create(api, user).json()["document_id"]
+    api.patch(f"/api/documents/{scholar}/fields/address?user_id={user.id}",
+              json={"value": "서울특별시 강남구 테헤란로 123", "is_completed": True})
+    opened = api.get(f"/api/documents/{resume}?user_id={user.id}").json()
+    address = _field(opened, "address")
+    assert (address["value"], address["reused_from"]) == ("서울특별시 강남구 테헤란로 123", "장학금 신청서")

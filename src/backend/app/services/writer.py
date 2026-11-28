@@ -422,6 +422,7 @@ def _get_or_create(
 ) -> tuple[Document, bool]:
     existing = _existing(db, user, source_type, source_id)
     if existing is not None:
+        fill_from_others(db, user, existing)  # 다른 서류에서 그사이 쓴 내 정보로 빈 칸 채우기
         changed = False
         if item is not None and existing.checklist_item_id != item.id:
             existing.checklist_item_id = item.id
@@ -459,6 +460,31 @@ def _get_or_create(
     db.commit()
     db.refresh(doc)
     return doc, True
+
+
+def fill_from_others(db: Session, user: User, doc: Document) -> int:
+    """서류를 열 때: 아직 비어 있고 완료하지 않은 내 칸을 다른 서류에서 완료한 같은 칸 값으로 채운다.
+    이미 쓴 칸 · 다른 사람 칸 · 날짜 칸은 건드리지 않는다. 채운 칸 수"""
+    if doc.status == "exported":
+        return 0
+    specs = _specs(doc)
+    empty = [r for r in _rows(db, doc)
+             if not r.is_completed and not _value(r.segments).strip() and _writable(specs[r.field_id])
+             and specs[r.field_id].get("input_type") != "date" and doc_spec.reuse_key(specs[r.field_id]) is not None]
+    if not empty:
+        return 0
+    reusable = _reusable(db, user, doc.id)
+    filled = 0
+    for r in empty:
+        hit = reusable.get(doc_spec.reuse_key(specs[r.field_id]))
+        if hit:
+            title, segments = hit
+            r.segments = [{"text": _value(segments), "source": "reused"}]
+            r.reused_from = title
+            filled += 1
+    if filled:
+        db.commit()
+    return filled
 
 
 # ---------------- 내 정보가 바뀌면 서류 칸에도 ----------------
