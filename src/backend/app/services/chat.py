@@ -47,7 +47,9 @@ _FEELING_WORDS = (
 )
 _GREETING = re.compile(r"^(안녕|하이|고마워|고맙|감사|ㅎㅇ|반가)")
 # 앞 대화에 이어지는 짧은 요청 ("더 쉽게") 은 앞 대화를 봐야 해서 AI 가 판단한다
-_FOLLOW_UP = ("더쉽게", "쉽게", "다시", "무슨말", "무슨뜻", "그게뭐", "그럼", "그러면")
+_FOLLOW_UP = ("더쉽게", "쉽게", "다시", "무슨말", "무슨뜻", "그게뭐", "그럼", "그러면",
+              # 앞 대화를 가리키는 말 ("그거 지원 얼마야?"): 정책 낱말이 있어도 앞 대화를 봐야 무엇인지 안다
+              "그거", "그건", "그게", "거기", "이거", "이건", "저거", "그정책", "그것")
 
 
 def _quick_route(message: str) -> str | None:
@@ -216,10 +218,13 @@ def _stream(
     box: dict = {}
 
     def work() -> None:
-        # 세션은 이 스레드만 쓴다 (스트림 쪽은 기다리기만)
+        # 이 스레드는 요청 세션이 아니라 자기 세션을 연다 (읽기만 함).
+        # 앱이 기다리다 멈추면 요청이 먼저 끝나 요청 세션이 닫히는데, 같은 세션을 쓰면 아직 검색 중인 이 스레드와 부딪힌다
         try:
-            box["changes"] = profile_signal.detect(body.message, user, today)
-            box["routed"] = _route(db, user, body, today, llm, rag, doc_llm, on_stage=stages.put)
+            with Session(bind=db.get_bind(), expire_on_commit=False) as own:
+                me = own.get(User, user.id) or user
+                box["changes"] = profile_signal.detect(body.message, me, today)
+                box["routed"] = _route(own, me, body, today, llm, rag, doc_llm, on_stage=stages.put)
         except BaseException as e:  # noqa: BLE001 — 아래에서 error 이벤트로
             box["error"] = e
         finally:
