@@ -67,6 +67,16 @@ class SameKind(BaseModel):
     others: list[SameKindPolicy]  # 같은 종류의 나머지 (이 정책 제외, 받는 돈이 큰 순서)
 
 
+class PolicyForm(BaseModel):
+    """이 정책 신청에 쓰는 서버 양식 (정책 상세 '신청서 쓰기'). POST /documents 에 policy_id · form_id 로 시작"""
+
+    form_id: str
+    title: str
+    checked: bool  # 사람이 원본 양식과 대조했는지
+    notice: str | None = None  # 공식 양식 대신 쓰는 공통 양식일 때 안내
+    doc_name: str | None = None  # 이 양식으로 쓰는 필요 서류 이름 (required_docs[].name 과 같음). 없으면 null
+
+
 class PolicyDetail(BaseModel):
     policy_id: int
     policy_key: str
@@ -105,6 +115,7 @@ class PolicyDetail(BaseModel):
     apply_deadline: str | None = None  # 신청 기한 ("상시 신청" 등). 정리본에 있을 때만
     apply_steps: list[str] = []  # 신청 방법을 짧게 나눈 구절 (핵심 사실의 apply). 없으면 앱은 apply_method 원문
     doc_facts: list[str] = []  # 필요 서류를 짧게 정리한 구절 (핵심 사실의 docs). 괄호 안은 언제 내는지
+    forms: list[PolicyForm] = []  # 앱에서 바로 쓸 수 있는 신청 양식 (없으면 '신청서 쓰기'를 숨긴다)
     related: list[RelatedPolicy] = []
     same_kind: SameKind | None = None  # 사용자를 주고, 같은 종류 정책이 2개 이상 받을 수 있을 때만
 

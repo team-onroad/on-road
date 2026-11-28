@@ -601,8 +601,7 @@ def test_start_form_of_other_policy_is_404(api, db_session, doc_llm, forms_dir):
     body = {"user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id}
     for fid in ("other-form", "missing-file", "../index", "nope"):
         _err(api.post("/api/documents", json={**body, "form_id": fid}), 404, "FORM_NOT_FOUND")
-    # form_id 없이 시작하면 지금처럼 정책 신청서만 (연결표 양식은 policy_key 가 form:{id} 라 열리지 않음)
-    _err(api.post("/api/documents", json=body), 404, "FORM_GUIDE_NOT_FOUND")
+    # form_id 없이 시작하면 연결표 첫 양식 (test_start_policy_form_without_form_id_uses_linked_form)
 
 
 def test_policy_apply_form_still_opens_with_form_id(api, db_session, doc_llm, forms_dir):
@@ -796,3 +795,25 @@ def test_start_common_form_without_policy(api, db_session, doc_llm, forms_dir):
         _err(api.post("/api/documents", json={**body, "form_id": fid}), 404, "FORM_NOT_FOUND")
     # policy_id 도 form_id 도 없으면 422
     assert api.post("/api/documents", json={"user_id": str(user.id), "source_type": "policy_form"}).status_code == 422
+
+
+def test_policy_detail_lists_its_forms(api, db_session, forms_dir):
+    """정책 상세 '신청서 쓰기': 이 정책에 쓰는 양식 (연결표 순서, 파일 없는 양식은 빠짐)"""
+    policy = make_policy(db_session, policy_key="G012", required_docs=SETTLE_DOCS)
+    _write_linked(forms_dir)
+    forms = api.get(f"/api/policies/{policy.id}").json()["forms"]
+    assert [(f["form_id"], f["doc_name"]) for f in forms] == [
+        ("welfare-apply", "자립정착금 신청서"), ("settle-plan", "자립정착금 사용계획서(1차, 2차)"), ("extra-form", None),
+    ]
+    assert forms[0]["notice"] == "지자체마다 자체 신청서를 쓸 수 있어요."
+    other = make_policy(db_session)
+    assert api.get(f"/api/policies/{other.id}").json()["forms"] == []
+
+
+def test_start_policy_form_without_form_id_uses_linked_form(api, db_session, doc_llm, forms_dir):
+    """form_id 없이 정책 신청서를 열면 (예전 앱의 '신청서 쓰기') 연결표 첫 양식"""
+    user = make_user(db_session)
+    policy = make_policy(db_session, policy_key="G012", required_docs=SETTLE_DOCS)
+    _write_linked(forms_dir)
+    doc = api.post("/api/documents", json={"user_id": str(user.id), "source_type": "policy_form", "policy_id": policy.id}).json()
+    assert doc["source_id"] == f"welfare-apply@p{policy.id}"

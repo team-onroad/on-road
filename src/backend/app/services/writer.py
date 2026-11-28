@@ -292,6 +292,10 @@ def _resolve_source(db: Session, body: DocumentCreate) -> tuple[str, str, list[d
     if found is None and body.form_id is not None:
         raise AppError(404, "FORM_NOT_FOUND", "이 정책에 쓰는 서류 양식이 아닙니다.")
     if found is None:
+        # 정책 자체 신청서가 없으면 연결표의 첫 양식 (정책 상세 '신청서 쓰기'를 form_id 없이 누른 예전 앱)
+        linked = ai_content.policy_forms(policy.policy_key)
+        if linked:
+            return _resolve_source(db, body.model_copy(update={"form_id": linked[0]["form_id"]}))
         raise AppError(404, "FORM_GUIDE_NOT_FOUND", "이 정책은 아직 신청서 작성 도우미가 준비되지 않았습니다.")
     form_id, title, fields = found
     own = ai_content.find_form(policy.policy_key)

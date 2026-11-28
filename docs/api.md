@@ -442,6 +442,7 @@
 | `required_education` | 들어야 받을 수 있는 교육. `settlement`(자립정착금 의무교육) · `finance`(자립수당 자립교육) · null (3.37) |
 | `apply_ways` · `apply_deadline` | 빈 목록 `[]` · `null` (정리본이 없으면). `data/apply_guide.json`: 신청 방법을 갈래(`way`: 방문 · 온라인 · 우편·팩스 · 전화 · 카카오톡 · 따로 신청하지 않아요 · 기관이 대신 신청해요 · 문의 · 신청)별 쉬운 문장(`lines`)으로 다시 쓴 것. 고칠 때는 `scripts/build_apply_guide.py`를 고치고 실행 |
 | `apply_steps` · `doc_facts` | 빈 목록 `[]` (핵심 사실이 없으면). 신청 방법 · 필요 서류를 짧게 나눈 구절. 서류 구절의 괄호는 언제 내는지 ("방문 신청 시", "대리 신청 시"). 비어 있으면 앱은 `apply_method` · `required_docs` 원문을 정리해 보여 준다 |
+| `forms` | 빈 목록 `[]` (양식이 없으면 앱은 '신청서 쓰기'를 숨긴다). 이 정책 신청에 쓰는 서버 양식 `[{form_id, title, checked, notice, doc_name}]`: 정책 자체 신청서 먼저, 그다음 연결표(`data/forms/index.json`). `doc_name` 은 그 양식으로 쓰는 `required_docs[].name` (없으면 null). 누르면 `POST /documents` 에 `source_type: policy_form`, `policy_id`, `form_id`. `form_id` 없이 시작하면 정책 자체 신청서, 없으면 연결표 첫 양식 |
 
 - 금액 읽기 규칙 추가: 내는 돈(임대보증금 · 임대료 · 본인부담) 앞의 금액은 건너뛴다. `support_amount`에 주기가 없으면 `support_content`의 "(인/월)", "/월"로 월 지급을 알아내고, 하루 단위("1일/2.4천원")는 읽지 않는다
 - 시연용 더미 정책(D001~)은 `RAG_MODE=real` 서버에서 검색 · 분야별 보기 · 로드맵 · 추천 · 관련 정책에 넣지 않는다 (id 로 여는 상세는 그대로)
