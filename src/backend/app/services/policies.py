@@ -361,10 +361,14 @@ def form_guide(policy: Policy, user: User | None) -> FormGuide:
 def policy_forms(policy_key: str) -> list[PolicyForm]:
     """이 정책 신청에 쓰는 양식: 정책 자체 신청서(find_form) 먼저, 그다음 연결표(data/forms/index.json) 순. form_id 는 한 번만"""
     out: list[PolicyForm] = []
+    linked = ai_content.policy_forms(policy_key)
     own = ai_content.find_form(policy_key)
     if own is not None:
-        out.append(PolicyForm(form_id=own.form_id, title=own.title, checked=own.checked))
-    for f in ai_content.policy_forms(policy_key):
+        # 자체 신청서도 연결표에 있으면 그 이름 · 필요 서류 이름을 쓴다 (정책 상세 필요 서류 카드에 '양식 쓰기' 가 붙게)
+        link = next((f for f in linked if f["form_id"] == own.form_id), None)
+        out.append(PolicyForm(form_id=own.form_id, title=(link or {}).get("title") or own.title, checked=own.checked,
+                              notice=(link or {}).get("notice"), doc_name=(link or {}).get("doc_name")))
+    for f in linked:
         if all(o.form_id != f["form_id"] for o in out):
             out.append(PolicyForm(**{k: f[k] for k in ("form_id", "title", "checked", "notice", "doc_name")}))
     return out
