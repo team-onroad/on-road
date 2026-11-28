@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -1228,7 +1229,7 @@ private fun TypingBubble(status: String?) {
         initialValue = 1f,
         targetValue = 0.45f,
         animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            androidx.compose.animation.core.tween(900),
+            androidx.compose.animation.core.tween<Float>(900),
             androidx.compose.animation.core.RepeatMode.Reverse,
         ),
         label = "chat-status-alpha",
