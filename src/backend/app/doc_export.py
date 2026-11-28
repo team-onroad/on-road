@@ -53,16 +53,26 @@ def _use_font(page: pymupdf.Page) -> None:
 
 
 def _wrap(text: str, width: float, size: float) -> list[str]:
+    """띄어쓰기 단위로 줄을 나눈다 ("104동 1502호" 가 "104동 1 / 502호" 로 잘리지 않게).
+    한 낱말이 한 줄보다 길 때만 글자 단위로 자른다"""
     font = _font()
     lines: list[str] = []
     for para in text.split("\n") or [""]:
         line = ""
-        for ch in para:
-            if font.text_length(line + ch, fontsize=size) > width and line:
+        for word in para.split(" "):
+            joined = f"{line} {word}" if line else word
+            if font.text_length(joined, fontsize=size) <= width:
+                line = joined
+                continue
+            if line:
                 lines.append(line)
-                line = ch.lstrip() if ch == " " else ch
-            else:
-                line += ch
+            line = ""
+            for ch in word:  # 낱말 하나가 줄보다 길다
+                if font.text_length(line + ch, fontsize=size) > width and line:
+                    lines.append(line)
+                    line = ch
+                else:
+                    line += ch
         lines.append(line)
     return lines
 
@@ -228,11 +238,19 @@ def _fill_dots(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) 
     words = sorted(page.get_text("words", clip=rect), key=lambda w: w[0])
     year = m.group(1)
     left = rect.x0
-    pre = [w for w in words if w[2] <= dots[0].x0 + 0.5 and re.fullmatch(r"\d{2}", w[4])]
-    if pre:
-        year = year[2:]
-        left = pre[-1][2]
-    numbers = [year, str(int(m.group(2))), str(int(m.group(3)))][: len(dots)]
+    printed = next((w for w in words if re.fullmatch(r"\d{4}\.", w[4])), None)
+    if printed:  # "2026.  .  ." 처럼 연도가 찍혀 있으면 월 · 일만
+        dots = [d for d in dots if d.x0 > printed[2] - 0.5]
+        left = printed[2]
+        numbers = [str(int(m.group(2))), str(int(m.group(3)))][: len(dots)]
+    else:
+        pre = [w for w in words if w[2] <= dots[0].x0 + 0.5 and re.fullmatch(r"\d{2}", w[4])]
+        if pre:
+            year = year[2:]
+            left = pre[-1][2]
+        numbers = [year, str(int(m.group(2))), str(int(m.group(3)))][: len(dots)]
+    if not numbers:
+        return False
     font = _font()
     placed = []
     for number, dot in zip(numbers, dots, strict=False):
@@ -247,17 +265,51 @@ def _fill_dots(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) 
     return True
 
 
-_PHONE_TEMPLATE = re.compile(r"^\(0?\)-?$")
+_PHONE_TEMPLATE = re.compile(r"^\(?0?\)-?$")  # "( ) -" · "(0 ) -" (여는 괄호가 칸 이름 글자에 붙어 빠진 것도)
+_DASH_TEMPLATE = re.compile(r"^-{1,3}$")  # "□□□-□□□□-□□□□" 처럼 칸칸이 나뉜 번호 칸
+_DASHES = ("-", "－", "–", "‐", "−")
+
+
+def _fill_dashes(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) -> bool:
+    """찍힌 "-" 로 나뉜 번호 칸: 덩이마다 "-" 사이 자리에 고르게 펴서 쓴다 (한 칸에 한 글자씩 들어가게)"""
+    parts = _phone_parts(value, r"[-\s]+")
+    dashes = sorted((w for w in page.get_text("words", clip=rect) if w[4].strip() in _DASHES), key=lambda w: w[0])
+    if len(parts) != len(dashes) + 1 or not dashes:
+        return False
+    edges = [rect.x0] + [v for d in dashes for v in (d[0], d[2])] + [rect.x1]
+    slots = [(edges[i], edges[i + 1]) for i in range(0, len(edges), 2)]
+    font = _font()
+    for part, (x0, x1) in zip(parts, slots, strict=True):
+        if font.text_length(part, fontsize=size) > x1 - x0 - 1:
+            return False
+    baseline = dashes[0][3] - (dashes[0][3] - dashes[0][1]) * 0.2
+    for part, (x0, x1) in zip(parts, slots, strict=True):
+        step = (x1 - x0) / len(part)
+        for i, ch in enumerate(part):
+            w = font.text_length(ch, fontsize=size)
+            page.insert_text((x0 + step * (i + 0.5) - w / 2, baseline), ch, fontname=FONT_NAME, fontsize=size, color=INK)
+    return True
+
+
+def _phone_parts(value: str, sep: str) -> list[str]:
+    """번호를 덩이로: "010-1234-5678" · "01012345678" → ["010", "1234", "5678"]"""
+    parts = [p for p in re.split(sep, value.strip()) if p]
+    if len(parts) == 1 and re.fullmatch(r"0\d{8,10}", parts[0]):
+        d = parts[0]
+        head = 2 if d.startswith("02") else 3
+        parts = [d[:head], d[head:-4], d[-4:]]
+    return parts
 
 
 def _fill_phone_parens(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size: float) -> bool:
     """"휴대전화(   )    -" 칸: 앞자리는 괄호 안, 가운데는 ")" 와 "-" 사이, 끝자리는 "-" 뒤"""
-    parts = [p for p in re.split(r"[-\s)(]+", value) if p]
+    parts = _phone_parts(value, r"[-\s)(]+")
     if len(parts) != 3:
         return False
     mid = (rect.y0 + rect.y1) / 2
     words = sorted((w for w in page.get_text("words", clip=rect + (-1, -2, 1, 2)) if w[1] <= mid <= w[3]), key=lambda w: w[0])
-    opens = [w for w in words if w[4].endswith("(") or w[4].endswith("(0")]
+    # "휴대전화(0" 는 칸 자리로 잘라 읽으면 "0" 만 남는다
+    opens = [w for w in words if w[4].endswith("(") or w[4].endswith("(0") or (w is words[0] and w[4] == "0")]
     closes = [w for w in words if w[4].startswith(")")]
     if not opens or not closes:
         return False
@@ -267,16 +319,19 @@ def _fill_phone_parens(page: pymupdf.Page, rect: pymupdf.Rect, value: str, size:
     if c is None or d is None:
         return False
     font = _font()
-    zero = o[4].endswith("(0")
+    zero = o[4].endswith("0")
     first = parts[0][1:] if zero and parts[0].startswith("0") else parts[0]
+    first = first or parts[0]
     start = o[2]
     slots = [(first, start + 1, c[0] - 1), (parts[1], c[2] + 1, d[0] - 1), (parts[2], d[2] + 1, rect.x1)]
     if any(font.text_length(t, fontsize=size) > x1 - x0 for t, x0, x1 in slots):
         return False
     baseline = o[3] - (o[3] - o[1]) * 0.2
-    for t, x0, x1 in slots:
+    for k, (t, x0, x1) in enumerate(slots):
         w = font.text_length(t, fontsize=size)
-        page.insert_text(((x0 + x1 - w) / 2, baseline), t, fontname=FONT_NAME, fontsize=size, color=INK)
+        # 찍힌 "0" 바로 뒤에 이어 써서 "010" 으로 읽히게
+        x = start + 0.3 if k == 0 and zero and first != parts[0] else (x0 + x1 - w) / 2
+        page.insert_text((x, baseline), t, fontname=FONT_NAME, fontsize=size, color=INK)
     return True
 
 
@@ -291,16 +346,23 @@ def _cover_words(page: pymupdf.Page, rect: pymupdf.Rect, only: str | None = None
 def _fill_parens(page: pymupdf.Page, rect: pymupdf.Rect, text: str) -> bool:
     """"(          )" 칸에 값이 길면: 닫는 괄호를 가리고 칸 끝까지 쓴 뒤 값 바로 뒤에 ")" 를 다시 쓴다"""
     words = sorted(page.get_text("words", clip=rect), key=lambda w: w[0])
-    opens = [w for w in words if w[4] == "("]
+    opens = [w for w in words if w[4].startswith("(")]
     closes = [w for w in words if w[4] == ")"]
-    if len(opens) != 1 or len(closes) != 1 or len(words) != 2 or "\n" in text:
+    if len(opens) != 1 or len(closes) != 1 or "\n" in text or words[0] is not opens[0] or words[-1] is not closes[0]:
+        return False
+    labelled = len(words) > 2  # "(전화 :    )": 괄호 안에 칸 이름이 찍혀 있다
+    if labelled and (opens[0][4] == "(" or any(re.search(r"\d", w[4]) for w in words[1:-1])):
         return False
     font = _font()
-    inside = closes[0][0] - opens[0][2] - 4
+    x0 = words[-2][2] + 2
+    inside = closes[0][0] - x0 - 2
     if font.text_length(text, fontsize=OVERLAY_SIZES[0]) <= inside:
-        return False  # 괄호 안에 제 크기로 들어간다
+        if not labelled:
+            return False  # 괄호 안에 제 크기로 들어간다
+        baseline = closes[0][3] - (closes[0][3] - closes[0][1]) * 0.2
+        page.insert_text((x0 + 1, baseline), text, fontname=FONT_NAME, fontsize=OVERLAY_SIZES[0], color=INK)
+        return True
     close_w = font.text_length(")", fontsize=OVERLAY_SIZES[0])
-    x0 = opens[0][2] + 2
     for size in OVERLAY_SIZES:
         w = font.text_length(text, fontsize=size)
         if x0 + w + 2 + close_w <= rect.x1 and size <= rect.height * 0.85:
@@ -449,9 +511,14 @@ def _free_part(page: pymupdf.Page, rect: pymupdf.Rect) -> pymupdf.Rect:
     edges = [rect.x0] + [v for w in words for v in (w[0], w[2])] + [rect.x1]
     gaps = [(edges[i + 1] - edges[i], edges[i], edges[i + 1]) for i in range(0, len(edges) - 1, 2)]
     width, x0, x1 = max(gaps)
-    if width < 16:
-        return rect
-    return pymupdf.Rect(x0 + 2, rect.y0, x1 - 2, rect.y1)
+    side = pymupdf.Rect(x0 + 2, rect.y0, x1 - 2, rect.y1) if width >= 16 else None
+    # 안내 글자가 칸 아래(위)쪽 한 줄에만 있으면 ("(첨부하는 증명자료 참조)") 그 위(아래) 빈 줄이 더 넓을 수 있다
+    top, bottom = min(w[1] for w in words), max(w[3] for w in words)
+    bands = [pymupdf.Rect(rect.x0, rect.y0, rect.x1, top - 1), pymupdf.Rect(rect.x0, bottom + 1, rect.x1, rect.y1)]
+    band = max(bands, key=lambda r: r.width * r.height if r.height >= 9 else 0)
+    if band.height >= 9 and (side is None or band.width * band.height > side.width * side.height * 1.2):
+        return band
+    return side or rect
 
 
 def _fill_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str, align: str = "left") -> bool:
@@ -460,10 +527,20 @@ def _fill_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str, align: str = "l
     font = _font()
     if rect.is_empty or rect.width < 4:
         return False
-    for size in OVERLAY_SIZES:
+    # 띄어쓰기 없는 값(이름 · 전화번호 · 계좌번호)은 글자 중간에서 줄이 바뀌지 않게 한 줄로 작게 먼저
+    one_line = " " not in text.strip() and "\n" not in text
+    sizes = OVERLAY_SIZES
+    if one_line and font.text_length(text, fontsize=OVERLAY_SIZES[-1]) > rect.width:
+        # 6pt 로도 한 줄에 안 들어가는 번호("010-1234-5678")는 더 작게 한 줄로 (5 · 4.5). 그래도 안 되면 줄바꿈
+        small = [s for s in (5, 4.5) if font.text_length(text, fontsize=s) <= rect.width]
+        if small:
+            sizes = (*OVERLAY_SIZES, small[0])
+    for size in sizes:
         if size > rect.height * 0.85 and size > OVERLAY_SIZES[-1]:
             continue  # 칸 높이보다 큰 글자는 위아래 칸으로 넘친다
         width = font.text_length(text, fontsize=size)
+        if one_line and width > rect.width and any(font.text_length(text, fontsize=s) <= rect.width for s in sizes if s < size):
+            continue
         if "\n" not in text and width <= rect.width:
             baseline = rect.y0 + (rect.height + size * 0.7) / 2
             x = rect.x1 - width if align == "right" else rect.x0
@@ -492,7 +569,9 @@ def render_overlay(pdf: Path | bytes, title: str, rows: list[tuple[dict, str]]) 
             fonted.add(page.number)
         # 좁은 칸(괄호 안 · 짧은 표 칸)은 안쪽 여백을 줄여 값이 별지로 넘어가지 않게
         inset = BOX_INSET if pymupdf.Rect(box["rect"]).width >= NARROW_BOX else NARROW_INSET
-        rect = pymupdf.Rect(box["rect"]) + (inset, inset, -inset, -inset)
+        # 낮은 줄(높이 16pt 아래)은 위아래 여백을 줄여 글자가 너무 작아지지 않게
+        inset_y = min(inset, 1.0) if pymupdf.Rect(box["rect"]).height < 16 else inset
+        rect = pymupdf.Rect(box["rect"]) + (inset, inset_y, -inset, -inset_y)
         template = box.get("template_text") or ""
         if box.get("how") == "confirm":  # 유의사항 확인 열: 항목마다 모두 체크
             for x, y in box.get("spots") or []:
@@ -515,11 +594,14 @@ def render_overlay(pdf: Path | bytes, title: str, rows: list[tuple[dict, str]]) 
             _cover_words(page, rect)
             template = ""
         flat = re.sub(r"\s", "", template)
-        if spec.get("input_type") == "date" and flat and re.fullmatch(r"(\d{2})?[.\s]*", flat) and flat.count(".") >= 2:
+        if spec.get("input_type") == "date" and flat and re.fullmatch(r"(\d{2}|\d{4})?[.\s]*", flat) and flat.count(".") >= 2:
             if any(_fill_dots(page, rect, text, size) for size in OVERLAY_SIZES):
                 continue
         if spec.get("input_type") == "phone" and _PHONE_TEMPLATE.match(flat) and _fill_phone_parens(page, rect, text, OVERLAY_SIZES[1]):
             continue
+        if spec.get("input_type") in ("phone", "account") and _DASH_TEMPLATE.match(flat):
+            if any(_fill_dashes(page, rect, text, size) for size in OVERLAY_SIZES[1:]):
+                continue
         is_date = box.get("how") == "date_line" or (template and all(u in template for u in ("년", "월", "일")))
         if is_date and _fill_date(page, rect, text, OVERLAY_SIZES[0]):
             continue

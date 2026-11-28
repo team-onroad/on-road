@@ -15,7 +15,8 @@
    }
   },
   {
-   "id": "applicant_birth_date", "example": "1990.01.01",
+   "id": "applicant_birth_date",
+   "example": "1990.01.01",
    "label": "생년월일",
    "section": "신청인(복지대상자)",
    "input_type": "date",
@@ -35,7 +36,8 @@
    "example": "서울특별시 ○○구 ○○로 12",
    "at": {
     "right_of": "주소",
-    "to": "(전화:"
+    "to": "(전화:",
+    "x0": 234.5
    }
   },
   {
@@ -64,7 +66,8 @@
    "example": "국민은행",
    "at": {
     "right_of": "금융기관#1",
-    "to": "예금주#1"
+    "to": 314,
+    "x0": 234.5
    }
   },
   {
@@ -97,7 +100,8 @@
    "example": "신한은행",
    "at": {
     "right_of": "금융기관#2",
-    "to": "예금주#2"
+    "to": 314,
+    "x0": 234.5
    }
   },
   {
@@ -123,7 +127,8 @@
    }
   },
   {
-   "id": "date", "example": "2023.10.01",
+   "id": "date",
+   "example": "2023.10.01",
    "label": "신청일",
    "input_type": "date",
    "guide": "신청하는 날짜를 적어요.",

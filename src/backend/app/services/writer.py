@@ -143,6 +143,44 @@ def _writable(spec: dict) -> bool:
     return spec["value_source"] in doc_spec.WRITABLE
 
 
+def _date_parts(text: str) -> tuple[int, int, int] | None:
+    digits = re.findall(r"\d+", text)
+    if len(digits) == 1 and len(digits[0]) == 8:
+        digits = [digits[0][:4], digits[0][4:6], digits[0][6:]]
+    if len(digits) != 3:
+        return None
+    return int(digits[0]), int(digits[1]), int(digits[2])
+
+
+def _date_problems(spec: dict, text: str, today: date | None = None) -> list[str]:
+    """형식은 맞는데 없는 날짜(2007.02.30 · 13월)이거나, 생년월일이 오늘보다 뒤"""
+    today = today or date.today()
+    parts = _date_parts(text)
+    if parts is None:
+        return []
+    try:
+        day = date(*parts)
+    except ValueError:
+        return ["없는 날짜예요. 월은 1~12, 일은 그 달의 날 수 안에서 적어 주세요."]
+    label = (spec.get("label") or "").replace(" ", "")
+    if "생년월일" in label and day > today:
+        return ["생년월일이 오늘보다 뒤예요. 연도를 확인해 주세요."]
+    if day.year < 1900 or day.year > today.year + 30:
+        return ["연도를 확인해 주세요."]
+    return []
+
+
+def _number_problems(spec: dict, text: str) -> list[str]:
+    """나이 · 연도처럼 범위가 정해진 숫자 칸"""
+    label = (spec.get("label") or "").replace(" ", "")
+    n = float(re.sub(r"[^\d.]", "", text) or 0)
+    if ("나이" in label or "연령" in label) and not 0 < n < 120:
+        return ["나이를 확인해 주세요. 숫자로 적어요 (예: 20)."]
+    if label.endswith("연도") and not 1900 <= n <= date.today().year + 30:
+        return ["연도를 네 자리로 적어 주세요 (예: 2027)."]
+    return []
+
+
 def _field_warnings(spec: dict, value: str) -> list[str]:
     if not _writable(spec):
         return []
@@ -150,6 +188,10 @@ def _field_warnings(spec: dict, value: str) -> list[str]:
     text = value.strip()
     if text and spec["input_type"] == "date" and not _DATE_RE.match(text):
         warnings.append("날짜 형식을 확인해 주세요. 연.월.일 순서로 적어요 (예: 2007.03.15).")
+    elif text and spec["input_type"] == "date":
+        warnings += _date_problems(spec, text)
+    if text and spec["input_type"] == "number" and _NUMBER_RE.match(text):
+        warnings += _number_problems(spec, text)
     if text and spec["input_type"] == "phone" and not _PHONE_RE.match(text):
         warnings.append("전화번호 형식을 확인해 주세요. 0으로 시작하는 숫자 9~11자리예요 (예: 010-1234-5678).")
     if text and spec["input_type"] == "account":
@@ -422,8 +464,8 @@ def _get_or_create(
 ) -> tuple[Document, bool]:
     existing = _existing(db, user, source_type, source_id)
     if existing is not None:
+        changed = sync_layout(db, existing)  # 양식 검수로 고친 칸 자리 · 새로 찾은 칸을 이미 만든 서류에도
         fill_from_others(db, user, existing)  # 다른 서류에서 그사이 쓴 내 정보로 빈 칸 채우기
-        changed = False
         if item is not None and existing.checklist_item_id != item.id:
             existing.checklist_item_id = item.id
             changed = True
@@ -460,6 +502,44 @@ def _get_or_create(
     db.commit()
     db.refresh(doc)
     return doc, True
+
+
+LAYOUT_KEYS = ("box", "essay", "multiline")  # 양식 검수로 바뀌는 칸 모양 (칸 이름 · 안내 · 값은 그대로)
+
+
+def sync_layout(db: Session, doc: Document, *, add_fields: bool = True) -> bool:
+    """정책 신청서: 지금 양식 파일(data/forms)의 칸 자리(box) · 글 칸 여부를 서류에 맞춘다.
+    서류를 만들 때 칸 목록을 복사해 두므로, 양식 검수로 고친 자리가 이미 만든 서류에는 안 들어가던 문제.
+    쓴 값 · 완료 여부는 그대로. 내보내기 전 서류에는 양식에 새로 생긴 칸(빠졌던 작성일 등)도 빈 칸으로 더한다.
+    바뀌었으면 True (커밋은 부르는 쪽)"""
+    if doc.source_type != "policy_form":
+        return False
+    form = ai_content.load_form(form_id_of(doc))
+    if form is None:
+        return False
+    fresh = doc_spec.from_form_spec(form)
+    by_id = {f["field_id"]: f for f in fresh}
+    changed = False
+    spec = []
+    for f in doc.spec:
+        g = by_id.get(f["field_id"])
+        fix = {k: g.get(k) for k in LAYOUT_KEYS if g is not None and g.get(k) != f.get(k)}
+        if fix:
+            f = {**f, **fix}
+            changed = True
+        spec.append(f)
+    have = {f["field_id"] for f in spec}
+    added = [g for g in fresh if g["field_id"] not in have] if add_fields and doc.status != "exported" else []
+    if added:
+        checked = all(f.get("checked") for f in doc.spec) if doc.spec else False
+        order = len(spec)
+        for i, g in enumerate(added):
+            spec.append({**g, "checked": checked})
+            db.add(DocumentField(document_id=doc.id, field_id=g["field_id"], sort_order=order + i, segments=[]))
+        changed = True
+    if changed:
+        doc.spec = spec
+    return changed
 
 
 def fill_from_others(db: Session, user: User, doc: Document) -> int:
@@ -933,6 +1013,8 @@ def pdf_layout(doc: Document) -> str:
 def file_rows(db: Session, doc: Document) -> list[tuple[dict, str]]:
     if doc.status != "exported":
         raise AppError(409, "NOT_EXPORTED", "먼저 검사를 마치고 내보내기를 해 주세요.")
+    if sync_layout(db, doc, add_fields=False):  # 고친 칸 자리로 다시 그린다 (값은 그대로)
+        db.commit()
     specs = _specs(doc)
     return [(specs[r.field_id], _value(r.segments)) for r in _rows(db, doc)]
 

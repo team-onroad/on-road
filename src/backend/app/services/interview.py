@@ -393,7 +393,21 @@ def _partial_date(text: str, base: str | None, today: date) -> str | None:
 
 
 def _normalize(spec: dict, answer: str, today: date, current: str | None = None) -> tuple[str | None, str | None]:
-    """(칸에 넣을 값, 다시 물을 때 안내). 값이 None 이면 다시 묻는다. current 는 칸에 지금 적힌 값 (날짜 일부만 고칠 때)"""
+    """(칸에 넣을 값, 다시 물을 때 안내). 값이 None 이면 다시 묻는다. current 는 칸에 지금 적힌 값 (날짜 일부만 고칠 때).
+    검사(writer.check)에서 막힐 값(생년월일이 오늘보다 뒤 · 나이 150)은 대화에서 바로 다시 묻는다"""
+    value, retry = _normalize_raw(spec, answer, today, current)
+    if value is not None and spec.get("input_type") == "date":
+        problems = w._date_problems(spec, value, today)
+    elif value is not None and spec.get("input_type") == "number" and w._NUMBER_RE.match(value.strip()):
+        problems = w._number_problems(spec, value)
+    else:
+        problems = []
+    if problems:
+        return None, problems[0]
+    return value, retry
+
+
+def _normalize_raw(spec: dict, answer: str, today: date, current: str | None = None) -> tuple[str | None, str | None]:
     flat = _flat(answer)
     options = spec.get("options")
     if (spec.get("box") or {}).get("how") == "confirm":

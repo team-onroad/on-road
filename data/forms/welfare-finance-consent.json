@@ -44,10 +44,10 @@
       "box": {
         "page": 0,
         "rect": [
-          127,
-          143,
-          326,
-          177
+          138.7,
+          145.2,
+          314.2,
+          175.5
         ],
         "how": "table_right",
         "template_text": null,
@@ -119,10 +119,10 @@
       "box": {
         "page": 0,
         "rect": [
-          128,
-          297,
-          215,
-          330
+          133.9,
+          298.4,
+          208.9,
+          328.0
         ],
         "how": "table_right",
         "template_text": null,
@@ -244,10 +244,10 @@
       "box": {
         "page": 0,
         "rect": [
-          128,
-          332,
-          215,
-          364
+          133.9,
+          333.2,
+          208.9,
+          362.8
         ],
         "how": "table_right",
         "template_text": null,
@@ -369,10 +369,10 @@
       "box": {
         "page": 0,
         "rect": [
-          128,
-          366,
-          215,
-          399
+          133.9,
+          367.9,
+          208.9,
+          397.5
         ],
         "how": "table_right",
         "template_text": null,
@@ -494,10 +494,10 @@
       "box": {
         "page": 0,
         "rect": [
-          128,
-          401,
-          215,
-          434
+          133.9,
+          402.7,
+          208.9,
+          432.3
         ],
         "how": "table_right",
         "template_text": null,

@@ -358,7 +358,9 @@ def build(form_id: str) -> dict:
         f = {
             "id": lf["id"], "label": lf["label"], "section": lf.get("section") or None,
             "input_type": lf.get("input_type", "text"), "value_source": lf.get("value_source", "user"),
-            "profile_key": lf.get("profile_key"), "required": lf.get("required", True),
+            "profile_key": lf.get("profile_key"),
+            # 담당자 기재란은 신청인이 채우는 칸이 아니라 필수가 아니다
+            "required": lf.get("required", lf.get("value_source", "user") != "office"),
             "guide": lf.get("guide") or lf["label"], "example": lf.get("example"),
             "evidence": lf.get("evidence") or lf["label"], "sensitive": bool(lf.get("sensitive")),
         }

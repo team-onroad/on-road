@@ -11,7 +11,7 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": true,
+      "required": false,
       "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수번호",
@@ -36,7 +36,7 @@
       "input_type": "date",
       "value_source": "office",
       "profile_key": null,
-      "required": true,
+      "required": false,
       "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수일자",
@@ -404,12 +404,12 @@
         "page": 0,
         "rect": [
           101.5,
-          594.6,
+          596.0,
           124.1,
-          613.6
+          608.0
         ],
         "how": "table_right",
-        "template_text": "○○",
+        "template_text": null,
         "cover": true,
         "found_by": "layout_spec"
       }

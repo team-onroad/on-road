@@ -11,7 +11,7 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": true,
+      "required": false,
       "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수번호",
@@ -36,7 +36,7 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": true,
+      "required": false,
       "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수일",
@@ -61,7 +61,7 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": true,
+      "required": false,
       "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수자(성명)",
@@ -86,7 +86,7 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": true,
+      "required": false,
       "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수자 소속",
@@ -111,7 +111,7 @@
       "input_type": "text",
       "value_source": "office",
       "profile_key": null,
-      "required": true,
+      "required": false,
       "guide": "기관이 적는 칸이에요.",
       "example": null,
       "evidence": "접수자 직명",
@@ -188,9 +188,9 @@
       "box": {
         "page": 0,
         "rect": [
-          172.2,
+          196.5,
           170.9,
-          340.3,
+          330,
           192.5
         ],
         "how": "text_right",
@@ -763,7 +763,7 @@
       "box": {
         "page": 0,
         "rect": [
-          182.2,
+          274.5,
           423.4,
           327.2,
           439.5

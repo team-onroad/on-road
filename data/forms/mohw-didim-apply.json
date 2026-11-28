@@ -605,6 +605,7 @@
         ],
         "how": "table_right",
         "template_text": "-",
+        "cover": true,
         "found_by": "layout_spec"
       }
     },

@@ -130,6 +130,19 @@ def _guess_profile_key(label: str, taken: set[str]) -> str | None:
     return key if key and key not in taken else None
 
 
+SHORT_ANSWER_WORDS = ("기타", "여부", "비고")  # "기타(  )" · "동거여부(미동거 사유)" · "비고(사유)": 짧게 적는 칸
+
+
+def _roomy(f) -> bool:
+    """사유 · 동기를 몇 문장으로 쓰는 칸인지. 양식 칸이 좁거나(한 줄 · 괄호 안) 짧게 적는 칸이면
+    글 칸(10자 이상 검사 · 글 다듬기)으로 보지 않는다 ("군 복무" · "없음" 도 맞는 답)"""
+    flat = f.label.replace(" ", "")
+    if any(w in flat for w in SHORT_ANSWER_WORDS):
+        return False
+    rect = (f.box or {}).get("rect")
+    return rect is None or (rect[2] - rect[0] >= 150 and rect[3] - rect[1] >= 20)
+
+
 def from_form_spec(spec) -> list[dict]:
     """formguide FormSpec → 작성 칸. 민감·공무원 칸 구분은 formguide/validate.py 결과를 따른다"""
     fields = []
@@ -143,7 +156,7 @@ def from_form_spec(spec) -> list[dict]:
                 f = f.model_copy(update={"value_source": "profile", "profile_key": guessed})
         is_account = f.input_type == "account" or "계좌번호" in f.label.replace(" ", "")
         source = "user" if is_account else "handwrite" if f.sensitive else f.value_source
-        essay = source in WRITABLE and f.input_type == "text" and any(w in f.label for w in ESSAY_WORDS)
+        essay = source in WRITABLE and f.input_type == "text" and any(w in f.label for w in ESSAY_WORDS) and _roomy(f)
         fields.append(_field(
             field_id=f.id, label=f.label, section=f.section, guide=f.guide, example=None if f.sensitive else f.example,
             multiline=essay, essay=essay, required=f.required, input_type="account" if is_account else f.input_type,

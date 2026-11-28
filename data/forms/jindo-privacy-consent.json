@@ -870,6 +870,31 @@
         },
         "found_by": "layout_spec"
       }
+    },
+    {
+      "id": "date",
+      "label": "작성일",
+      "section": null,
+      "input_type": "date",
+      "value_source": "user",
+      "profile_key": null,
+      "required": true,
+      "guide": "동의서를 쓰는 날짜를 적어요.",
+      "example": null,
+      "evidence": "2026. . .",
+      "sensitive": false,
+      "box": {
+        "page": 1,
+        "rect": [
+          265.5,
+          752.0,
+          345.0,
+          769.5
+        ],
+        "how": "text_right",
+        "template_text": "2026...",
+        "found_by": "layout_spec"
+      }
     }
   ],
   "notes": [
