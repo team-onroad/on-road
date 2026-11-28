@@ -27,6 +27,7 @@ from app.schemas.policies import (
     FormGuide,
     Evidence,
     PolicyDetail,
+    PolicyForm,
     RagOutput,
     RelatedPolicy,
     RequiredDoc,
@@ -173,6 +174,7 @@ def to_detail(policy: Policy, today: date, user: User | None,
         apply_deadline=guide.get("deadline"),
         apply_steps=ai_content.policy_fact_items(policy.policy_key, "apply"),
         doc_facts=ai_content.policy_fact_items(policy.policy_key, "docs"),
+        forms=policy_forms(policy.policy_key),
         related=related or [],
     )
 
@@ -354,3 +356,15 @@ def form_guide(policy: Policy, user: User | None) -> FormGuide:
         ai_content.profile_of(user.name, user.birth_date, user.region, user.phone) if user is not None else None
     )
     return FormGuide(policy_id=policy.id, **ai_content.form_guide(spec, profile))
+
+
+def policy_forms(policy_key: str) -> list[PolicyForm]:
+    """이 정책 신청에 쓰는 양식: 정책 자체 신청서(find_form) 먼저, 그다음 연결표(data/forms/index.json) 순. form_id 는 한 번만"""
+    out: list[PolicyForm] = []
+    own = ai_content.find_form(policy_key)
+    if own is not None:
+        out.append(PolicyForm(form_id=own.form_id, title=own.title, checked=own.checked))
+    for f in ai_content.policy_forms(policy_key):
+        if all(o.form_id != f["form_id"] for o in out):
+            out.append(PolicyForm(**{k: f[k] for k in ("form_id", "title", "checked", "notice", "doc_name")}))
+    return out
