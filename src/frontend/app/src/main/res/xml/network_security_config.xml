@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 로컬 백엔드(http) 연결용. 배포 서버가 https가 되면 이 파일과 매니페스트의 networkSecurityConfig 를 지운다. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

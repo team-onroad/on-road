@@ -1,0 +1,236 @@
+package com.project.on_road.data.remote
+
+import com.project.on_road.data.*
+
+/**
+ * AI 성장 코치 백엔드 연결 (docs/api.md 3.16 ~ 3.22).
+ * - 서버: 롤플레잉 상황·첫 대사·대화·피드백, 서류 양식 목록·항목, 이력서·자기소개서 초안
+ * - 앱(local): 흥미 탐색, 직업 추천, 로드맵, 내 양식 올리기 (서버 API 없음)
+ */
+class RemoteCoachApi(
+    private val service: OnRoadService,
+    // 앱 안에서 계산하는 부분이라 기다리는 척하지 않는다 (화면이 바로 뜨게)
+    private val local: CoachApi = FakeCoachApi(simulate = false),
+) : CoachApi {
+
+    // ───────────── 앱에서 처리 ─────────────
+
+    override suspend fun interestQuestions(stage: UserStage): List<InterestQuestion> = local.interestQuestions(stage)
+
+    override suspend fun analyzeInterest(userId: String, answers: List<InterestOption>, freeText: String): InterestProfile =
+        local.analyzeInterest(userId, answers, freeText)
+
+    override suspend fun recommendJobs(userId: String, profile: InterestProfile, stage: UserStage): List<JobRecommendation> =
+        local.recommendJobs(userId, profile, stage)
+
+    override suspend fun buildRoadmap(userId: String, job: JobRecommendation, stage: UserStage): Roadmap =
+        local.buildRoadmap(userId, job, stage)
+
+    override suspend fun jobDetail(userId: String, job: JobRecommendation, stage: UserStage): JobDetail =
+        local.jobDetail(userId, job, stage)
+
+    override suspend fun analyzeUpload(userId: String, bytes: ByteArray, mimeType: String): FormDraft =
+        local.analyzeUpload(userId, bytes, mimeType)
+
+    // ───────────── 롤플레잉 (3.16 ~ 3.19) ─────────────
+
+    // GET /coach/roleplay/scenarios?stage=
+    /** 상황 목록은 서버 파일 그대로라 10분 동안 다시 쓴다 (목록 · 연습 화면이 같은 목록을 여러 번 부름) */
+    private val scenarioCache = MemoCache<UserStage, List<RoleplayScenario>>(10 * 60 * 1000L)
+
+    override suspend fun roleplayScenarios(stage: UserStage): List<RoleplayScenario> = scenarioCache.getOrLoad(stage) {
+        Network.call { service.roleplayScenarios(stage.toCode()) }.scenarios.map { it.toModel() }
+    }
+
+    // GET /coach/roleplay/{id}/opening?stage=&variant_id=
+    override suspend fun roleplayOpening(scenarioId: String, stage: UserStage): RoleplayTurn =
+        roleplayStart(scenarioId, stage).opening
+
+    override suspend fun roleplayStart(scenarioId: String, stage: UserStage, variantId: String?): RoleplayStart {
+        val res = Network.call { service.roleplayOpening(scenarioId, stage.toCode(), variantId) }
+        return RoleplayStart(
+            RoleplayTurn(fromUser = false, text = res.message),
+            RoleplayPlan(res.variantId, res.situation, res.surpriseIds.orEmpty(), res.surpriseCount ?: 0),
+        )
+    }
+
+    override suspend fun roleplayReply(userId: String, scenarioId: String, stage: UserStage, history: List<RoleplayTurn>): RoleplayReply =
+        roleplayReplyWith(userId, scenarioId, stage, history, RoleplayPlan.NONE, null)
+
+    // POST /coach/roleplay/{id}/reply : 마지막 내 말은 message, 그 앞은 history (1개 이상)
+    override suspend fun roleplayReplyWith(
+        userId: String,
+        scenarioId: String,
+        stage: UserStage,
+        history: List<RoleplayTurn>,
+        plan: RoleplayPlan,
+        onPartial: ((String) -> Unit)?,
+    ): RoleplayReply {
+        val last = history.lastOrNull()
+        require(last != null && last.fromUser) { "마지막은 내 말이어야 해요" }
+        val prior = historyOf(history.dropLast(1).map { it.fromUser to it.text })
+        require(prior.isNotEmpty()) { "첫 대사가 있어야 해요" }
+        val req = RoleplayReplyRequestDto(
+            userId = userId,
+            stage = stage.toCode(),
+            message = last.text.trim().take(MESSAGE_MAX),
+            history = prior,
+            variantId = plan.variantId,
+            surpriseIds = plan.surpriseIds,
+        )
+        // 스트리밍: 상대 말이 문장마다 onPartial 로 (음성은 첫 문장부터 읽는다). 서버에 아직 없으면 보통 요청
+        val res = try {
+            Sse.read(Network.call { service.roleplayReplyStream(scenarioId, req) }, RoleplayReplyDto::class.java, onPartial).first
+        } catch (e: ApiException) {
+            if (!e.noStreamRoute()) throw e
+            Network.call { service.roleplayReply(scenarioId, req) }
+        }
+        return RoleplayReply(res.reply, res.isFinished)
+    }
+
+    override suspend fun roleplayFeedback(
+        userId: String,
+        scenarioId: String,
+        history: List<RoleplayTurn>,
+        save: Boolean,
+    ): RoleplayFeedback = roleplayFeedbackWith(userId, scenarioId, history, save, RoleplayPlan.NONE)
+
+    // POST /coach/roleplay/{id}/hint
+    override suspend fun roleplayHint(scenarioId: String, history: List<RoleplayTurn>, plan: RoleplayPlan): RoleplayHint {
+        val res = Network.call {
+            service.roleplayHint(
+                scenarioId,
+                RoleplayHintRequestDto(historyOf(history.map { it.fromUser to it.text }), plan.variantId, plan.surpriseIds),
+            )
+        }
+        return RoleplayHint(
+            res.done, res.label, res.example, res.kind, res.remaining,
+            res.checks.orEmpty().map { RoleplayCheck(it.label, it.ok, it.kind, null) },
+        )
+    }
+
+    // POST /coach/roleplay/{id}/feedback
+    override suspend fun roleplayFeedbackWith(
+        userId: String,
+        scenarioId: String,
+        history: List<RoleplayTurn>,
+        save: Boolean,
+        plan: RoleplayPlan,
+    ): RoleplayFeedback {
+        val res = Network.call {
+            service.roleplayFeedback(
+                scenarioId,
+                RoleplayFeedbackRequestDto(
+                    userId = userId,
+                    history = historyOf(history.map { it.fromUser to it.text }),
+                    save = save,
+                    variantId = plan.variantId,
+                    surpriseIds = plan.surpriseIds,
+                ),
+            )
+        }
+        return RoleplayFeedback(
+            good = res.good,
+            missed = res.missed,
+            documents = res.documents,
+            better = res.better.map { it.before to it.after },
+            roleplayId = res.roleplayId,
+            score = res.score,
+            grade = res.grade?.takeIf { it.isNotBlank() },
+            items = res.items.orEmpty().map { RoleplayCheck(it.label, it.ok, it.kind, it.example) },
+            situation = res.situation,
+            retryLines = res.retryLines.orEmpty(),
+            nextSteps = res.nextSteps.orEmpty().map { NextStep(it.kind, it.label, it.query, it.scenarioId) },
+        )
+    }
+
+    // ───────────── 서류 양식 (3.20, 3.21) ─────────────
+
+    // GET /forms/templates?stage=
+    override suspend fun formTemplates(stage: UserStage): List<FormTemplate> =
+        Network.call { service.formTemplates(stage.toCode()) }.templates.map {
+            FormTemplate(it.templateId, it.name, it.description, it.stages.map(::stageOf).toSet())
+        }
+
+    // GET /forms/templates/{id}
+    override suspend fun analyzeTemplate(templateId: String): FormDraft {
+        val res = Network.call { service.formTemplate(templateId) }
+        return FormDraft(
+            templateId = res.templateId,
+            title = res.name,
+            fields = res.fields.map {
+                FormField(
+                    id = it.fieldId,
+                    label = it.label,
+                    easyLabel = it.easyLabel,
+                    guide = it.guide,
+                    caution = it.caution,
+                    example = it.example,
+                    multiline = it.multiline,
+                    essay = it.essay,
+                    outline = it.outline?.takeIf { lines -> lines.isNotEmpty() },
+                )
+            },
+            originalExport = true,
+        )
+    }
+
+    // ───────────── 초안 (3.22) ─────────────
+
+    // POST /users/{userId}/documents
+    override suspend fun generateDocument(userId: String, type: DocType, records: AppRecords): GeneratedDoc {
+        val res = Network.call {
+            service.createDocument(
+                userId,
+                DocumentRequestDto(
+                    type = type.toCode(),
+                    appRecords = AppRecordsDto(
+                        savedPolicyCount = records.savedPolicyCount.coerceAtLeast(0),
+                        interestSummary = records.interestSummary?.trim()?.take(500)?.takeIf { it.isNotEmpty() },
+                    ),
+                ),
+            )
+        }
+        return GeneratedDoc(
+            type = docTypeOf(res.type) ?: type,
+            sections = res.sections.map { s ->
+                DocSection(s.title, s.sentences.map { DocSentence(it.text, it.source) })
+            },
+            notice = res.notice,
+        )
+    }
+}
+
+private fun RoleplayScenarioDto.toModel() = RoleplayScenario(
+    id = scenarioId,
+    title = title,
+    category = category,
+    partner = partner,
+    setting = setting,
+    goal = goal,
+    level = levelOf(level),
+    stages = stages.map(::stageOf).toSet(),
+)
+
+/**
+ * 서버 난이도 코드 → 앱 난이도.
+ * 서버는 소문자(easy/normal/hard)로 보내는데 예전에는 대문자 이름으로만 찾아서 전부 '보통'으로 보였다.
+ */
+private fun levelOf(code: String): RoleplayLevel = when (code.trim().lowercase()) {
+    "easy", "쉬움", "low", "1" -> RoleplayLevel.EASY
+    "hard", "실전", "high", "real", "3" -> RoleplayLevel.HARD
+    else -> RoleplayLevel.NORMAL
+}
+
+private fun DocType.toCode(): String = when (this) {
+    DocType.ACTIVITY_RECORD -> "activity_record"
+    DocType.RESUME -> "resume"
+    DocType.COVER_LETTER -> "cover_letter"
+}
+
+private fun docTypeOf(code: String): DocType? = when (code) {
+    "activity_record" -> DocType.ACTIVITY_RECORD
+    "resume" -> DocType.RESUME
+    "cover_letter" -> DocType.COVER_LETTER
+    else -> null
+}

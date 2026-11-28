@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 문서 AI 로 내보낸 PDF (cacheDir/documents) 를 PDF 보기 앱·공유로 넘길 때 -->
+<paths>
+    <cache-path name="documents" path="documents/" />
+</paths>
