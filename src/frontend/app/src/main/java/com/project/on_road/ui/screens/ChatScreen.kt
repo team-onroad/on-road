@@ -819,6 +819,17 @@ private fun BotMessage(
     onRevealDone: () -> Unit = {},
     onRetry: (() -> Unit)? = null,
 ) {
+    // 정책 답변: 정책마다 한 문단 (이름은 짧게 · 굵게) + 출처 한 줄 + '내 조건으로 보면' 행
+    val parts = remember(msg.text, msg.policies) {
+        if (msg.kind == ChatKind.POLICY && !msg.needsCheck) {
+            com.project.on_road.data.remote.AnswerFormat.parts(msg.text, msg.policies.map { it.name })
+                .takeIf { it.body.isNotEmpty() }
+        } else null
+    }
+    // 듣기 · 복사는 화면에 보이는 글 그대로 ("[내 조건으로 보면]" 같은 기호 없이)
+    val readable = remember(parts, msg.text) { parts?.let(com.project.on_road.data.remote.AnswerFormat::plain) ?: msg.text }
+    // 넓은 질문의 '내 조건 요약' 카드가 있으면 같은 내용인 '내 조건으로 보면' 행은 빼고 카드만
+    val showMyCheck = parts != null && parts.myCheck.isNotEmpty() && msg.plan == null
     // 위: 이름 · 시간 한 줄 / 아래: 답 (로고 · 상자 · 들여쓰기 없이 화면 여백 선에서 바로)
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -830,20 +841,16 @@ private fun BotMessage(
                     OnRoadTag("확인이 필요해요", style = TagStyle.Danger, textStyle = OnRoadType.Tiny)
                 }
             Spacer(Modifier.weight(1f))
-            SpeakButton(msg.text, modifier = Modifier.size(28.dp))
+            SpeakButton(readable, modifier = Modifier.size(28.dp))
         }
         Column(Modifier.fillMaxWidth()) {
             Spacer(Modifier.height(6.dp))
             Bubble {
-                // 정책 답변: 정책마다 한 문단 (이름은 짧게 · 굵게) + 출처 한 줄 + '내 조건으로 보면' 카드
-                val parts = remember(msg.text, msg.policies) {
-                    if (msg.kind == ChatKind.POLICY && !msg.needsCheck) {
-                        com.project.on_road.data.remote.AnswerFormat.parts(msg.text, msg.policies.map { it.name })
-                            .takeIf { it.body.isNotEmpty() }
-                    } else null
-                }
                 if (parts != null) {
-                    PolicyAnswer(parts, fullText = msg.text, reveal = reveal, onRevealDone = onRevealDone, policies = msg.policies, onOpenPolicy = onOpenPolicy)
+                    PolicyAnswer(
+                        parts, fullText = readable, reveal = reveal, onRevealDone = onRevealDone,
+                        policies = msg.policies, onOpenPolicy = onOpenPolicy, showMyCheck = showMyCheck,
+                    )
                 } else {
                 // 새 답변은 글자가 흘러나오듯 · 길게 누르면 복사
                 RevealText(msg.text, animate = reveal, onDone = onRevealDone) { shown ->
@@ -942,8 +949,14 @@ private fun BotMessage(
                 // 답변 근거 정책 → 바로가기 버튼. 비슷한 정책(근거 아님)은 아래에 제목을 따로 달아 묶는다
                 val (answeredAll, similar) = msg.policies.partition { !it.related }
                 // '내 조건으로 보면' 행이 있는 정책은 행을 누르면 상세로 가므로 버튼을 또 두지 않는다
-                val inRows = if (parts != null) parts.myCheck.map { it.name }.toSet() else emptySet()
-                val answered = answeredAll.filter { com.project.on_road.data.remote.AnswerFormat.shortName(it.name) !in inRows }
+                // 행과 이어진 정책 (행에서 찾은 정책 번호)
+                val inRows = if (parts != null && showMyCheck) {
+                    parts.myCheck.mapNotNull { r ->
+                        com.project.on_road.data.remote.AnswerFormat.matchPolicy(r.name, msg.policies.map { it.name })
+                            .takeIf { it >= 0 }?.let { msg.policies[it].id }
+                    }.toSet()
+                } else emptySet()
+                val answered = answeredAll.filter { it.id !in inRows }
                 answered.forEachIndexed { i, p ->
                     Spacer(Modifier.height(if (i == 0) 14.dp else 8.dp))
                     OnRoadButton(
@@ -1061,6 +1074,7 @@ private fun PolicyAnswer(
     onRevealDone: () -> Unit,
     policies: List<com.project.on_road.data.Policy>,
     onOpenPolicy: (String) -> Unit,
+    showMyCheck: Boolean = true,
 ) {
     val body = remember(parts) {
         parts.body.joinToString("\n\n") { p ->
@@ -1094,7 +1108,7 @@ private fun PolicyAnswer(
                 Spacer(Modifier.height(2.dp))
                 Text(it, style = OnRoadType.Tiny, color = OnRoadColors.TextQuaternary)
             }
-            if (parts.myCheck.isNotEmpty()) {
+            if (showMyCheck) {
                 Spacer(Modifier.height(14.dp))
                 MyCheckList(parts.myCheck, policies, onOpenPolicy)
             }
@@ -1116,7 +1130,8 @@ private fun MyCheckList(
     Spacer(Modifier.height(8.dp))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         rows.forEach { r ->
-            val policy = policies.firstOrNull { com.project.on_road.data.remote.AnswerFormat.shortName(it.name) == r.name }
+            val policy = com.project.on_road.data.remote.AnswerFormat.matchPolicy(r.name, policies.map { it.name })
+                .takeIf { it >= 0 }?.let { policies[it] }
             Row(
                 Modifier
                     .fillMaxWidth()
