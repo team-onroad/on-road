@@ -1,6 +1,7 @@
 """문서 AI 대화형 작성 (docs/document-ai.md 3.32): AI 가 빈 칸을 하나씩 묻고, 다 채우면 내보낸다."""
 
 import json
+from pathlib import Path
 from datetime import date
 
 from tests.factories import doc, make_policy, make_user
@@ -39,7 +40,7 @@ def test_full_interview_fills_and_exports(api, db_session, doc_llm, clock):
     assert _say(api, user, doc_id, "맞아요")["question"]["field_id"] == "phone"
     address_q = _say(api, user, doc_id, "응")["question"]
     assert (address_q["field_id"], address_q["awaiting_confirm"]) == ("address", False)
-    assert address_q["text"].startswith("'사는 곳 주소'를 알려 주세요.")
+    assert address_q["text"].startswith("'사는 곳 주소' 칸에는")
 
     r = _say(api, user, doc_id, "서울시 OO구 OO로 12, 101동 202호")
     assert (r["message"], r["field"]["value"], r["field"]["is_completed"]) == ("적었어요.", "서울시 OO구 OO로 12, 101동 202호", True)
@@ -387,3 +388,33 @@ def test_question_wording_and_yes_no():
     assert iv.yes_no_option(["예", "아니오"], "응") == "예"
     assert iv.yes_no_option(["있음", "없음"], "없어요") == "없음"
     assert iv.yes_no_option(["서면", "전자우편"], "네") is None
+
+
+def test_question_wording_for_all_forms():
+    """모든 서버 양식의 대화로 채우기 첫 질문: 을(를) · 빈 괄호 · * · 앞 번호 없이, 선택지 목록 뒤에는 마침표"""
+    import glob
+    import re
+
+    from app import doc_spec
+    from app.services import interview as iv
+    from formguide.schema import FormSpec
+
+    class Row:
+        def __init__(self, fid):
+            self.field_id, self.segments, self.is_completed = fid, [], False
+
+    forms = Path(__file__).resolve().parents[3] / "data" / "forms"
+    bad = []
+    for p in sorted(glob.glob(str(forms / "*.json"))):
+        if ".extracted" in p or ".source" in p:
+            continue
+        d = json.loads(Path(p).read_text(encoding="utf-8"))
+        if "fields" not in d or "form_id" not in d:
+            continue
+        for f in doc_spec.from_form_spec(FormSpec.model_validate(d)):
+            if f["value_source"] not in doc_spec.WRITABLE:
+                continue
+            t = iv._question(Row(f["field_id"]), f, False).text
+            if re.search(r"을\(를\)|를\(을\)|\(으\)로|'[^']*\*[^']*'|\(\s*\)|'[①-⑳]|[^.?!)]\s해당 없으면", t):
+                bad.append((d["form_id"], f["field_id"], t))
+    assert bad == []

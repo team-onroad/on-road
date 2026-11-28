@@ -52,8 +52,9 @@ _DIGIT_FINAL = set("013678")
 
 
 def _final(word: str) -> int | None:
-    """끝 글자 받침 번호 (0 = 받침 없음). 알 수 없으면 None"""
-    last = word.strip().rstrip(" *:)")[-1:] if word.strip() else ""
+    """끝 글자 받침 번호 (0 = 받침 없음). 알 수 없으면 None. 끝의 괄호 설명("대지(㎡)")은 빼고 본다"""
+    base = re.sub(r"\s*\([^()]*\)\s*$", "", word.strip()) or word.strip()
+    last = base.rstrip(" *:)")[-1:] if base else ""
     if "가" <= last <= "힣":
         return (ord(last) - 0xAC00) % 28
     if last.isdigit():
@@ -85,7 +86,10 @@ _SPACED_RE = re.compile(r"^(?:[가-힣] ){1,3}[가-힣]$")
 
 
 def display_name(spec: dict) -> str:
-    name = (spec.get("easy_label") or spec["label"]).strip().rstrip(":*").strip()
+    name = (spec.get("easy_label") or spec["label"]).replace("\u3000", " ").replace("*", "")
+    name = re.sub(r"\(\s*\)", "", name)  # 빈 괄호 "( )"
+    name = re.sub(r"^\s*(?:[①-⑳]|\d{1,2}[).]|[가-하][.)])\s*", "", name)  # 앞 번호 "③ 주소", "2) 주택유형"
+    name = re.sub(r"\s+", " ", re.sub(r"\(\s+", "(", name)).strip().rstrip(":").strip()
     if _SPACED_RE.match(name):
         name = name.replace(" ", "")
     return re.sub(r"(?i)e-?mail", "이메일", name)
@@ -102,6 +106,8 @@ def yes_no_option(options: list[str] | None, flat: str) -> str | None:
     if not options:
         return None
     flat = flat.rstrip(".!~?")
+    if len(options) == 1:  # 선택지가 하나뿐: '네' 면 그것
+        return options[0] if flat in YES_WORDS else None
     for words, picks in ((YES_WORDS, _YES_OPTIONS), (NO_WORDS, _NO_OPTIONS)):
         if flat in words:
             hit = next((o for o in options if _flat(o) in picks), None)
@@ -235,11 +241,17 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
                     "다 체크하면 '모두 확인했어요'를 눌러 주세요.")
         elif options and _flat(name) in (_flat("/".join(options)), _flat(", ".join(options))):
             # 칸 이름이 선택지를 이어 붙인 것 ("자립수당 지급/의료비 지원"): 이름을 다시 말하지 않는다
-            text = f"다음 중에서 골라 주세요: {', '.join(options)}"
+            text = f"다음 중에서 골라 주세요: {', '.join(options)}."
+        elif options and name.rstrip().endswith("?") and yes_no_option(options, "네") and yes_no_option(options, "아니"):
+            # 문답표 질문 ("…있습니까?"): 질문을 그대로 묻고 예 · 아니오로
+            text = f"{name} '{yes_no_option(options, '네')}' 또는 '{yes_no_option(options, '아니')}'로 답해 주세요."
+        elif options and len(options) == 1:
+            # 선택지가 하나뿐인 칸 (신청할 급여 하나 · 동의): 해당하면 '네'
+            text = f"'{options[0]}'에 해당하면 '네', 아니면 '해당 없음'이라고 해 주세요."
         elif options and name.endswith("여부") and yes_no_option(options, "네"):
             text = f"{name[:-2].strip()}인가요? '{yes_no_option(options, '네')}' 또는 '{yes_no_option(options, '아니')}'로 답해 주세요."
         elif options:
-            text = f"'{name}'에서 골라 주세요: {', '.join(options)}"
+            text = f"'{name}'에서 골라 주세요: {', '.join(options)}."
         elif spec.get("essay"):
             outline = spec.get("outline")
             hint = f" ({' → '.join(outline)} 순서로 말해 주면 좋아요.)" if outline else ""
@@ -258,13 +270,16 @@ def _question(row: DocumentField, spec: dict, pending: bool, confirm_text: str |
                 word = guide[at:end]
                 stem = re.sub(r"(을|를|은|는|이|가|의|로|으로|에)$", "", word) if len(word) > len(name) else word
                 text = f"{guide[:at]}'{stem}'{guide[at + len(stem):]}"
+            elif re.search(r"요[.)]?$|요 \(예[^)]*\)\.?$", guide):
+                # 안내가 한 문장이면 "'성명' 칸에는 신청인의 이름을 적어요." (알려 주세요 + 안내 두 문장 대신)
+                text = f"'{name}' 칸에는 {guide}"
             else:
                 text = f"'{name}'{_josa(name, '을', '를')} 알려 주세요."
                 if guide:
                     text += f" {guide}"
         if value:  # 시/도만 미리 채운 주소
             text += f" (지금은 '{value}'만 있어요.)"
-    if can_skip and not confirm:
+    if can_skip and not confirm and "'해당 없음'" not in text:
         text += " 해당 없으면 '해당 없음'이라고 해 주세요."
     if example:  # 예시는 맨 끝에 (안내 문장 사이에 끼면 읽기 어렵다)
         text += f" {example}"
